@@ -1,0 +1,91 @@
+import { AgentStatus, AppConfig, ProjectConfig, ShortcutConfig, RemoteHost, TerminalSession, GitDiffStat } from '../../shared/types'
+
+export type SortMode = 'manual' | 'created' | 'recent'
+export type StatusFilter = AgentStatus | 'all'
+
+export interface TerminalState {
+  id: string
+  session: TerminalSession
+  status: AgentStatus
+  lastOutputTimestamp: number
+}
+
+export interface TerminalsSlice {
+  terminals: Map<string, TerminalState>
+  addTerminal: (session: TerminalSession) => void
+  removeTerminal: (id: string) => void
+  updateStatus: (id: string, status: AgentStatus) => void
+  updateLastOutput: (id: string, timestamp: number) => void
+  renameTerminal: (id: string, displayName: string) => void
+}
+
+export interface ProjectsSlice {
+  config: AppConfig | null
+  activeProject: string | null
+  setConfig: (config: AppConfig) => void
+  setActiveProject: (name: string | null) => void
+  addProject: (project: ProjectConfig) => void
+  removeProject: (name: string) => void
+  updateProject: (originalName: string, project: ProjectConfig) => void
+  addShortcut: (shortcut: ShortcutConfig) => void
+  removeShortcut: (id: string) => void
+  updateShortcut: (id: string, shortcut: ShortcutConfig) => void
+  addRemoteHost: (host: RemoteHost) => void
+  removeRemoteHost: (id: string) => void
+  updateRemoteHost: (id: string, host: RemoteHost) => void
+}
+
+export type SettingsCategory = 'general' | 'agents' | 'hosts'
+
+export interface UISlice {
+  focusedTerminalId: string | null
+  selectedTerminalId: string | null
+  renamingTerminalId: string | null
+  isSidebarOpen: boolean
+  isNewAgentDialogOpen: boolean
+  isAddProjectDialogOpen: boolean
+  isShortcutDialogOpen: boolean
+  editingProject: ProjectConfig | null
+  editingShortcut: ShortcutConfig | null
+  isCommandPaletteOpen: boolean
+  isShortcutsPanelOpen: boolean
+  isSettingsOpen: boolean
+  settingsCategory: SettingsCategory
+  showSessionBanner: boolean
+  previousSessions: TerminalSession[]
+  gridColumns: number // 0 = auto
+  rowHeight: number
+  sortMode: SortMode
+  statusFilter: StatusFilter
+  terminalOrder: string[]
+  visibleTerminalIds: string[]
+  minimizedTerminals: Set<string>
+  diffSidebarTerminalId: string | null
+  gitDiffStats: Map<string, GitDiffStat>
+  setFocusedTerminal: (id: string | null) => void
+  setSelectedTerminal: (id: string | null) => void
+  setRenamingTerminalId: (id: string | null) => void
+  setSortMode: (mode: SortMode) => void
+  setStatusFilter: (filter: StatusFilter) => void
+  toggleSidebar: () => void
+  setNewAgentDialogOpen: (open: boolean) => void
+  setAddProjectDialogOpen: (open: boolean) => void
+  setShortcutDialogOpen: (open: boolean) => void
+  setEditingProject: (project: ProjectConfig | null) => void
+  setEditingShortcut: (shortcut: ShortcutConfig | null) => void
+  setCommandPaletteOpen: (open: boolean) => void
+  setShortcutsPanelOpen: (open: boolean) => void
+  setSettingsOpen: (open: boolean) => void
+  setSettingsCategory: (cat: SettingsCategory) => void
+  setSessionBanner: (show: boolean, sessions?: TerminalSession[]) => void
+  setGridColumns: (cols: number) => void
+  setRowHeight: (height: number) => void
+  setTerminalOrder: (order: string[]) => void
+  setVisibleTerminalIds: (ids: string[]) => void
+  reorderTerminals: (fromIndex: number, toIndex: number) => void
+  toggleMinimized: (id: string) => void
+  setDiffSidebarTerminalId: (id: string | null) => void
+  updateGitDiffStat: (terminalId: string, stat: GitDiffStat) => void
+}
+
+export type AppStore = TerminalsSlice & ProjectsSlice & UISlice

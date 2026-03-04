@@ -1,0 +1,14 @@
+appId: com.vibegrid.app
+productName: VibeGrid
+directories:
+  buildResources: resources
+  output: dist
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - dmg
+    - zip
+npmRebuild: true
+files:
+  - "out/**/*"
+  - "node_modules/**/*"

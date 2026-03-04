@@ -1,0 +1,3 @@
+export const IDLE_TIMEOUT_MS = 5000
+export const TERMINAL_MIN_CARD_WIDTH = 320
+export const TERMINAL_PREVIEW_SCALE = 0.35
