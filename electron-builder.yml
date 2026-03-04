@@ -3,11 +3,27 @@ productName: VibeGrid
 directories:
   buildResources: resources
   output: dist
+
 mac:
   category: public.app-category.developer-tools
   target:
     - dmg
     - zip
+  icon: resources/icon.icns
+
+win:
+  target:
+    - nsis
+    - portable
+  icon: resources/icon.ico
+
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Development
+  icon: resources/icon.png
+
 npmRebuild: true
 files:
   - "out/**/*"

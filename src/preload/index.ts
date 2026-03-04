@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { CreateTerminalPayload, ResizePayload, AppConfig, RecentSession, IPC, GitDiffStat, GitDiffResult, GitCommitPayload, GitCommitResult } from '../shared/types'
+import { CreateTerminalPayload, ResizePayload, AppConfig, RecentSession, IPC, GitDiffStat, GitDiffResult, GitCommitPayload, GitCommitResult, ScheduleLogEntry } from '../shared/types'
 
 const api = {
   createTerminal: (payload: CreateTerminalPayload) =>
@@ -96,6 +96,25 @@ const api = {
     const listener = (_: Electron.IpcRendererEvent, session: { id: string; projectPath: string; worktreePath: string }): void => callback(session)
     ipcRenderer.on(IPC.WORKTREE_CONFIRM_CLEANUP, listener)
     return () => { ipcRenderer.removeListener(IPC.WORKTREE_CONFIRM_CLEANUP, listener) }
+  },
+
+  // Scheduler APIs
+  getScheduleLog: (workflowId?: string): Promise<ScheduleLogEntry[]> =>
+    ipcRenderer.invoke(IPC.SCHEDULER_GET_LOG, workflowId),
+
+  getScheduleNextRun: (workflowId: string): Promise<string | null> =>
+    ipcRenderer.invoke(IPC.SCHEDULER_GET_NEXT_RUN, workflowId),
+
+  onSchedulerExecute: (callback: (event: { workflowId: string }) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, event: { workflowId: string }): void => callback(event)
+    ipcRenderer.on(IPC.SCHEDULER_EXECUTE, listener)
+    return () => { ipcRenderer.removeListener(IPC.SCHEDULER_EXECUTE, listener) }
+  },
+
+  onSchedulerMissed: (callback: (missed: { workflow: { id: string; name: string }; scheduledFor: string }[]) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, missed: { workflow: { id: string; name: string }; scheduledFor: string }[]): void => callback(missed)
+    ipcRenderer.on(IPC.SCHEDULER_MISSED, listener)
+    return () => { ipcRenderer.removeListener(IPC.SCHEDULER_MISSED, listener) }
   }
 }
 

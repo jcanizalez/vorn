@@ -1,5 +1,5 @@
 import fs from 'node:fs'
-import { exec } from 'node:child_process'
+import { execSync } from 'node:child_process'
 
 export interface DetectedIDE {
   id: string
@@ -10,11 +10,11 @@ export interface DetectedIDE {
 interface IDEDefinition {
   id: string
   name: string
-  appPath: string | null // null = always present
+  appPath: string | null // null = detect via command in PATH
   command: string
 }
 
-const IDE_DEFINITIONS: IDEDefinition[] = [
+const MAC_IDES: IDEDefinition[] = [
   { id: 'vscode', name: 'VS Code', appPath: '/Applications/Visual Studio Code.app', command: 'code' },
   { id: 'vscode-insiders', name: 'VS Code Insiders', appPath: '/Applications/Visual Studio Code - Insiders.app', command: 'code-insiders' },
   { id: 'cursor', name: 'Cursor', appPath: '/Applications/Cursor.app', command: 'cursor' },
@@ -28,13 +28,59 @@ const IDE_DEFINITIONS: IDEDefinition[] = [
   { id: 'finder', name: 'Finder', appPath: null, command: 'open' }
 ]
 
+const WIN_IDES: IDEDefinition[] = [
+  { id: 'vscode', name: 'VS Code', appPath: null, command: 'code' },
+  { id: 'vscode-insiders', name: 'VS Code Insiders', appPath: null, command: 'code-insiders' },
+  { id: 'cursor', name: 'Cursor', appPath: null, command: 'cursor' },
+  { id: 'windsurf', name: 'Windsurf', appPath: null, command: 'windsurf' },
+  { id: 'sublime', name: 'Sublime Text', appPath: null, command: 'subl' },
+  { id: 'webstorm', name: 'WebStorm', appPath: null, command: 'webstorm' },
+  { id: 'intellij', name: 'IntelliJ IDEA', appPath: null, command: 'idea' },
+  { id: 'explorer', name: 'Explorer', appPath: null, command: 'explorer' }
+]
+
+const LINUX_IDES: IDEDefinition[] = [
+  { id: 'vscode', name: 'VS Code', appPath: null, command: 'code' },
+  { id: 'vscode-insiders', name: 'VS Code Insiders', appPath: null, command: 'code-insiders' },
+  { id: 'cursor', name: 'Cursor', appPath: null, command: 'cursor' },
+  { id: 'windsurf', name: 'Windsurf', appPath: null, command: 'windsurf' },
+  { id: 'zed', name: 'Zed', appPath: null, command: 'zed' },
+  { id: 'sublime', name: 'Sublime Text', appPath: null, command: 'subl' },
+  { id: 'webstorm', name: 'WebStorm', appPath: null, command: 'webstorm' },
+  { id: 'intellij', name: 'IntelliJ IDEA', appPath: null, command: 'idea' },
+  { id: 'file-manager', name: 'File Manager', appPath: null, command: 'xdg-open' }
+]
+
+function getIDEDefinitions(): IDEDefinition[] {
+  switch (process.platform) {
+    case 'win32': return WIN_IDES
+    case 'linux': return LINUX_IDES
+    default: return MAC_IDES
+  }
+}
+
+function commandExists(cmd: string): boolean {
+  try {
+    const check = process.platform === 'win32' ? `where ${cmd}` : `which ${cmd}`
+    execSync(check, { stdio: 'pipe', timeout: 3000 })
+    return true
+  } catch {
+    return false
+  }
+}
+
 let cachedIDEs: DetectedIDE[] | null = null
 
 export function detectIDEs(): DetectedIDE[] {
   if (cachedIDEs) return cachedIDEs
 
-  cachedIDEs = IDE_DEFINITIONS
-    .filter((def) => def.appPath === null || fs.existsSync(def.appPath))
+  cachedIDEs = getIDEDefinitions()
+    .filter((def) => {
+      if (def.appPath) return fs.existsSync(def.appPath)
+      // For entries with no appPath, check if the base command exists in PATH
+      const baseCmd = def.command.split(' ')[0]
+      return commandExists(baseCmd)
+    })
     .map((def) => ({ id: def.id, name: def.name, command: def.command }))
 
   return cachedIDEs
@@ -45,5 +91,6 @@ export function openInIDE(ideId: string, projectPath: string): void {
   if (!ide) return
 
   const escaped = projectPath.replace(/"/g, '\\"')
+  const { exec } = require('node:child_process')
   exec(`${ide.command} "${escaped}"`)
 }

@@ -14,7 +14,7 @@ const registry = new Map<string, TerminalEntry>()
 const TERM_OPTIONS = {
   cursorBlink: true,
   fontSize: 13,
-  fontFamily: 'JetBrains Mono, Menlo, Monaco, monospace',
+  fontFamily: 'JetBrains Mono, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace',
   theme: {
     background: '#0f172a',
     foreground: '#e2e8f0',

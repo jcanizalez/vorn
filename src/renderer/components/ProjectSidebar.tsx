@@ -8,7 +8,8 @@ import { AgentIcon } from './AgentIcon'
 import {
   Folder, FolderGit2, Code, Globe, Database, Server, Smartphone, Package,
   FileCode, Terminal, Cpu, Cloud, Shield, Zap, Gamepad2, Music, Image,
-  BookOpen, FlaskConical, Rocket, Play, MoreHorizontal, Pencil, Trash2, GitFork, ChevronRight
+  BookOpen, FlaskConical, Rocket, Play, MoreHorizontal, Pencil, Trash2, GitFork, ChevronRight,
+  Clock, Calendar, Repeat, Power
 } from 'lucide-react'
 
 const STATUS_DOT_COLOR: Record<AgentStatus, string> = {
@@ -94,10 +95,16 @@ function ProjectContextMenu({
 function ShortcutContextMenu({
   onEdit,
   onDelete,
+  onToggleEnabled,
+  isScheduled,
+  isEnabled,
   onClose
 }: {
   onEdit: () => void
   onDelete: () => void
+  onToggleEnabled?: () => void
+  isScheduled?: boolean
+  isEnabled?: boolean
   onClose: () => void
 }) {
   const menuRef = useRef<HTMLDivElement>(null)
@@ -115,7 +122,7 @@ function ShortcutContextMenu({
   return (
     <div
       ref={menuRef}
-      className="absolute right-0 top-full mt-1 z-50 min-w-[140px] py-1
+      className="absolute right-0 top-full mt-1 z-50 min-w-[160px] py-1
                  border border-white/[0.08] rounded-lg shadow-xl"
       style={{ background: 'rgba(12, 16, 28, 0.98)' }}
     >
@@ -125,15 +132,25 @@ function ShortcutContextMenu({
                    hover:bg-white/[0.06] flex items-center gap-2 transition-colors"
       >
         <Pencil size={12} strokeWidth={1.5} />
-        Edit Shortcut
+        Edit Workflow
       </button>
+      {isScheduled && onToggleEnabled && (
+        <button
+          onClick={() => { onToggleEnabled(); onClose() }}
+          className="w-full px-3 py-1.5 text-left text-[13px] text-gray-300 hover:text-white
+                     hover:bg-white/[0.06] flex items-center gap-2 transition-colors"
+        >
+          <Power size={12} strokeWidth={1.5} />
+          {isEnabled ? 'Disable Schedule' : 'Enable Schedule'}
+        </button>
+      )}
       <button
         onClick={() => { onDelete(); onClose() }}
         className="w-full px-3 py-1.5 text-left text-[13px] text-red-400 hover:text-red-300
                    hover:bg-white/[0.06] flex items-center gap-2 transition-colors"
       >
         <Trash2 size={12} strokeWidth={1.5} />
-        Delete Shortcut
+        Delete Workflow
       </button>
     </div>
   )
@@ -458,11 +475,11 @@ export function ProjectSidebar() {
         </button>
       </div>
 
-      {/* Shortcuts section */}
+      {/* Workflows section */}
       {!isCollapsed && (
         <div className="px-3 pt-5 pb-1.5 flex items-center justify-between">
           <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">
-            Shortcuts
+            Workflows
           </span>
         </div>
       )}
@@ -470,12 +487,19 @@ export function ProjectSidebar() {
 
       <div className={`overflow-auto space-y-0.5 ${isCollapsed ? 'px-1.5' : 'px-3'}`}>
         {!isCollapsed && (!config?.shortcuts || config.shortcuts.length === 0) && (
-          <p className="text-[13px] text-gray-600 px-2.5 py-1">No shortcuts</p>
+          <p className="text-[13px] text-gray-600 px-2.5 py-1">No workflows</p>
         )}
         {config?.shortcuts?.map((shortcut: ShortcutConfig) => {
           const ShortcutIcon = ICON_MAP[shortcut.icon] || Zap
+          const isScheduled = shortcut.schedule?.type !== 'manual'
+          const isDisabled = isScheduled && !shortcut.enabled
+          const scheduleLabel = shortcut.schedule?.type === 'once'
+            ? 'once'
+            : shortcut.schedule?.type === 'recurring'
+              ? 'recurring'
+              : undefined
           return (
-            <div key={shortcut.id} className="group relative flex items-center">
+            <div key={shortcut.id} className={`group relative flex items-center ${isDisabled ? 'opacity-40' : ''}`}>
               <button
                 onClick={async () => {
                   for (const action of shortcut.actions) {
@@ -485,7 +509,9 @@ export function ProjectSidebar() {
                       projectPath: action.projectPath,
                       displayName: action.displayName,
                       branch: action.branch,
-                      useWorktree: action.useWorktree
+                      useWorktree: action.useWorktree,
+                      initialPrompt: action.prompt,
+                      promptDelayMs: action.promptDelayMs
                     })
                     addTerminal(session)
                   }
@@ -495,11 +521,18 @@ export function ProjectSidebar() {
                            ${isCollapsed ? 'justify-center px-0' : ''}`}
                 title={isCollapsed ? shortcut.name : undefined}
               >
-                <ShortcutIcon size={14} color={shortcut.iconColor || '#6b7280'} strokeWidth={1.5} />
+                <span className="relative shrink-0">
+                  <ShortcutIcon size={14} color={shortcut.iconColor || '#6b7280'} strokeWidth={1.5} />
+                  {isScheduled && !isCollapsed && (
+                    <Clock size={7} className="absolute -top-1 -right-1.5 text-blue-400" strokeWidth={2.5} />
+                  )}
+                </span>
                 {!isCollapsed && (
                   <>
                     <span className="truncate">{shortcut.name}</span>
-                    <span className="text-gray-600 text-xs ml-auto">{shortcut.actions.length}</span>
+                    <span className="text-gray-600 text-[10px] ml-auto shrink-0">
+                      {scheduleLabel || shortcut.actions.length}
+                    </span>
                   </>
                 )}
               </button>
@@ -519,6 +552,12 @@ export function ProjectSidebar() {
                         setShortcutDialogOpen(true)
                       }}
                       onDelete={() => removeShortcut(shortcut.id)}
+                      isScheduled={isScheduled}
+                      isEnabled={shortcut.enabled}
+                      onToggleEnabled={() => {
+                        const updated = { ...shortcut, enabled: !shortcut.enabled }
+                        useAppStore.getState().updateShortcut(shortcut.id, updated)
+                      }}
                       onClose={() => setOpenMenuShortcut(null)}
                     />
                   )}
@@ -533,15 +572,29 @@ export function ProjectSidebar() {
           className={`w-full px-2.5 py-1.5 text-[13px] text-gray-500 hover:text-white
                      hover:bg-white/[0.04] rounded-md transition-colors text-left flex items-center gap-2 mt-1
                      ${isCollapsed ? 'justify-center px-0' : ''}`}
-          title={isCollapsed ? 'Add Shortcut' : undefined}
+          title={isCollapsed ? 'Add Workflow' : undefined}
         >
           <Zap size={14} strokeWidth={1.5} className="shrink-0" />
-          {!isCollapsed && 'Add Shortcut'}
+          {!isCollapsed && 'Add Workflow'}
         </button>
       </div>
 
-      {/* Bottom — Settings */}
-      <div className={`p-3 border-t border-white/[0.06] ${isCollapsed ? 'p-1.5' : ''}`}>
+      {/* Bottom — Help & Settings */}
+      <div className={`p-3 border-t border-white/[0.06] space-y-0.5 ${isCollapsed ? 'p-1.5' : ''}`}>
+        <button
+          onClick={() => useAppStore.getState().setOnboardingOpen(true)}
+          className={`w-full px-2.5 py-1.5 text-[13px] text-gray-400 hover:text-white
+                     hover:bg-white/[0.04] rounded-md transition-colors text-left flex items-center gap-2
+                     ${isCollapsed ? 'justify-center px-0' : ''}`}
+          title={isCollapsed ? 'Welcome Guide' : undefined}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="shrink-0">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+          {!isCollapsed && 'Welcome Guide'}
+        </button>
         <button
           onClick={() => setSettingsOpen(true)}
           className={`w-full px-2.5 py-1.5 text-[13px] text-gray-300 hover:text-white

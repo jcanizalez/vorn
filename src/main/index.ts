@@ -4,6 +4,7 @@ import { registerIpcHandlers } from './ipc-handlers'
 import { ptyManager } from './pty-manager'
 import { configManager } from './config-manager'
 import { sessionManager } from './session-persistence'
+import { scheduler } from './scheduler'
 import { createMenu } from './menu'
 import { IPC } from '../shared/types'
 
@@ -18,13 +19,14 @@ function createWindow(): void {
     minWidth: 800,
     minHeight: 600,
     icon: path.join(__dirname, '../../resources/icon.png'),
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 16, y: 16 },
-    backgroundColor: '#00000000',
+    titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
+    frame: false,
     ...(isMac ? {
+      trafficLightPosition: { x: 16, y: 16 },
       vibrancy: 'under-window',
       visualEffectState: 'active'
     } : {}),
+    backgroundColor: '#00000000',
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -40,13 +42,23 @@ function createWindow(): void {
   }
 
   ptyManager.setMainWindow(mainWindow)
+  scheduler.setMainWindow(mainWindow)
 
-  // Load config and sync agent commands + remote hosts
+  // Load config and sync agent commands + remote hosts + schedules
   const config = configManager.loadConfig()
   if (config.agentCommands) {
     ptyManager.setAgentCommands(config.agentCommands)
   }
   ptyManager.setRemoteHosts(config.remoteHosts ?? [])
+  scheduler.syncSchedules(config.shortcuts ?? [])
+
+  // Check for missed schedules on startup
+  const missed = scheduler.checkMissedSchedules(config.shortcuts ?? [])
+  if (missed.length > 0) {
+    mainWindow.webContents.once('did-finish-load', () => {
+      mainWindow?.webContents.send(IPC.SCHEDULER_MISSED, missed)
+    })
+  }
 
   // Watch config for external changes
   configManager.watchConfig((updatedConfig) => {
@@ -54,6 +66,7 @@ function createWindow(): void {
       ptyManager.setAgentCommands(updatedConfig.agentCommands)
     }
     ptyManager.setRemoteHosts(updatedConfig.remoteHosts ?? [])
+    scheduler.syncSchedules(updatedConfig.shortcuts ?? [])
     mainWindow?.webContents.send(IPC.CONFIG_CHANGED, updatedConfig)
   })
 
@@ -85,6 +98,7 @@ app.on('before-quit', () => {
   if (sessions.length > 0) {
     sessionManager.saveSessions(sessions)
   }
+  scheduler.stopAll()
   ptyManager.killAll()
   configManager.stopWatching()
 })

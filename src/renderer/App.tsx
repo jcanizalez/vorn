@@ -6,7 +6,7 @@ import { FocusedTerminal } from './components/FocusedTerminal'
 import { ProjectSidebar } from './components/ProjectSidebar'
 import { NewAgentDialog } from './components/NewAgentDialog'
 import { AddProjectDialog } from './components/AddProjectDialog'
-import { AddShortcutDialog } from './components/AddShortcutDialog'
+import { AddWorkflowDialog } from './components/AddWorkflowDialog'
 import { CommandPalette } from './components/CommandPalette'
 import { SessionRestoredBanner } from './components/SessionRestoredBanner'
 import { GridToolbar } from './components/GridToolbar'
@@ -20,6 +20,8 @@ import { KbdHint } from './components/KbdHint'
 import { WorktreeCleanupDialog } from './components/WorktreeCleanupDialog'
 import { DiffSidebar } from './components/DiffSidebar'
 import { KeyboardShortcutsPanel } from './components/KeyboardShortcutsPanel'
+import { MissedScheduleDialog } from './components/MissedScheduleDialog'
+import { OnboardingModal } from './components/OnboardingModal'
 
 export function App() {
   const focusedId = useAppStore((s) => s.focusedTerminalId)
@@ -30,6 +32,7 @@ export function App() {
   const toggleSidebar = useAppStore((s) => s.toggleSidebar)
   const isSettingsOpen = useAppStore((s) => s.isSettingsOpen)
   const isShortcutsPanelOpen = useAppStore((s) => s.isShortcutsPanelOpen)
+  const isOnboardingOpen = useAppStore((s) => s.isOnboardingOpen)
   const [recentOpen, setRecentOpen] = useState(false)
 
   useKeyboardShortcuts()
@@ -47,6 +50,10 @@ export function App() {
       // Request notification permission if enabled
       if (config.defaults.notifications?.enabled && Notification.permission === 'default') {
         Notification.requestPermission()
+      }
+
+      if (!config.defaults.hasSeenOnboarding) {
+        useAppStore.getState().setOnboardingOpen(true)
       }
 
       const prev = await window.api.getPreviousSessions()
@@ -67,10 +74,43 @@ export function App() {
       useAppStore.getState().setNewAgentDialogOpen(true)
     })
 
+    // Scheduler: auto-execute workflows when triggered
+    const removeSchedulerListener = window.api.onSchedulerExecute(async ({ workflowId }) => {
+      const state = useAppStore.getState()
+      const workflow = state.config?.shortcuts?.find((s) => s.id === workflowId)
+      if (!workflow) return
+
+      for (let i = 0; i < workflow.actions.length; i++) {
+        const action = workflow.actions[i]
+        if (i > 0 && workflow.staggerDelayMs) {
+          await new Promise((r) => setTimeout(r, workflow.staggerDelayMs))
+        }
+        const session = await window.api.createTerminal({
+          agentType: action.agentType,
+          projectName: action.projectName,
+          projectPath: action.projectPath,
+          displayName: action.displayName,
+          branch: action.branch,
+          useWorktree: action.useWorktree,
+          initialPrompt: action.prompt,
+          promptDelayMs: action.promptDelayMs
+        })
+        useAppStore.getState().addTerminal(session)
+      }
+
+      // Show notification
+      if (Notification.permission === 'granted') {
+        new Notification('VibeGrid', {
+          body: `Workflow "${workflow.name}" started — ${workflow.actions.length} session${workflow.actions.length !== 1 ? 's' : ''} launched`
+        })
+      }
+    })
+
     return () => {
       removeExitListener()
       removeConfigListener()
       removeMenuListener()
+      removeSchedulerListener()
     }
   }, [])
 
@@ -135,9 +175,10 @@ export function App() {
 
       <NewAgentDialog />
       <AddProjectDialog />
-      <AddShortcutDialog />
+      <AddWorkflowDialog />
       <CommandPalette />
       <WorktreeCleanupDialog />
+      <MissedScheduleDialog />
       <DiffSidebar />
 
       <AnimatePresence>
@@ -146,6 +187,10 @@ export function App() {
 
       <AnimatePresence>
         {isSettingsOpen && <SettingsPage />}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isOnboardingOpen && <OnboardingModal />}
       </AnimatePresence>
     </div>
   )

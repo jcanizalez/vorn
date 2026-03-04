@@ -24,6 +24,7 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set) => (
   terminalOrder: [],
   visibleTerminalIds: [],
   minimizedTerminals: new Set(),
+  isOnboardingOpen: false,
   diffSidebarTerminalId: null,
   gitDiffStats: new Map(),
 
@@ -98,6 +99,7 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set) => (
       return { minimizedTerminals: next }
     }),
 
+  setOnboardingOpen: (open) => set({ isOnboardingOpen: open }),
   setDiffSidebarTerminalId: (id) => set({ diffSidebarTerminalId: id }),
 
   updateGitDiffStat: (terminalId, stat) =>

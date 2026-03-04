@@ -55,15 +55,31 @@ export interface ShortcutAction {
   branch?: string
   useWorktree?: boolean
   remoteHostId?: string
+  prompt?: string
+  promptDelayMs?: number
 }
 
-export interface ShortcutConfig {
+// Schedule types for workflows
+export interface ScheduleManual { type: 'manual' }
+export interface ScheduleOnce { type: 'once'; runAt: string /* ISO 8601 */ }
+export interface ScheduleRecurring { type: 'recurring'; cron: string; timezone?: string }
+export type Schedule = ScheduleManual | ScheduleOnce | ScheduleRecurring
+
+export interface WorkflowConfig {
   id: string
   name: string
   icon: string
   iconColor: string
   actions: ShortcutAction[]
+  schedule: Schedule
+  enabled: boolean
+  lastRunAt?: string
+  lastRunStatus?: 'success' | 'error'
+  staggerDelayMs?: number
 }
+
+// Backwards compatibility — config YAML key remains "shortcuts"
+export type ShortcutConfig = WorkflowConfig
 
 export interface NotificationConfig {
   enabled: boolean
@@ -81,6 +97,7 @@ export interface AppConfig {
     rowHeight?: number
     defaultAgent?: AgentType
     notifications?: NotificationConfig
+    hasSeenOnboarding?: boolean
   }
   projects: ProjectConfig[]
   agentCommands?: Partial<Record<AgentType, AgentCommandConfig>>
@@ -106,6 +123,8 @@ export interface CreateTerminalPayload {
   branch?: string
   useWorktree?: boolean
   remoteHostId?: string
+  initialPrompt?: string
+  promptDelayMs?: number
 }
 
 export interface ResizePayload {
@@ -170,5 +189,18 @@ export const IPC = {
   GIT_DIFF_FULL: 'git:diffFull',
   GIT_COMMIT: 'git:commit',
   GIT_PUSH: 'git:push',
-  DIALOG_OPEN_FILE: 'dialog:openFile'
+  DIALOG_OPEN_FILE: 'dialog:openFile',
+  SCHEDULER_EXECUTE: 'scheduler:execute',
+  SCHEDULER_MISSED: 'scheduler:missed',
+  SCHEDULER_GET_LOG: 'scheduler:getLog',
+  SCHEDULER_GET_NEXT_RUN: 'scheduler:getNextRun'
 } as const
+
+export interface ScheduleLogEntry {
+  workflowId: string
+  workflowName: string
+  executedAt: string
+  status: 'success' | 'error' | 'missed'
+  sessionsLaunched: number
+  error?: string
+}

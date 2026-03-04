@@ -3,6 +3,8 @@ import { useAppStore } from '../stores'
 import { StatusFilter } from '../stores/types'
 
 const STATUS_FILTERS: StatusFilter[] = ['all', 'running', 'waiting', 'idle', 'error']
+const isMac = navigator.platform.toUpperCase().includes('MAC')
+const modKey = (e: KeyboardEvent): boolean => isMac ? e.metaKey : e.ctrlKey
 
 function isInputFocused(): boolean {
   const el = document.activeElement
@@ -20,6 +22,10 @@ export function useKeyboardShortcuts() {
       if (e.key === 'Escape') {
         if (state.isCommandPaletteOpen) {
           state.setCommandPaletteOpen(false)
+          return
+        }
+        if (state.isOnboardingOpen) {
+          state.setOnboardingOpen(false)
           return
         }
         if (state.isShortcutsPanelOpen) {
@@ -48,42 +54,42 @@ export function useKeyboardShortcuts() {
       }
 
       // Cmd+K — command palette
-      if (e.metaKey && e.key === 'k') {
+      if (modKey(e) && e.key === 'k') {
         e.preventDefault()
         state.setCommandPaletteOpen(!state.isCommandPaletteOpen)
         return
       }
 
-      // Cmd+? — keyboard shortcuts panel
-      if (e.metaKey && e.key === '?') {
+      // Cmd+/ — keyboard shortcuts panel
+      if (modKey(e) && e.key === '/') {
         e.preventDefault()
         state.setShortcutsPanelOpen(!state.isShortcutsPanelOpen)
         return
       }
 
       // Cmd+, — settings
-      if (e.metaKey && e.key === ',') {
+      if (modKey(e) && e.key === ',') {
         e.preventDefault()
         state.setSettingsOpen(true)
         return
       }
 
       // Cmd+N — new session
-      if (e.metaKey && e.key === 'n') {
+      if (modKey(e) && e.key === 'n') {
         e.preventDefault()
         state.setNewAgentDialogOpen(true)
         return
       }
 
       // Cmd+B — toggle sidebar
-      if (e.metaKey && e.key === 'b') {
+      if (modKey(e) && e.key === 'b') {
         e.preventDefault()
         state.toggleSidebar()
         return
       }
 
       // Cmd+] — next terminal
-      if (e.metaKey && e.key === ']') {
+      if (modKey(e) && e.key === ']') {
         e.preventDefault()
         const ids = state.visibleTerminalIds
         if (ids.length === 0) return
@@ -107,7 +113,7 @@ export function useKeyboardShortcuts() {
       }
 
       // Cmd+[ — previous terminal
-      if (e.metaKey && e.key === '[') {
+      if (modKey(e) && e.key === '[') {
         e.preventDefault()
         const ids = state.visibleTerminalIds
         if (ids.length === 0) return
@@ -131,7 +137,7 @@ export function useKeyboardShortcuts() {
       }
 
       // Cmd+1-5 — status filters
-      if (e.metaKey && e.key >= '1' && e.key <= '5') {
+      if (modKey(e) && e.key >= '1' && e.key <= '5') {
         e.preventDefault()
         const index = parseInt(e.key) - 1
         if (index < STATUS_FILTERS.length) {

@@ -1,9 +1,17 @@
 import * as pty from 'node-pty'
 import crypto from 'node:crypto'
+import os from 'node:os'
 import { BrowserWindow } from 'electron'
 import { AgentType, AgentCommandConfig, CreateTerminalPayload, IPC, TerminalSession, RemoteHost } from '../shared/types'
 import { getGitBranch, checkoutBranch, createWorktree } from './git-utils'
 import { DEFAULT_AGENT_COMMANDS } from '../shared/agent-defaults'
+
+function getDefaultShell(): string {
+  if (process.platform === 'win32') {
+    return process.env.COMSPEC || 'powershell.exe'
+  }
+  return process.env.SHELL || '/bin/zsh'
+}
 
 class PtyManager {
   private ptys = new Map<string, pty.IPty>()
@@ -50,12 +58,21 @@ class PtyManager {
           break
       }
     }
+
+    // Append initial prompt as CLI argument so the agent receives it
+    // directly on launch (e.g. `claude "prompt"`, `codex "prompt"`).
+    // This avoids fighting with interactive input key sequences.
+    if (payload.initialPrompt) {
+      const escaped = payload.initialPrompt.replace(/'/g, "'\\''")
+      launchLine += ` '${escaped}'`
+    }
+
     return launchLine
   }
 
   createPty(payload: CreateTerminalPayload): TerminalSession {
     const id = crypto.randomUUID()
-    const shell = process.env.SHELL || '/bin/zsh'
+    const shell = getDefaultShell()
 
     // Check if this is a remote session
     const remoteHost = payload.remoteHostId
@@ -126,7 +143,7 @@ class PtyManager {
       name: 'xterm-256color',
       cols: 80,
       rows: 24,
-      cwd: process.env.HOME || '/',
+      cwd: os.homedir(),
       env: process.env as Record<string, string>
     })
 
@@ -188,9 +205,15 @@ class PtyManager {
     return session
   }
 
+  private sendToRenderer(channel: string, ...args: unknown[]): void {
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.webContents.send(channel, ...args)
+    }
+  }
+
   private setupPtyEvents(id: string, ptyProcess: pty.IPty): void {
     ptyProcess.onData((data: string) => {
-      this.mainWindow?.webContents.send(IPC.TERMINAL_DATA, { id, data })
+      this.sendToRenderer(IPC.TERMINAL_DATA, { id, data })
     })
 
     ptyProcess.onExit(({ exitCode }) => {
@@ -199,14 +222,14 @@ class PtyManager {
       if (session) {
         session.status = 'idle'
         if (session.worktreePath) {
-          this.mainWindow?.webContents.send(IPC.WORKTREE_CONFIRM_CLEANUP, {
+          this.sendToRenderer(IPC.WORKTREE_CONFIRM_CLEANUP, {
             id: session.id,
             projectPath: session.projectPath,
             worktreePath: session.worktreePath
           })
         }
       }
-      this.mainWindow?.webContents.send(IPC.TERMINAL_EXIT, { id, exitCode })
+      this.sendToRenderer(IPC.TERMINAL_EXIT, { id, exitCode })
     })
   }
 

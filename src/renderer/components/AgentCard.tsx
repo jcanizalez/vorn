@@ -10,7 +10,7 @@ import { GitChangesIndicator } from './GitChangesIndicator'
 import { AGENT_DEFINITIONS } from '../lib/agent-definitions'
 import { destroyTerminal } from '../lib/terminal-registry'
 import { getDisplayName } from '../lib/terminal-display'
-import { GitBranch, FolderGit2, Server } from 'lucide-react'
+import { GitBranch, FolderGit2, Server, Pencil } from 'lucide-react'
 
 interface Props {
   terminalId: string
@@ -107,10 +107,10 @@ export const AgentCard = forwardRef<HTMLDivElement, Props>(
       >
         {/* Header */}
         <div className="flex items-center gap-2 px-3 py-2 border-b border-white/[0.04] shrink-0">
-          {/* Drag handle + info — click to expand */}
+          {/* Drag handle + info — double-click to expand */}
           <div
-            className={`flex-1 min-w-0 flex items-center gap-2 cursor-pointer ${onDragStart ? 'drag-handle' : ''}`}
-            onClick={handleExpand}
+            className={`flex-1 min-w-0 flex items-center gap-2 cursor-text ${onDragStart ? 'drag-handle' : ''}`}
+            onDoubleClick={handleExpand}
             onPointerDown={onDragStart}
           >
             <AgentIcon agentType={terminal.session.agentType} size={14} />
@@ -126,14 +126,20 @@ export const AgentCard = forwardRef<HTMLDivElement, Props>(
                   className="text-[13px] font-medium w-full"
                 />
               ) : (
-                <div
-                  className="text-[13px] font-medium text-gray-300 truncate"
-                  onDoubleClick={(e) => {
-                    e.stopPropagation()
-                    setRenamingTerminalId(terminalId)
-                  }}
-                >
-                  {getDisplayName(terminal.session)}
+                <div className="flex items-center gap-1 group/rename">
+                  <span className="text-[13px] font-medium text-gray-300 truncate">
+                    {getDisplayName(terminal.session)}
+                  </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setRenamingTerminalId(terminalId)
+                    }}
+                    className="opacity-0 group-hover/rename:opacity-100 text-gray-500 hover:text-gray-300 transition-opacity shrink-0"
+                    title="Rename"
+                  >
+                    <Pencil size={10} />
+                  </button>
                 </div>
               )}
               {terminal.session.branch && (

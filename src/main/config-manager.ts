@@ -11,7 +11,7 @@ const CONFIG_PATH = path.join(CONFIG_DIR, 'config.yaml')
 const DEFAULT_CONFIG: AppConfig = {
   version: 1,
   defaults: {
-    shell: process.env.SHELL || '/bin/zsh',
+    shell: process.platform === 'win32' ? (process.env.COMSPEC || 'powershell.exe') : (process.env.SHELL || '/bin/zsh'),
     fontSize: 13,
     theme: 'dark'
   },
@@ -40,10 +40,25 @@ class ConfigManager {
     try {
       const raw = fs.readFileSync(CONFIG_PATH, 'utf-8')
       const parsed = yaml.load(raw) as AppConfig
-      return parsed || DEFAULT_CONFIG
+      return this.migrateConfig(parsed || DEFAULT_CONFIG)
     } catch {
       return DEFAULT_CONFIG
     }
+  }
+
+  private migrateConfig(config: AppConfig): AppConfig {
+    // Migrate shortcuts to include schedule and enabled fields
+    if (config.shortcuts) {
+      for (const shortcut of config.shortcuts) {
+        if (!shortcut.schedule) {
+          shortcut.schedule = { type: 'manual' }
+        }
+        if (shortcut.enabled === undefined) {
+          shortcut.enabled = true
+        }
+      }
+    }
+    return config
   }
 
   saveConfig(config: AppConfig): void {

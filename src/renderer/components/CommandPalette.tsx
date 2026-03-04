@@ -11,7 +11,7 @@ import {
   Filter, ArrowUpDown, Server, Keyboard
 } from 'lucide-react'
 
-type CommandCategory = 'actions' | 'terminals' | 'recent' | 'projects' | 'shortcuts' | 'quicklaunch' | 'filter'
+type CommandCategory = 'actions' | 'terminals' | 'recent' | 'projects' | 'workflows' | 'quicklaunch' | 'filter'
 
 interface Command {
   id: string
@@ -24,14 +24,14 @@ interface Command {
   onExecute: () => void | Promise<void>
 }
 
-const CATEGORY_ORDER: CommandCategory[] = ['actions', 'terminals', 'recent', 'projects', 'shortcuts', 'quicklaunch', 'filter']
+const CATEGORY_ORDER: CommandCategory[] = ['actions', 'terminals', 'recent', 'projects', 'workflows', 'quicklaunch', 'filter']
 
 const CATEGORY_LABELS: Record<CommandCategory, string> = {
   actions: 'Actions',
   terminals: 'Terminals',
   recent: 'Recent Sessions',
   projects: 'Projects',
-  shortcuts: 'Shortcuts',
+  workflows: 'Workflows',
   quicklaunch: 'Quick Launch',
   filter: 'Filter & Sort'
 }
@@ -120,11 +120,11 @@ function useCommands(recentSessions: RecentSession[]): Command[] {
       onExecute: () => setAddProjectDialogOpen(true)
     })
     commands.push({
-      id: 'action:add-shortcut',
-      label: 'Add Shortcut',
+      id: 'action:add-workflow',
+      label: 'Add Workflow',
       category: 'actions',
       icon: <Zap size={14} strokeWidth={1.5} />,
-      keywords: ['new shortcut', 'create shortcut'],
+      keywords: ['new workflow', 'create workflow', 'schedule'],
       onExecute: () => setShortcutDialogOpen(true)
     })
     if ((config?.remoteHosts ?? []).length > 0) {
@@ -197,12 +197,12 @@ function useCommands(recentSessions: RecentSession[]): Command[] {
       })
     }
 
-    // --- Shortcuts ---
+    // --- Workflows ---
     for (const shortcut of config?.shortcuts ?? []) {
       commands.push({
-        id: `shortcut:${shortcut.id}`,
+        id: `workflow:${shortcut.id}`,
         label: shortcut.name,
-        category: 'shortcuts',
+        category: 'workflows',
         icon: <Zap size={14} strokeWidth={1.5} />,
         keywords: shortcut.actions.map((a) => a.projectName),
         onExecute: async () => {
@@ -213,7 +213,9 @@ function useCommands(recentSessions: RecentSession[]): Command[] {
               projectPath: action.projectPath,
               displayName: action.displayName,
               branch: action.branch,
-              useWorktree: action.useWorktree
+              useWorktree: action.useWorktree,
+              initialPrompt: action.prompt,
+              promptDelayMs: action.promptDelayMs
             })
             addTerminal(session)
           }

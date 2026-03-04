@@ -84,6 +84,21 @@ export function KeyboardShortcutsPanel() {
               ))}
             </div>
           </div>
+
+          {/* Welcome Guide link */}
+          <div className="pt-3 border-t border-white/[0.06]">
+            <button
+              onClick={() => {
+                useAppStore.getState().setShortcutsPanelOpen(false)
+                useAppStore.getState().setOnboardingOpen(true)
+              }}
+              className="w-full flex items-center justify-between py-1.5 px-2 rounded-md
+                         hover:bg-white/[0.06] transition-colors text-left"
+            >
+              <span className="text-[13px]" style={{ color: '#00FFD4' }}>Show Welcome Guide</span>
+              <span className="text-[11px] text-gray-500">Feature tour</span>
+            </button>
+          </div>
         </div>
       </motion.div>
     </>
