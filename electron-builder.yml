@@ -16,6 +16,7 @@ win:
     - nsis
     - portable
   icon: resources/icon.ico
+  artifactName: "${productName}-Setup-${version}.${ext}"
 
 linux:
   target:

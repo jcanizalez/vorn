@@ -76,3 +76,50 @@ jobs:
           files: artifacts/*
           draft: true
           generate_release_notes: true
+
+  update-homebrew:
+    needs: release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download mac artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-mac
+          path: artifacts
+
+      - name: Compute SHA256
+        id: sha
+        run: echo "sha256=$(shasum -a 256 artifacts/*.dmg | awk '{print $1}')" >> $GITHUB_OUTPUT
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Update Homebrew Tap
+        env:
+          TAP_PAT: ${{ secrets.HOMEBREW_TAP_PAT }}
+          VERSION: ${{ steps.version.outputs.version }}
+          SHA256: ${{ steps.sha.outputs.sha256 }}
+        run: |
+          git clone https://x-access-token:${TAP_PAT}@github.com/jcanizalez/homebrew-tap.git
+          cd homebrew-tap
+          mkdir -p Casks
+          tee Casks/vibegrid.rb > /dev/null <<EOF
+          cask "vibegrid" do
+            version "${VERSION}"
+            sha256 "${SHA256}"
+            url "https://github.com/jcanizalez/vibegrid/releases/download/v#{version}/VibeGrid-#{version}.dmg"
+            name "VibeGrid"
+            desc "AI Agent Terminal Manager"
+            homepage "https://github.com/jcanizalez/vibegrid"
+            app "VibeGrid.app"
+          end
+          EOF
+          sed -i 's/^          //' Casks/vibegrid.rb
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add Casks/vibegrid.rb
+          git commit -m "Update vibegrid to v${VERSION}"
+          git push
+
