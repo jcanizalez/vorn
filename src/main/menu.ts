@@ -2,7 +2,7 @@ import { app, Menu, BrowserWindow } from 'electron'
 
 const isMac = process.platform === 'darwin'
 
-export function createMenu(): void {
+export function createMenu(onToggleWidget?: () => void): void {
   const template: Electron.MenuItemConstructorOptions[] = [
     ...(isMac ? [{
       label: app.name,
@@ -57,7 +57,13 @@ export function createMenu(): void {
       label: 'Window',
       submenu: [
         { role: 'minimize' },
-        { role: 'zoom' }
+        { role: 'zoom' },
+        { type: 'separator' },
+        {
+          label: 'Toggle Widget',
+          accelerator: 'CmdOrCtrl+Shift+W',
+          click: (): void => { onToggleWidget?.() }
+        }
       ]
     }
   ]

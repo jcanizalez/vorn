@@ -3,7 +3,7 @@ import crypto from 'node:crypto'
 import os from 'node:os'
 import { execFileSync } from 'node:child_process'
 import { BrowserWindow } from 'electron'
-import { AgentType, AgentCommandConfig, CreateTerminalPayload, IPC, TerminalSession, RemoteHost } from '../shared/types'
+import { AgentType, AgentStatus, AgentCommandConfig, CreateTerminalPayload, IPC, TerminalSession, RemoteHost } from '../shared/types'
 import { getGitBranch, checkoutBranch, createWorktree } from './git-utils'
 import { DEFAULT_AGENT_COMMANDS } from '../shared/agent-defaults'
 
@@ -329,6 +329,37 @@ class PtyManager {
 
   getActiveSessions(): TerminalSession[] {
     return Array.from(this.sessions.values())
+  }
+
+  updateSessionStatus(id: string, status: AgentStatus): void {
+    const session = this.sessions.get(id)
+    if (session) {
+      session.status = status
+      this.sendToRenderer(IPC.TERMINAL_DATA, { id, data: '' }) // trigger widget update
+    }
+  }
+
+  /**
+   * Finds the most-recently-created terminal matching cwd that:
+   * - is NOT already linked to a Claude session (no hookSessionId)
+   * - is NOT in the excludeIds set (already claimed by another session_id)
+   */
+  findUnlinkedSessionByCwd(cwd: string, excludeIds: Set<string>): TerminalSession | undefined {
+    const normalizedCwd = cwd.replace(/\/+$/, '')
+    let best: TerminalSession | undefined
+    let bestTime = 0
+
+    for (const session of this.sessions.values()) {
+      if (session.hookSessionId) continue // already linked
+      if (excludeIds.has(session.id)) continue
+      const sessionPath = (session.worktreePath || session.projectPath).replace(/\/+$/, '')
+      if (sessionPath === normalizedCwd && session.createdAt > bestTime) {
+        best = session
+        bestTime = session.createdAt
+      }
+    }
+
+    return best
   }
 }
 

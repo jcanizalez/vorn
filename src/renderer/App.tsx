@@ -96,13 +96,16 @@ export function App() {
       const prev = await window.api.getPreviousSessions()
       if (prev && prev.length > 0) {
         if (config.defaults.reopenSessions) {
-          // Auto-restore sessions with real agent session IDs
+          // Auto-restore sessions — prefer hook-correlated session ID (exact),
+          // fall back to scanning agent history when hooks weren't active.
           for (const s of prev) {
             let resumeSessionId: string | undefined
-            const recentSessions = await window.api.getRecentSessions(s.projectPath)
-            const match = recentSessions.find((r) => r.agentType === s.agentType)
-            if (match) {
-              resumeSessionId = match.sessionId
+            if (s.hookSessionId) {
+              resumeSessionId = s.hookSessionId
+            } else {
+              const recentSessions = await window.api.getRecentSessions(s.projectPath)
+              const match = recentSessions.find((r) => r.agentType === s.agentType)
+              if (match) resumeSessionId = match.sessionId
             }
             const session = await window.api.createTerminal({
               agentType: s.agentType,
@@ -132,6 +135,10 @@ export function App() {
 
     const removeMenuListener = window.api.onMenuNewAgent(() => {
       useAppStore.getState().setNewAgentDialogOpen(true)
+    })
+
+    const removeWidgetSelectListener = window.api.onWidgetSelectTerminal((terminalId) => {
+      useAppStore.getState().setFocusedTerminal(terminalId)
     })
 
     // Scheduler: auto-execute workflows when triggered
@@ -171,6 +178,7 @@ export function App() {
       removeConfigListener()
       removeMenuListener()
       removeSchedulerListener()
+      removeWidgetSelectListener()
     }
   }, [])
 

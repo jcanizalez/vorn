@@ -23,6 +23,8 @@ export interface TerminalSession {
   isWorktree?: boolean
   remoteHostId?: string
   remoteHostLabel?: string
+  hookSessionId?: string
+  statusSource?: 'hooks' | 'pattern'
 }
 
 export interface RemoteHost {
@@ -101,6 +103,7 @@ export interface AppConfig {
     notifications?: NotificationConfig
     hasSeenOnboarding?: boolean
     reopenSessions?: boolean
+    widgetEnabled?: boolean
   }
   projects: ProjectConfig[]
   agentCommands?: Partial<Record<AgentType, AgentCommandConfig>>
@@ -199,8 +202,69 @@ export const IPC = {
   SCHEDULER_GET_NEXT_RUN: 'scheduler:getNextRun',
   WINDOW_MINIMIZE: 'window:minimize',
   WINDOW_MAXIMIZE: 'window:maximize',
-  WINDOW_CLOSE: 'window:close'
+  WINDOW_CLOSE: 'window:close',
+  WIDGET_STATUS_UPDATE: 'widget:status-update',
+  WIDGET_FOCUS_TERMINAL: 'widget:focus-terminal',
+  WIDGET_HIDE: 'widget:hide',
+  WIDGET_TOGGLE: 'widget:toggle',
+  WIDGET_RENDERER_STATUS: 'widget:renderer-status',
+  WIDGET_SET_ENABLED: 'widget:set-enabled',
+  WIDGET_PERMISSION_REQUEST: 'widget:permission-request',
+  WIDGET_PERMISSION_RESPONSE: 'widget:permission-response',
+  WIDGET_PERMISSION_CANCELLED: 'widget:permission-cancelled'
 } as const
+
+export interface PermissionSuggestion {
+  type: 'addRules' | 'setMode' | string
+  destination?: string        // "session" | "localSettings"
+  behavior?: string           // "allow"
+  rules?: Array<{ toolName?: string; ruleContent?: string }>
+  mode?: string               // "acceptEdits" | "plan"
+  [key: string]: unknown
+}
+
+export interface AskUserQuestion {
+  question: string
+  header?: string
+  multiSelect?: boolean
+  options?: Array<{ label: string; description?: string }>
+}
+
+export interface HookEvent {
+  session_id: string
+  hook_event_name: string
+  cwd: string
+  tool_name?: string
+  tool_input?: Record<string, unknown>
+  tool_use_id?: string
+  permission_mode?: string
+  transcript_path?: string
+  message?: string
+  title?: string
+  permission_suggestions?: PermissionSuggestion[]
+}
+
+export interface PermissionRequestInfo {
+  requestId: string
+  sessionId: string
+  terminalId?: string
+  toolName: string
+  toolInput: Record<string, unknown>
+  description?: string
+  agentType?: AgentType
+  projectName?: string
+  permissionSuggestions?: PermissionSuggestion[]
+  /** Populated when toolName === "AskUserQuestion" */
+  questions?: AskUserQuestion[]
+}
+
+export interface WidgetAgentInfo {
+  id: string
+  agentType: AgentType
+  displayName?: string
+  projectName: string
+  status: AgentStatus
+}
 
 export interface ScheduleLogEntry {
   workflowId: string

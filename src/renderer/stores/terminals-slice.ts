@@ -16,6 +16,7 @@ export const createTerminalsSlice: StateCreator<AppStore, [], [], TerminalsSlice
       const order = state.terminalOrder.includes(session.id)
         ? state.terminalOrder
         : [...state.terminalOrder, session.id]
+      window.api.notifyWidgetStatus()
       return { terminals: next, terminalOrder: order }
     }),
 
@@ -26,6 +27,7 @@ export const createTerminalsSlice: StateCreator<AppStore, [], [], TerminalsSlice
       const order = state.terminalOrder.filter((tid) => tid !== id)
       const minimized = new Set(state.minimizedTerminals)
       minimized.delete(id)
+      window.api.notifyWidgetStatus()
       return { terminals: next, terminalOrder: order, minimizedTerminals: minimized }
     }),
 
@@ -34,6 +36,7 @@ export const createTerminalsSlice: StateCreator<AppStore, [], [], TerminalsSlice
       const next = new Map(state.terminals)
       const term = next.get(id)
       if (term) next.set(id, { ...term, status })
+      window.api.notifyWidgetStatus()
       return { terminals: next }
     }),
 

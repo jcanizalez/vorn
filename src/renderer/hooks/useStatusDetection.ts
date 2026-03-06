@@ -13,46 +13,55 @@ export function useStatusDetection(terminalId: string) {
     const removeListener = window.api.onTerminalData(({ id, data }) => {
       if (id !== terminalId) return
 
-      const ctx = ctxRef.current
-      const newStatus = analyzeOutput(ctx, data)
+      // Skip pattern-based status detection when hooks are providing status
+      const terminal = useAppStore.getState().terminals.get(terminalId)
+      const useHooks = terminal?.session.statusSource === 'hooks'
 
-      if (newStatus !== ctx.currentStatus) {
-        const prevStatus = ctx.currentStatus
-        ctx.currentStatus = newStatus
-        updateStatus(terminalId, newStatus)
+      if (!useHooks) {
+        const ctx = ctxRef.current
+        const newStatus = analyzeOutput(ctx, data)
 
-        // Notify on status transitions (waiting/error)
-        const state = useAppStore.getState()
-        const terminal = state.terminals.get(terminalId)
-        if (terminal && shouldNotifyStatus(state.config, prevStatus, newStatus)) {
-          sendAgentNotification(
-            terminal,
-            newStatus === 'waiting' ? 'waiting' : 'error',
-            () => useAppStore.getState().setFocusedTerminal(terminalId)
-          )
+        if (newStatus !== ctx.currentStatus) {
+          const prevStatus = ctx.currentStatus
+          ctx.currentStatus = newStatus
+          updateStatus(terminalId, newStatus)
+
+          // Notify on status transitions (waiting/error)
+          const state = useAppStore.getState()
+          const t = state.terminals.get(terminalId)
+          if (t && shouldNotifyStatus(state.config, prevStatus, newStatus)) {
+            sendAgentNotification(
+              t,
+              newStatus === 'waiting' ? 'waiting' : 'error',
+              () => useAppStore.getState().setFocusedTerminal(terminalId)
+            )
+          }
         }
       }
 
-      // Bell detection
+      // Bell detection (always active regardless of status source)
       if (data.includes('\x07')) {
         const state = useAppStore.getState()
-        const terminal = state.terminals.get(terminalId)
-        if (terminal && shouldNotifyBell(state.config)) {
+        const t = state.terminals.get(terminalId)
+        if (t && shouldNotifyBell(state.config)) {
           sendAgentNotification(
-            terminal,
+            t,
             'bell',
             () => useAppStore.getState().setFocusedTerminal(terminalId)
           )
         }
       }
 
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
-      idleTimerRef.current = setTimeout(() => {
-        if (ctx.currentStatus === 'running') {
-          ctx.currentStatus = 'idle'
-          updateStatus(terminalId, 'idle')
-        }
-      }, IDLE_TIMEOUT_MS)
+      if (!useHooks) {
+        if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+        idleTimerRef.current = setTimeout(() => {
+          const ctx = ctxRef.current
+          if (ctx.currentStatus === 'running') {
+            ctx.currentStatus = 'idle'
+            updateStatus(terminalId, 'idle')
+          }
+        }, IDLE_TIMEOUT_MS)
+      }
     })
 
     return () => {

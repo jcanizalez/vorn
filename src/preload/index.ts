@@ -120,7 +120,17 @@ const api = {
   // Window controls (Windows/Linux custom titlebar)
   windowMinimize: () => ipcRenderer.send(IPC.WINDOW_MINIMIZE),
   windowMaximize: () => ipcRenderer.send(IPC.WINDOW_MAXIMIZE),
-  windowClose: () => ipcRenderer.send(IPC.WINDOW_CLOSE)
+  windowClose: () => ipcRenderer.send(IPC.WINDOW_CLOSE),
+
+  // Widget
+  notifyWidgetStatus: () => ipcRenderer.send(IPC.WIDGET_RENDERER_STATUS),
+  setWidgetEnabled: (enabled: boolean) => ipcRenderer.send(IPC.WIDGET_SET_ENABLED, enabled),
+
+  onWidgetSelectTerminal: (callback: (terminalId: string) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, terminalId: string): void => callback(terminalId)
+    ipcRenderer.on('widget:select-terminal', listener)
+    return () => { ipcRenderer.removeListener('widget:select-terminal', listener) }
+  }
 }
 
 contextBridge.exposeInMainWorld('api', api)

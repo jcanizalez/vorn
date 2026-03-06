@@ -184,6 +184,30 @@ export function GeneralSettings() {
             />
           </button>
         </div>
+
+        {/* Floating Widget */}
+        <div className="flex items-center justify-between py-4 border-b border-white/[0.06]">
+          <div>
+            <div className="text-sm font-medium text-gray-200">Floating Widget</div>
+            <div className="text-xs text-gray-500 mt-0.5">Show agent status widget when app is not focused</div>
+          </div>
+          <button
+            onClick={() => {
+              const enabled = config.defaults.widgetEnabled === false ? true : false
+              updateDefaults({ widgetEnabled: enabled })
+              window.api.setWidgetEnabled(enabled)
+            }}
+            className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${
+              config.defaults.widgetEnabled !== false ? 'bg-blue-500' : 'bg-white/[0.1]'
+            }`}
+          >
+            <div
+              className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-transform ${
+                config.defaults.widgetEnabled !== false ? 'translate-x-5' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
       </div>
 
       {/* Notifications section */}

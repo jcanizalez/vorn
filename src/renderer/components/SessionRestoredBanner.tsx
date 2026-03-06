@@ -16,12 +16,15 @@ export function SessionRestoredBanner() {
   const handleRestore = async (): Promise<void> => {
     setRestoring(true)
     for (const prev of previousSessions) {
-      // Look up the real agent session ID from the agent's history
+      // Prefer the hook-correlated session ID (exact match); fall back to
+      // scanning the agent's history file when hooks weren't active.
       let resumeSessionId: string | undefined
-      const recentSessions = await window.api.getRecentSessions(prev.projectPath)
-      const match = recentSessions.find((s) => s.agentType === prev.agentType)
-      if (match) {
-        resumeSessionId = match.sessionId
+      if (prev.hookSessionId) {
+        resumeSessionId = prev.hookSessionId
+      } else {
+        const recentSessions = await window.api.getRecentSessions(prev.projectPath)
+        const match = recentSessions.find((s) => s.agentType === prev.agentType)
+        if (match) resumeSessionId = match.sessionId
       }
 
       const session = await window.api.createTerminal({
