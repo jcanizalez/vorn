@@ -1,6 +1,6 @@
 publish:
   provider: github
-  owner: javiercanizalez
+  owner: jcanizalez
   repo: vibegrid
 
 appId: com.vibegrid.app
