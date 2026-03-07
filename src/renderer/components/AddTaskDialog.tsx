@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../stores'
-import { FolderGit2, Plus, X } from 'lucide-react'
+import { FolderGit2 } from 'lucide-react'
+import { MarkdownEditor, TASK_TEMPLATE } from './MarkdownEditor'
 
 export function AddTaskDialog() {
   const isOpen = useAppStore((s) => s.isTaskDialogOpen)
@@ -16,7 +17,6 @@ export function AddTaskDialog() {
   const [title, setTitle] = useState('')
   const [projectName, setProjectName] = useState('')
   const [description, setDescription] = useState('')
-  const [criteria, setCriteria] = useState<string[]>([])
   const [branch, setBranch] = useState('')
   const [useWorktree, setUseWorktree] = useState(false)
 
@@ -27,11 +27,13 @@ export function AddTaskDialog() {
       setTitle(editingTask.title)
       setProjectName(editingTask.projectName)
       setDescription(editingTask.description)
-      setCriteria(editingTask.acceptanceCriteria || [])
       setBranch(editingTask.branch || '')
       setUseWorktree(editingTask.useWorktree || false)
     } else if (isOpen) {
       setProjectName(activeProject || config?.projects[0]?.name || '')
+      if (!editingTask) {
+        setDescription(TASK_TEMPLATE)
+      }
     }
   }, [isOpen, editingTask, activeProject, config])
 
@@ -41,7 +43,6 @@ export function AddTaskDialog() {
     setTitle('')
     setProjectName('')
     setDescription('')
-    setCriteria([])
     setBranch('')
     setUseWorktree(false)
   }
@@ -55,7 +56,6 @@ export function AddTaskDialog() {
         title: title.trim(),
         projectName,
         description: description.trim(),
-        acceptanceCriteria: criteria.filter((c) => c.trim()),
         branch: branch.trim() || undefined,
         useWorktree: useWorktree || undefined
       })
@@ -66,7 +66,6 @@ export function AddTaskDialog() {
         projectName,
         title: title.trim(),
         description: description.trim(),
-        acceptanceCriteria: criteria.filter((c) => c.trim()),
         status: 'todo',
         order: existingTasks.length,
         branch: branch.trim() || undefined,
@@ -93,7 +92,7 @@ export function AddTaskDialog() {
           />
 
           <motion.div
-            className="fixed top-1/2 left-1/2 z-50 w-[540px] max-h-[85vh] border border-white/[0.08]
+            className="fixed top-1/2 left-1/2 z-50 w-[600px] max-h-[85vh] border border-white/[0.08]
                        rounded-xl shadow-2xl overflow-hidden flex flex-col"
             style={{ background: '#1e1e22' }}
             initial={{ opacity: 0, scale: 0.95, x: '-50%', y: '-50%' }}
@@ -146,63 +145,20 @@ export function AddTaskDialog() {
                 </select>
               </div>
 
-              {/* Description */}
+              {/* Description with Markdown */}
               <div>
                 <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 block">
                   Description
                 </label>
                 <p className="text-[11px] text-gray-600 mb-1.5">
-                  This will be sent as the prompt to the coding agent
+                  Supports markdown. This will be sent as the prompt to the coding agent.
                 </p>
-                <textarea
+                <MarkdownEditor
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Describe the task in detail. The agent will receive this as its initial prompt..."
-                  rows={5}
-                  className="w-full px-4 py-3 bg-white/[0.03] border border-white/[0.06] rounded-lg text-sm
-                             text-gray-200 placeholder-gray-600 focus:border-white/[0.15] focus:outline-none
-                             resize-none"
+                  onChange={setDescription}
+                  placeholder="Describe the task in detail..."
+                  rows={10}
                 />
-              </div>
-
-              {/* Acceptance Criteria */}
-              <div>
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 block">
-                  Acceptance Criteria
-                  <span className="text-gray-600 normal-case tracking-normal ml-1">(optional)</span>
-                </label>
-                <div className="space-y-1.5">
-                  {criteria.map((c, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <span className="text-gray-600 text-xs shrink-0">-</span>
-                      <input
-                        type="text"
-                        value={c}
-                        onChange={(e) => {
-                          const next = [...criteria]
-                          next[i] = e.target.value
-                          setCriteria(next)
-                        }}
-                        placeholder="e.g. All tests pass"
-                        className="flex-1 px-3 py-1.5 bg-white/[0.03] border border-white/[0.06] rounded-md text-xs
-                                   text-gray-200 placeholder-gray-600 focus:outline-none focus:border-white/[0.15]"
-                      />
-                      <button
-                        onClick={() => setCriteria(criteria.filter((_, j) => j !== i))}
-                        className="text-gray-600 hover:text-red-400 p-1 transition-colors shrink-0"
-                      >
-                        <X size={12} strokeWidth={2} />
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    onClick={() => setCriteria([...criteria, ''])}
-                    className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors px-1 py-1"
-                  >
-                    <Plus size={12} strokeWidth={2} />
-                    Add criterion
-                  </button>
-                </div>
               </div>
 
               {/* Branch & Worktree */}

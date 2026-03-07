@@ -9,7 +9,7 @@ import {
   Folder, FolderGit2, Code, Globe, Database, Server, Smartphone, Package,
   FileCode, Terminal, Cpu, Cloud, Shield, Zap, Gamepad2, Music, Image,
   BookOpen, FlaskConical, Rocket, Play, MoreHorizontal, Pencil, Trash2, GitFork, ChevronRight,
-  Clock, Calendar, Repeat, Power, X, ListTodo, Plus, Circle
+  Clock, Calendar, Repeat, Power, X, ListTodo, Plus, Circle, ChevronDown
 } from 'lucide-react'
 
 const STATUS_DOT_COLOR: Record<AgentStatus, string> = {
@@ -152,6 +152,55 @@ function ShortcutContextMenu({
         <Trash2 size={12} strokeWidth={1.5} />
         Delete Workflow
       </button>
+    </div>
+  )
+}
+
+function WorkflowSubGroup({
+  label,
+  icon,
+  count,
+  defaultCollapsed,
+  children
+}: {
+  label: string
+  icon: React.ReactNode
+  count: number
+  defaultCollapsed: boolean
+  children: React.ReactNode
+}) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed)
+
+  return (
+    <div className="mt-1">
+      <button
+        onClick={() => setCollapsed(!collapsed)}
+        className="flex items-center gap-1.5 px-2 py-1 w-full text-left hover:bg-white/[0.04] rounded-md transition-colors"
+      >
+        <ChevronRight
+          size={10}
+          strokeWidth={2}
+          className={`text-gray-600 transition-transform ${collapsed ? '' : 'rotate-90'}`}
+        />
+        {icon}
+        <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">
+          {label}
+        </span>
+        {count > 0 && (
+          <span className="text-[10px] text-gray-600 bg-white/[0.06] px-1.5 py-0.5 rounded-full">
+            {count}
+          </span>
+        )}
+      </button>
+      {!collapsed && (
+        <div className="ml-2 space-y-0.5">
+          {count === 0 ? (
+            <p className="text-[11px] text-gray-600 py-0.5 pl-2">None</p>
+          ) : (
+            children
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -613,111 +662,148 @@ export function ProjectSidebar() {
         {!isCollapsed && (!config?.shortcuts || config.shortcuts.length === 0) && (
           <p className="text-[13px] text-gray-600 px-2.5 py-1">No workflows</p>
         )}
-        {config?.shortcuts?.map((shortcut: ShortcutConfig) => {
-          const ShortcutIcon = ICON_MAP[shortcut.icon] || Zap
-          const isScheduled = shortcut.schedule?.type !== 'manual'
-          const isDisabled = isScheduled && !shortcut.enabled
-          const scheduleLabel = shortcut.schedule?.type === 'once'
-            ? 'once'
-            : shortcut.schedule?.type === 'recurring'
-              ? 'recurring'
-              : undefined
-          return (
-            <div key={shortcut.id} className={`group relative flex items-center ${isDisabled ? 'opacity-40' : ''}`}>
-              <button
-                onClick={async () => {
-                  for (const action of shortcut.actions) {
-                    let initialPrompt = action.prompt
-                    let resolvedTaskId: string | undefined
-                    let branch = action.branch
-                    let useWorktree = action.useWorktree
-                    const currentState = useAppStore.getState()
+        {(() => {
+          const allShortcuts = config?.shortcuts || []
+          const manualWorkflows = allShortcuts.filter((s) => s.schedule?.type === 'manual')
+          const scheduledWorkflows = allShortcuts.filter((s) => s.schedule?.type !== 'manual')
 
-                    if (action.taskId) {
-                      const task = (currentState.config?.tasks || []).find((t) => t.id === action.taskId && t.status === 'todo')
-                      if (task) {
-                        initialPrompt = task.description
-                        resolvedTaskId = task.id
-                        branch = task.branch || branch
-                        useWorktree = task.useWorktree || useWorktree
+          const renderWorkflow = (shortcut: ShortcutConfig) => {
+            const ShortcutIcon = ICON_MAP[shortcut.icon] || Zap
+            const isScheduled = shortcut.schedule?.type !== 'manual'
+            const isDisabled = isScheduled && !shortcut.enabled
+            const scheduleLabel = shortcut.schedule?.type === 'once'
+              ? 'once'
+              : shortcut.schedule?.type === 'recurring'
+                ? 'recurring'
+                : undefined
+            return (
+              <div key={shortcut.id} className={`group relative flex items-center ${isDisabled ? 'opacity-40' : ''}`}>
+                <button
+                  onClick={async () => {
+                    for (const action of shortcut.actions) {
+                      let initialPrompt = action.prompt
+                      let resolvedTaskId: string | undefined
+                      let branch = action.branch
+                      let useWorktree = action.useWorktree
+                      const currentState = useAppStore.getState()
+
+                      if (action.taskId) {
+                        const task = (currentState.config?.tasks || []).find((t) => t.id === action.taskId && t.status === 'todo')
+                        if (task) {
+                          initialPrompt = task.description
+                          resolvedTaskId = task.id
+                          branch = task.branch || branch
+                          useWorktree = task.useWorktree || useWorktree
+                        }
+                      } else if (action.taskFromQueue) {
+                        const task = currentState.getNextTask(action.projectName)
+                        if (task) {
+                          initialPrompt = task.description
+                          resolvedTaskId = task.id
+                          branch = task.branch || branch
+                          useWorktree = task.useWorktree || useWorktree
+                        }
                       }
-                    } else if (action.taskFromQueue) {
-                      const task = currentState.getNextTask(action.projectName)
-                      if (task) {
-                        initialPrompt = task.description
-                        resolvedTaskId = task.id
-                        branch = task.branch || branch
-                        useWorktree = task.useWorktree || useWorktree
+
+                      const session = await window.api.createTerminal({
+                        agentType: action.agentType,
+                        projectName: action.projectName,
+                        projectPath: action.projectPath,
+                        displayName: action.displayName,
+                        branch,
+                        useWorktree,
+                        initialPrompt,
+                        promptDelayMs: action.promptDelayMs
+                      })
+                      addTerminal(session)
+
+                      if (resolvedTaskId) {
+                        useAppStore.getState().startTask(resolvedTaskId, session.id, action.agentType)
                       }
                     }
-
-                    const session = await window.api.createTerminal({
-                      agentType: action.agentType,
-                      projectName: action.projectName,
-                      projectPath: action.projectPath,
-                      displayName: action.displayName,
-                      branch,
-                      useWorktree,
-                      initialPrompt,
-                      promptDelayMs: action.promptDelayMs
-                    })
-                    addTerminal(session)
-
-                    if (resolvedTaskId) {
-                      useAppStore.getState().startTask(resolvedTaskId, session.id, action.agentType)
-                    }
-                  }
-                }}
-                className={`flex-1 text-left px-2.5 py-1.5 rounded-md text-[13px] transition-colors
-                           flex items-center gap-2 text-gray-300 hover:text-white hover:bg-white/[0.04]
-                           ${isCollapsed ? 'justify-center px-0' : ''}`}
-                title={isCollapsed ? shortcut.name : undefined}
-              >
-                <span className="relative shrink-0">
-                  <ShortcutIcon size={iconSize} color={shortcut.iconColor || '#6b7280'} strokeWidth={1.5} />
-                  {isScheduled && !isCollapsed && (
-                    <Clock size={7} className="absolute -top-1 -right-1.5 text-blue-400" strokeWidth={2.5} />
+                  }}
+                  className={`flex-1 text-left px-2.5 py-1.5 rounded-md text-[13px] transition-colors
+                             flex items-center gap-2 text-gray-300 hover:text-white hover:bg-white/[0.04]
+                             ${isCollapsed ? 'justify-center px-0' : ''}`}
+                  title={isCollapsed ? shortcut.name : undefined}
+                >
+                  <span className="relative shrink-0">
+                    <ShortcutIcon size={iconSize} color={shortcut.iconColor || '#6b7280'} strokeWidth={1.5} />
+                    {isScheduled && !isCollapsed && (
+                      <Clock size={7} className="absolute -top-1 -right-1.5 text-blue-400" strokeWidth={2.5} />
+                    )}
+                  </span>
+                  {!isCollapsed && (
+                    <>
+                      <span className="truncate">{shortcut.name}</span>
+                      <span className="text-gray-600 text-[10px] ml-auto shrink-0">
+                        {scheduleLabel || shortcut.actions.length}
+                      </span>
+                    </>
                   )}
-                </span>
+                </button>
                 {!isCollapsed && (
-                  <>
-                    <span className="truncate">{shortcut.name}</span>
-                    <span className="text-gray-600 text-[10px] ml-auto shrink-0">
-                      {scheduleLabel || shortcut.actions.length}
-                    </span>
-                  </>
+                  <div className="relative">
+                    <button
+                      onClick={() => setOpenMenuShortcut(openMenuShortcut === shortcut.id ? null : shortcut.id)}
+                      className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-white
+                                 p-1 transition-all shrink-0"
+                    >
+                      <MoreHorizontal size={12} strokeWidth={2} />
+                    </button>
+                    {openMenuShortcut === shortcut.id && (
+                      <ShortcutContextMenu
+                        onEdit={() => {
+                          setEditingShortcut(shortcut)
+                          setShortcutDialogOpen(true)
+                        }}
+                        onDelete={() => removeShortcut(shortcut.id)}
+                        isScheduled={isScheduled}
+                        isEnabled={shortcut.enabled}
+                        onToggleEnabled={() => {
+                          const updated = { ...shortcut, enabled: !shortcut.enabled }
+                          useAppStore.getState().updateShortcut(shortcut.id, updated)
+                        }}
+                        onClose={() => setOpenMenuShortcut(null)}
+                      />
+                    )}
+                  </div>
                 )}
-              </button>
-              {!isCollapsed && (
-                <div className="relative">
-                  <button
-                    onClick={() => setOpenMenuShortcut(openMenuShortcut === shortcut.id ? null : shortcut.id)}
-                    className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-white
-                               p-1 transition-all shrink-0"
-                  >
-                    <MoreHorizontal size={12} strokeWidth={2} />
-                  </button>
-                  {openMenuShortcut === shortcut.id && (
-                    <ShortcutContextMenu
-                      onEdit={() => {
-                        setEditingShortcut(shortcut)
-                        setShortcutDialogOpen(true)
-                      }}
-                      onDelete={() => removeShortcut(shortcut.id)}
-                      isScheduled={isScheduled}
-                      isEnabled={shortcut.enabled}
-                      onToggleEnabled={() => {
-                        const updated = { ...shortcut, enabled: !shortcut.enabled }
-                        useAppStore.getState().updateShortcut(shortcut.id, updated)
-                      }}
-                      onClose={() => setOpenMenuShortcut(null)}
-                    />
-                  )}
-                </div>
+              </div>
+            )
+          }
+
+          return (
+            <>
+              {/* Manual workflows sub-group */}
+              {!isCollapsed && allShortcuts.length > 0 && (
+                <WorkflowSubGroup
+                  label="Manual"
+                  icon={<Zap size={11} strokeWidth={2} className="text-gray-600" />}
+                  count={manualWorkflows.length}
+                  defaultCollapsed={false}
+                >
+                  {manualWorkflows.map(renderWorkflow)}
+                </WorkflowSubGroup>
               )}
-            </div>
+
+              {/* Scheduled workflows sub-group */}
+              {!isCollapsed && allShortcuts.length > 0 && (
+                <WorkflowSubGroup
+                  label="Scheduled"
+                  icon={<Calendar size={11} strokeWidth={2} className="text-gray-600" />}
+                  count={scheduledWorkflows.length}
+                  defaultCollapsed={true}
+                >
+                  {scheduledWorkflows.map(renderWorkflow)}
+                </WorkflowSubGroup>
+              )}
+
+              {/* Collapsed mode — render all */}
+              {isCollapsed && allShortcuts.map(renderWorkflow)}
+            </>
           )
-        })}
+        })()}
 
         <button
           onClick={() => setShortcutDialogOpen(true)}

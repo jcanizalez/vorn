@@ -10,6 +10,7 @@ import {
   BookOpen, FlaskConical, Rocket, GitBranch, MessageSquare, Clock, Calendar,
   Repeat, ChevronDown, ChevronUp, ListTodo
 } from 'lucide-react'
+import { MarkdownEditor } from './MarkdownEditor'
 
 const ICON_MAP: Record<string, React.FC<{ size?: number; color?: string; strokeWidth?: number }>> = {
   Folder, FolderGit2, Code, Globe, Database, Server, Smartphone, Package,
@@ -641,14 +642,11 @@ export function AddWorkflowDialog() {
                           {/* Inline prompt */}
                           {action.promptSource === 'inline' && (
                             <>
-                              <textarea
+                              <MarkdownEditor
                                 value={action.prompt}
-                                onChange={(e) => updateAction(index, { prompt: e.target.value })}
+                                onChange={(val) => updateAction(index, { prompt: val })}
                                 placeholder="Review the PR at #123 and suggest improvements..."
-                                rows={2}
-                                className="w-full px-3 py-2 bg-white/[0.03] border border-white/[0.06] rounded-md text-xs
-                                           text-gray-200 placeholder-gray-600 focus:outline-none focus:border-white/[0.15]
-                                           resize-none"
+                                rows={3}
                               />
                               <div className="flex items-center gap-2 mt-1.5">
                                 <span className="text-[10px] text-gray-600">Delay:</span>

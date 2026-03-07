@@ -2,7 +2,7 @@ import { useAppStore } from '../../stores'
 import { setAllTerminalsFontSize } from '../../lib/terminal-registry'
 import { AGENT_LIST } from '../../lib/agent-definitions'
 import { AgentIcon } from '../AgentIcon'
-import { AgentType, NotificationConfig } from '../../../shared/types'
+import { AgentType, NotificationConfig, TaskViewMode } from '../../../shared/types'
 
 function NotificationToggle({
   label,
@@ -183,6 +183,32 @@ export function GeneralSettings() {
               }`}
             />
           </button>
+        </div>
+
+        {/* Default Task View */}
+        <div className="flex items-center justify-between py-4 border-b border-white/[0.06]">
+          <div>
+            <div className="text-sm font-medium text-gray-200">Default Task View</div>
+            <div className="text-xs text-gray-500 mt-0.5">Choose between list or kanban board for tasks</div>
+          </div>
+          <div className="flex bg-white/[0.04] rounded-lg p-0.5 gap-0.5">
+            {([
+              { value: 'list' as TaskViewMode, label: 'List' },
+              { value: 'kanban' as TaskViewMode, label: 'Kanban' }
+            ]).map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => updateDefaults({ taskViewMode: opt.value })}
+                className={`px-3 py-1 rounded-md text-xs transition-colors ${
+                  (config.defaults.taskViewMode || 'list') === opt.value
+                    ? 'bg-white/[0.1] text-white'
+                    : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Floating Widget */}

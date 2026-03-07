@@ -68,12 +68,13 @@ export interface ShortcutAction {
 // Task queue types
 export type TaskStatus = 'todo' | 'in_progress' | 'done'
 
+export type TaskViewMode = 'list' | 'kanban'
+
 export interface TaskConfig {
   id: string
   projectName: string
   title: string
   description: string
-  acceptanceCriteria?: string[]
   status: TaskStatus
   order: number
   assignedSessionId?: string
@@ -126,6 +127,7 @@ export interface AppConfig {
     hasSeenOnboarding?: boolean
     reopenSessions?: boolean
     widgetEnabled?: boolean
+    taskViewMode?: TaskViewMode
   }
   projects: ProjectConfig[]
   agentCommands?: Partial<Record<AgentType, AgentCommandConfig>>

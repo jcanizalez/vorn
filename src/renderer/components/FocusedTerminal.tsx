@@ -284,7 +284,16 @@ export function FocusedTerminal() {
                     selectedFile={selectedFile}
                     onSelectFile={setSelectedFile}
                   />
-                  <DiffContent files={diffResult.files} selectedFile={selectedFile} />
+                  <DiffContent
+                    files={diffResult.files}
+                    selectedFile={selectedFile}
+                    comments={[]}
+                    commentingLine={null}
+                    onClickLine={() => {}}
+                    onAddComment={() => {}}
+                    onCancelComment={() => {}}
+                    onRemoveComment={() => {}}
+                  />
                 </>
               ) : (
                 <div className="flex-1 flex items-center justify-center text-gray-500 text-[13px]">
