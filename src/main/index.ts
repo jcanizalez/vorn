@@ -286,6 +286,18 @@ app.whenReady().then(() => {
       if (result) {
         ptyManager.updateSessionStatus(result.terminalId, result.status)
         sendWidgetUpdate()
+
+        // Persist agent session ID on the linked task for resume support
+        if (event.hook_event_name === 'SessionStart') {
+          const config = configManager.loadConfig()
+          const task = config.tasks?.find(t => t.assignedSessionId === result.terminalId && t.status === 'in_progress' && !t.agentSessionId)
+          if (task) {
+            task.agentSessionId = event.session_id
+            task.updatedAt = new Date().toISOString()
+            configManager.saveConfig(config)
+            console.log(`[hooks] stored agentSessionId ${event.session_id} on task "${task.title}"`)
+          }
+        }
       }
 
       const dismissEvents = ['PostToolUse', 'PostToolUseFailure', 'Stop', 'UserPromptSubmit']

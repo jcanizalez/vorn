@@ -10,7 +10,7 @@ import { GitChangesIndicator } from './GitChangesIndicator'
 import { AGENT_DEFINITIONS } from '../lib/agent-definitions'
 import { destroyTerminal, scrollToBottom, isAtBottom, onTerminalScroll } from '../lib/terminal-registry'
 import { getDisplayName } from '../lib/terminal-display'
-import { GitBranch, FolderGit2, Server, Pencil } from 'lucide-react'
+import { GitBranch, FolderGit2, Server, Pencil, ListTodo } from 'lucide-react'
 
 interface Props {
   terminalId: string
@@ -61,6 +61,9 @@ export const AgentCard = forwardRef<HTMLDivElement, Props>(
     const isRenaming = useAppStore((s) => s.renamingTerminalId === terminalId)
     const setRenamingTerminalId = useAppStore((s) => s.setRenamingTerminalId)
     const renameTerminal = useAppStore((s) => s.renameTerminal)
+    const assignedTask = useAppStore((s) => s.config?.tasks?.find(t => t.assignedSessionId === terminalId && t.status === 'in_progress'))
+    const setEditingTask = useAppStore((s) => s.setEditingTask)
+    const setTaskDialogOpen = useAppStore((s) => s.setTaskDialogOpen)
     const [cardHovered, setCardHovered] = useState(false)
     const [showScrollBtn, setShowScrollBtn] = useState(false)
 
@@ -136,8 +139,11 @@ export const AgentCard = forwardRef<HTMLDivElement, Props>(
               ) : (
                 <div className="flex items-center gap-1 group/rename">
                   <span className="text-[13px] font-medium text-gray-300 truncate">
-                    {getDisplayName(terminal.session)}
+                    {terminal.session.displayName?.trim() ? getDisplayName(terminal.session) : assignedTask ? assignedTask.title : getDisplayName(terminal.session)}
                   </span>
+                  {isMinimized && assignedTask && (
+                    <ListTodo size={10} className="text-violet-400 shrink-0" strokeWidth={2} />
+                  )}
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
@@ -173,6 +179,22 @@ export const AgentCard = forwardRef<HTMLDivElement, Props>(
                   </span>
                   <span className="text-[9px] text-blue-400/60">remote</span>
                 </div>
+              )}
+              {!isMinimized && assignedTask && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setEditingTask(assignedTask)
+                    setTaskDialogOpen(true)
+                  }}
+                  className="flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded-full
+                             bg-violet-500/10 hover:bg-violet-500/20 transition-colors group/task"
+                >
+                  <ListTodo size={10} className="text-violet-400 shrink-0" strokeWidth={2} />
+                  <span className="text-[10px] text-violet-400 group-hover/task:text-violet-300 truncate max-w-[120px]">
+                    {assignedTask.title}
+                  </span>
+                </button>
               )}
             </div>
           </div>

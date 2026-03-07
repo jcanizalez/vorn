@@ -79,6 +79,7 @@ export interface TaskConfig {
   order: number
   assignedSessionId?: string
   assignedAgent?: AgentType
+  agentSessionId?: string // Real agent session ID (e.g. Claude session_id from hooks) for resume
   branch?: string
   useWorktree?: boolean
   createdAt: string

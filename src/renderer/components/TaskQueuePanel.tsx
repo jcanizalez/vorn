@@ -4,7 +4,7 @@ import { useAppStore } from '../stores'
 import { TaskConfig, TaskStatus, TaskViewMode } from '../../shared/types'
 import { AgentIcon } from './AgentIcon'
 import { MarkdownPreview } from './MarkdownEditor'
-import { Pencil, Trash2, Play, CheckCircle2, Clock, Circle, X, LayoutList, Columns3 } from 'lucide-react'
+import { Pencil, Trash2, Play, CheckCircle2, Clock, Circle, X, LayoutList, Columns3, Terminal } from 'lucide-react'
 
 const STATUS_BADGE: Record<string, { label: string; color: string; bg: string }> = {
   todo: { label: 'Todo', color: 'text-gray-400', bg: 'bg-gray-500/20' },
@@ -18,11 +18,13 @@ const STATUS_ICON: Record<string, React.FC<{ size?: number; className?: string }
   done: CheckCircle2
 }
 
-function TaskCard({ task, onEdit, onDelete, onStart, compact }: {
+function TaskCard({ task, onEdit, onDelete, onStart, onOpenSession, sessionIsLive, compact }: {
   task: TaskConfig
   onEdit: () => void
   onDelete: () => void
   onStart: () => void
+  onOpenSession?: () => void
+  sessionIsLive?: boolean
   compact?: boolean
 }) {
   const badge = STATUS_BADGE[task.status]
@@ -58,6 +60,15 @@ function TaskCard({ task, onEdit, onDelete, onStart, compact }: {
               <Play size={12} strokeWidth={2} />
             </button>
           )}
+          {onOpenSession && (
+            <button
+              onClick={onOpenSession}
+              className={`p-1 text-gray-600 rounded transition-colors ${sessionIsLive ? 'hover:text-violet-400' : 'hover:text-amber-400'}`}
+              title={sessionIsLive ? 'Focus session' : 'Resume session'}
+            >
+              {sessionIsLive ? <Terminal size={12} strokeWidth={2} /> : <Play size={12} strokeWidth={2} />}
+            </button>
+          )}
           <button
             onClick={onEdit}
             className="p-1 text-gray-600 hover:text-white rounded transition-colors"
@@ -84,12 +95,14 @@ const KANBAN_COLUMNS: { status: TaskStatus; title: string; color: string }[] = [
   { status: 'done', title: 'Done', color: 'border-green-500/30' }
 ]
 
-function KanbanBoard({ allTasks, onEdit, onDelete, onStart, onDrop }: {
+function KanbanBoard({ allTasks, onEdit, onDelete, onStart, onDrop, onOpenSession, isSessionLive }: {
   allTasks: TaskConfig[]
   onEdit: (task: TaskConfig) => void
   onDelete: (id: string) => void
   onStart: (task: TaskConfig) => void
   onDrop: (taskId: string, newStatus: TaskStatus) => void
+  onOpenSession: (task: TaskConfig) => (() => void) | undefined
+  isSessionLive: (task: TaskConfig) => boolean
 }) {
   const [dragOverCol, setDragOverCol] = useState<TaskStatus | null>(null)
   const dragTaskId = useRef<string | null>(null)
@@ -161,6 +174,8 @@ function KanbanBoard({ allTasks, onEdit, onDelete, onStart, onDrop }: {
                       onEdit={() => onEdit(task)}
                       onDelete={() => onDelete(task.id)}
                       onStart={() => onStart(task)}
+                      onOpenSession={onOpenSession(task)}
+                      sessionIsLive={isSessionLive(task)}
                       compact
                     />
                   </div>
@@ -174,11 +189,13 @@ function KanbanBoard({ allTasks, onEdit, onDelete, onStart, onDrop }: {
   )
 }
 
-function ListView({ sections, onEdit, onDelete, onStart }: {
+function ListView({ sections, onEdit, onDelete, onStart, onOpenSession, isSessionLive }: {
   sections: { title: string; tasks: TaskConfig[]; emptyText: string }[]
   onEdit: (task: TaskConfig) => void
   onDelete: (id: string) => void
   onStart: (task: TaskConfig) => void
+  onOpenSession: (task: TaskConfig) => (() => void) | undefined
+  isSessionLive: (task: TaskConfig) => boolean
 }) {
   return (
     <div className="space-y-5">
@@ -203,6 +220,8 @@ function ListView({ sections, onEdit, onDelete, onStart }: {
                   onEdit={() => onEdit(task)}
                   onDelete={() => onDelete(task.id)}
                   onStart={() => onStart(task)}
+                  onOpenSession={onOpenSession(task)}
+                  sessionIsLive={isSessionLive(task)}
                 />
               ))}
             </div>
@@ -225,6 +244,8 @@ export function TaskQueuePanel() {
   const startTask = useAppStore((s) => s.startTask)
   const updateTask = useAppStore((s) => s.updateTask)
   const setConfig = useAppStore((s) => s.setConfig)
+  const terminals = useAppStore((s) => s.terminals)
+  const setFocusedTerminal = useAppStore((s) => s.setFocusedTerminal)
 
   const defaultView = config?.defaults.taskViewMode || 'list'
   const [viewMode, setViewMode] = useState<TaskViewMode>(defaultView)
@@ -258,6 +279,37 @@ export function TaskQueuePanel() {
     setTaskDialogOpen(true)
   }
 
+  const getOpenSessionHandler = (task: TaskConfig) => {
+    // Session still open — focus it
+    if (task.assignedSessionId && terminals.has(task.assignedSessionId)) {
+      return () => {
+        setFocusedTerminal(task.assignedSessionId!)
+        setOpen(false)
+      }
+    }
+    // Session closed but agent session ID available — resume
+    if (task.agentSessionId && task.assignedAgent && (task.status === 'in_progress' || task.status === 'done')) {
+      return async () => {
+        const agentType = task.assignedAgent!
+        const session = await window.api.createTerminal({
+          agentType,
+          projectName: task.projectName,
+          projectPath: project?.path || '',
+          branch: task.branch,
+          useWorktree: task.useWorktree,
+          resumeSessionId: task.agentSessionId
+        })
+        addTerminal(session)
+        if (task.status === 'in_progress') {
+          startTask(task.id, session.id, agentType)
+        }
+        setFocusedTerminal(session.id)
+        setOpen(false)
+      }
+    }
+    return undefined
+  }
+
   const handleKanbanDrop = (taskId: string, newStatus: TaskStatus) => {
     const task = allTasks.find((t) => t.id === taskId)
     if (!task || task.status === newStatus) return
@@ -276,6 +328,9 @@ export function TaskQueuePanel() {
     { title: 'In Progress', tasks: inProgressTasks, emptyText: 'No active tasks' },
     { title: 'Done', tasks: doneTasks, emptyText: 'No completed tasks' }
   ]
+
+  const isSessionLive = (task: TaskConfig) =>
+    !!(task.assignedSessionId && terminals.has(task.assignedSessionId))
 
   const panelWidth = viewMode === 'kanban' ? 'w-[780px]' : 'w-[420px]'
 
@@ -353,6 +408,8 @@ export function TaskQueuePanel() {
               onDelete={(id) => removeTask(id)}
               onStart={handleStartTask}
               onDrop={handleKanbanDrop}
+              onOpenSession={getOpenSessionHandler}
+              isSessionLive={isSessionLive}
             />
           ) : (
             <ListView
@@ -360,6 +417,8 @@ export function TaskQueuePanel() {
               onEdit={handleEdit}
               onDelete={(id) => removeTask(id)}
               onStart={handleStartTask}
+              onOpenSession={getOpenSessionHandler}
+              isSessionLive={isSessionLive}
             />
           )}
         </div>
