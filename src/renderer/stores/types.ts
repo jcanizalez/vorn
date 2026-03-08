@@ -103,6 +103,7 @@ export interface UISlice {
   addShellTab: (tab: { id: string; title: string }) => void
   removeShellTab: (id: string) => void
   setActiveShellTab: (id: string | null) => void
+  renameShellTab: (id: string, title: string) => void
   updateVersion: string | null
   setUpdateVersion: (version: string | null) => void
 }

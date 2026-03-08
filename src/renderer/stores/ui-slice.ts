@@ -164,6 +164,13 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set) => (
   setActiveShellTab: (id) =>
     set({ activeShellTab: id }),
 
+  renameShellTab: (id, title) =>
+    set((state) => ({
+      shellTabs: state.shellTabs.map((t) =>
+        t.id === id ? { ...t, title } : t
+      )
+    })),
+
   updateVersion: null,
   setUpdateVersion: (version) => set({ updateVersion: version })
 })

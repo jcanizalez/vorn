@@ -65,8 +65,8 @@ function createWindow(): void {
     })
   }
 
-  // Watch config for external changes
-  configManager.watchConfig((updatedConfig) => {
+  // Register config-change callback for main-process mutations (scheduler, hooks, etc.)
+  configManager.onConfigChanged((updatedConfig) => {
     if (updatedConfig.agentCommands) {
       ptyManager.setAgentCommands(updatedConfig.agentCommands)
     }
@@ -193,6 +193,7 @@ function toggleWidget(): void {
 }
 
 app.whenReady().then(() => {
+  configManager.init()
   registerIpcHandlers()
   createMenu(toggleWidget)
   createWindow()
@@ -355,12 +356,8 @@ app.whenReady().then(() => {
       ptyManager.updateSessionStatus(terminalId, 'waiting')
       sendWidgetUpdate()
 
-      // Show widget and focus it so user sees the permission request immediately
+      // Show widget without stealing focus from the main window
       showWidget()
-      if (widgetWindow && !widgetWindow.isDestroyed()) {
-        widgetWindow.show()
-        widgetWindow.focus()
-      }
 
       // Register global shortcuts for quick approval
       updatePermissionShortcuts()
@@ -416,7 +413,7 @@ app.on('before-quit', () => {
   updateManager.stop()
   scheduler.stopAll()
   ptyManager.killAll()
-  configManager.stopWatching()
+  configManager.close()
 })
 
 app.on('window-all-closed', () => {

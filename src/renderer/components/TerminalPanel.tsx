@@ -1,6 +1,7 @@
-import { useRef, useCallback, useEffect } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import { useAppStore } from '../stores'
 import { attachTerminal, detachTerminal, fitTerminal, focusTerminal, destroyTerminal } from '../lib/terminal-registry'
+import { InlineRename } from './InlineRename'
 
 const MIN_HEIGHT = 120
 const MAX_HEIGHT_RATIO = 0.7
@@ -45,10 +46,12 @@ export function TerminalPanel() {
   const addTab = useAppStore((s) => s.addShellTab)
   const removeTab = useAppStore((s) => s.removeShellTab)
   const setActive = useAppStore((s) => s.setActiveShellTab)
+  const renameTab = useAppStore((s) => s.renameShellTab)
   const togglePanel = useAppStore((s) => s.toggleTerminalPanel)
   const activeProject = useAppStore((s) => s.activeProject)
   const config = useAppStore((s) => s.config)
 
+  const [renamingTabId, setRenamingTabId] = useState<string | null>(null)
   const dragRef = useRef<{ startY: number; startH: number } | null>(null)
 
   const createNewTab = useCallback(async () => {
@@ -116,13 +119,26 @@ export function TerminalPanel() {
                 ? 'bg-white/[0.1] text-gray-200'
                 : 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.05]'}`}
             onClick={() => setActive(tab.id)}
+            onDoubleClick={() => setRenamingTabId(tab.id)}
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                  strokeWidth="2" className="shrink-0 opacity-50">
               <polyline points="4 17 10 11 4 5" />
               <line x1="12" y1="19" x2="20" y2="19" />
             </svg>
-            <span>{tab.title}</span>
+            {renamingTabId === tab.id ? (
+              <InlineRename
+                value={tab.title}
+                onCommit={(name) => {
+                  renameTab(tab.id, name)
+                  setRenamingTabId(null)
+                }}
+                onCancel={() => setRenamingTabId(null)}
+                className="text-[11px] w-[80px]"
+              />
+            ) : (
+              <span>{tab.title}</span>
+            )}
             <button
               className="ml-1 opacity-0 group-hover:opacity-100 hover:text-red-400 transition-opacity"
               style={{ opacity: activeTab === tab.id ? 0.5 : 0 }}

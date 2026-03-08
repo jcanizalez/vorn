@@ -21,21 +21,25 @@ export function TerminalInstance({ terminalId, isFocused }: Props) {
     attachTerminal(terminalId, el)
 
     // Fit after a frame so the container has dimensions
-    requestAnimationFrame(() => {
-      fitTerminal(terminalId)
-      if (isFocused) focusTerminal(terminalId)
-    })
+    requestAnimationFrame(() => fitTerminal(terminalId))
 
     return () => {
       if (el) detachTerminal(terminalId, el)
     }
-  }, [terminalId, isFocused])
+  }, [terminalId])
 
-  // Re-fit when isFocused changes
+  // Re-fit and focus when isFocused changes
   useEffect(() => {
     const timer = setTimeout(() => {
       fitTerminal(terminalId)
-      if (isFocused) focusTerminal(terminalId)
+      if (isFocused) {
+        // Don't steal focus from another xterm or input element
+        const active = document.activeElement
+        const isUserTyping = active?.closest('.xterm') ||
+                             active?.tagName === 'INPUT' ||
+                             active?.tagName === 'TEXTAREA'
+        if (!isUserTyping) focusTerminal(terminalId)
+      }
     }, 50)
     return () => clearTimeout(timer)
   }, [isFocused, terminalId])

@@ -1,107 +1,64 @@
-import fs from 'node:fs'
-import path from 'node:path'
-import os from 'node:os'
-import yaml from 'js-yaml'
 import { AppConfig } from '../shared/types'
 import { DEFAULT_AGENT_COMMANDS } from '../shared/agent-defaults'
+import {
+  initDatabase,
+  closeDatabase,
+  loadConfig as dbLoadConfig,
+  saveConfig as dbSaveConfig
+} from './database'
 
-const CONFIG_DIR = path.join(os.homedir(), '.vibegrid')
-const CONFIG_PATH = path.join(CONFIG_DIR, 'config.yaml')
-
-const DEFAULT_CONFIG: AppConfig = {
-  version: 1,
-  defaults: {
-    shell: process.platform === 'win32' ? (process.env.COMSPEC || 'powershell.exe') : (process.env.SHELL || '/bin/zsh'),
-    fontSize: 13,
-    theme: 'dark'
-  },
-  projects: [],
-  agentCommands: { ...DEFAULT_AGENT_COMMANDS },
-  shortcuts: [],
-  tasks: []
-}
+type ConfigChangeCallback = (config: AppConfig) => void
 
 class ConfigManager {
-  private watcher: fs.FSWatcher | null = null
+  private changeCallbacks: ConfigChangeCallback[] = []
 
-  ensureConfigDir(): void {
-    if (!fs.existsSync(CONFIG_DIR)) {
-      fs.mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 })
-    }
+  init(): void {
+    initDatabase()
+  }
+
+  close(): void {
+    closeDatabase()
   }
 
   loadConfig(): AppConfig {
-    this.ensureConfigDir()
-
-    if (!fs.existsSync(CONFIG_PATH)) {
-      this.saveConfig(DEFAULT_CONFIG)
-      return DEFAULT_CONFIG
-    }
-
     try {
-      const raw = fs.readFileSync(CONFIG_PATH, 'utf-8')
-      const parsed = yaml.load(raw) as AppConfig
-      return this.migrateConfig(parsed || DEFAULT_CONFIG)
+      return dbLoadConfig()
     } catch {
-      return DEFAULT_CONFIG
-    }
-  }
-
-  private migrateConfig(config: AppConfig): AppConfig {
-    // Migrate shortcuts to include schedule and enabled fields
-    if (config.shortcuts) {
-      for (const shortcut of config.shortcuts) {
-        if (!shortcut.schedule) {
-          shortcut.schedule = { type: 'manual' }
-        }
-        if (shortcut.enabled === undefined) {
-          shortcut.enabled = true
-        }
+      return {
+        version: 1,
+        defaults: {
+          shell: process.platform === 'win32' ? (process.env.COMSPEC || 'powershell.exe') : (process.env.SHELL || '/bin/zsh'),
+          fontSize: 13,
+          theme: 'dark'
+        },
+        projects: [],
+        agentCommands: { ...DEFAULT_AGENT_COMMANDS },
+        shortcuts: [],
+        tasks: []
       }
     }
-    // Ensure tasks array exists
-    if (!config.tasks) {
-      config.tasks = []
-    }
-    return config
   }
 
   saveConfig(config: AppConfig): void {
-    this.ensureConfigDir()
-    const raw = yaml.dump(config, { indent: 2, lineWidth: 120 })
-    fs.writeFileSync(CONFIG_PATH, raw, { encoding: 'utf-8', mode: 0o600 })
+    dbSaveConfig(config)
   }
 
-  watchConfig(callback: (config: AppConfig) => void): void {
-    this.ensureConfigDir()
+  /** Register a callback for when config changes from within the main process */
+  onConfigChanged(callback: ConfigChangeCallback): void {
+    this.changeCallbacks.push(callback)
+  }
 
-    // Ensure config file exists before watching
-    if (!fs.existsSync(CONFIG_PATH)) {
-      this.saveConfig(DEFAULT_CONFIG)
-    }
-
-    if (this.watcher) {
-      this.watcher.close()
-    }
-
-    try {
-      this.watcher = fs.watch(CONFIG_PATH, () => {
-        try {
-          const config = this.loadConfig()
-          callback(config)
-        } catch {
-          // ignore parse errors on partial writes
-        }
-      })
-    } catch {
-      // watch may fail on some filesystems — non-critical
+  /** Notify all registered callbacks (call after main-process config mutations) */
+  notifyChanged(): void {
+    const config = this.loadConfig()
+    for (const cb of this.changeCallbacks) {
+      cb(config)
     }
   }
 
-  stopWatching(): void {
-    this.watcher?.close()
-    this.watcher = null
-  }
+  // No-ops — retained for API compatibility during transition
+  watchConfig(_callback: ConfigChangeCallback): void { /* no-op with SQLite */ }
+  stopWatching(): void { /* no-op with SQLite */ }
 }
 
 export const configManager = new ConfigManager()

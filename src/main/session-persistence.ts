@@ -1,23 +1,14 @@
-import fs from 'node:fs'
-import path from 'node:path'
-import os from 'node:os'
 import { TerminalSession } from '../shared/types'
-
-const SESSIONS_PATH = path.join(os.homedir(), '.vibegrid', 'sessions.json')
-
-interface SessionsFile {
-  savedAt: number
-  sessions: TerminalSession[]
-}
+import {
+  saveSessions as dbSaveSessions,
+  getPreviousSessions as dbGetPreviousSessions,
+  clearSessions as dbClearSessions
+} from './database'
 
 class SessionManager {
   saveSessions(sessions: TerminalSession[]): void {
-    const data: SessionsFile = {
-      savedAt: Date.now(),
-      sessions
-    }
     try {
-      fs.writeFileSync(SESSIONS_PATH, JSON.stringify(data, null, 2), 'utf-8')
+      dbSaveSessions(sessions)
     } catch {
       // ignore write errors
     }
@@ -25,10 +16,7 @@ class SessionManager {
 
   getPreviousSessions(): TerminalSession[] {
     try {
-      if (!fs.existsSync(SESSIONS_PATH)) return []
-      const raw = fs.readFileSync(SESSIONS_PATH, 'utf-8')
-      const data: SessionsFile = JSON.parse(raw)
-      return data.sessions || []
+      return dbGetPreviousSessions()
     } catch {
       return []
     }
@@ -36,9 +24,7 @@ class SessionManager {
 
   clear(): void {
     try {
-      if (fs.existsSync(SESSIONS_PATH)) {
-        fs.unlinkSync(SESSIONS_PATH)
-      }
+      dbClearSessions()
     } catch {
       // ignore
     }

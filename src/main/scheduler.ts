@@ -3,6 +3,7 @@ import { BrowserWindow } from 'electron'
 import { WorkflowConfig, IPC } from '../shared/types'
 import { configManager } from './config-manager'
 import { scheduleLogManager } from './schedule-log'
+import { updateWorkflowRunStatus } from './database'
 
 export interface MissedSchedule {
   workflow: WorkflowConfig
@@ -70,22 +71,21 @@ class Scheduler {
     // Tell the renderer to execute the workflow actions
     this.mainWindow?.webContents.send(IPC.SCHEDULER_EXECUTE, { workflowId })
 
-    // Log execution and update config
+    // Log execution and update workflow run status
     const config = configManager.loadConfig()
     const wf = config.shortcuts?.find((s) => s.id === workflowId)
     if (wf) {
+      const now = new Date().toISOString()
       scheduleLogManager.addEntry({
         workflowId,
         workflowName: wf.name,
-        executedAt: new Date().toISOString(),
+        executedAt: now,
         status: 'success',
         sessionsLaunched: wf.actions.length
       })
 
-      // Update lastRunAt in config
-      wf.lastRunAt = new Date().toISOString()
-      wf.lastRunStatus = 'success'
-      configManager.saveConfig(config)
+      updateWorkflowRunStatus(workflowId, now, 'success')
+      configManager.notifyChanged()
     }
 
     // Clean up one-time schedules
