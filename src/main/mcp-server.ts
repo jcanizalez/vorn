@@ -39,7 +39,7 @@ export class VibeGridMcpServer {
   /** Create a fresh McpServer with all tools registered (needed per-request for stateless HTTP) */
   private createMcpServer(): McpServer {
     const server = new McpServer(
-      { name: 'vibegrid', version: '0.3.0' },
+      { name: 'vibegrid', version: '0.3.1' },
       { capabilities: { tools: {} } }
     )
     const { configManager, ptyManager, scheduler } = this.deps
