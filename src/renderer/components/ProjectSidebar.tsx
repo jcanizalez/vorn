@@ -1,7 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useAppStore } from '../stores'
-import { ShortcutConfig, ProjectConfig, AgentStatus, AgentType, TaskConfig } from '../../shared/types'
+import { WorkflowDefinition, ProjectConfig, AgentStatus, AgentType, TaskConfig } from '../../shared/types'
 import { getDisplayName } from '../lib/terminal-display'
+import { getTriggerConfig, getActionCount, isScheduledWorkflow, getTriggerLabel } from '../lib/workflow-helpers'
+import { executeWorkflow } from '../lib/workflow-execution'
 import { KbdHint } from './KbdHint'
 import { Tooltip } from './Tooltip'
 import { toast } from './Toast'
@@ -227,18 +229,20 @@ export function ProjectSidebar() {
   const toggleSidebar = useAppStore((s) => s.toggleSidebar)
   const removeProject = useAppStore((s) => s.removeProject)
   const addTerminal = useAppStore((s) => s.addTerminal)
-  const removeShortcut = useAppStore((s) => s.removeShortcut)
+  const removeWorkflow = useAppStore((s) => s.removeWorkflow)
   const terminals = useAppStore((s) => s.terminals)
   const setAddProjectDialogOpen = useAppStore((s) => s.setAddProjectDialogOpen)
-  const setShortcutDialogOpen = useAppStore((s) => s.setShortcutDialogOpen)
+  const setWorkflowEditorOpen = useAppStore((s) => s.setWorkflowEditorOpen)
+  const setEditingWorkflowId = useAppStore((s) => s.setEditingWorkflowId)
   const setSettingsOpen = useAppStore((s) => s.setSettingsOpen)
   const setEditingProject = useAppStore((s) => s.setEditingProject)
 
-  const setEditingShortcut = useAppStore((s) => s.setEditingShortcut)
   const setFocusedTerminal = useAppStore((s) => s.setFocusedTerminal)
+  const setMainViewMode = useAppStore((s) => s.setMainViewMode)
+  const setSelectedTaskId = useAppStore((s) => s.setSelectedTaskId)
   const setTaskPanelOpen = useAppStore((s) => s.setTaskPanelOpen)
-  const setTaskDialogOpen = useAppStore((s) => s.setTaskDialogOpen)
-  const setEditingTask = useAppStore((s) => s.setEditingTask)
+  const setTaskDialogOpen = useAppStore((s) => s.setTaskDialogOpen) // keep for now; TODO cleanup
+  const setEditingTask = useAppStore((s) => s.setEditingTask) // keep for now; TODO cleanup
   const archivedSessions = useAppStore((s) => s.archivedSessions)
   const showArchivedSessions = useAppStore((s) => s.showArchivedSessions)
   const setShowArchivedSessions = useAppStore((s) => s.setShowArchivedSessions)
@@ -508,8 +512,8 @@ export function ProjectSidebar() {
                         onClick={(e) => {
                           e.stopPropagation()
                           setActiveProject(project.name)
-                          setEditingTask(null)
-                          setTaskDialogOpen(true)
+                          setMainViewMode('tasks')
+                          setSelectedTaskId('new')
                         }}
                         className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-blue-400
                                    p-1 rounded-md hover:bg-white/[0.06] transition-all"
@@ -679,7 +683,7 @@ export function ProjectSidebar() {
                               <button
                                 onClick={() => {
                                   setActiveProject(project.name)
-                                  setTaskPanelOpen(true)
+                                  setMainViewMode('tasks')
                                 }}
                                 className="text-gray-600 hover:text-gray-300 p-0.5 transition-colors"
                               >
@@ -690,8 +694,8 @@ export function ProjectSidebar() {
                               <button
                                 onClick={() => {
                                   setActiveProject(project.name)
-                                  setEditingTask(null)
-                                  setTaskDialogOpen(true)
+                                  setMainViewMode('tasks')
+                                  setSelectedTaskId('new')
                                 }}
                                 className="text-gray-600 hover:text-gray-300 p-0.5 transition-colors"
                               >
@@ -713,8 +717,9 @@ export function ProjectSidebar() {
                                   <div key={task.id} className="group/task flex items-center">
                                     <button
                                       onClick={() => {
-                                        setEditingTask(task)
-                                        setTaskDialogOpen(true)
+                                        setActiveProject(project.name)
+                                        setMainViewMode('tasks')
+                                        setSelectedTaskId(task.id)
                                       }}
                                       className="flex-1 text-left px-2 py-1 rounded-md text-[12px] text-blue-400/80
                                                  hover:text-blue-300 hover:bg-white/[0.04] transition-colors
@@ -769,8 +774,9 @@ export function ProjectSidebar() {
                                   <div key={task.id} className="group/task flex items-center">
                                     <button
                                       onClick={() => {
-                                        setEditingTask(task)
-                                        setTaskDialogOpen(true)
+                                        setActiveProject(project.name)
+                                        setMainViewMode('tasks')
+                                        setSelectedTaskId(task.id)
                                       }}
                                       className="flex-1 text-left px-2 py-1 rounded-md text-[12px] text-purple-400/80
                                                  hover:text-purple-300 hover:bg-white/[0.04] transition-colors
@@ -785,8 +791,9 @@ export function ProjectSidebar() {
                                   <div key={task.id} className="group/task flex items-center">
                                     <button
                                       onClick={() => {
-                                        setEditingTask(task)
-                                        setTaskDialogOpen(true)
+                                        setActiveProject(project.name)
+                                        setMainViewMode('tasks')
+                                        setSelectedTaskId(task.id)
                                       }}
                                       className="flex-1 text-left px-2 py-1 rounded-md text-[12px] text-gray-500
                                                  hover:text-gray-300 hover:bg-white/[0.04] transition-colors
@@ -823,7 +830,7 @@ export function ProjectSidebar() {
                                   <button
                                     onClick={() => {
                                       setActiveProject(project.name)
-                                      setTaskPanelOpen(true)
+                                      setMainViewMode('tasks')
                                     }}
                                     className="px-2 py-0.5 text-[10px] text-gray-600 hover:text-gray-400 transition-colors"
                                   >
@@ -878,85 +885,40 @@ export function ProjectSidebar() {
         )}
         {isCollapsed && <div className="pt-4" />}
 
-        {!isCollapsed && !workflowsSectionCollapsed && (!config?.shortcuts || config.shortcuts.length === 0) && (
+        {!isCollapsed && !workflowsSectionCollapsed && (!config?.workflows || config.workflows.length === 0) && (
           <p className="text-[13px] text-gray-600 px-2.5 py-1">No workflows</p>
         )}
         {(() => {
-          const allShortcuts = config?.shortcuts || []
-          const manualWorkflows = allShortcuts.filter((s) => s.schedule?.type === 'manual')
-          const scheduledWorkflows = allShortcuts.filter((s) => s.schedule?.type !== 'manual')
+          const allWorkflows = config?.workflows || []
+          const manualWorkflows = allWorkflows.filter((w) => !isScheduledWorkflow(w))
+          const scheduledWorkflows = allWorkflows.filter((w) => isScheduledWorkflow(w))
 
-          const renderWorkflow = (shortcut: ShortcutConfig) => {
-            const ShortcutIcon = ICON_MAP[shortcut.icon] || Zap
-            const isScheduled = shortcut.schedule?.type !== 'manual'
-            const isDisabled = isScheduled && !shortcut.enabled
-            const scheduleLabel = shortcut.schedule?.type === 'once'
-              ? 'once'
-              : shortcut.schedule?.type === 'recurring'
-                ? 'recurring'
-                : undefined
+          const renderWorkflow = (wf: WorkflowDefinition) => {
+            const WfIcon = ICON_MAP[wf.icon] || Zap
+            const isScheduled = isScheduledWorkflow(wf)
+            const isDisabled = isScheduled && !wf.enabled
+            const scheduleLabel = getTriggerLabel(wf)
+            const actionCount = getActionCount(wf)
             return (
-              <div key={shortcut.id} className={`group relative flex items-center ${isDisabled ? 'opacity-40' : ''}`}>
+              <div key={wf.id} className={`group relative flex items-center ${isDisabled ? 'opacity-40' : ''}`}>
                 <button
-                  onClick={async () => {
-                    for (const action of shortcut.actions) {
-                      let initialPrompt = action.prompt
-                      let resolvedTaskId: string | undefined
-                      let branch = action.branch
-                      let useWorktree = action.useWorktree
-                      const currentState = useAppStore.getState()
-
-                      if (action.taskId) {
-                        const task = (currentState.config?.tasks || []).find((t) => t.id === action.taskId && t.status === 'todo')
-                        if (task) {
-                          initialPrompt = task.description
-                          resolvedTaskId = task.id
-                          branch = task.branch || branch
-                          useWorktree = task.useWorktree || useWorktree
-                        }
-                      } else if (action.taskFromQueue) {
-                        const task = currentState.getNextTask(action.projectName)
-                        if (task) {
-                          initialPrompt = task.description
-                          resolvedTaskId = task.id
-                          branch = task.branch || branch
-                          useWorktree = task.useWorktree || useWorktree
-                        }
-                      }
-
-                      const session = await window.api.createTerminal({
-                        agentType: action.agentType,
-                        projectName: action.projectName,
-                        projectPath: action.projectPath,
-                        displayName: action.displayName,
-                        branch,
-                        useWorktree,
-                        initialPrompt,
-                        promptDelayMs: action.promptDelayMs
-                      })
-                      addTerminal(session)
-
-                      if (resolvedTaskId) {
-                        useAppStore.getState().startTask(resolvedTaskId, session.id, action.agentType)
-                      }
-                    }
-                  }}
+                  onClick={() => executeWorkflow(wf)}
                   className={`flex-1 text-left px-2.5 py-1.5 rounded-md text-[13px] transition-colors
                              flex items-center gap-2 text-gray-300 hover:text-white hover:bg-white/[0.04]
                              ${isCollapsed ? 'justify-center px-0' : ''}`}
-                  title={isCollapsed ? shortcut.name : undefined}
+                  title={isCollapsed ? wf.name : undefined}
                 >
                   <span className="relative shrink-0">
-                    <ShortcutIcon size={iconSize} color={shortcut.iconColor || '#6b7280'} strokeWidth={1.5} />
+                    <WfIcon size={iconSize} color={wf.iconColor || '#6b7280'} strokeWidth={1.5} />
                     {isScheduled && !isCollapsed && (
                       <Clock size={7} className="absolute -top-1 -right-1.5 text-blue-400" strokeWidth={2.5} />
                     )}
                   </span>
                   {!isCollapsed && (
                     <>
-                      <span className="truncate">{shortcut.name}</span>
+                      <span className="truncate">{wf.name}</span>
                       <span className="text-gray-600 text-[10px] ml-auto shrink-0">
-                        {scheduleLabel || shortcut.actions.length}
+                        {scheduleLabel || actionCount}
                       </span>
                     </>
                   )}
@@ -964,24 +926,24 @@ export function ProjectSidebar() {
                 {!isCollapsed && (
                   <div className="relative">
                     <button
-                      onClick={() => setOpenMenuShortcut(openMenuShortcut === shortcut.id ? null : shortcut.id)}
+                      onClick={() => setOpenMenuShortcut(openMenuShortcut === wf.id ? null : wf.id)}
                       className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-white
                                  p-1 transition-all shrink-0"
                     >
                       <MoreHorizontal size={12} strokeWidth={2} />
                     </button>
-                    {openMenuShortcut === shortcut.id && (
+                    {openMenuShortcut === wf.id && (
                       <ShortcutContextMenu
                         onEdit={() => {
-                          setEditingShortcut(shortcut)
-                          setShortcutDialogOpen(true)
+                          setEditingWorkflowId(wf.id)
+                          setWorkflowEditorOpen(true)
                         }}
-                        onDelete={() => removeShortcut(shortcut.id)}
+                        onDelete={() => removeWorkflow(wf.id)}
                         isScheduled={isScheduled}
-                        isEnabled={shortcut.enabled}
+                        isEnabled={wf.enabled}
                         onToggleEnabled={() => {
-                          const updated = { ...shortcut, enabled: !shortcut.enabled }
-                          useAppStore.getState().updateShortcut(shortcut.id, updated)
+                          const updated = { ...wf, enabled: !wf.enabled }
+                          useAppStore.getState().updateWorkflow(wf.id, updated)
                         }}
                         onClose={() => setOpenMenuShortcut(null)}
                       />
@@ -995,7 +957,7 @@ export function ProjectSidebar() {
           return (
             <>
               {/* Manual workflows sub-group */}
-              {!isCollapsed && !workflowsSectionCollapsed && allShortcuts.length > 0 && (
+              {!isCollapsed && !workflowsSectionCollapsed && allWorkflows.length > 0 && (
                 <WorkflowSubGroup
                   label="Manual"
                   icon={<Zap size={11} strokeWidth={2} className="text-gray-600" />}
@@ -1007,7 +969,7 @@ export function ProjectSidebar() {
               )}
 
               {/* Scheduled workflows sub-group */}
-              {!isCollapsed && !workflowsSectionCollapsed && allShortcuts.length > 0 && (
+              {!isCollapsed && !workflowsSectionCollapsed && allWorkflows.length > 0 && (
                 <WorkflowSubGroup
                   label="Scheduled"
                   icon={<Calendar size={11} strokeWidth={2} className="text-gray-600" />}
@@ -1019,13 +981,13 @@ export function ProjectSidebar() {
               )}
 
               {/* Collapsed mode — render all */}
-              {isCollapsed && allShortcuts.map(renderWorkflow)}
+              {isCollapsed && allWorkflows.map(renderWorkflow)}
             </>
           )
         })()}
 
         <button
-          onClick={() => setShortcutDialogOpen(true)}
+          onClick={() => setWorkflowEditorOpen(true)}
           className={`w-full px-2.5 py-1.5 text-[13px] text-gray-500 hover:text-white
                      hover:bg-white/[0.04] rounded-md transition-colors text-left flex items-center gap-2 mt-1
                      ${isCollapsed ? 'justify-center px-0' : ''}`}

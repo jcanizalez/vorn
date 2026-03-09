@@ -5,7 +5,7 @@ import fs from 'node:fs'
 import {
   AppConfig,
   ProjectConfig,
-  WorkflowConfig,
+  WorkflowDefinition,
   AgentCommandConfig,
   RemoteHost,
   TaskConfig,
@@ -47,6 +47,13 @@ export function closeDatabase(): void {
 
 function createSchema(): void {
   const d = getDb()
+
+  // Migrate: drop old-format workflows table (had actions/schedule columns)
+  const cols = d.prepare("PRAGMA table_info(workflows)").all() as Array<{ name: string }>
+  if (cols.some((c) => c.name === 'actions')) {
+    d.exec('DROP TABLE workflows')
+  }
+
   d.exec(`
     CREATE TABLE IF NOT EXISTS schema_meta (
       key TEXT PRIMARY KEY,
@@ -72,8 +79,8 @@ function createSchema(): void {
       name TEXT NOT NULL,
       icon TEXT NOT NULL,
       icon_color TEXT NOT NULL,
-      actions TEXT NOT NULL DEFAULT '[]',
-      schedule TEXT NOT NULL DEFAULT '{"type":"manual"}',
+      nodes TEXT NOT NULL DEFAULT '[]',
+      edges TEXT NOT NULL DEFAULT '[]',
       enabled INTEGER NOT NULL DEFAULT 1,
       last_run_at TEXT,
       last_run_status TEXT,
@@ -170,7 +177,7 @@ export function loadConfig(): AppConfig {
   const defaults = loadDefaults(d)
   const projects = loadProjects(d)
   const agentCommands = loadAgentCommands(d)
-  const shortcuts = loadWorkflows(d)
+  const workflows = loadWorkflows(d)
   const remoteHosts = loadRemoteHosts(d)
   const tasks = loadTasks(d)
 
@@ -179,7 +186,7 @@ export function loadConfig(): AppConfig {
     defaults,
     projects,
     agentCommands: Object.keys(agentCommands).length > 0 ? agentCommands : { ...DEFAULT_AGENT_COMMANDS },
-    shortcuts,
+    workflows,
     remoteHosts,
     tasks
   }
@@ -221,10 +228,10 @@ function loadProjects(d: Database.Database): ProjectConfig[] {
   }))
 }
 
-function loadWorkflows(d: Database.Database): WorkflowConfig[] {
+function loadWorkflows(d: Database.Database): WorkflowDefinition[] {
   const rows = d.prepare('SELECT * FROM workflows').all() as Array<{
     id: string; name: string; icon: string; icon_color: string
-    actions: string; schedule: string; enabled: number
+    nodes: string; edges: string; enabled: number
     last_run_at: string | null; last_run_status: string | null
     stagger_delay_ms: number | null
   }>
@@ -233,8 +240,8 @@ function loadWorkflows(d: Database.Database): WorkflowConfig[] {
     name: r.name,
     icon: r.icon,
     iconColor: r.icon_color,
-    actions: JSON.parse(r.actions),
-    schedule: JSON.parse(r.schedule),
+    nodes: JSON.parse(r.nodes),
+    edges: JSON.parse(r.edges),
     enabled: r.enabled === 1,
     ...(r.last_run_at != null && { lastRunAt: r.last_run_at }),
     ...(r.last_run_status != null && { lastRunStatus: r.last_run_status as 'success' | 'error' }),
@@ -331,16 +338,16 @@ export function saveConfig(config: AppConfig): void {
       )
     }
 
-    // Workflows (shortcuts)
+    // Workflows
     d.prepare('DELETE FROM workflows').run()
     const insertWorkflow = d.prepare(
-      `INSERT INTO workflows (id, name, icon, icon_color, actions, schedule, enabled, last_run_at, last_run_status, stagger_delay_ms)
+      `INSERT INTO workflows (id, name, icon, icon_color, nodes, edges, enabled, last_run_at, last_run_status, stagger_delay_ms)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
-    for (const w of config.shortcuts ?? []) {
+    for (const w of config.workflows ?? []) {
       insertWorkflow.run(
         w.id, w.name, w.icon, w.iconColor,
-        JSON.stringify(w.actions), JSON.stringify(w.schedule),
+        JSON.stringify(w.nodes), JSON.stringify(w.edges),
         w.enabled ? 1 : 0,
         w.lastRunAt ?? null, w.lastRunStatus ?? null,
         w.staggerDelayMs ?? null

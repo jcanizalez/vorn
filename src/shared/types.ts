@@ -62,25 +62,12 @@ export function getProjectHostIds(project: ProjectConfig): string[] {
   return project.hostIds?.length ? project.hostIds : ['local']
 }
 
-export interface ShortcutAction {
-  agentType: AgentType
-  projectName: string
-  projectPath: string
-  args?: string[]
-  displayName?: string
-  branch?: string
-  useWorktree?: boolean
-  remoteHostId?: string
-  prompt?: string
-  promptDelayMs?: number
-  taskId?: string          // Reference a specific task (mutually exclusive with prompt)
-  taskFromQueue?: boolean  // Auto-pick next todo task from project queue
-}
-
 // Task queue types
 export type TaskStatus = 'todo' | 'in_progress' | 'in_review' | 'done' | 'cancelled'
 
 export type TaskViewMode = 'list' | 'kanban'
+
+export type MainViewMode = 'sessions' | 'tasks'
 
 export interface TaskConfig {
   id: string
@@ -101,27 +88,94 @@ export interface TaskConfig {
   completedAt?: string
 }
 
-// Schedule types for workflows
-export interface ScheduleManual { type: 'manual' }
-export interface ScheduleOnce { type: 'once'; runAt: string /* ISO 8601 */ }
-export interface ScheduleRecurring { type: 'recurring'; cron: string; timezone?: string }
-export type Schedule = ScheduleManual | ScheduleOnce | ScheduleRecurring
+// --- Workflow engine types (Logic Apps-style) ---
 
-export interface WorkflowConfig {
+export type WorkflowNodeType = 'trigger' | 'launchAgent'
+
+export interface WorkflowNodePosition { x: number; y: number }
+
+// Trigger configs (discriminated union)
+export interface ManualTriggerConfig { triggerType: 'manual' }
+export interface OnceTriggerConfig { triggerType: 'once'; runAt: string }
+export interface RecurringTriggerConfig { triggerType: 'recurring'; cron: string; timezone?: string }
+export interface TaskCreatedTriggerConfig { triggerType: 'taskCreated'; projectFilter?: string }
+export interface TaskStatusChangedTriggerConfig {
+  triggerType: 'taskStatusChanged'
+  projectFilter?: string
+  fromStatus?: TaskStatus
+  toStatus?: TaskStatus
+}
+export type TriggerConfig =
+  | ManualTriggerConfig
+  | OnceTriggerConfig
+  | RecurringTriggerConfig
+  | TaskCreatedTriggerConfig
+  | TaskStatusChangedTriggerConfig
+
+// Launch Agent action config
+export interface LaunchAgentConfig {
+  agentType: AgentType
+  projectName: string
+  projectPath: string
+  args?: string[]
+  displayName?: string
+  branch?: string
+  useWorktree?: boolean
+  remoteHostId?: string
+  prompt?: string
+  promptDelayMs?: number
+  taskId?: string
+  taskFromQueue?: boolean
+}
+
+export type WorkflowNodeConfig = TriggerConfig | LaunchAgentConfig
+
+export interface WorkflowNode {
+  id: string
+  type: WorkflowNodeType
+  label: string
+  config: WorkflowNodeConfig
+  position: WorkflowNodePosition
+}
+
+export interface WorkflowEdge {
+  id: string
+  source: string
+  target: string
+}
+
+// Execution tracking (runtime only)
+export type NodeExecutionStatus = 'pending' | 'running' | 'success' | 'error' | 'skipped'
+
+export interface NodeExecutionState {
+  nodeId: string
+  status: NodeExecutionStatus
+  startedAt?: string
+  completedAt?: string
+  sessionId?: string
+  error?: string
+}
+
+export interface WorkflowDefinition {
   id: string
   name: string
   icon: string
   iconColor: string
-  actions: ShortcutAction[]
-  schedule: Schedule
+  nodes: WorkflowNode[]
+  edges: WorkflowEdge[]
   enabled: boolean
   lastRunAt?: string
   lastRunStatus?: 'success' | 'error'
   staggerDelayMs?: number
 }
 
-// Backwards compatibility — config YAML key remains "shortcuts"
-export type ShortcutConfig = WorkflowConfig
+export interface WorkflowExecution {
+  workflowId: string
+  startedAt: string
+  completedAt?: string
+  status: 'running' | 'success' | 'error'
+  nodeStates: NodeExecutionState[]
+}
 
 export interface NotificationConfig {
   enabled: boolean
@@ -146,10 +200,11 @@ export interface AppConfig {
     widgetEnabled?: boolean
     taskViewMode?: TaskViewMode
     layoutMode?: 'grid' | 'tabs'
+    mainViewMode?: MainViewMode
   }
   projects: ProjectConfig[]
   agentCommands?: Partial<Record<AgentType, AgentCommandConfig>>
-  shortcuts?: ShortcutConfig[]
+  workflows?: WorkflowDefinition[]
   remoteHosts?: RemoteHost[]
   tasks?: TaskConfig[]
 }

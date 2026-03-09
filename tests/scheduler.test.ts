@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import type { WorkflowConfig } from '../src/shared/types'
+import type { WorkflowDefinition, WorkflowNode, TriggerConfig } from '../src/shared/types'
 
 // Mock dependencies before importing
 vi.mock('node-cron', () => ({
@@ -17,33 +17,45 @@ vi.mock('../src/main/schedule-log', () => ({
 
 import { scheduler } from '../src/main/scheduler'
 
-function makeWorkflow(overrides: Partial<WorkflowConfig> = {}): WorkflowConfig {
+function makeTriggerNode(config: TriggerConfig): WorkflowNode {
+  return {
+    id: 'trigger-1',
+    type: 'trigger',
+    label: 'Trigger',
+    config,
+    position: { x: 0, y: 0 }
+  }
+}
+
+function makeWorkflow(overrides: Partial<WorkflowDefinition> & { triggerConfig?: TriggerConfig } = {}): WorkflowDefinition {
+  const { triggerConfig, ...rest } = overrides
+  const trigger = triggerConfig ?? { triggerType: 'manual' as const }
   return {
     id: 'wf-1',
     name: 'Test Workflow',
     icon: 'Rocket',
     iconColor: '#000',
-    actions: [],
-    schedule: { type: 'manual' },
+    nodes: [makeTriggerNode(trigger)],
+    edges: [],
     enabled: true,
-    ...overrides
+    ...rest
   }
 }
 
 describe('checkMissedSchedules', () => {
   it('returns empty for manual schedules', () => {
-    const wf = makeWorkflow({ schedule: { type: 'manual' } })
+    const wf = makeWorkflow({ triggerConfig: { triggerType: 'manual' } })
     expect(scheduler.checkMissedSchedules([wf])).toEqual([])
   })
 
   it('returns empty for recurring schedules', () => {
-    const wf = makeWorkflow({ schedule: { type: 'recurring', cron: '0 9 * * *' } })
+    const wf = makeWorkflow({ triggerConfig: { triggerType: 'recurring', cron: '0 9 * * *' } })
     expect(scheduler.checkMissedSchedules([wf])).toEqual([])
   })
 
   it('returns missed for past once schedule with no lastRunAt', () => {
     const pastDate = new Date(Date.now() - 60000).toISOString()
-    const wf = makeWorkflow({ schedule: { type: 'once', runAt: pastDate } })
+    const wf = makeWorkflow({ triggerConfig: { triggerType: 'once', runAt: pastDate } })
     const result = scheduler.checkMissedSchedules([wf])
     expect(result).toHaveLength(1)
     expect(result[0].workflow.id).toBe('wf-1')
@@ -53,7 +65,7 @@ describe('checkMissedSchedules', () => {
   it('returns empty for past once schedule that already ran', () => {
     const pastDate = new Date(Date.now() - 60000).toISOString()
     const wf = makeWorkflow({
-      schedule: { type: 'once', runAt: pastDate },
+      triggerConfig: { triggerType: 'once', runAt: pastDate },
       lastRunAt: pastDate
     })
     expect(scheduler.checkMissedSchedules([wf])).toEqual([])
@@ -61,14 +73,14 @@ describe('checkMissedSchedules', () => {
 
   it('returns empty for future once schedule', () => {
     const futureDate = new Date(Date.now() + 60000).toISOString()
-    const wf = makeWorkflow({ schedule: { type: 'once', runAt: futureDate } })
+    const wf = makeWorkflow({ triggerConfig: { triggerType: 'once', runAt: futureDate } })
     expect(scheduler.checkMissedSchedules([wf])).toEqual([])
   })
 
   it('skips disabled workflows', () => {
     const pastDate = new Date(Date.now() - 60000).toISOString()
     const wf = makeWorkflow({
-      schedule: { type: 'once', runAt: pastDate },
+      triggerConfig: { triggerType: 'once', runAt: pastDate },
       enabled: false
     })
     expect(scheduler.checkMissedSchedules([wf])).toEqual([])
@@ -81,29 +93,29 @@ describe('getNextRun', () => {
   })
 
   it('returns null for disabled workflow', () => {
-    const wf = makeWorkflow({ enabled: false, schedule: { type: 'recurring', cron: '0 9 * * *' } })
+    const wf = makeWorkflow({ enabled: false, triggerConfig: { triggerType: 'recurring', cron: '0 9 * * *' } })
     expect(scheduler.getNextRun('wf-1', [wf])).toBeNull()
   })
 
   it('returns ISO string for future once schedule', () => {
     const futureDate = new Date(Date.now() + 60000).toISOString()
-    const wf = makeWorkflow({ schedule: { type: 'once', runAt: futureDate } })
+    const wf = makeWorkflow({ triggerConfig: { triggerType: 'once', runAt: futureDate } })
     expect(scheduler.getNextRun('wf-1', [wf])).toBe(futureDate)
   })
 
   it('returns null for past once schedule', () => {
     const pastDate = new Date(Date.now() - 60000).toISOString()
-    const wf = makeWorkflow({ schedule: { type: 'once', runAt: pastDate } })
+    const wf = makeWorkflow({ triggerConfig: { triggerType: 'once', runAt: pastDate } })
     expect(scheduler.getNextRun('wf-1', [wf])).toBeNull()
   })
 
   it('returns cron expression for recurring schedule', () => {
-    const wf = makeWorkflow({ schedule: { type: 'recurring', cron: '0 9 * * *' } })
+    const wf = makeWorkflow({ triggerConfig: { triggerType: 'recurring', cron: '0 9 * * *' } })
     expect(scheduler.getNextRun('wf-1', [wf])).toBe('0 9 * * *')
   })
 
   it('returns null for manual schedule', () => {
-    const wf = makeWorkflow({ schedule: { type: 'manual' } })
+    const wf = makeWorkflow({ triggerConfig: { triggerType: 'manual' } })
     expect(scheduler.getNextRun('wf-1', [wf])).toBeNull()
   })
 })

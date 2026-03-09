@@ -123,7 +123,7 @@ export function registerIpcHandlers(options?: IpcHandlerOptions): void {
 
   ipcMain.handle(IPC.SCHEDULER_GET_NEXT_RUN, (_, workflowId: string) => {
     const config = configManager.loadConfig()
-    return scheduler.getNextRun(workflowId, config.shortcuts ?? [])
+    return scheduler.getNextRun(workflowId, config.workflows ?? [])
   })
 
   // Task images

@@ -1822,6 +1822,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/d3-hierarchy@npm:^3.1.7":
+  version: 3.1.7
+  resolution: "@types/d3-hierarchy@npm:3.1.7"
+  checksum: 10c0/873711737d6b8e7b6f1dda0bcd21294a48f75024909ae510c5d2c21fad2e72032e0958def4d9f68319d3aaac298ad09c49807f8bfc87a145a82693b5208613c7
+  languageName: node
+  linkType: hard
+
 "@types/debug@npm:^4.1.6":
   version: 4.1.12
   resolution: "@types/debug@npm:4.1.12"
@@ -7553,6 +7560,7 @@ __metadata:
     "@tiptap/starter-kit": "npm:^3.20.1"
     "@tiptap/suggestion": "npm:^3.20.1"
     "@types/better-sqlite3": "npm:^7.6.13"
+    "@types/d3-hierarchy": "npm:^3.1.7"
     "@types/node-cron": "npm:^3.0.11"
     "@types/react": "npm:^18.3.0"
     "@types/react-dom": "npm:^18.3.0"

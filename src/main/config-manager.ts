@@ -33,7 +33,7 @@ class ConfigManager {
         },
         projects: [],
         agentCommands: { ...DEFAULT_AGENT_COMMANDS },
-        shortcuts: [],
+        workflows: [],
         tasks: []
       }
     }

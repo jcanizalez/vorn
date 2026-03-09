@@ -3,12 +3,12 @@ import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { configManager as ConfigManagerInstance } from '../config-manager'
 import type { scheduler as SchedulerInstance } from '../scheduler'
-import type { WorkflowConfig, ShortcutAction, Schedule } from '../../shared/types'
+import type { WorkflowDefinition, WorkflowNode, WorkflowEdge, TriggerConfig, LaunchAgentConfig } from '../../shared/types'
 
 type ConfigManager = typeof ConfigManagerInstance
 type Scheduler = typeof SchedulerInstance
 
-const actionSchema = z.object({
+const launchAgentConfigSchema = z.object({
   agentType: z.enum(['claude', 'copilot', 'codex', 'opencode', 'gemini']),
   projectName: z.string(),
   projectPath: z.string(),
@@ -23,11 +23,75 @@ const actionSchema = z.object({
   taskFromQueue: z.boolean().optional()
 })
 
-const scheduleSchema = z.union([
-  z.object({ type: z.literal('manual') }),
-  z.object({ type: z.literal('once'), runAt: z.string() }),
-  z.object({ type: z.literal('recurring'), cron: z.string(), timezone: z.string().optional() })
+const triggerConfigSchema = z.union([
+  z.object({ triggerType: z.literal('manual') }),
+  z.object({ triggerType: z.literal('once'), runAt: z.string() }),
+  z.object({ triggerType: z.literal('recurring'), cron: z.string(), timezone: z.string().optional() }),
+  z.object({ triggerType: z.literal('taskCreated'), projectFilter: z.string().optional() }),
+  z.object({ triggerType: z.literal('taskStatusChanged'), projectFilter: z.string().optional(), fromStatus: z.enum(['todo', 'in_progress', 'in_review', 'done', 'cancelled']).optional(), toStatus: z.enum(['todo', 'in_progress', 'in_review', 'done', 'cancelled']).optional() })
 ])
+
+const nodeSchema = z.object({
+  id: z.string(),
+  type: z.enum(['trigger', 'launchAgent']),
+  label: z.string(),
+  config: z.record(z.unknown()),
+  position: z.object({ x: z.number(), y: z.number() })
+})
+
+const edgeSchema = z.object({
+  id: z.string(),
+  source: z.string(),
+  target: z.string()
+})
+
+/**
+ * Build a workflow graph from a flat action list + trigger config (convenience format).
+ */
+function buildGraphFromFlat(
+  trigger: TriggerConfig,
+  actions: LaunchAgentConfig[]
+): { nodes: WorkflowNode[]; edges: WorkflowEdge[] } {
+  const nodes: WorkflowNode[] = []
+  const edges: WorkflowEdge[] = []
+
+  const triggerNode: WorkflowNode = {
+    id: crypto.randomUUID(),
+    type: 'trigger',
+    label: trigger.triggerType === 'manual' ? 'Manual Trigger'
+      : trigger.triggerType === 'once' ? 'Schedule (Once)'
+      : trigger.triggerType === 'recurring' ? 'Schedule (Recurring)'
+      : trigger.triggerType === 'taskCreated' ? 'When Task Created'
+      : trigger.triggerType === 'taskStatusChanged' ? 'When Task Status Changes'
+      : 'Trigger',
+    config: trigger,
+    position: { x: 0, y: 0 }
+  }
+  nodes.push(triggerNode)
+
+  let prevId = triggerNode.id
+  const NODE_GAP = 140
+
+  for (let i = 0; i < actions.length; i++) {
+    const action = actions[i]
+    const nodeId = crypto.randomUUID()
+    nodes.push({
+      id: nodeId,
+      type: 'launchAgent',
+      label: `Launch ${action.agentType}`,
+      config: action,
+      position: { x: 0, y: (i + 1) * NODE_GAP }
+    })
+    edges.push({
+      id: crypto.randomUUID(),
+      source: prevId,
+      target: nodeId
+    })
+    prevId = nodeId
+  }
+
+  return { nodes, edges }
+}
 
 export function registerWorkflowTools(
   server: McpServer,
@@ -40,40 +104,56 @@ export function registerWorkflowTools(
     'List all workflows',
     async () => {
       const config = configManager.loadConfig()
-      return { content: [{ type: 'text', text: JSON.stringify(config.shortcuts ?? [], null, 2) }] }
+      return { content: [{ type: 'text', text: JSON.stringify(config.workflows ?? [], null, 2) }] }
     }
   )
 
   server.tool(
     'create_workflow',
-    'Create a new workflow (automated agent launch sequence)',
+    'Create a new workflow. Accepts either full nodes/edges or a convenience flat format (trigger + actions array).',
     {
       name: z.string().describe('Workflow name'),
-      actions: z.array(actionSchema).describe('Actions to execute'),
+      trigger: triggerConfigSchema.optional().describe('Trigger config (convenience mode). Defaults to manual.'),
+      actions: z.array(launchAgentConfigSchema).optional().describe('Actions to execute (convenience mode). Auto-generates graph.'),
+      nodes: z.array(nodeSchema).optional().describe('Full graph nodes (advanced mode)'),
+      edges: z.array(edgeSchema).optional().describe('Full graph edges (advanced mode)'),
       icon: z.string().optional().describe('Lucide icon name (default: zap)'),
       icon_color: z.string().optional().describe('Hex color (default: #6366f1)'),
-      schedule: scheduleSchema.optional().describe('Schedule: manual, once, or recurring'),
       enabled: z.boolean().optional().describe('Whether workflow is enabled (default: true)'),
       stagger_delay_ms: z.number().optional().describe('Delay in ms between actions')
     },
     async (args) => {
       const config = configManager.loadConfig()
 
-      const workflow: WorkflowConfig = {
+      let nodes: WorkflowNode[]
+      let edges: WorkflowEdge[]
+
+      if (args.nodes && args.edges) {
+        nodes = args.nodes as unknown as WorkflowNode[]
+        edges = args.edges as unknown as WorkflowEdge[]
+      } else {
+        const trigger = (args.trigger as TriggerConfig) ?? { triggerType: 'manual' as const }
+        const actions = (args.actions as LaunchAgentConfig[]) ?? []
+        const graph = buildGraphFromFlat(trigger, actions)
+        nodes = graph.nodes
+        edges = graph.edges
+      }
+
+      const workflow: WorkflowDefinition = {
         id: crypto.randomUUID(),
         name: args.name,
         icon: args.icon ?? 'zap',
         iconColor: args.icon_color ?? '#6366f1',
-        actions: args.actions as ShortcutAction[],
-        schedule: (args.schedule as Schedule) ?? { type: 'manual' },
+        nodes,
+        edges,
         enabled: args.enabled ?? true,
         ...(args.stagger_delay_ms && { staggerDelayMs: args.stagger_delay_ms })
       }
 
-      if (!config.shortcuts) config.shortcuts = []
-      config.shortcuts.push(workflow)
+      if (!config.workflows) config.workflows = []
+      config.workflows.push(workflow)
       configManager.saveConfig(config)
-      scheduler.syncSchedules(config.shortcuts)
+      scheduler.syncSchedules(config.workflows)
       configManager.notifyChanged()
 
       return { content: [{ type: 'text', text: JSON.stringify(workflow, null, 2) }] }
@@ -86,30 +166,30 @@ export function registerWorkflowTools(
     {
       id: z.string().describe('Workflow ID'),
       name: z.string().optional(),
-      actions: z.array(actionSchema).optional(),
+      nodes: z.array(nodeSchema).optional(),
+      edges: z.array(edgeSchema).optional(),
       icon: z.string().optional(),
       icon_color: z.string().optional(),
-      schedule: scheduleSchema.optional(),
       enabled: z.boolean().optional(),
       stagger_delay_ms: z.number().optional()
     },
     async (args) => {
       const config = configManager.loadConfig()
-      const workflow = (config.shortcuts ?? []).find(w => w.id === args.id)
+      const workflow = (config.workflows ?? []).find(w => w.id === args.id)
       if (!workflow) {
         return { content: [{ type: 'text', text: `Error: workflow "${args.id}" not found` }], isError: true }
       }
 
       if (args.name !== undefined) workflow.name = args.name
-      if (args.actions !== undefined) workflow.actions = args.actions as ShortcutAction[]
+      if (args.nodes !== undefined) workflow.nodes = args.nodes as unknown as WorkflowNode[]
+      if (args.edges !== undefined) workflow.edges = args.edges as unknown as WorkflowEdge[]
       if (args.icon !== undefined) workflow.icon = args.icon
       if (args.icon_color !== undefined) workflow.iconColor = args.icon_color
-      if (args.schedule !== undefined) workflow.schedule = args.schedule as Schedule
       if (args.enabled !== undefined) workflow.enabled = args.enabled
       if (args.stagger_delay_ms !== undefined) workflow.staggerDelayMs = args.stagger_delay_ms
 
       configManager.saveConfig(config)
-      scheduler.syncSchedules(config.shortcuts ?? [])
+      scheduler.syncSchedules(config.workflows ?? [])
       configManager.notifyChanged()
 
       return { content: [{ type: 'text', text: JSON.stringify(workflow, null, 2) }] }
@@ -122,14 +202,14 @@ export function registerWorkflowTools(
     { id: z.string().describe('Workflow ID') },
     async (args) => {
       const config = configManager.loadConfig()
-      const idx = (config.shortcuts ?? []).findIndex(w => w.id === args.id)
+      const idx = (config.workflows ?? []).findIndex(w => w.id === args.id)
       if (idx === -1) {
         return { content: [{ type: 'text', text: `Error: workflow "${args.id}" not found` }], isError: true }
       }
 
-      const [removed] = config.shortcuts!.splice(idx, 1)
+      const [removed] = config.workflows!.splice(idx, 1)
       configManager.saveConfig(config)
-      scheduler.syncSchedules(config.shortcuts ?? [])
+      scheduler.syncSchedules(config.workflows ?? [])
       configManager.notifyChanged()
 
       return { content: [{ type: 'text', text: `Deleted workflow: ${removed.name}` }] }

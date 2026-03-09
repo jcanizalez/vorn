@@ -1,13 +1,19 @@
 import cron from 'node-cron'
 import { BrowserWindow } from 'electron'
-import { WorkflowConfig, IPC } from '../shared/types'
+import { WorkflowDefinition, TriggerConfig, IPC } from '../shared/types'
 import { configManager } from './config-manager'
 import { scheduleLogManager } from './schedule-log'
 import { updateWorkflowRunStatus } from './database'
 
 export interface MissedSchedule {
-  workflow: WorkflowConfig
+  workflow: WorkflowDefinition
   scheduledFor: string
+}
+
+function getTriggerConfig(wf: WorkflowDefinition): TriggerConfig | null {
+  const triggerNode = wf.nodes.find((n) => n.type === 'trigger')
+  if (!triggerNode) return null
+  return triggerNode.config as TriggerConfig
 }
 
 class Scheduler {
@@ -19,22 +25,20 @@ class Scheduler {
     this.mainWindow = win
   }
 
-  /**
-   * Called on app start and whenever config changes.
-   * Diffs current jobs against config and reconciles.
-   */
-  syncSchedules(workflows: WorkflowConfig[]): void {
+  syncSchedules(workflows: WorkflowDefinition[]): void {
     // Cancel jobs for workflows that no longer exist or are disabled
     for (const [id] of this.cronJobs) {
       const wf = workflows.find((w) => w.id === id)
-      if (!wf || !wf.enabled || wf.schedule.type !== 'recurring') {
+      const trigger = wf ? getTriggerConfig(wf) : null
+      if (!wf || !wf.enabled || trigger?.triggerType !== 'recurring') {
         this.cronJobs.get(id)?.stop()
         this.cronJobs.delete(id)
       }
     }
     for (const [id] of this.timeouts) {
       const wf = workflows.find((w) => w.id === id)
-      if (!wf || !wf.enabled || wf.schedule.type !== 'once') {
+      const trigger = wf ? getTriggerConfig(wf) : null
+      if (!wf || !wf.enabled || trigger?.triggerType !== 'once') {
         clearTimeout(this.timeouts.get(id)!)
         this.timeouts.delete(id)
       }
@@ -43,89 +47,82 @@ class Scheduler {
     // Register new/updated schedules
     for (const wf of workflows) {
       if (!wf.enabled) continue
+      const trigger = getTriggerConfig(wf)
+      if (!trigger) continue
 
-      if (wf.schedule.type === 'recurring' && !this.cronJobs.has(wf.id)) {
+      if (trigger.triggerType === 'recurring' && !this.cronJobs.has(wf.id)) {
         const task = cron.schedule(
-          wf.schedule.cron,
+          trigger.cron,
           () => this.executeWorkflow(wf.id),
           {
-            timezone: wf.schedule.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
+            timezone: trigger.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
           }
         )
         this.cronJobs.set(wf.id, task)
       }
 
-      if (wf.schedule.type === 'once' && !this.timeouts.has(wf.id)) {
-        const runAt = new Date(wf.schedule.runAt).getTime()
+      if (trigger.triggerType === 'once' && !this.timeouts.has(wf.id)) {
+        const runAt = new Date(trigger.runAt).getTime()
         const delay = runAt - Date.now()
         if (delay > 0) {
           const timer = setTimeout(() => this.executeWorkflow(wf.id), delay)
           this.timeouts.set(wf.id, timer)
         }
-        // If delay <= 0, it was missed — handled by checkMissedSchedules
       }
     }
   }
 
   private executeWorkflow(workflowId: string): void {
-    // Tell the renderer to execute the workflow actions
     this.mainWindow?.webContents.send(IPC.SCHEDULER_EXECUTE, { workflowId })
 
-    // Log execution and update workflow run status
     const config = configManager.loadConfig()
-    const wf = config.shortcuts?.find((s) => s.id === workflowId)
+    const wf = config.workflows?.find((w) => w.id === workflowId)
     if (wf) {
       const now = new Date().toISOString()
+      const actionCount = wf.nodes.filter((n) => n.type === 'launchAgent').length
       scheduleLogManager.addEntry({
         workflowId,
         workflowName: wf.name,
         executedAt: now,
         status: 'success',
-        sessionsLaunched: wf.actions.length
+        sessionsLaunched: actionCount
       })
 
       updateWorkflowRunStatus(workflowId, now, 'success')
       configManager.notifyChanged()
     }
 
-    // Clean up one-time schedules
     this.timeouts.delete(workflowId)
   }
 
-  /**
-   * Called on app startup to detect one-time schedules that were missed
-   * (i.e., their runAt has passed but they were never executed).
-   */
-  checkMissedSchedules(workflows: WorkflowConfig[]): MissedSchedule[] {
+  checkMissedSchedules(workflows: WorkflowDefinition[]): MissedSchedule[] {
     const missed: MissedSchedule[] = []
     for (const wf of workflows) {
       if (!wf.enabled) continue
-      if (wf.schedule.type === 'once') {
-        const runAt = new Date(wf.schedule.runAt).getTime()
+      const trigger = getTriggerConfig(wf)
+      if (trigger?.triggerType === 'once') {
+        const runAt = new Date(trigger.runAt).getTime()
         if (runAt < Date.now() && !wf.lastRunAt) {
-          missed.push({ workflow: wf, scheduledFor: wf.schedule.runAt })
+          missed.push({ workflow: wf, scheduledFor: trigger.runAt })
         }
       }
     }
     return missed
   }
 
-  /**
-   * Get the next run time for a workflow (for display purposes).
-   */
-  getNextRun(workflowId: string, workflows: WorkflowConfig[]): string | null {
+  getNextRun(workflowId: string, workflows: WorkflowDefinition[]): string | null {
     const wf = workflows.find((w) => w.id === workflowId)
     if (!wf || !wf.enabled) return null
+    const trigger = getTriggerConfig(wf)
+    if (!trigger) return null
 
-    if (wf.schedule.type === 'once') {
-      const runAt = new Date(wf.schedule.runAt).getTime()
-      return runAt > Date.now() ? wf.schedule.runAt : null
+    if (trigger.triggerType === 'once') {
+      const runAt = new Date(trigger.runAt).getTime()
+      return runAt > Date.now() ? trigger.runAt : null
     }
 
-    if (wf.schedule.type === 'recurring') {
-      // Use cron-parser to compute next occurrence if available,
-      // otherwise return the cron expression as a hint
-      return wf.schedule.cron
+    if (trigger.triggerType === 'recurring') {
+      return trigger.cron
     }
 
     return null

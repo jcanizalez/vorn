@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../stores'
+import { executeWorkflow } from '../lib/workflow-execution'
 import { Clock, AlertTriangle } from 'lucide-react'
 
 interface MissedItem {
@@ -11,7 +12,6 @@ interface MissedItem {
 export function MissedScheduleDialog() {
   const [missed, setMissed] = useState<MissedItem[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const addTerminal = useAppStore((s) => s.addTerminal)
   const config = useAppStore((s) => s.config)
 
   useEffect(() => {
@@ -27,21 +27,9 @@ export function MissedScheduleDialog() {
   const handleRunSelected = async () => {
     for (const item of missed) {
       if (!selected.has(item.workflow.id)) continue
-      const wf = config?.shortcuts?.find((s) => s.id === item.workflow.id)
+      const wf = config?.workflows?.find((w) => w.id === item.workflow.id)
       if (!wf) continue
-      for (const action of wf.actions) {
-        const session = await window.api.createTerminal({
-          agentType: action.agentType,
-          projectName: action.projectName,
-          projectPath: action.projectPath,
-          displayName: action.displayName,
-          branch: action.branch,
-          useWorktree: action.useWorktree,
-          initialPrompt: action.prompt,
-          promptDelayMs: action.promptDelayMs
-        })
-        addTerminal(session)
-      }
+      await executeWorkflow(wf)
     }
     setMissed([])
   }

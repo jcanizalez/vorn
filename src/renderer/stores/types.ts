@@ -1,7 +1,8 @@
-import { AgentStatus, AgentType, AppConfig, ProjectConfig, ShortcutConfig, RemoteHost, TerminalSession, GitDiffStat, TaskConfig, ArchivedSession } from '../../shared/types'
+import { AgentStatus, AgentType, AppConfig, ProjectConfig, WorkflowDefinition, WorkflowExecution, RemoteHost, TerminalSession, GitDiffStat, TaskConfig, ArchivedSession } from '../../shared/types'
 
 export type SortMode = 'manual' | 'created' | 'recent'
 export type StatusFilter = AgentStatus | 'all'
+export type TaskStatusFilter = 'all' | 'todo' | 'in_progress' | 'in_review' | 'done' | 'cancelled'
 
 export interface TerminalState {
   id: string
@@ -28,9 +29,9 @@ export interface ProjectsSlice {
   addProject: (project: ProjectConfig) => void
   removeProject: (name: string) => void
   updateProject: (originalName: string, project: ProjectConfig) => void
-  addShortcut: (shortcut: ShortcutConfig) => void
-  removeShortcut: (id: string) => void
-  updateShortcut: (id: string, shortcut: ShortcutConfig) => void
+  addWorkflow: (workflow: WorkflowDefinition) => void
+  removeWorkflow: (id: string) => void
+  updateWorkflow: (id: string, workflow: WorkflowDefinition) => void
   addRemoteHost: (host: RemoteHost) => void
   removeRemoteHost: (id: string) => void
   updateRemoteHost: (id: string, host: RemoteHost) => void
@@ -45,9 +46,9 @@ export interface UISlice {
   isSidebarOpen: boolean
   isNewAgentDialogOpen: boolean
   isAddProjectDialogOpen: boolean
-  isShortcutDialogOpen: boolean
+  isWorkflowEditorOpen: boolean
+  editingWorkflowId: string | null
   editingProject: ProjectConfig | null
-  editingShortcut: ShortcutConfig | null
   isCommandPaletteOpen: boolean
   isShortcutsPanelOpen: boolean
   isSettingsOpen: boolean
@@ -65,6 +66,9 @@ export interface UISlice {
   diffSidebarTerminalId: string | null
   diffReviewTaskId: string | null
   gitDiffStats: Map<string, GitDiffStat>
+  mainViewMode: 'sessions' | 'tasks'
+  selectedTaskId: string | null
+  taskStatusFilter: TaskStatusFilter
   isTaskPanelOpen: boolean
   isTaskDialogOpen: boolean
   editingTask: TaskConfig | null
@@ -81,9 +85,9 @@ export interface UISlice {
   toggleSidebar: () => void
   setNewAgentDialogOpen: (open: boolean) => void
   setAddProjectDialogOpen: (open: boolean) => void
-  setShortcutDialogOpen: (open: boolean) => void
+  setWorkflowEditorOpen: (open: boolean) => void
+  setEditingWorkflowId: (id: string | null) => void
   setEditingProject: (project: ProjectConfig | null) => void
-  setEditingShortcut: (shortcut: ShortcutConfig | null) => void
   setCommandPaletteOpen: (open: boolean) => void
   setShortcutsPanelOpen: (open: boolean) => void
   setSettingsOpen: (open: boolean) => void
@@ -99,6 +103,9 @@ export interface UISlice {
   setDiffSidebarTerminalId: (id: string | null) => void
   setDiffReviewTaskId: (id: string | null) => void
   updateGitDiffStat: (terminalId: string, stat: GitDiffStat) => void
+  setMainViewMode: (mode: 'sessions' | 'tasks') => void
+  setSelectedTaskId: (id: string | null) => void
+  setTaskStatusFilter: (filter: TaskStatusFilter) => void
   setTaskPanelOpen: (open: boolean) => void
   setTaskDialogOpen: (open: boolean) => void
   setEditingTask: (task: TaskConfig | null) => void
@@ -109,6 +116,8 @@ export interface UISlice {
   removeShellTab: (id: string) => void
   setActiveShellTab: (id: string | null) => void
   renameShellTab: (id: string, title: string) => void
+  workflowExecutions: Map<string, WorkflowExecution>
+  setWorkflowExecution: (id: string, execution: WorkflowExecution) => void
   updateVersion: string | null
   setUpdateVersion: (version: string | null) => void
   archivedSessions: ArchivedSession[]

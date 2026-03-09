@@ -1,5 +1,6 @@
 import { StateCreator } from 'zustand'
 import { AppStore, TasksSlice } from './types'
+import { fireTaskCreatedTrigger, fireTaskStatusChangedTrigger } from '../lib/workflow-triggers'
 
 export const createTasksSlice: StateCreator<AppStore, [], [], TasksSlice> = (set, get) => ({
   getTasksForProject: (projectName) => {
@@ -26,6 +27,7 @@ export const createTasksSlice: StateCreator<AppStore, [], [], TasksSlice> = (set
         tasks: [...(state.config.tasks || []), task]
       }
       window.api.saveConfig(updated)
+      queueMicrotask(() => fireTaskCreatedTrigger(task))
       return { config: updated }
     }),
 
@@ -47,6 +49,7 @@ export const createTasksSlice: StateCreator<AppStore, [], [], TasksSlice> = (set
   updateTask: (id, updates) =>
     set((state) => {
       if (!state.config) return {}
+      const oldTask = (state.config.tasks || []).find((t) => t.id === id)
       const now = new Date().toISOString()
       const updated = {
         ...state.config,
@@ -55,6 +58,10 @@ export const createTasksSlice: StateCreator<AppStore, [], [], TasksSlice> = (set
         )
       }
       window.api.saveConfig(updated)
+      if (oldTask && updates.status && updates.status !== oldTask.status) {
+        const newTask = { ...oldTask, ...updates, updatedAt: now }
+        queueMicrotask(() => fireTaskStatusChangedTrigger(newTask, oldTask.status, updates.status!))
+      }
       return { config: updated }
     }),
 
@@ -89,6 +96,7 @@ export const createTasksSlice: StateCreator<AppStore, [], [], TasksSlice> = (set
   startTask: (id, sessionId, agentType, worktreePath) =>
     set((state) => {
       if (!state.config) return {}
+      const oldTask = (state.config.tasks || []).find((t) => t.id === id)
       const now = new Date().toISOString()
       const updated = {
         ...state.config,
@@ -99,12 +107,17 @@ export const createTasksSlice: StateCreator<AppStore, [], [], TasksSlice> = (set
         )
       }
       window.api.saveConfig(updated)
+      if (oldTask && oldTask.status !== 'in_progress') {
+        const newTask = updated.tasks!.find((t) => t.id === id)!
+        queueMicrotask(() => fireTaskStatusChangedTrigger(newTask, oldTask.status, 'in_progress'))
+      }
       return { config: updated }
     }),
 
   completeTask: (id) =>
     set((state) => {
       if (!state.config) return {}
+      const oldTask = (state.config.tasks || []).find((t) => t.id === id)
       const now = new Date().toISOString()
       const updated = {
         ...state.config,
@@ -115,12 +128,17 @@ export const createTasksSlice: StateCreator<AppStore, [], [], TasksSlice> = (set
         )
       }
       window.api.saveConfig(updated)
+      if (oldTask && oldTask.status !== 'done') {
+        const newTask = updated.tasks!.find((t) => t.id === id)!
+        queueMicrotask(() => fireTaskStatusChangedTrigger(newTask, oldTask.status, 'done'))
+      }
       return { config: updated }
     }),
 
   reviewTask: (id) =>
     set((state) => {
       if (!state.config) return {}
+      const oldTask = (state.config.tasks || []).find((t) => t.id === id)
       const now = new Date().toISOString()
       const updated = {
         ...state.config,
@@ -131,12 +149,17 @@ export const createTasksSlice: StateCreator<AppStore, [], [], TasksSlice> = (set
         )
       }
       window.api.saveConfig(updated)
+      if (oldTask && oldTask.status !== 'in_review') {
+        const newTask = updated.tasks!.find((t) => t.id === id)!
+        queueMicrotask(() => fireTaskStatusChangedTrigger(newTask, oldTask.status, 'in_review'))
+      }
       return { config: updated }
     }),
 
   cancelTask: (id) =>
     set((state) => {
       if (!state.config) return {}
+      const oldTask = (state.config.tasks || []).find((t) => t.id === id)
       const now = new Date().toISOString()
       const updated = {
         ...state.config,
@@ -147,12 +170,17 @@ export const createTasksSlice: StateCreator<AppStore, [], [], TasksSlice> = (set
         )
       }
       window.api.saveConfig(updated)
+      if (oldTask && oldTask.status !== 'cancelled') {
+        const newTask = updated.tasks!.find((t) => t.id === id)!
+        queueMicrotask(() => fireTaskStatusChangedTrigger(newTask, oldTask.status, 'cancelled'))
+      }
       return { config: updated }
     }),
 
   reopenTask: (id) =>
     set((state) => {
       if (!state.config) return {}
+      const oldTask = (state.config.tasks || []).find((t) => t.id === id)
       const now = new Date().toISOString()
       const updated = {
         ...state.config,
@@ -163,6 +191,10 @@ export const createTasksSlice: StateCreator<AppStore, [], [], TasksSlice> = (set
         )
       }
       window.api.saveConfig(updated)
+      if (oldTask && oldTask.status !== 'todo') {
+        const newTask = updated.tasks!.find((t) => t.id === id)!
+        queueMicrotask(() => fireTaskStatusChangedTrigger(newTask, oldTask.status, 'todo'))
+      }
       return { config: updated }
     })
 })

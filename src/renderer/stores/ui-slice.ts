@@ -28,9 +28,9 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   isSidebarOpen: true,
   isNewAgentDialogOpen: false,
   isAddProjectDialogOpen: false,
-  isShortcutDialogOpen: false,
+  isWorkflowEditorOpen: false,
+  editingWorkflowId: null,
   editingProject: null,
-  editingShortcut: null,
   isCommandPaletteOpen: false,
   isShortcutsPanelOpen: false,
   isSettingsOpen: false,
@@ -48,6 +48,9 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   diffSidebarTerminalId: null,
   diffReviewTaskId: null,
   gitDiffStats: new Map(),
+  mainViewMode: 'sessions' as const,
+  selectedTaskId: null,
+  taskStatusFilter: 'all' as const,
   isTaskPanelOpen: false,
   isTaskDialogOpen: false,
   editingTask: null,
@@ -73,11 +76,11 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
 
   setAddProjectDialogOpen: (open) => set({ isAddProjectDialogOpen: open }),
 
-  setShortcutDialogOpen: (open) => set({ isShortcutDialogOpen: open }),
+  setWorkflowEditorOpen: (open) => set({ isWorkflowEditorOpen: open }),
+
+  setEditingWorkflowId: (id) => set({ editingWorkflowId: id }),
 
   setEditingProject: (project) => set({ editingProject: project }),
-
-  setEditingShortcut: (shortcut) => set({ editingShortcut: shortcut }),
 
   setCommandPaletteOpen: (open) => set({ isCommandPaletteOpen: open }),
   setShortcutsPanelOpen: (open) => set({ isShortcutsPanelOpen: open }),
@@ -139,6 +142,17 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
       return { gitDiffStats: next }
     }),
 
+  setMainViewMode: (mode) => {
+    set({ mainViewMode: mode })
+    const config = get().config
+    if (config) {
+      const updated = { ...config, defaults: { ...config.defaults, mainViewMode: mode } }
+      window.api.saveConfig(updated)
+      set({ config: updated })
+    }
+  },
+  setSelectedTaskId: (id) => set({ selectedTaskId: id }),
+  setTaskStatusFilter: (filter) => set({ taskStatusFilter: filter }),
   setTaskPanelOpen: (open) => set({ isTaskPanelOpen: open }),
   setTaskDialogOpen: (open) => set({ isTaskDialogOpen: open }),
   setEditingTask: (task) => set({ editingTask: task }),
@@ -175,6 +189,14 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
         t.id === id ? { ...t, title } : t
       )
     })),
+
+  workflowExecutions: new Map(),
+  setWorkflowExecution: (id, execution) =>
+    set((state) => {
+      const next = new Map(state.workflowExecutions)
+      next.set(id, execution)
+      return { workflowExecutions: next }
+    }),
 
   updateVersion: null,
   setUpdateVersion: (version) => set({ updateVersion: version }),

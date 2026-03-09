@@ -59,10 +59,10 @@ function createWindow(): void {
     ptyManager.setAgentCommands(config.agentCommands)
   }
   ptyManager.setRemoteHosts(config.remoteHosts ?? [])
-  scheduler.syncSchedules(config.shortcuts ?? [])
+  scheduler.syncSchedules(config.workflows ?? [])
 
   // Check for missed schedules on startup
-  const missed = scheduler.checkMissedSchedules(config.shortcuts ?? [])
+  const missed = scheduler.checkMissedSchedules(config.workflows ?? [])
   if (missed.length > 0) {
     mainWindow.webContents.once('did-finish-load', () => {
       mainWindow?.webContents.send(IPC.SCHEDULER_MISSED, missed)
@@ -75,7 +75,7 @@ function createWindow(): void {
       ptyManager.setAgentCommands(updatedConfig.agentCommands)
     }
     ptyManager.setRemoteHosts(updatedConfig.remoteHosts ?? [])
-    scheduler.syncSchedules(updatedConfig.shortcuts ?? [])
+    scheduler.syncSchedules(updatedConfig.workflows ?? [])
     mainWindow?.webContents.send(IPC.CONFIG_CHANGED, updatedConfig)
   })
 

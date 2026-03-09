@@ -44,35 +44,35 @@ export const createProjectsSlice: StateCreator<AppStore, [], [], ProjectsSlice> 
       return { config: updated }
     }),
 
-  addShortcut: (shortcut) =>
+  addWorkflow: (workflow) =>
     set((state) => {
       if (!state.config) return {}
       const updated = {
         ...state.config,
-        shortcuts: [...(state.config.shortcuts || []), shortcut]
+        workflows: [...(state.config.workflows || []), workflow]
       }
       window.api.saveConfig(updated)
       return { config: updated }
     }),
 
-  removeShortcut: (id) =>
+  removeWorkflow: (id) =>
     set((state) => {
       if (!state.config) return {}
       const updated = {
         ...state.config,
-        shortcuts: (state.config.shortcuts || []).filter((s) => s.id !== id)
+        workflows: (state.config.workflows || []).filter((w) => w.id !== id)
       }
       window.api.saveConfig(updated)
       return { config: updated }
     }),
 
-  updateShortcut: (id, shortcut) =>
+  updateWorkflow: (id, workflow) =>
     set((state) => {
       if (!state.config) return {}
       const updated = {
         ...state.config,
-        shortcuts: (state.config.shortcuts || []).map((s) =>
-          s.id === id ? shortcut : s
+        workflows: (state.config.workflows || []).map((w) =>
+          w.id === id ? workflow : w
         )
       }
       window.api.saveConfig(updated)

@@ -6,6 +6,7 @@ import { SortMode, StatusFilter } from '../stores/types'
 import { AGENT_DEFINITIONS, AGENT_LIST } from '../lib/agent-definitions'
 import { AgentIcon } from './AgentIcon'
 import { getDisplayName } from '../lib/terminal-display'
+import { executeWorkflow } from '../lib/workflow-execution'
 import {
   Search, Plus, Settings, PanelLeft, FolderPlus, Zap, Monitor,
   Filter, ArrowUpDown, Server, Keyboard, ListTodo, BookOpen,
@@ -79,12 +80,12 @@ function useCommands(recentSessions: RecentSession[]): Command[] {
   const setActiveProject = useAppStore((s) => s.setActiveProject)
   const setNewAgentDialogOpen = useAppStore((s) => s.setNewAgentDialogOpen)
   const setAddProjectDialogOpen = useAppStore((s) => s.setAddProjectDialogOpen)
-  const setShortcutDialogOpen = useAppStore((s) => s.setShortcutDialogOpen)
+  const setWorkflowEditorOpen = useAppStore((s) => s.setWorkflowEditorOpen)
   const setSettingsOpen = useAppStore((s) => s.setSettingsOpen)
   const toggleSidebar = useAppStore((s) => s.toggleSidebar)
   const setSortMode = useAppStore((s) => s.setSortMode)
   const setStatusFilter = useAppStore((s) => s.setStatusFilter)
-  const setTaskPanelOpen = useAppStore((s) => s.setTaskPanelOpen)
+  const setMainViewMode = useAppStore((s) => s.setMainViewMode)
   const setTaskDialogOpen = useAppStore((s) => s.setTaskDialogOpen)
   const setOnboardingOpen = useAppStore((s) => s.setOnboardingOpen)
   const toggleTerminalPanel = useAppStore((s) => s.toggleTerminalPanel)
@@ -145,15 +146,15 @@ function useCommands(recentSessions: RecentSession[]): Command[] {
       category: 'actions',
       icon: <Zap size={14} strokeWidth={1.5} />,
       keywords: ['new workflow', 'create workflow', 'schedule'],
-      onExecute: () => setShortcutDialogOpen(true)
+      onExecute: () => setWorkflowEditorOpen(true)
     })
     commands.push({
       id: 'action:open-tasks',
-      label: 'Open Task Panel',
+      label: 'Open Tasks View',
       category: 'actions',
       icon: <ListTodo size={14} strokeWidth={1.5} />,
       keywords: ['task', 'kanban', 'queue', 'todo', 'board'],
-      onExecute: () => setTaskPanelOpen(true)
+      onExecute: () => setMainViewMode('tasks')
     })
     commands.push({
       id: 'action:create-task',
@@ -282,27 +283,16 @@ function useCommands(recentSessions: RecentSession[]): Command[] {
     }
 
     // --- Workflows ---
-    for (const shortcut of config?.shortcuts ?? []) {
+    for (const wf of config?.workflows ?? []) {
+      const actionNodes = wf.nodes.filter((n) => n.type === 'launchAgent')
       commands.push({
-        id: `workflow:${shortcut.id}`,
-        label: shortcut.name,
+        id: `workflow:${wf.id}`,
+        label: wf.name,
         category: 'workflows',
         icon: <Zap size={14} strokeWidth={1.5} />,
-        keywords: shortcut.actions.map((a) => a.projectName),
+        keywords: actionNodes.map((n) => (n.config as any).projectName).filter(Boolean),
         onExecute: async () => {
-          for (const action of shortcut.actions) {
-            const session = await window.api.createTerminal({
-              agentType: action.agentType,
-              projectName: action.projectName,
-              projectPath: action.projectPath,
-              displayName: action.displayName,
-              branch: action.branch,
-              useWorktree: action.useWorktree,
-              initialPrompt: action.prompt,
-              promptDelayMs: action.promptDelayMs
-            })
-            addTerminal(session)
-          }
+          await executeWorkflow(wf)
         }
       })
     }
@@ -414,9 +404,9 @@ function useCommands(recentSessions: RecentSession[]): Command[] {
 
     return commands
   }, [terminals, config, recentSessions, addTerminal, setFocusedTerminal, setActiveProject,
-      setNewAgentDialogOpen, setAddProjectDialogOpen, setShortcutDialogOpen,
+      setNewAgentDialogOpen, setAddProjectDialogOpen, setWorkflowEditorOpen,
       setSettingsOpen, toggleSidebar, setSortMode, setStatusFilter,
-      setTaskPanelOpen, setTaskDialogOpen, setOnboardingOpen, toggleTerminalPanel,
+      setMainViewMode, setTaskDialogOpen, setOnboardingOpen, toggleTerminalPanel,
       loadArchivedSessions, setShowArchivedSessions])
 }
 

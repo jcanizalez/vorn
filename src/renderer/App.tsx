@@ -7,27 +7,28 @@ import { FocusedTerminal } from './components/FocusedTerminal'
 import { ProjectSidebar } from './components/ProjectSidebar'
 import { PromptLauncher } from './components/PromptLauncher'
 import { AddProjectDialog } from './components/AddProjectDialog'
-import { AddWorkflowDialog } from './components/AddWorkflowDialog'
+import { WorkflowEditor } from './components/workflow-editor/WorkflowEditor'
+import { executeWorkflow as runWorkflow } from './lib/workflow-execution'
 import { CommandPalette } from './components/CommandPalette'
 import { SessionRestoredBanner } from './components/SessionRestoredBanner'
 import { GridToolbar } from './components/GridToolbar'
 import { SettingsPage } from './components/SettingsPage'
 import { RecentSessionsPopover } from './components/RecentSessionsPopover'
-import { RotateCcw } from 'lucide-react'
+import { RotateCcw, Monitor, ListTodo, Plus } from 'lucide-react'
+import { TaskToolbar } from './components/TaskToolbar'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useGitDiffPolling } from './hooks/useGitDiffPolling'
 import { setDefaultFontSize } from './lib/terminal-registry'
 import { KbdHint } from './components/KbdHint'
 import { WorktreeCleanupDialog } from './components/WorktreeCleanupDialog'
 import { DiffSidebar } from './components/DiffSidebar'
-import { TaskDiffReview } from './components/TaskDiffReview'
+import { TaskBoardView } from './components/TaskBoardView'
+import { TaskDetailPanel } from './components/TaskDetailPanel'
 import { KeyboardShortcutsPanel } from './components/KeyboardShortcutsPanel'
 import { MissedScheduleDialog } from './components/MissedScheduleDialog'
 import { OnboardingModal } from './components/OnboardingModal'
 import { TerminalPanel } from './components/TerminalPanel'
 import { UpdateBanner } from './components/UpdateBanner'
-import { AddTaskDialog } from './components/AddTaskDialog'
-import { TaskQueuePanel } from './components/TaskQueuePanel'
 import { ToastContainer } from './components/Toast'
 
 const isMac = navigator.platform.toUpperCase().includes('MAC')
@@ -80,6 +81,14 @@ export function App() {
   const toggleTerminalPanel = useAppStore((s) => s.toggleTerminalPanel)
   const isTerminalPanelOpen = useAppStore((s) => s.isTerminalPanelOpen)
   const layoutMode = useAppStore((s) => s.config?.defaults?.layoutMode ?? 'grid')
+  const mainViewMode = useAppStore((s) => s.config?.defaults?.mainViewMode ?? 'sessions')
+  const setMainViewMode = useAppStore((s) => s.setMainViewMode)
+  const selectedTaskId = useAppStore((s) => s.selectedTaskId)
+  const activeProject = useAppStore((s) => s.activeProject)
+  const taskCount = useAppStore((s) => {
+    const tasks = s.config?.tasks || []
+    return tasks.filter((t) => !s.activeProject || t.projectName === s.activeProject).length
+  })
   const [recentOpen, setRecentOpen] = useState(false)
 
   useKeyboardShortcuts()
@@ -168,64 +177,10 @@ export function App() {
     // Scheduler: auto-execute workflows when triggered
     const removeSchedulerListener = window.api.onSchedulerExecute(async ({ workflowId }) => {
       const state = useAppStore.getState()
-      const workflow = state.config?.shortcuts?.find((s) => s.id === workflowId)
+      const workflow = state.config?.workflows?.find((w) => w.id === workflowId)
       if (!workflow) return
 
-      for (let i = 0; i < workflow.actions.length; i++) {
-        const action = workflow.actions[i]
-        if (i > 0 && workflow.staggerDelayMs) {
-          await new Promise((r) => setTimeout(r, workflow.staggerDelayMs))
-        }
-
-        // Resolve prompt from task if applicable
-        let initialPrompt = action.prompt
-        let resolvedTaskId: string | undefined
-        let branch = action.branch
-        let useWorktree = action.useWorktree
-        const currentState = useAppStore.getState()
-
-        if (action.taskId) {
-          const task = (currentState.config?.tasks || []).find((t) => t.id === action.taskId && t.status === 'todo')
-          if (task) {
-            initialPrompt = task.description
-            resolvedTaskId = task.id
-            branch = task.branch || branch
-            useWorktree = task.useWorktree || useWorktree
-          }
-        } else if (action.taskFromQueue) {
-          const task = currentState.getNextTask(action.projectName)
-          if (task) {
-            initialPrompt = task.description
-            resolvedTaskId = task.id
-            branch = task.branch || branch
-            useWorktree = task.useWorktree || useWorktree
-          }
-        }
-
-        const session = await window.api.createTerminal({
-          agentType: action.agentType,
-          projectName: action.projectName,
-          projectPath: action.projectPath,
-          displayName: action.displayName,
-          branch,
-          useWorktree,
-          initialPrompt,
-          promptDelayMs: action.promptDelayMs
-        })
-        useAppStore.getState().addTerminal(session)
-
-        // Transition task to in_progress
-        if (resolvedTaskId) {
-          useAppStore.getState().startTask(resolvedTaskId, session.id, action.agentType)
-        }
-      }
-
-      // Show notification
-      if (Notification.permission === 'granted') {
-        new Notification('VibeGrid', {
-          body: `Workflow "${workflow.name}" started — ${workflow.actions.length} session${workflow.actions.length !== 1 ? 's' : ''} launched`
-        })
-      }
+      await runWorkflow(workflow)
     })
 
     const removeUpdateListener = window.api.onUpdateDownloaded(({ version }) => {
@@ -265,53 +220,116 @@ export function App() {
                 <KbdHint shortcutId="toggle-sidebar" />
               </button>
             )}
+            {/* Main view toggle: Sessions / Tasks */}
+            <div className="flex bg-white/[0.04] rounded-md p-0.5 gap-0.5">
+              <button
+                onClick={() => setMainViewMode('sessions')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                  mainViewMode === 'sessions' ? 'bg-white/[0.1] text-white' : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                <Monitor size={13} strokeWidth={2} />
+                Sessions
+              </button>
+              <button
+                onClick={() => setMainViewMode('tasks')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                  mainViewMode === 'tasks' ? 'bg-white/[0.1] text-white' : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                <ListTodo size={13} strokeWidth={2} />
+                Tasks
+              </button>
+            </div>
             <span className="text-sm text-gray-400">
-              {terminals.size} agent{terminals.size !== 1 ? 's' : ''}
+              {mainViewMode === 'sessions'
+                ? `${terminals.size} agent${terminals.size !== 1 ? 's' : ''}`
+                : `${taskCount} task${taskCount !== 1 ? 's' : ''}`
+              }
             </span>
           </div>
           <div className="flex items-center gap-3 titlebar-no-drag">
-            <GridToolbar />
-            <button
-              onClick={toggleTerminalPanel}
-              className={`p-1.5 rounded-md transition-colors ${
-                isTerminalPanelOpen
-                  ? 'text-white bg-white/[0.1]'
-                  : 'text-gray-400 hover:text-white bg-white/[0.06] hover:bg-white/[0.1]'
-              }`}
-              title="Toggle terminal panel"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="4 17 10 11 4 5" />
-                <line x1="12" y1="19" x2="20" y2="19" />
-              </svg>
-            </button>
-            <div className="relative">
-              <button
-                onClick={() => setRecentOpen(!recentOpen)}
-                className="p-1.5 text-gray-400 hover:text-white bg-white/[0.06] hover:bg-white/[0.1]
-                           rounded-md transition-colors"
-                title="Recent sessions"
-              >
-                <RotateCcw size={16} strokeWidth={1.5} />
-              </button>
-              <RecentSessionsPopover isOpen={recentOpen} onClose={() => setRecentOpen(false)} />
-            </div>
-            <button
-              onClick={() => setDialogOpen(true)}
-              className="px-3 py-1.5 text-sm font-medium text-gray-200
-                         hover:text-white bg-white/[0.06] hover:bg-white/[0.1]
-                         rounded-md transition-colors flex items-center gap-2"
-            >
-              + New Session
-              <KbdHint shortcutId="new-session" />
-            </button>
+            {mainViewMode === 'sessions' ? (
+              <>
+                <GridToolbar />
+                <button
+                  onClick={toggleTerminalPanel}
+                  className={`p-1.5 rounded-md transition-colors ${
+                    isTerminalPanelOpen
+                      ? 'text-white bg-white/[0.1]'
+                      : 'text-gray-400 hover:text-white bg-white/[0.06] hover:bg-white/[0.1]'
+                  }`}
+                  title="Toggle terminal panel"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="4 17 10 11 4 5" />
+                    <line x1="12" y1="19" x2="20" y2="19" />
+                  </svg>
+                </button>
+                <div className="relative">
+                  <button
+                    onClick={() => setRecentOpen(!recentOpen)}
+                    className="p-1.5 text-gray-400 hover:text-white bg-white/[0.06] hover:bg-white/[0.1]
+                               rounded-md transition-colors"
+                    title="Recent sessions"
+                  >
+                    <RotateCcw size={16} strokeWidth={1.5} />
+                  </button>
+                  <RecentSessionsPopover isOpen={recentOpen} onClose={() => setRecentOpen(false)} />
+                </div>
+                <button
+                  onClick={() => setDialogOpen(true)}
+                  className="px-3 py-1.5 text-sm font-medium text-gray-200
+                             hover:text-white bg-white/[0.06] hover:bg-white/[0.1]
+                             rounded-md transition-colors flex items-center gap-2"
+                >
+                  + New Session
+                  <KbdHint shortcutId="new-session" />
+                </button>
+              </>
+            ) : (
+              <>
+                <TaskToolbar />
+                <button
+                  onClick={toggleTerminalPanel}
+                  className={`p-1.5 rounded-md transition-colors ${
+                    isTerminalPanelOpen
+                      ? 'text-white bg-white/[0.1]'
+                      : 'text-gray-400 hover:text-white bg-white/[0.06] hover:bg-white/[0.1]'
+                  }`}
+                  title="Toggle terminal panel"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="4 17 10 11 4 5" />
+                    <line x1="12" y1="19" x2="20" y2="19" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => useAppStore.getState().setSelectedTaskId('new')}
+                  className="px-3 py-1.5 text-sm font-medium text-gray-200
+                             hover:text-white bg-white/[0.06] hover:bg-white/[0.1]
+                             rounded-md transition-colors flex items-center gap-2"
+                >
+                  <Plus size={14} strokeWidth={2} />
+                  Add Task
+                </button>
+              </>
+            )}
             <WindowControls />
           </div>
         </div>
 
         {showBanner && <SessionRestoredBanner />}
         <UpdateBanner />
-        {layoutMode === 'tabs' ? <TabView /> : <GridView />}
+        <div className="flex-1 flex min-h-0">
+          <div className="flex-1 min-w-0 h-full">
+            {mainViewMode === 'tasks'
+              ? <TaskBoardView />
+              : layoutMode === 'tabs' ? <TabView /> : <GridView />
+            }
+          </div>
+          {mainViewMode === 'tasks' && selectedTaskId && <TaskDetailPanel />}
+        </div>
         <TerminalPanel />
       </main>
 
@@ -320,14 +338,11 @@ export function App() {
 
       <PromptLauncher mode="overlay" onClose={() => setDialogOpen(false)} />
       <AddProjectDialog />
-      <AddWorkflowDialog />
-      <AddTaskDialog />
-      <TaskQueuePanel />
+      <WorkflowEditor />
       <CommandPalette />
       <WorktreeCleanupDialog />
       <MissedScheduleDialog />
       <DiffSidebar />
-      <TaskDiffReview />
 
       <AnimatePresence>
         {isShortcutsPanelOpen && <KeyboardShortcutsPanel />}
