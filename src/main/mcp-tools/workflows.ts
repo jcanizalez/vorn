@@ -4,6 +4,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { configManager as ConfigManagerInstance } from '../config-manager'
 import type { scheduler as SchedulerInstance } from '../scheduler'
 import type { WorkflowDefinition, WorkflowNode, WorkflowEdge, TriggerConfig, LaunchAgentConfig } from '../../shared/types'
+import { dbListWorkflows, dbInsertWorkflow, dbUpdateWorkflow, dbDeleteWorkflow } from '../database'
 
 type ConfigManager = typeof ConfigManagerInstance
 type Scheduler = typeof SchedulerInstance
@@ -103,8 +104,8 @@ export function registerWorkflowTools(
     'list_workflows',
     'List all workflows',
     async () => {
-      const config = configManager.loadConfig()
-      return { content: [{ type: 'text', text: JSON.stringify(config.workflows ?? [], null, 2) }] }
+      const workflows = dbListWorkflows()
+      return { content: [{ type: 'text', text: JSON.stringify(workflows, null, 2) }] }
     }
   )
 
@@ -123,8 +124,6 @@ export function registerWorkflowTools(
       stagger_delay_ms: z.number().optional().describe('Delay in ms between actions')
     },
     async (args) => {
-      const config = configManager.loadConfig()
-
       let nodes: WorkflowNode[]
       let edges: WorkflowEdge[]
 
@@ -150,10 +149,8 @@ export function registerWorkflowTools(
         ...(args.stagger_delay_ms && { staggerDelayMs: args.stagger_delay_ms })
       }
 
-      if (!config.workflows) config.workflows = []
-      config.workflows.push(workflow)
-      configManager.saveConfig(config)
-      scheduler.syncSchedules(config.workflows)
+      dbInsertWorkflow(workflow)
+      scheduler.syncSchedules(dbListWorkflows())
       configManager.notifyChanged()
 
       return { content: [{ type: 'text', text: JSON.stringify(workflow, null, 2) }] }
@@ -174,25 +171,26 @@ export function registerWorkflowTools(
       stagger_delay_ms: z.number().optional()
     },
     async (args) => {
-      const config = configManager.loadConfig()
-      const workflow = (config.workflows ?? []).find(w => w.id === args.id)
+      const workflows = dbListWorkflows()
+      const workflow = workflows.find(w => w.id === args.id)
       if (!workflow) {
         return { content: [{ type: 'text', text: `Error: workflow "${args.id}" not found` }], isError: true }
       }
 
-      if (args.name !== undefined) workflow.name = args.name
-      if (args.nodes !== undefined) workflow.nodes = args.nodes as unknown as WorkflowNode[]
-      if (args.edges !== undefined) workflow.edges = args.edges as unknown as WorkflowEdge[]
-      if (args.icon !== undefined) workflow.icon = args.icon
-      if (args.icon_color !== undefined) workflow.iconColor = args.icon_color
-      if (args.enabled !== undefined) workflow.enabled = args.enabled
-      if (args.stagger_delay_ms !== undefined) workflow.staggerDelayMs = args.stagger_delay_ms
+      const updates: Partial<WorkflowDefinition> = {}
+      if (args.name !== undefined) updates.name = args.name
+      if (args.nodes !== undefined) updates.nodes = args.nodes as unknown as WorkflowNode[]
+      if (args.edges !== undefined) updates.edges = args.edges as unknown as WorkflowEdge[]
+      if (args.icon !== undefined) updates.icon = args.icon
+      if (args.icon_color !== undefined) updates.iconColor = args.icon_color
+      if (args.enabled !== undefined) updates.enabled = args.enabled
+      if (args.stagger_delay_ms !== undefined) updates.staggerDelayMs = args.stagger_delay_ms
 
-      configManager.saveConfig(config)
-      scheduler.syncSchedules(config.workflows ?? [])
+      dbUpdateWorkflow(args.id, updates)
+      scheduler.syncSchedules(dbListWorkflows())
       configManager.notifyChanged()
 
-      return { content: [{ type: 'text', text: JSON.stringify(workflow, null, 2) }] }
+      return { content: [{ type: 'text', text: JSON.stringify({ ...workflow, ...updates }, null, 2) }] }
     }
   )
 
@@ -201,18 +199,17 @@ export function registerWorkflowTools(
     'Delete a workflow',
     { id: z.string().describe('Workflow ID') },
     async (args) => {
-      const config = configManager.loadConfig()
-      const idx = (config.workflows ?? []).findIndex(w => w.id === args.id)
-      if (idx === -1) {
+      const workflows = dbListWorkflows()
+      const workflow = workflows.find(w => w.id === args.id)
+      if (!workflow) {
         return { content: [{ type: 'text', text: `Error: workflow "${args.id}" not found` }], isError: true }
       }
 
-      const [removed] = config.workflows!.splice(idx, 1)
-      configManager.saveConfig(config)
-      scheduler.syncSchedules(config.workflows ?? [])
+      dbDeleteWorkflow(args.id)
+      scheduler.syncSchedules(dbListWorkflows())
       configManager.notifyChanged()
 
-      return { content: [{ type: 'text', text: `Deleted workflow: ${removed.name}` }] }
+      return { content: [{ type: 'text', text: `Deleted workflow: ${workflow.name}` }] }
     }
   )
 }

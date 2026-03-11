@@ -340,6 +340,13 @@ export function GeneralSettings() {
           </div>
         )}
       </div>
+
+      {/* About */}
+      <h3 className="text-sm font-medium text-gray-200 mt-8 mb-2">About</h3>
+      <div className="py-4 border-t border-white/[0.06]">
+        <p className="text-sm text-gray-300">VibeGrid v{window.api.getAppVersion()}</p>
+        <p className="text-xs text-gray-600 mt-1">&copy; 2026 Javier Canizalez</p>
+      </div>
     </div>
   )
 }

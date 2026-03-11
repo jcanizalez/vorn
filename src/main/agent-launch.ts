@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { AgentType, AgentCommandConfig, CreateTerminalPayload } from '../shared/types'
 import { DEFAULT_AGENT_COMMANDS } from '../shared/agent-defaults'
+import { shellEscape } from './pty-manager'
 
 function commandExists(cmd: string, env: Record<string, string>): boolean {
   try {
@@ -23,10 +24,6 @@ function resolveAgentCommand(
     return { command: config.fallbackCommand, args: config.fallbackArgs ?? [] }
   }
   return { command: config.command, args: config.args }
-}
-
-function shellEscape(s: string): string {
-  return "'" + s.replace(/'/g, "'\\''") + "'"
 }
 
 /**

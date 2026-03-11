@@ -4,6 +4,7 @@ import { SettingsCategory } from '../stores/types'
 import { GeneralSettings } from './settings/GeneralSettings'
 import { AgentSettings } from './settings/AgentSettings'
 import { HostSettings } from './settings/HostSettings'
+import { McpSettings } from './settings/McpSettings'
 
 const CATEGORIES: { key: SettingsCategory; label: string; icon: React.ReactNode }[] = [
   {
@@ -35,6 +36,16 @@ const CATEGORIES: { key: SettingsCategory; label: string; icon: React.ReactNode 
         <rect x="2" y="14" width="20" height="8" rx="2" />
         <circle cx="6" cy="6" r="1" fill="currentColor" />
         <circle cx="6" cy="18" r="1" fill="currentColor" />
+      </svg>
+    )
+  },
+  {
+    key: 'mcp',
+    label: 'MCP',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M12 2v4m0 12v4M2 12h4m12 0h4" />
+        <circle cx="12" cy="12" r="4" />
       </svg>
     )
   }
@@ -95,6 +106,7 @@ export function SettingsPage() {
           {settingsCategory === 'general' && <GeneralSettings />}
           {settingsCategory === 'agents' && <AgentSettings />}
           {settingsCategory === 'hosts' && <HostSettings />}
+          {settingsCategory === 'mcp' && <McpSettings />}
         </div>
       </div>
     </motion.div>

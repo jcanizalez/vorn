@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import os from 'node:os'
+import log from './logger'
 
 export interface CopilotHookInstallation {
   projectPath: string
@@ -27,12 +28,13 @@ const EVENT_MAP: Record<string, string> = {
 // The node script is cross-platform — only the shell invocation differs
 function buildNodeScript(sessionId: string, eventName: string): string {
   const portPath = path.join(os.homedir(), '.vibegrid', 'port').replace(/\\/g, '/')
+  const tokenPath = path.join(os.homedir(), '.vibegrid', 'token').replace(/\\/g, '/')
   return [
     `const d=JSON.parse(require('fs').readFileSync(0,'utf8'));`,
-    `let port;`,
-    `try{port=require('fs').readFileSync('${portPath}','utf8').trim()}catch(e){process.stdout.write('{}');process.exit(0)}`,
+    `let port,token;`,
+    `try{port=require('fs').readFileSync('${portPath}','utf8').trim();token=require('fs').readFileSync('${tokenPath}','utf8').trim()}catch(e){process.stdout.write('{}');process.exit(0)}`,
     `const body=JSON.stringify({session_id:'${sessionId}',hook_event_name:'${eventName}',cwd:d.cwd||'',tool_name:d.toolName||''});`,
-    `const r=require('http').request({hostname:'127.0.0.1',port:+port,path:'/hooks',method:'POST',headers:{'Content-Type':'application/json'}});`,
+    `const r=require('http').request({hostname:'127.0.0.1',port:+port,path:'/hooks',method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}});`,
     `r.on('error',()=>{});r.end(body);`,
     `process.stdout.write('{}')`
   ].join('')
@@ -101,7 +103,7 @@ export function installCopilotHooks(projectPath: string, _port: number): Copilot
   }
 
   activeInstallations.set(projectPath, installation)
-  console.log(`[copilot-hooks] installed hooks.json at ${hooksJsonPath} (session: ${sessionId})`)
+  log.info(`[copilot-hooks] installed hooks.json at ${hooksJsonPath} (session: ${sessionId})`)
 
   return installation
 }
@@ -111,7 +113,7 @@ export function uninstallCopilotHooks(installation: CopilotHookInstallation): vo
     if (installation.hadExistingFile && installation.existingContent) {
       // Restore original content
       fs.writeFileSync(installation.hooksJsonPath, installation.existingContent, 'utf-8')
-      console.log(`[copilot-hooks] restored original hooks.json at ${installation.hooksJsonPath}`)
+      log.info(`[copilot-hooks] restored original hooks.json at ${installation.hooksJsonPath}`)
     } else {
       // Only remove if it's still our file
       if (fs.existsSync(installation.hooksJsonPath)) {
@@ -119,7 +121,7 @@ export function uninstallCopilotHooks(installation: CopilotHookInstallation): vo
         const parsed = JSON.parse(content)
         if (parsed._vibegrid) {
           fs.unlinkSync(installation.hooksJsonPath)
-          console.log(`[copilot-hooks] removed hooks.json at ${installation.hooksJsonPath}`)
+          log.info(`[copilot-hooks] removed hooks.json at ${installation.hooksJsonPath}`)
         }
       }
     }

@@ -16,11 +16,11 @@ const HOOK_EVENTS = [
   'SessionEnd'
 ]
 
-function makeHookEntry(port: number) {
+function makeHookEntry(port: number, token: string) {
   return {
     type: 'http',
     url: `http://localhost:${port}/hooks`,
-    headers: { [VIBEGRID_HEADER]: 'true' },
+    headers: { [VIBEGRID_HEADER]: 'true', Authorization: `Bearer ${token}` },
     timeout: 30
   }
 }
@@ -30,7 +30,7 @@ function isVibeGridHook(hook: Record<string, unknown>): boolean {
   return headers?.[VIBEGRID_HEADER] === 'true'
 }
 
-export function installHooks(port: number): void {
+export function installHooks(port: number, token: string): void {
   let settings: Record<string, unknown> = {}
 
   // Read existing settings
@@ -60,7 +60,7 @@ export function installHooks(port: number): void {
 
     // Add new VibeGrid hook
     filtered.push({
-      hooks: [makeHookEntry(port)]
+      hooks: [makeHookEntry(port, token)]
     })
 
     hooks[event] = filtered

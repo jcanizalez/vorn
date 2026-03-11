@@ -4,6 +4,7 @@ import { WorkflowDefinition, TriggerConfig, IPC } from '../shared/types'
 import { configManager } from './config-manager'
 import { scheduleLogManager } from './schedule-log'
 import { updateWorkflowRunStatus } from './database'
+import log from './logger'
 
 export interface MissedSchedule {
   workflow: WorkflowDefinition
@@ -51,21 +52,45 @@ class Scheduler {
       if (!trigger) continue
 
       if (trigger.triggerType === 'recurring' && !this.cronJobs.has(wf.id)) {
-        const task = cron.schedule(
-          trigger.cron,
-          () => this.executeWorkflow(wf.id),
-          {
-            timezone: trigger.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
-          }
-        )
-        this.cronJobs.set(wf.id, task)
+        if (!cron.validate(trigger.cron)) {
+          log.error(`[scheduler] invalid cron expression for workflow "${wf.name}": ${trigger.cron}`)
+          continue
+        }
+        try {
+          const task = cron.schedule(
+            trigger.cron,
+            () => this.executeWorkflow(wf.id),
+            {
+              timezone: trigger.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
+            }
+          )
+          this.cronJobs.set(wf.id, task)
+        } catch (err) {
+          log.error(`[scheduler] failed to schedule workflow "${wf.name}":`, err)
+        }
       }
 
       if (trigger.triggerType === 'once' && !this.timeouts.has(wf.id)) {
         const runAt = new Date(trigger.runAt).getTime()
+        if (isNaN(runAt)) {
+          log.error(`[scheduler] invalid runAt date for workflow "${wf.name}": ${trigger.runAt}`)
+          continue
+        }
         const delay = runAt - Date.now()
         if (delay > 0) {
-          const timer = setTimeout(() => this.executeWorkflow(wf.id), delay)
+          // Cap delay to 24 hours to avoid setTimeout overflow (max ~24.8 days)
+          // The scheduler will re-evaluate on next syncSchedules call
+          const MAX_DELAY = 24 * 60 * 60 * 1000
+          const safeDelay = Math.min(delay, MAX_DELAY)
+          const timer = setTimeout(() => {
+            if (safeDelay < delay) {
+              // Re-schedule: not yet time to fire
+              this.timeouts.delete(wf.id)
+              this.syncSchedules(configManager.loadConfig().workflows ?? [])
+            } else {
+              this.executeWorkflow(wf.id)
+            }
+          }, safeDelay)
           this.timeouts.set(wf.id, timer)
         }
       }

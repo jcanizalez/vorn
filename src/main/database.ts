@@ -2,6 +2,8 @@ import Database from 'better-sqlite3'
 import path from 'node:path'
 import os from 'node:os'
 import fs from 'node:fs'
+import { dialog } from 'electron'
+import log from './logger'
 import {
   AppConfig,
   ProjectConfig,
@@ -33,11 +35,73 @@ export function initDatabase(): void {
     fs.mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 })
   }
 
-  db = new Database(DB_PATH)
-  db.pragma('journal_mode = WAL')
-  db.pragma('foreign_keys = ON')
+  try {
+    db = new Database(DB_PATH)
+    db.pragma('journal_mode = WAL')
+    db.pragma('foreign_keys = ON')
+    createSchema()
+  } catch (err) {
+    log.error('[database] Failed to open database:', err)
 
-  createSchema()
+    // Detect corruption: better-sqlite3 throws on open or pragma for corrupt files
+    const message = err instanceof Error ? err.message : String(err)
+    const isCorrupt = /corrupt|notadb|malformed|not a database|file is not a database/i.test(message)
+
+    if (isCorrupt) {
+      log.warn('[database] Database appears corrupt, attempting recovery...')
+      recoverCorruptDatabase()
+    } else {
+      throw err
+    }
+  }
+}
+
+/**
+ * Backs up the corrupt database file, creates a fresh one, and shows
+ * a dialog informing the user that their settings were reset.
+ */
+function recoverCorruptDatabase(): void {
+  // Close any partially-opened handle
+  try { db?.close() } catch { /* ignore */ }
+  db = null
+
+  // Back up the corrupt file
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const backupPath = `${DB_PATH}.corrupt-${timestamp}`
+  try {
+    if (fs.existsSync(DB_PATH)) {
+      fs.copyFileSync(DB_PATH, backupPath)
+      log.info(`[database] Backed up corrupt database to ${backupPath}`)
+    }
+    // Remove corrupt DB + WAL/SHM files
+    for (const suffix of ['', '-wal', '-shm']) {
+      const file = DB_PATH + suffix
+      if (fs.existsSync(file)) fs.unlinkSync(file)
+    }
+  } catch (backupErr) {
+    log.error('[database] Failed to back up corrupt database:', backupErr)
+  }
+
+  // Create a fresh database
+  try {
+    db = new Database(DB_PATH)
+    db.pragma('journal_mode = WAL')
+    db.pragma('foreign_keys = ON')
+    createSchema()
+    log.info('[database] Successfully created fresh database after corruption recovery')
+  } catch (freshErr) {
+    log.error('[database] Failed to create fresh database after corruption:', freshErr)
+    throw freshErr
+  }
+
+  // Notify the user (non-blocking)
+  dialog.showMessageBox({
+    type: 'warning',
+    title: 'Database Reset',
+    message: 'VibeGrid database was corrupted and has been reset.',
+    detail: `Your settings have been restored to defaults. A backup of the corrupt file was saved to:\n${backupPath}`,
+    buttons: ['OK']
+  }).catch(() => { /* dialog can fail in headless/test environments */ })
 }
 
 export function closeDatabase(): void {
@@ -50,10 +114,12 @@ export function closeDatabase(): void {
 function createSchema(): void {
   const d = getDb()
 
-  // Migrate: drop old-format workflows table (had actions/schedule columns)
+  // Migrate: if old-format workflows table exists (had 'actions' column),
+  // back it up before dropping so we don't silently destroy user data.
   const cols = d.prepare("PRAGMA table_info(workflows)").all() as Array<{ name: string }>
   if (cols.some((c) => c.name === 'actions')) {
-    d.exec('DROP TABLE workflows')
+    d.exec('ALTER TABLE workflows RENAME TO workflows_backup_old_format')
+    log.warn('[database] migrated old-format workflows table to workflows_backup_old_format')
   }
   d.exec(`
     CREATE TABLE IF NOT EXISTS schema_meta (
@@ -248,35 +314,17 @@ function loadProjects(d: Database.Database): ProjectConfig[] {
     name: string; path: string; preferred_agents: string
     icon: string | null; icon_color: string | null; host_ids: string | null
   }>
-  return rows.map((r) => ({
-    name: r.name,
-    path: r.path,
-    preferredAgents: JSON.parse(r.preferred_agents) as AgentType[],
-    ...(r.icon != null && { icon: r.icon }),
-    ...(r.icon_color != null && { iconColor: r.icon_color }),
-    ...(r.host_ids != null && { hostIds: JSON.parse(r.host_ids) as string[] })
-  }))
+  return rows.map(rowToProject)
 }
 
 function loadWorkflows(d: Database.Database): WorkflowDefinition[] {
-  const rows = d.prepare('SELECT id, name, icon, icon_color, nodes, edges, enabled, last_run_at, last_run_status, stagger_delay_ms FROM workflows').all() as Array<{
+  const rows = d.prepare('SELECT * FROM workflows').all() as Array<{
     id: string; name: string; icon: string; icon_color: string
     nodes: string; edges: string; enabled: number
     last_run_at: string | null; last_run_status: string | null
     stagger_delay_ms: number | null
   }>
-  return rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    icon: r.icon,
-    iconColor: r.icon_color,
-    nodes: JSON.parse(r.nodes),
-    edges: JSON.parse(r.edges),
-    enabled: r.enabled === 1,
-    ...(r.last_run_at != null && { lastRunAt: r.last_run_at }),
-    ...(r.last_run_status != null && { lastRunStatus: r.last_run_status as 'success' | 'error' }),
-    ...(r.stagger_delay_ms != null && { staggerDelayMs: r.stagger_delay_ms })
-  }))
+  return rows.map(rowToWorkflow)
 }
 
 function loadAgentCommands(d: Database.Database): Partial<Record<AgentType, AgentCommandConfig>> {
@@ -320,22 +368,7 @@ function loadTasks(d: Database.Database): TaskConfig[] {
     branch: string | null; use_worktree: number | null
     created_at: string; updated_at: string; completed_at: string | null
   }>
-  return rows.map((r) => ({
-    id: r.id,
-    projectName: r.project_name,
-    title: r.title,
-    description: r.description,
-    status: r.status as TaskConfig['status'],
-    order: r.order,
-    ...(r.assigned_session_id != null && { assignedSessionId: r.assigned_session_id }),
-    ...(r.assigned_agent != null && { assignedAgent: r.assigned_agent as AgentType }),
-    ...(r.agent_session_id != null && { agentSessionId: r.agent_session_id }),
-    ...(r.branch != null && { branch: r.branch }),
-    ...(r.use_worktree != null && r.use_worktree !== 0 && { useWorktree: true }),
-    createdAt: r.created_at,
-    updatedAt: r.updated_at,
-    ...(r.completed_at != null && { completedAt: r.completed_at })
-  }))
+  return rows.map(rowToTask)
 }
 
 // ---------------------------------------------------------------------------
@@ -429,6 +462,242 @@ export function saveConfig(config: AppConfig): void {
   })
 
   run()
+}
+
+// ---------------------------------------------------------------------------
+// Targeted CRUD: Tasks
+// ---------------------------------------------------------------------------
+
+export function dbListTasks(projectName?: string, status?: string): TaskConfig[] {
+  const d = getDb()
+  let sql = 'SELECT * FROM tasks'
+  const params: string[] = []
+  const clauses: string[] = []
+  if (projectName) { clauses.push('project_name = ?'); params.push(projectName) }
+  if (status) { clauses.push('status = ?'); params.push(status) }
+  if (clauses.length) sql += ' WHERE ' + clauses.join(' AND ')
+  sql += ' ORDER BY "order"'
+  const rows = d.prepare(sql).all(...params) as Array<{
+    id: string; project_name: string; title: string; description: string
+    status: string; order: number; assigned_session_id: string | null
+    assigned_agent: string | null; agent_session_id: string | null
+    branch: string | null; use_worktree: number | null
+    created_at: string; updated_at: string; completed_at: string | null
+  }>
+  return rows.map(rowToTask)
+}
+
+export function dbGetTask(id: string): TaskConfig | null {
+  const row = getDb().prepare('SELECT * FROM tasks WHERE id = ?').get(id) as {
+    id: string; project_name: string; title: string; description: string
+    status: string; order: number; assigned_session_id: string | null
+    assigned_agent: string | null; agent_session_id: string | null
+    branch: string | null; use_worktree: number | null
+    created_at: string; updated_at: string; completed_at: string | null
+  } | undefined
+  return row ? rowToTask(row) : null
+}
+
+export function dbInsertTask(task: TaskConfig): void {
+  getDb().prepare(
+    `INSERT INTO tasks (id, project_name, title, description, status, "order", assigned_session_id, assigned_agent, agent_session_id, branch, use_worktree, created_at, updated_at, completed_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    task.id, task.projectName, task.title, task.description,
+    task.status, task.order,
+    task.assignedSessionId ?? null, task.assignedAgent ?? null,
+    task.agentSessionId ?? null, task.branch ?? null,
+    task.useWorktree ? 1 : 0,
+    task.createdAt, task.updatedAt, task.completedAt ?? null
+  )
+}
+
+export function dbUpdateTask(id: string, updates: Partial<TaskConfig>): void {
+  const sets: string[] = []
+  const params: unknown[] = []
+  if (updates.title !== undefined) { sets.push('title = ?'); params.push(updates.title) }
+  if (updates.description !== undefined) { sets.push('description = ?'); params.push(updates.description) }
+  if (updates.status !== undefined) { sets.push('status = ?'); params.push(updates.status) }
+  if (updates.order !== undefined) { sets.push('"order" = ?'); params.push(updates.order) }
+  if (updates.branch !== undefined) { sets.push('branch = ?'); params.push(updates.branch) }
+  if (updates.useWorktree !== undefined) { sets.push('use_worktree = ?'); params.push(updates.useWorktree ? 1 : 0) }
+  if (updates.assignedAgent !== undefined) { sets.push('assigned_agent = ?'); params.push(updates.assignedAgent) }
+  if (updates.assignedSessionId !== undefined) { sets.push('assigned_session_id = ?'); params.push(updates.assignedSessionId) }
+  if (updates.agentSessionId !== undefined) { sets.push('agent_session_id = ?'); params.push(updates.agentSessionId) }
+  if (updates.updatedAt !== undefined) { sets.push('updated_at = ?'); params.push(updates.updatedAt) }
+  if ('completedAt' in updates) { sets.push('completed_at = ?'); params.push(updates.completedAt ?? null) }
+  if (sets.length === 0) return
+  params.push(id)
+  getDb().prepare(`UPDATE tasks SET ${sets.join(', ')} WHERE id = ?`).run(...params)
+}
+
+export function dbDeleteTask(id: string): void {
+  getDb().prepare('DELETE FROM tasks WHERE id = ?').run(id)
+}
+
+export function dbGetMaxTaskOrder(projectName: string): number {
+  const row = getDb().prepare('SELECT MAX("order") as m FROM tasks WHERE project_name = ?').get(projectName) as { m: number | null }
+  return row.m ?? -1
+}
+
+// ---------------------------------------------------------------------------
+// Targeted CRUD: Projects
+// ---------------------------------------------------------------------------
+
+export function dbListProjects(): ProjectConfig[] {
+  const rows = getDb().prepare('SELECT * FROM projects').all() as Array<{
+    name: string; path: string; preferred_agents: string
+    icon: string | null; icon_color: string | null; host_ids: string | null
+  }>
+  return rows.map(rowToProject)
+}
+
+export function dbGetProject(name: string): ProjectConfig | null {
+  const row = getDb().prepare('SELECT * FROM projects WHERE name = ?').get(name) as {
+    name: string; path: string; preferred_agents: string
+    icon: string | null; icon_color: string | null; host_ids: string | null
+  } | undefined
+  return row ? rowToProject(row) : null
+}
+
+export function dbInsertProject(project: ProjectConfig): void {
+  getDb().prepare(
+    'INSERT INTO projects (name, path, preferred_agents, icon, icon_color, host_ids) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(
+    project.name, project.path, JSON.stringify(project.preferredAgents),
+    project.icon ?? null, project.iconColor ?? null,
+    project.hostIds ? JSON.stringify(project.hostIds) : null
+  )
+}
+
+export function dbUpdateProject(name: string, updates: Partial<ProjectConfig>): void {
+  const sets: string[] = []
+  const params: unknown[] = []
+  if (updates.path !== undefined) { sets.push('path = ?'); params.push(updates.path) }
+  if (updates.preferredAgents !== undefined) { sets.push('preferred_agents = ?'); params.push(JSON.stringify(updates.preferredAgents)) }
+  if (updates.icon !== undefined) { sets.push('icon = ?'); params.push(updates.icon) }
+  if (updates.iconColor !== undefined) { sets.push('icon_color = ?'); params.push(updates.iconColor) }
+  if (updates.hostIds !== undefined) { sets.push('host_ids = ?'); params.push(JSON.stringify(updates.hostIds)) }
+  if (sets.length === 0) return
+  params.push(name)
+  getDb().prepare(`UPDATE projects SET ${sets.join(', ')} WHERE name = ?`).run(...params)
+}
+
+export function dbDeleteProject(name: string): void {
+  const d = getDb()
+  d.transaction(() => {
+    d.prepare('DELETE FROM tasks WHERE project_name = ?').run(name)
+    d.prepare('DELETE FROM projects WHERE name = ?').run(name)
+  })()
+}
+
+// ---------------------------------------------------------------------------
+// Targeted CRUD: Workflows
+// ---------------------------------------------------------------------------
+
+export function dbListWorkflows(): WorkflowDefinition[] {
+  const rows = getDb().prepare('SELECT * FROM workflows').all() as Array<{
+    id: string; name: string; icon: string; icon_color: string
+    nodes: string; edges: string; enabled: number
+    last_run_at: string | null; last_run_status: string | null
+    stagger_delay_ms: number | null
+  }>
+  return rows.map(rowToWorkflow)
+}
+
+export function dbInsertWorkflow(workflow: WorkflowDefinition): void {
+  getDb().prepare(
+    `INSERT INTO workflows (id, name, icon, icon_color, nodes, edges, enabled, last_run_at, last_run_status, stagger_delay_ms)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    workflow.id, workflow.name, workflow.icon, workflow.iconColor,
+    JSON.stringify(workflow.nodes), JSON.stringify(workflow.edges),
+    workflow.enabled ? 1 : 0,
+    workflow.lastRunAt ?? null, workflow.lastRunStatus ?? null,
+    workflow.staggerDelayMs ?? null
+  )
+}
+
+export function dbUpdateWorkflow(id: string, updates: Partial<WorkflowDefinition>): void {
+  const sets: string[] = []
+  const params: unknown[] = []
+  if (updates.name !== undefined) { sets.push('name = ?'); params.push(updates.name) }
+  if (updates.nodes !== undefined) { sets.push('nodes = ?'); params.push(JSON.stringify(updates.nodes)) }
+  if (updates.edges !== undefined) { sets.push('edges = ?'); params.push(JSON.stringify(updates.edges)) }
+  if (updates.icon !== undefined) { sets.push('icon = ?'); params.push(updates.icon) }
+  if (updates.iconColor !== undefined) { sets.push('icon_color = ?'); params.push(updates.iconColor) }
+  if (updates.enabled !== undefined) { sets.push('enabled = ?'); params.push(updates.enabled ? 1 : 0) }
+  if (updates.staggerDelayMs !== undefined) { sets.push('stagger_delay_ms = ?'); params.push(updates.staggerDelayMs) }
+  if (sets.length === 0) return
+  params.push(id)
+  getDb().prepare(`UPDATE workflows SET ${sets.join(', ')} WHERE id = ?`).run(...params)
+}
+
+export function dbDeleteWorkflow(id: string): void {
+  getDb().prepare('DELETE FROM workflows WHERE id = ?').run(id)
+}
+
+// ---------------------------------------------------------------------------
+// Row mappers (shared between loadConfig and targeted queries)
+// ---------------------------------------------------------------------------
+
+function rowToTask(r: {
+  id: string; project_name: string; title: string; description: string
+  status: string; order: number; assigned_session_id: string | null
+  assigned_agent: string | null; agent_session_id: string | null
+  branch: string | null; use_worktree: number | null
+  created_at: string; updated_at: string; completed_at: string | null
+}): TaskConfig {
+  return {
+    id: r.id,
+    projectName: r.project_name,
+    title: r.title,
+    description: r.description,
+    status: r.status as TaskConfig['status'],
+    order: r.order,
+    ...(r.assigned_session_id != null && { assignedSessionId: r.assigned_session_id }),
+    ...(r.assigned_agent != null && { assignedAgent: r.assigned_agent as AgentType }),
+    ...(r.agent_session_id != null && { agentSessionId: r.agent_session_id }),
+    ...(r.branch != null && { branch: r.branch }),
+    ...(r.use_worktree != null && r.use_worktree !== 0 && { useWorktree: true }),
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+    ...(r.completed_at != null && { completedAt: r.completed_at })
+  }
+}
+
+function rowToProject(r: {
+  name: string; path: string; preferred_agents: string
+  icon: string | null; icon_color: string | null; host_ids: string | null
+}): ProjectConfig {
+  return {
+    name: r.name,
+    path: r.path,
+    preferredAgents: JSON.parse(r.preferred_agents) as AgentType[],
+    ...(r.icon != null && { icon: r.icon }),
+    ...(r.icon_color != null && { iconColor: r.icon_color }),
+    ...(r.host_ids != null && { hostIds: JSON.parse(r.host_ids) as string[] })
+  }
+}
+
+function rowToWorkflow(r: {
+  id: string; name: string; icon: string; icon_color: string
+  nodes: string; edges: string; enabled: number
+  last_run_at: string | null; last_run_status: string | null
+  stagger_delay_ms: number | null
+}): WorkflowDefinition {
+  return {
+    id: r.id,
+    name: r.name,
+    icon: r.icon,
+    iconColor: r.icon_color,
+    nodes: JSON.parse(r.nodes),
+    edges: JSON.parse(r.edges),
+    enabled: r.enabled === 1,
+    ...(r.last_run_at != null && { lastRunAt: r.last_run_at }),
+    ...(r.last_run_status != null && { lastRunStatus: r.last_run_status as 'success' | 'error' }),
+    ...(r.stagger_delay_ms != null && { staggerDelayMs: r.stagger_delay_ms })
+  }
 }
 
 // ---------------------------------------------------------------------------

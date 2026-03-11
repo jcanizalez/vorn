@@ -9,6 +9,9 @@ vi.mock('node:child_process', async () => {
     ...actual,
     execSync: vi.fn(() => {
       throw new Error('mock shell env')
+    }),
+    execFileSync: vi.fn(() => {
+      throw new Error('mock shell env')
     })
   }
 })

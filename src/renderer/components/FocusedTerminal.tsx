@@ -75,11 +75,18 @@ export function FocusedTerminal() {
 
   const handleKill = async (): Promise<void> => {
     const name = getDisplayName(terminal.session)
-    await window.api.killTerminal(focusedId)
-    destroyTerminal(focusedId)
-    removeTerminal(focusedId)
+    // Clear focus FIRST to prevent re-renders referencing the deleted terminal
     setFocused(null)
-    toast.success(`Session "${name}" closed`)
+    try {
+      await window.api.killTerminal(focusedId)
+      destroyTerminal(focusedId)
+      removeTerminal(focusedId)
+      toast.success(`Session "${name}" closed`)
+    } catch (err) {
+      console.error('[FocusedTerminal] killTerminal failed:', err)
+      // Restore focus — the terminal is still running in the backend
+      setFocused(focusedId)
+    }
   }
 
   const handleToggleDiff = (): void => {

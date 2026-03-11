@@ -4,20 +4,22 @@ import {
   getPreviousSessions as dbGetPreviousSessions,
   clearSessions as dbClearSessions
 } from './database'
+import log from './logger'
 
 class SessionManager {
   saveSessions(sessions: TerminalSession[]): void {
     try {
       dbSaveSessions(sessions)
-    } catch {
-      // ignore write errors
+    } catch (err) {
+      log.warn('[session-persistence] saveSessions failed:', err)
     }
   }
 
   getPreviousSessions(): TerminalSession[] {
     try {
       return dbGetPreviousSessions()
-    } catch {
+    } catch (err) {
+      log.warn('[session-persistence] getPreviousSessions failed:', err)
       return []
     }
   }
@@ -25,8 +27,8 @@ class SessionManager {
   clear(): void {
     try {
       dbClearSessions()
-    } catch {
-      // ignore
+    } catch (err) {
+      log.warn('[session-persistence] clear failed:', err)
     }
   }
 }

@@ -45,7 +45,8 @@ export function FloatingToolbar({ editor }: FloatingToolbarProps) {
     }
 
     editor.on('selectionUpdate', updateToolbar)
-    editor.on('blur', () => {
+
+    const handleBlur = () => {
       // Delay to allow toolbar button clicks
       setTimeout(() => {
         if (!toolbarRef.current?.contains(document.activeElement)) {
@@ -53,10 +54,12 @@ export function FloatingToolbar({ editor }: FloatingToolbarProps) {
           setShowLinkInput(false)
         }
       }, 150)
-    })
+    }
+    editor.on('blur', handleBlur)
 
     return () => {
       editor.off('selectionUpdate', updateToolbar)
+      editor.off('blur', handleBlur)
     }
   }, [editor])
 

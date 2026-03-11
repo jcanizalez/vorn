@@ -1,5 +1,6 @@
 import { AgentStatus, HookEvent } from '../shared/types'
 import { ptyManager } from './pty-manager'
+import log from './logger'
 
 class HookStatusMapper {
   // Confirmed session_id → terminalId links, established exclusively on SessionStart
@@ -25,14 +26,14 @@ class HookStatusMapper {
     const linkedTerminalIds = new Set(this.sessionMap.values())
     const session = ptyManager.findUnlinkedSessionByCwd(cwd, linkedTerminalIds)
     if (session) {
-      console.log(`[hooks] linked session ${sessionId} → terminal ${session.id} (cwd: ${cwd})`)
+      log.info(`[hooks] linked session ${sessionId} → terminal ${session.id} (cwd: ${cwd})`)
       this.sessionMap.set(sessionId, session.id)
       session.hookSessionId = sessionId
       session.statusSource = 'hooks'
       return session.id
     }
 
-    console.log(`[hooks] no unlinked terminal for session ${sessionId} cwd=${cwd} (active terminals: ${ptyManager.getActiveSessions().map(s => s.projectPath).join(', ') || 'none'})`)
+    log.info(`[hooks] no unlinked terminal for session ${sessionId} cwd=${cwd} (active terminals: ${ptyManager.getActiveSessions().map(s => s.projectPath).join(', ') || 'none'})`)
     return undefined
   }
 

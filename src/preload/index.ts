@@ -190,6 +190,11 @@ const api = {
   listWorkflowRunsByTask: (taskId: string, limit?: number): Promise<(WorkflowExecution & { workflowName?: string })[]> =>
     ipcRenderer.invoke(IPC.WORKFLOW_RUN_LIST_BY_TASK, taskId, limit),
 
+  // App info
+  getAppVersion: (): string => ipcRenderer.sendSync('get-app-version'),
+  getMcpInfo: (): Promise<{ execPath: string; platform: string }> =>
+    ipcRenderer.invoke('get-mcp-info'),
+
   // Auto-update
   onUpdateDownloaded: (callback: (info: { version: string }) => void) => {
     const listener = (_: Electron.IpcRendererEvent, info: { version: string }): void => callback(info)

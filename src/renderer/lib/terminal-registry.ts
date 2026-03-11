@@ -257,6 +257,7 @@ export function destroyTerminal(terminalId: string): void {
   entry.removeDataListener()
   entry.term.dispose()
   registry.delete(terminalId)
+  readyCallbacks.delete(terminalId)
 }
 
 /**

@@ -107,48 +107,53 @@ export async function executeWorkflow(
 
         const removeExitListener = window.api.onHeadlessExit(({ id, exitCode: code }: { id: string; exitCode: number }) => {
           if (sessionId && id === sessionId) {
-            removeExitListener()
-            removeDataListener()
             resolveExit(code)
           }
         })
 
-        const headlessSession = await window.api.createHeadlessSession({
-          agentType: config.agentType,
-          projectName: config.projectName,
-          projectPath: config.projectPath,
-          displayName: config.displayName,
-          branch,
-          useWorktree,
-          initialPrompt,
-          promptDelayMs: config.promptDelayMs,
-          headless: true
-        })
+        try {
+          const headlessSession = await window.api.createHeadlessSession({
+            agentType: config.agentType,
+            projectName: config.projectName,
+            projectPath: config.projectPath,
+            displayName: config.displayName,
+            branch,
+            useWorktree,
+            initialPrompt,
+            promptDelayMs: config.promptDelayMs,
+            headless: true
+          })
 
-        // Set sessionId so the pre-registered listeners start matching
-        sessionId = headlessSession.id
+          // Set sessionId so the pre-registered listeners start matching
+          sessionId = headlessSession.id
 
-        updateNodeState(execution, node.id, { sessionId: headlessSession.id, taskId: resolvedTaskId })
-        persistExecution(workflow.id, execution)
+          updateNodeState(execution, node.id, { sessionId: headlessSession.id, taskId: resolvedTaskId })
+          persistExecution(workflow.id, execution)
 
-        if (resolvedTaskId) {
-          useAppStore.getState().startTask(resolvedTaskId, headlessSession.id, config.agentType)
+          if (resolvedTaskId) {
+            useAppStore.getState().startTask(resolvedTaskId, headlessSession.id, config.agentType)
+          }
+
+          // Wait for the headless process to exit
+          const exitCode = await exitPromise
+
+          if (exitCode !== 0) {
+            logs += `\nProcess exited with code ${exitCode}`
+          }
+
+          updateNodeState(execution, node.id, {
+            status: exitCode === 0 ? 'success' : 'error',
+            completedAt: new Date().toISOString(),
+            logs,
+            ...(exitCode !== 0 && { error: `Exit code ${exitCode}` })
+          })
+          persistExecution(workflow.id, execution)
+        } finally {
+          // Always clean up listeners to prevent leaks if createHeadlessSession
+          // or exitPromise throws/rejects
+          removeDataListener()
+          removeExitListener()
         }
-
-        // Wait for the headless process to exit
-        const exitCode = await exitPromise
-
-        if (exitCode !== 0) {
-          logs += `\nProcess exited with code ${exitCode}`
-        }
-
-        updateNodeState(execution, node.id, {
-          status: exitCode === 0 ? 'success' : 'error',
-          completedAt: new Date().toISOString(),
-          logs,
-          ...(exitCode !== 0 && { error: `Exit code ${exitCode}` })
-        })
-        persistExecution(workflow.id, execution)
       } else {
         // Standard terminal execution
         const session = await window.api.createTerminal({

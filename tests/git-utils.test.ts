@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('node:child_process', () => ({
-  execSync: vi.fn()
+  execFileSync: vi.fn()
 }))
 
 vi.mock('node:fs', () => ({
@@ -17,7 +17,7 @@ vi.mock('node:crypto', () => ({
   }
 }))
 
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import {
   getGitBranch,
   listBranches,
@@ -26,7 +26,7 @@ import {
   listWorktrees
 } from '../src/main/git-utils'
 
-const mockExecSync = vi.mocked(execSync)
+const mockExecFileSync = vi.mocked(execFileSync)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -34,51 +34,51 @@ beforeEach(() => {
 
 describe('getGitBranch', () => {
   it('returns branch name', () => {
-    mockExecSync.mockReturnValue('main\n')
+    mockExecFileSync.mockReturnValue('main\n')
     expect(getGitBranch('/project')).toBe('main')
   })
 
   it('returns null for HEAD (detached)', () => {
-    mockExecSync.mockReturnValue('HEAD\n')
+    mockExecFileSync.mockReturnValue('HEAD\n')
     expect(getGitBranch('/project')).toBeNull()
   })
 
   it('returns null on error', () => {
-    mockExecSync.mockImplementation(() => { throw new Error('not a git repo') })
+    mockExecFileSync.mockImplementation(() => { throw new Error('not a git repo') })
     expect(getGitBranch('/project')).toBeNull()
   })
 
   it('returns null for empty output', () => {
-    mockExecSync.mockReturnValue('')
+    mockExecFileSync.mockReturnValue('')
     expect(getGitBranch('/project')).toBeNull()
   })
 })
 
 describe('listBranches', () => {
   it('parses multi-line output', () => {
-    mockExecSync.mockReturnValue('main\nfeature/foo\ndev\n')
+    mockExecFileSync.mockReturnValue('main\nfeature/foo\ndev\n')
     expect(listBranches('/project')).toEqual(['main', 'feature/foo', 'dev'])
   })
 
   it('returns empty array on error', () => {
-    mockExecSync.mockImplementation(() => { throw new Error() })
+    mockExecFileSync.mockImplementation(() => { throw new Error() })
     expect(listBranches('/project')).toEqual([])
   })
 
   it('returns empty for empty output', () => {
-    mockExecSync.mockReturnValue('')
+    mockExecFileSync.mockReturnValue('')
     expect(listBranches('/project')).toEqual([])
   })
 
   it('trims whitespace from branch names', () => {
-    mockExecSync.mockReturnValue('  main  \n  dev  \n')
+    mockExecFileSync.mockReturnValue('  main  \n  dev  \n')
     expect(listBranches('/project')).toEqual(['main', 'dev'])
   })
 })
 
 describe('getGitDiffStat', () => {
   it('parses numstat output', () => {
-    mockExecSync.mockReturnValue('10\t5\tsrc/foo.ts\n3\t1\tsrc/bar.ts\n')
+    mockExecFileSync.mockReturnValue('10\t5\tsrc/foo.ts\n3\t1\tsrc/bar.ts\n')
     expect(getGitDiffStat('/project')).toEqual({
       filesChanged: 2,
       insertions: 13,
@@ -87,7 +87,7 @@ describe('getGitDiffStat', () => {
   })
 
   it('handles binary files', () => {
-    mockExecSync.mockReturnValue('-\t-\timage.png\n5\t2\tsrc/foo.ts\n')
+    mockExecFileSync.mockReturnValue('-\t-\timage.png\n5\t2\tsrc/foo.ts\n')
     expect(getGitDiffStat('/project')).toEqual({
       filesChanged: 2,
       insertions: 5,
@@ -96,7 +96,7 @@ describe('getGitDiffStat', () => {
   })
 
   it('returns zeros for empty diff', () => {
-    mockExecSync.mockReturnValue('')
+    mockExecFileSync.mockReturnValue('')
     expect(getGitDiffStat('/project')).toEqual({
       filesChanged: 0,
       insertions: 0,
@@ -105,44 +105,49 @@ describe('getGitDiffStat', () => {
   })
 
   it('returns null on error', () => {
-    mockExecSync.mockImplementation(() => { throw new Error() })
+    mockExecFileSync.mockImplementation(() => { throw new Error() })
     expect(getGitDiffStat('/project')).toBeNull()
   })
 })
 
 describe('gitCommit', () => {
   it('calls git add -A when includeUnstaged is true', () => {
-    mockExecSync.mockReturnValue('')
+    mockExecFileSync.mockReturnValue('')
     gitCommit('/project', 'test commit', true)
-    expect(mockExecSync).toHaveBeenCalledWith(
-      'git add -A',
+    expect(mockExecFileSync).toHaveBeenCalledWith(
+      'git',
+      ['add', '-A'],
       expect.objectContaining({ cwd: '/project' })
     )
   })
 
   it('does not call git add -A when includeUnstaged is false', () => {
-    mockExecSync.mockReturnValue('')
+    mockExecFileSync.mockReturnValue('')
     gitCommit('/project', 'test commit', false)
-    const calls = mockExecSync.mock.calls.map((c) => c[0])
-    expect(calls).not.toContain('git add -A')
+    const calls = mockExecFileSync.mock.calls
+    const hasAddCall = calls.some(
+      (c) => c[0] === 'git' && Array.isArray(c[1]) && (c[1] as string[]).includes('-A')
+    )
+    expect(hasAddCall).toBe(false)
   })
 
-  it('passes message via JSON.stringify', () => {
-    mockExecSync.mockReturnValue('')
+  it('passes message as argument (not interpolated into command string)', () => {
+    mockExecFileSync.mockReturnValue('')
     gitCommit('/project', 'fix: "quotes" and stuff', false)
-    expect(mockExecSync).toHaveBeenCalledWith(
-      expect.stringContaining(JSON.stringify('fix: "quotes" and stuff')),
+    expect(mockExecFileSync).toHaveBeenCalledWith(
+      'git',
+      ['commit', '-m', 'fix: "quotes" and stuff'],
       expect.any(Object)
     )
   })
 
   it('returns success on successful commit', () => {
-    mockExecSync.mockReturnValue('')
+    mockExecFileSync.mockReturnValue('')
     expect(gitCommit('/project', 'msg', false)).toEqual({ success: true })
   })
 
   it('returns error on failure', () => {
-    mockExecSync.mockImplementation(() => { throw new Error('nothing to commit') })
+    mockExecFileSync.mockImplementation(() => { throw new Error('nothing to commit') })
     const result = gitCommit('/project', 'msg', false)
     expect(result.success).toBe(false)
     expect(result.error).toContain('nothing to commit')
@@ -151,7 +156,7 @@ describe('gitCommit', () => {
 
 describe('listWorktrees', () => {
   it('parses porcelain output', () => {
-    mockExecSync.mockReturnValue(
+    mockExecFileSync.mockReturnValue(
       'worktree /path/to/project\nbranch refs/heads/main\n\n' +
       'worktree /path/to/worktree\nbranch refs/heads/feature\n'
     )
@@ -163,7 +168,7 @@ describe('listWorktrees', () => {
   })
 
   it('handles detached HEAD', () => {
-    mockExecSync.mockReturnValue(
+    mockExecFileSync.mockReturnValue(
       'worktree /path/to/project\nbranch refs/heads/main\n\n' +
       'worktree /path/to/worktree\ndetached\n'
     )
@@ -172,12 +177,12 @@ describe('listWorktrees', () => {
   })
 
   it('returns empty on error', () => {
-    mockExecSync.mockImplementation(() => { throw new Error() })
+    mockExecFileSync.mockImplementation(() => { throw new Error() })
     expect(listWorktrees('/project')).toEqual([])
   })
 
   it('returns empty for empty output', () => {
-    mockExecSync.mockReturnValue('')
+    mockExecFileSync.mockReturnValue('')
     expect(listWorktrees('/project')).toEqual([])
   })
 })

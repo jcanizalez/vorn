@@ -23,9 +23,6 @@ import {
 } from '../../lib/workflow-helpers'
 import { executeWorkflow } from '../../lib/workflow-execution'
 
-const ICON_MAP: Record<string, any> = {}
-// We reuse the same icon approach as sidebar — icon name stored as string
-
 const EMPTY_TASKS: import('../../../shared/types').TaskConfig[] = []
 
 export function WorkflowEditor() {

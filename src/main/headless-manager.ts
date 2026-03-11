@@ -7,6 +7,7 @@ import { getGitBranch, checkoutBranch, createWorktree } from './git-utils'
 import { getSafeEnv } from './pty-manager'
 import { buildHeadlessSpawnArgs } from './agent-launch'
 import { DEFAULT_AGENT_COMMANDS } from '../shared/agent-defaults'
+import log from './logger'
 
 const MAX_OUTPUT_LINES = 1000
 
@@ -52,7 +53,7 @@ class HeadlessManager extends EventEmitter {
 
     const env = getSafeEnv()
     const spawnArgs = buildHeadlessSpawnArgs(payload, this.agentCommands, env)
-    console.log(`[headless] launching: ${spawnArgs.command} ${spawnArgs.args.join(' ').slice(0, 100)}...`)
+    log.info(`[headless] launching: ${spawnArgs.command} ${spawnArgs.args.join(' ').slice(0, 100)}...`)
 
     const child = spawn(spawnArgs.command, spawnArgs.args, {
       cwd: effectivePath,
@@ -96,7 +97,7 @@ class HeadlessManager extends EventEmitter {
 
     // Handle exit
     child.on('exit', (exitCode) => {
-      console.log(`[headless] process ${id} exited with code ${exitCode}`)
+      log.info(`[headless] process ${id} exited with code ${exitCode}`)
       const sess = this.sessions.get(id)
       if (sess) {
         sess.status = 'exited'
@@ -105,10 +106,17 @@ class HeadlessManager extends EventEmitter {
       }
       this.processes.delete(id)
       this.sendToRenderer(IPC.HEADLESS_EXIT, { id, exitCode: exitCode ?? 1 })
+
+      // Clean up output buffer and session after a short delay to allow
+      // final reads from the renderer, preventing unbounded memory growth.
+      setTimeout(() => {
+        this.outputBuffers.delete(id)
+        this.sessions.delete(id)
+      }, 30_000)
     })
 
     child.on('error', (err) => {
-      console.error(`[headless] process ${id} error:`, err.message)
+      log.error(`[headless] process ${id} error:`, err.message)
       this.appendOutput(id, `Error: ${err.message}\n`)
       this.sendToRenderer(IPC.HEADLESS_DATA, { id, data: `Error: ${err.message}\n` })
     })

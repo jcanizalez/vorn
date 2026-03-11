@@ -1,8 +1,17 @@
+import path from 'node:path'
 import { app, Menu, BrowserWindow } from 'electron'
 
 const isMac = process.platform === 'darwin'
 
 export function createMenu(onToggleWidget?: () => void): void {
+  app.setAboutPanelOptions({
+    applicationName: 'VibeGrid',
+    applicationVersion: app.getVersion(),
+    version: '',
+    copyright: '© 2026 Javier Canizalez',
+    iconPath: path.join(__dirname, '../../resources/icon.png')
+  })
+
   const template: Electron.MenuItemConstructorOptions[] = [
     ...(isMac ? [{
       label: app.name,

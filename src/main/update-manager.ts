@@ -1,6 +1,7 @@
 import { autoUpdater, UpdateInfo } from 'electron-updater'
 import { BrowserWindow, app } from 'electron'
 import { IPC } from '../shared/types'
+import log from './logger'
 
 class UpdateManager {
   private mainWindow: BrowserWindow | null = null
@@ -20,7 +21,7 @@ class UpdateManager {
     })
 
     autoUpdater.on('error', (err) => {
-      console.error('[updater] Error:', err.message)
+      log.error('[updater] Error:', err.message)
     })
 
     this.checkForUpdates()
@@ -29,7 +30,7 @@ class UpdateManager {
 
   checkForUpdates(): void {
     autoUpdater.checkForUpdates().catch((err) => {
-      console.error('[updater] Check failed:', err.message)
+      log.error('[updater] Check failed:', err.message)
     })
   }
 

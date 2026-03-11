@@ -83,31 +83,36 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
 
     setLaunching(true)
 
-    const isRemote = settings.selectedHost !== 'local'
-    const branchChanged = settings.selectedBranch && settings.selectedBranch !== settings.currentBranch
-    const branchToUse = isRemote
-      ? undefined
-      : settings.useWorktree
-        ? settings.selectedBranch || undefined
-        : branchChanged
-          ? settings.selectedBranch
-          : undefined
+    try {
+      const isRemote = settings.selectedHost !== 'local'
+      const branchChanged = settings.selectedBranch && settings.selectedBranch !== settings.currentBranch
+      const branchToUse = isRemote
+        ? undefined
+        : settings.useWorktree
+          ? settings.selectedBranch || undefined
+          : branchChanged
+            ? settings.selectedBranch
+            : undefined
 
-    const session = await window.api.createTerminal({
-      agentType: settings.selectedAgent,
-      projectName: project.name,
-      projectPath: project.path,
-      branch: branchToUse,
-      useWorktree: branchToUse && settings.useWorktree ? true : undefined,
-      remoteHostId: isRemote ? settings.selectedHost : undefined,
-      initialPrompt: prompt.trim() || undefined
-    })
+      const session = await window.api.createTerminal({
+        agentType: settings.selectedAgent,
+        projectName: project.name,
+        projectPath: project.path,
+        branch: branchToUse,
+        useWorktree: branchToUse && settings.useWorktree ? true : undefined,
+        remoteHostId: isRemote ? settings.selectedHost : undefined,
+        initialPrompt: prompt.trim() || undefined
+      })
 
-    addTerminal(session)
-    settings.persist()
-    setPrompt('')
-    setLaunching(false)
-    onClose?.()
+      addTerminal(session)
+      settings.persist()
+      setPrompt('')
+      onClose?.()
+    } catch (err) {
+      console.error('[PromptLauncher] launch failed:', err)
+    } finally {
+      setLaunching(false)
+    }
   }
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>): void => {

@@ -12,19 +12,49 @@ import { installHooks, uninstallHooks } from './hook-installer'
 import { installCopilotHooks, uninstallCopilotHooks, uninstallAllCopilotHooks, CopilotHookInstallation } from './copilot-hook-installer'
 import { hookStatusMapper } from './hook-status-mapper'
 import { updateManager } from './update-manager'
-import { VibeGridMcpServer } from './mcp-server'
 import { IPC, WidgetAgentInfo, PermissionRequestInfo } from '../shared/types'
+import { startMcpSocketServer, stopMcpSocketServer, getSocketPath } from './mcp-socket-server'
+import log from './logger'
+import { safeHandle } from './ipc-safe-handle'
+
+const isMcpMode = process.argv.includes('--mcp')
+if (isMcpMode) app.disableHardwareAcceleration()
+
+// Singleton lock (GUI only) — prevents duplicate windows, hook servers, etc.
+if (!isMcpMode) {
+  if (!app.isPackaged) app.name = 'vibegrid-dev'
+  const gotLock = app.requestSingleInstanceLock()
+  if (!gotLock) {
+    app.quit()
+  }
+}
+
+app.on('second-instance', () => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
+    mainWindow.focus()
+  }
+})
 
 // Prevent EPIPE and other uncaught errors from crashing the main process
 process.on('uncaughtException', (err) => {
   if ((err as NodeJS.ErrnoException).code === 'EPIPE') return
-  console.error('[main] uncaughtException:', err)
+  log.error('[main] uncaughtException:', err)
+})
+
+process.on('unhandledRejection', (reason) => {
+  log.error('[main] unhandledRejection:', reason)
 })
 
 let mainWindow: BrowserWindow | null = null
 let widgetWindow: BrowserWindow | null = null
-const mcpServer = new VibeGridMcpServer({ configManager, ptyManager, scheduler })
 const copilotInstallations = new Map<string, CopilotHookInstallation>()
+
+safeHandle('get-mcp-info', () => ({
+  execPath: process.execPath,
+  platform: process.platform
+}))
 
 function createWindow(): void {
   const isMac = process.platform === 'darwin'
@@ -95,14 +125,6 @@ function createWindow(): void {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
   }
 
-  // Window control IPC handlers (used by custom titlebar on Windows/Linux)
-  ipcMain.on(IPC.WINDOW_MINIMIZE, () => mainWindow?.minimize())
-  ipcMain.on(IPC.WINDOW_MAXIMIZE, () => {
-    if (mainWindow?.isMaximized()) mainWindow.unmaximize()
-    else mainWindow?.maximize()
-  })
-  ipcMain.on(IPC.WINDOW_CLOSE, () => mainWindow?.close())
-
   mainWindow.on('close', (e) => {
     // If widget is alive and agents are running, hide main window instead of closing
     if (widgetEnabled && ptyManager.getActiveSessions().length > 0) {
@@ -119,6 +141,13 @@ function createWindow(): void {
 }
 
 let widgetEnabled = true
+let widgetReady = false
+
+/** Send a message to the widget window only if it exists and has finished loading */
+function sendToWidget(channel: string, ...args: unknown[]): void {
+  if (!widgetWindow || widgetWindow.isDestroyed() || !widgetReady) return
+  widgetWindow.webContents.send(channel, ...args)
+}
 
 function createWidgetWindow(): void {
   if (widgetWindow && !widgetWindow.isDestroyed()) return
@@ -162,8 +191,15 @@ function createWidgetWindow(): void {
     widgetWindow.loadFile(path.join(__dirname, '../renderer/widget.html'))
   }
 
+  widgetReady = false
+
+  widgetWindow.webContents.once('did-finish-load', () => {
+    widgetReady = true
+  })
+
   widgetWindow.on('closed', () => {
     widgetWindow = null
+    widgetReady = false
   })
 }
 
@@ -177,7 +213,7 @@ function sendWidgetUpdate(): void {
     projectName: s.projectName,
     status: s.status
   }))
-  widgetWindow.webContents.send(IPC.WIDGET_STATUS_UPDATE, agents)
+  sendToWidget(IPC.WIDGET_STATUS_UPDATE, agents)
 }
 
 function showWidget(): void {
@@ -206,8 +242,33 @@ function toggleWidget(): void {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  if (isMcpMode) {
+    // Try relaying through the running GUI's socket first
+    const { isSocketAvailable, runProxy } = await import('./mcp-proxy')
+    const socketPath = getSocketPath()
+    const available = await isSocketAvailable(socketPath)
+
+    if (available) {
+      runProxy(socketPath)
+      return
+    }
+
+    // No GUI running — fall back to standalone MCP
+    configManager.init()
+    const config = configManager.loadConfig()
+    if (config.agentCommands) {
+      ptyManager.setAgentCommands(config.agentCommands)
+    }
+    ptyManager.setRemoteHosts(config.remoteHosts ?? [])
+    scheduler.syncSchedules(config.workflows ?? [])
+    const { runStdioMcp } = await import('./mcp-stdio')
+    await runStdioMcp({ configManager, ptyManager, scheduler })
+    return
+  }
+
   configManager.init()
+  configManager.watchDb()
   registerIpcHandlers({
     onSessionCreated: (session, payload) => {
       if (payload.agentType === 'copilot') {
@@ -232,17 +293,34 @@ app.whenReady().then(() => {
     }
   })
 
+  // Window control IPC handlers (used by custom titlebar on Windows/Linux)
+  // Registered once here — NOT inside createWindow() — to prevent double-registration on macOS activate.
+  ipcMain.on(IPC.WINDOW_MINIMIZE, () => mainWindow?.minimize())
+  ipcMain.on(IPC.WINDOW_MAXIMIZE, () => {
+    if (mainWindow?.isMaximized()) mainWindow.unmaximize()
+    else mainWindow?.maximize()
+  })
+  ipcMain.on(IPC.WINDOW_CLOSE, () => mainWindow?.close())
+
   createMenu(toggleWidget)
   createWindow()
   createWidgetWindow()
-  updateManager.init(mainWindow!)
+
+  if (!mainWindow) {
+    log.error('[main] Failed to create main window')
+    app.quit()
+    return
+  }
+
+  updateManager.init(mainWindow)
+  startMcpSocketServer({ configManager, ptyManager, scheduler })
 
   // Load widget setting
   const config = configManager.loadConfig()
   widgetEnabled = config.defaults.widgetEnabled !== false
 
   // Auto show/hide widget based on main window focus
-  mainWindow!.on('blur', () => {
+  mainWindow.on('blur', () => {
     // Only show if a non-widget window got focus (not our own widget)
     setTimeout(() => {
       if (widgetWindow?.isFocused()) return
@@ -250,7 +328,7 @@ app.whenReady().then(() => {
     }, 100)
   })
 
-  mainWindow!.on('focus', () => {
+  mainWindow.on('focus', () => {
     hideWidget()
   })
 
@@ -310,32 +388,38 @@ app.whenReady().then(() => {
 
   // Start hook server for agent status events
   hookServer.start().then((port) => {
-    installHooks(port)
+    try {
+      installHooks(port, hookServer.getAuthToken())
+    } catch (err) {
+      log.error('[hooks] failed to install hooks:', err)
+    }
 
     hookServer.on('permission-cancelled', (requestId: string) => {
-      if (widgetWindow && !widgetWindow.isDestroyed()) {
-        widgetWindow.webContents.send(IPC.WIDGET_PERMISSION_CANCELLED, requestId)
-      }
+      sendToWidget(IPC.WIDGET_PERMISSION_CANCELLED, requestId)
     })
 
     hookServer.on('hook-event', (event) => {
-      console.log(`[hooks] ${event.hook_event_name}: session=${event.session_id} cwd=${event.cwd}`)
+      log.info(`[hooks] ${event.hook_event_name}: session=${event.session_id} cwd=${event.cwd}`)
       const result = hookStatusMapper.mapEventToStatus(event)
       if (result) {
         ptyManager.updateSessionStatus(result.terminalId, result.status)
         sendWidgetUpdate()
 
         // Persist agent session ID on the linked task for resume support
-        if (event.hook_event_name === 'SessionStart') {
-          const config = configManager.loadConfig()
-          const task = config.tasks?.find(t => t.assignedSessionId === result.terminalId && t.status === 'in_progress' && !t.agentSessionId)
-          if (task) {
-            task.agentSessionId = event.session_id
-            task.updatedAt = new Date().toISOString()
-            configManager.saveConfig(config)
-            console.log(`[hooks] stored agentSessionId ${event.session_id} on task "${task.title}"`)
+          if (event.hook_event_name === 'SessionStart') {
+            try {
+              const config = configManager.loadConfig()
+              const task = config.tasks?.find(t => t.assignedSessionId === result.terminalId && t.status === 'in_progress' && !t.agentSessionId)
+              if (task) {
+                task.agentSessionId = event.session_id
+                task.updatedAt = new Date().toISOString()
+                configManager.saveConfig(config)
+                log.info(`[hooks] stored agentSessionId ${event.session_id} on task "${task.title}"`)
+              }
+            } catch (err) {
+              log.error('[hooks] failed to persist agentSessionId:', err)
+            }
           }
-        }
       }
 
       const dismissEvents = ['PostToolUse', 'PostToolUseFailure', 'Stop', 'UserPromptSubmit']
@@ -349,7 +433,7 @@ app.whenReady().then(() => {
       const terminalId = hookStatusMapper.getLinkedTerminal(event.session_id)
         ?? hookStatusMapper.tryLink(event.session_id, event.cwd)
 
-      console.log(`[hooks] permission-request: session=${event.session_id} tool=${event.tool_name} cwd=${event.cwd} → terminal=${terminalId ?? 'none (passthrough)'}`)
+      log.info(`[hooks] permission-request: session=${event.session_id} tool=${event.tool_name} cwd=${event.cwd} → terminal=${terminalId ?? 'none (passthrough)'}`)
 
       // Not a VibeGrid-managed session — release immediately so Claude handles it natively
       if (!terminalId) {
@@ -381,9 +465,7 @@ app.whenReady().then(() => {
       }
 
       // Send to widget
-      if (widgetWindow && !widgetWindow.isDestroyed()) {
-        widgetWindow.webContents.send(IPC.WIDGET_PERMISSION_REQUEST, permReq)
-      }
+      sendToWidget(IPC.WIDGET_PERMISSION_REQUEST, permReq)
 
       // Also send to main window
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -402,14 +484,7 @@ app.whenReady().then(() => {
       updatePermissionShortcuts()
     })
   }).catch((err) => {
-    console.error('Failed to start hook server:', err)
-  })
-
-  // Start MCP server for external tool integration (Claude Code, Cursor, etc.)
-  mcpServer.start().then((port) => {
-    console.log(`[mcp] server listening on http://127.0.0.1:${port}/mcp`)
-  }).catch((err) => {
-    console.error('Failed to start MCP server:', err)
+    log.error('Failed to start hook server:', err)
   })
 
   // Permission response from widget or main window
@@ -448,12 +523,18 @@ function updatePermissionShortcuts(): void {
 }
 
 app.on('before-quit', () => {
+  if (isMcpMode) {
+    scheduler.stopAll()
+    ptyManager.killAll()
+    configManager.close()
+    return
+  }
   const sessions = ptyManager.getActiveSessions()
   if (sessions.length > 0) {
     sessionManager.saveSessions(sessions)
   }
   globalShortcut.unregisterAll()
-  mcpServer.stop()
+  stopMcpSocketServer()
   hookServer.stop()
   uninstallHooks()
   uninstallAllCopilotHooks()
@@ -466,6 +547,7 @@ app.on('before-quit', () => {
 })
 
 app.on('window-all-closed', () => {
+  if (isMcpMode) return
   // Don't quit if widget is still showing (hidden windows don't count)
   if (process.platform !== 'darwin') {
     if (!widgetWindow || widgetWindow.isDestroyed()) {

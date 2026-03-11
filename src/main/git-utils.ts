@@ -1,16 +1,16 @@
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import fs from 'node:fs'
 import crypto from 'node:crypto'
 
 const EXEC_OPTS = {
   encoding: 'utf-8' as const,
-  stdio: ['pipe', 'pipe', 'pipe'] as const
+  stdio: ['pipe', 'pipe', 'pipe'] as ['pipe', 'pipe', 'pipe']
 }
 
 export function getGitBranch(projectPath: string): string | null {
   try {
-    const branch = execSync('git rev-parse --abbrev-ref HEAD', {
+    const branch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
       cwd: projectPath,
       ...EXEC_OPTS,
       timeout: 3000
@@ -23,12 +23,12 @@ export function getGitBranch(projectPath: string): string | null {
 
 export function listBranches(projectPath: string): string[] {
   try {
-    const output = execSync('git branch --format="%(refname:short)"', {
+    const output = execFileSync('git', ['branch', '--format=%(refname:short)'], {
       cwd: projectPath,
       ...EXEC_OPTS,
       timeout: 5000
     }).trim()
-    return output ? output.split('\n').map((b) => b.trim()).filter(Boolean) : []
+    return output ? output.split('\n').map((b: string) => b.trim()).filter(Boolean) : []
   } catch {
     return []
   }
@@ -36,12 +36,12 @@ export function listBranches(projectPath: string): string[] {
 
 export function listRemoteBranches(projectPath: string): string[] {
   try {
-    execSync('git fetch --prune', {
+    execFileSync('git', ['fetch', '--prune'], {
       cwd: projectPath,
       ...EXEC_OPTS,
       timeout: 15000
     })
-    const output = execSync('git branch -r --format="%(refname:short)"', {
+    const output = execFileSync('git', ['branch', '-r', '--format=%(refname:short)'], {
       cwd: projectPath,
       ...EXEC_OPTS,
       timeout: 5000
@@ -49,8 +49,8 @@ export function listRemoteBranches(projectPath: string): string[] {
     return output
       ? output
           .split('\n')
-          .map((b) => b.trim().replace(/^origin\//, ''))
-          .filter((b) => b && b !== 'HEAD')
+          .map((b: string) => b.trim().replace(/^origin\//, ''))
+          .filter((b: string) => b && b !== 'HEAD')
       : []
   } catch {
     return []
@@ -59,7 +59,7 @@ export function listRemoteBranches(projectPath: string): string[] {
 
 export function checkoutBranch(projectPath: string, branch: string): boolean {
   try {
-    execSync(`git checkout "${branch}"`, {
+    execFileSync('git', ['checkout', branch], {
       cwd: projectPath,
       ...EXEC_OPTS,
       timeout: 10000
@@ -86,7 +86,7 @@ export function createWorktree(
   if (localBranches.includes(branch)) {
     // Branch exists — create worktree (git handles "already checked out" by using detached HEAD if needed)
     try {
-      execSync(`git worktree add "${worktreeDir}" "${branch}"`, {
+      execFileSync('git', ['worktree', 'add', worktreeDir, branch], {
         cwd: projectPath,
         ...EXEC_OPTS,
         timeout: 30000
@@ -94,7 +94,7 @@ export function createWorktree(
     } catch {
       // If branch is already checked out, create a new branch from it
       const newBranch = `${branch}-worktree-${shortId}`
-      execSync(`git worktree add -b "${newBranch}" "${worktreeDir}" "${branch}"`, {
+      execFileSync('git', ['worktree', 'add', '-b', newBranch, worktreeDir, branch], {
         cwd: projectPath,
         ...EXEC_OPTS,
         timeout: 30000
@@ -103,7 +103,7 @@ export function createWorktree(
     }
   } else {
     // Branch doesn't exist locally — create new branch from HEAD
-    execSync(`git worktree add -b "${branch}" "${worktreeDir}"`, {
+    execFileSync('git', ['worktree', 'add', '-b', branch, worktreeDir], {
       cwd: projectPath,
       ...EXEC_OPTS,
       timeout: 30000
@@ -115,7 +115,7 @@ export function createWorktree(
 
 export function removeWorktree(projectPath: string, worktreePath: string): boolean {
   try {
-    execSync(`git worktree remove "${worktreePath}" --force`, {
+    execFileSync('git', ['worktree', 'remove', worktreePath, '--force'], {
       cwd: projectPath,
       ...EXEC_OPTS,
       timeout: 10000
@@ -134,7 +134,7 @@ export interface WorktreeEntry {
 
 export function getGitDiffStat(cwd: string): { filesChanged: number; insertions: number; deletions: number } | null {
   try {
-    const output = execSync('git diff HEAD --numstat', {
+    const output = execFileSync('git', ['diff', 'HEAD', '--numstat'], {
       cwd,
       ...EXEC_OPTS,
       timeout: 10000
@@ -171,7 +171,7 @@ export function getGitDiffFull(cwd: string): {
     if (!stat) return null
 
     const MAX_DIFF_SIZE = 500 * 1024 // 500KB
-    let rawDiff = execSync('git diff HEAD -U3', {
+    let rawDiff = execFileSync('git', ['diff', 'HEAD', '-U3'], {
       cwd,
       ...EXEC_OPTS,
       timeout: 15000,
@@ -183,7 +183,7 @@ export function getGitDiffFull(cwd: string): {
     }
 
     // Parse numstat for per-file stats
-    const numstatOutput = execSync('git diff HEAD --numstat', {
+    const numstatOutput = execFileSync('git', ['diff', 'HEAD', '--numstat'], {
       cwd,
       ...EXEC_OPTS,
       timeout: 10000
@@ -246,9 +246,9 @@ export function gitCommit(
 ): { success: boolean; error?: string } {
   try {
     if (includeUnstaged) {
-      execSync('git add -A', { cwd, ...EXEC_OPTS, timeout: 10000 })
+      execFileSync('git', ['add', '-A'], { cwd, ...EXEC_OPTS, timeout: 10000 })
     }
-    execSync(`git commit -m ${JSON.stringify(message)}`, {
+    execFileSync('git', ['commit', '-m', message], {
       cwd,
       ...EXEC_OPTS,
       timeout: 15000
@@ -262,7 +262,7 @@ export function gitCommit(
 
 export function gitPush(cwd: string): { success: boolean; error?: string } {
   try {
-    execSync('git push', { cwd, ...EXEC_OPTS, timeout: 30000 })
+    execFileSync('git', ['push'], { cwd, ...EXEC_OPTS, timeout: 30000 })
     return { success: true }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
@@ -272,7 +272,7 @@ export function gitPush(cwd: string): { success: boolean; error?: string } {
 
 export function listWorktrees(projectPath: string): WorktreeEntry[] {
   try {
-    const output = execSync('git worktree list --porcelain', {
+    const output = execFileSync('git', ['worktree', 'list', '--porcelain'], {
       cwd: projectPath,
       ...EXEC_OPTS,
       timeout: 5000
@@ -284,8 +284,8 @@ export function listWorktrees(projectPath: string): WorktreeEntry[] {
     const blocks = output.split('\n\n')
     for (const block of blocks) {
       const lines = block.split('\n')
-      const wtPath = lines.find((l) => l.startsWith('worktree '))?.replace('worktree ', '')
-      const branchLine = lines.find((l) => l.startsWith('branch '))
+      const wtPath = lines.find((l: string) => l.startsWith('worktree '))?.replace('worktree ', '')
+      const branchLine = lines.find((l: string) => l.startsWith('branch '))
       const branch = branchLine?.replace('branch refs/heads/', '') || 'detached'
       if (wtPath) {
         worktrees.push({ path: wtPath, branch, isMain: worktrees.length === 0 })

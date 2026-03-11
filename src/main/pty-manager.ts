@@ -2,7 +2,7 @@ import * as pty from 'node-pty'
 import crypto from 'node:crypto'
 import os from 'node:os'
 import { EventEmitter } from 'node:events'
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { BrowserWindow } from 'electron'
 import { AgentType, AgentStatus, AgentCommandConfig, CreateTerminalPayload, IPC, TerminalSession, RemoteHost } from '../shared/types'
 import { getGitBranch, checkoutBranch, createWorktree } from './git-utils'
@@ -13,10 +13,10 @@ function getUserShellEnv(): Record<string, string> {
   if (process.platform === 'win32') return { ...process.env } as Record<string, string>
   try {
     const shell = process.env.SHELL || '/bin/zsh'
-    const output = execSync(`${shell} -ilc 'env'`, {
+    const output = execFileSync(shell, ['-ilc', 'env'], {
       encoding: 'utf-8',
       timeout: 5000,
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe'] as ['pipe', 'pipe', 'pipe']
     })
     const env: Record<string, string> = {}
     for (const line of output.split('\n')) {
@@ -186,13 +186,16 @@ class PtyManager extends EventEmitter {
     const remoteCmd = `cd ${shellEscape(payload.projectPath)} && ${agentLine}`
 
     // Write SSH command, then detect prompt and send the agent command
-    setTimeout(() => ptyProcess.write(sshParts.join(' ') + '\r'), 300)
+    // All delayed writes guard against the PTY having exited before the timeout fires.
+    setTimeout(() => {
+      if (this.ptys.has(id)) ptyProcess.write(sshParts.join(' ') + '\r')
+    }, 300)
 
     let connected = false
     const fallbackTimer = setTimeout(() => {
       if (!connected) {
         connected = true
-        ptyProcess.write(remoteCmd + '\r')
+        if (this.ptys.has(id)) ptyProcess.write(remoteCmd + '\r')
       }
     }, 5000)
 
@@ -200,7 +203,9 @@ class PtyManager extends EventEmitter {
       if (!connected && /[$#>]\s*$/.test(data)) {
         connected = true
         clearTimeout(fallbackTimer)
-        setTimeout(() => ptyProcess.write(remoteCmd + '\r'), 100)
+        setTimeout(() => {
+          if (this.ptys.has(id)) ptyProcess.write(remoteCmd + '\r')
+        }, 100)
       }
     })
 
@@ -286,7 +291,14 @@ class PtyManager extends EventEmitter {
 
   killPty(id: string): void {
     const p = this.ptys.get(id)
+
+    // Delete session and PTY from maps BEFORE killing so the onExit handler
+    // (setupPtyEvents) won't find them and emit a duplicate 'session-exit'.
+    // Delete-then-check pattern: single removal point prevents races.
     const session = this.sessions.get(id)
+    this.sessions.delete(id)
+    this.ptys.delete(id)
+
     if (session) {
       this.emit('session-exit', session)
       if (session.worktreePath) {
@@ -299,8 +311,6 @@ class PtyManager extends EventEmitter {
     }
     if (p) {
       p.kill()
-      this.ptys.delete(id)
-      this.sessions.delete(id)
     }
   }
 

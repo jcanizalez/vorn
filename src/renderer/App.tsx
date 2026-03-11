@@ -97,50 +97,54 @@ export function App() {
   // Load config and previous sessions on mount
   useEffect(() => {
     (async () => {
-      const config = await window.api.loadConfig()
-      useAppStore.getState().setConfig(config)
-      if (config.defaults.fontSize) {
-        setDefaultFontSize(config.defaults.fontSize)
-      }
-
-      // Request notification permission if enabled
-      if (config.defaults.notifications?.enabled && Notification.permission === 'default') {
-        Notification.requestPermission()
-      }
-
-      if (!config.defaults.hasSeenOnboarding) {
-        useAppStore.getState().setOnboardingOpen(true)
-      }
-
-      const prev = await window.api.getPreviousSessions()
-      if (prev && prev.length > 0) {
-        if (config.defaults.reopenSessions) {
-          // Auto-restore sessions — prefer hook-correlated session ID (exact),
-          // fall back to scanning agent history when hooks weren't active.
-          for (const s of prev) {
-            let resumeSessionId: string | undefined
-            if (s.hookSessionId) {
-              resumeSessionId = s.hookSessionId
-            } else {
-              const recentSessions = await window.api.getRecentSessions(s.projectPath)
-              const match = recentSessions.find((r) => r.agentType === s.agentType)
-              if (match) resumeSessionId = match.sessionId
-            }
-            const session = await window.api.createTerminal({
-              agentType: s.agentType,
-              projectName: s.projectName,
-              projectPath: s.projectPath,
-              branch: s.isWorktree ? s.branch : undefined,
-              useWorktree: s.isWorktree || undefined,
-              remoteHostId: s.remoteHostId,
-              resumeSessionId
-            })
-            useAppStore.getState().addTerminal(session)
-          }
-          window.api.clearPreviousSessions()
-        } else {
-          useAppStore.getState().setSessionBanner(true, prev)
+      try {
+        const config = await window.api.loadConfig()
+        useAppStore.getState().setConfig(config)
+        if (config.defaults.fontSize) {
+          setDefaultFontSize(config.defaults.fontSize)
         }
+
+        // Request notification permission if enabled
+        if (config.defaults.notifications?.enabled && Notification.permission === 'default') {
+          Notification.requestPermission()
+        }
+
+        if (!config.defaults.hasSeenOnboarding) {
+          useAppStore.getState().setOnboardingOpen(true)
+        }
+
+        const prev = await window.api.getPreviousSessions()
+        if (prev && prev.length > 0) {
+          if (config.defaults.reopenSessions) {
+            // Auto-restore sessions — prefer hook-correlated session ID (exact),
+            // fall back to scanning agent history when hooks weren't active.
+            for (const s of prev) {
+              let resumeSessionId: string | undefined
+              if (s.hookSessionId) {
+                resumeSessionId = s.hookSessionId
+              } else {
+                const recentSessions = await window.api.getRecentSessions(s.projectPath)
+                const match = recentSessions.find((r) => r.agentType === s.agentType)
+                if (match) resumeSessionId = match.sessionId
+              }
+              const session = await window.api.createTerminal({
+                agentType: s.agentType,
+                projectName: s.projectName,
+                projectPath: s.projectPath,
+                branch: s.isWorktree ? s.branch : undefined,
+                useWorktree: s.isWorktree || undefined,
+                remoteHostId: s.remoteHostId,
+                resumeSessionId
+              })
+              useAppStore.getState().addTerminal(session)
+            }
+            window.api.clearPreviousSessions()
+          } else {
+            useAppStore.getState().setSessionBanner(true, prev)
+          }
+        }
+      } catch (err) {
+        console.error('[App] startup initialization failed:', err)
       }
     })()
 

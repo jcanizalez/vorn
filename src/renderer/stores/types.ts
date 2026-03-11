@@ -37,7 +37,7 @@ export interface ProjectsSlice {
   updateRemoteHost: (id: string, host: RemoteHost) => void
 }
 
-export type SettingsCategory = 'general' | 'agents' | 'hosts'
+export type SettingsCategory = 'general' | 'agents' | 'hosts' | 'mcp'
 
 export interface UISlice {
   focusedTerminalId: string | null

@@ -65,6 +65,6 @@ export function fireTaskStatusChangedTrigger(
       task,
       trigger: { type: 'taskStatusChanged', fromStatus, toStatus }
     }
-    executeWorkflow(wf, context)
+    executeWorkflow(wf, context).catch((err) => console.error(`[triggers] executeWorkflow error:`, err))
   }
 }

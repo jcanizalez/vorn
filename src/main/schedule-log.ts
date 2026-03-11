@@ -4,20 +4,22 @@ import {
   getScheduleLogEntries as dbGetEntries,
   clearScheduleLog as dbClear
 } from './database'
+import log from './logger'
 
 class ScheduleLogManager {
   addEntry(entry: ScheduleLogEntry): void {
     try {
       dbAddEntry(entry)
-    } catch {
-      // ignore write errors
+    } catch (err) {
+      log.warn('[schedule-log] addEntry failed:', err)
     }
   }
 
   getEntries(workflowId?: string): ScheduleLogEntry[] {
     try {
       return dbGetEntries(workflowId)
-    } catch {
+    } catch (err) {
+      log.warn('[schedule-log] getEntries failed:', err)
       return []
     }
   }
@@ -25,8 +27,8 @@ class ScheduleLogManager {
   clear(): void {
     try {
       dbClear()
-    } catch {
-      // ignore
+    } catch (err) {
+      log.warn('[schedule-log] clear failed:', err)
     }
   }
 }

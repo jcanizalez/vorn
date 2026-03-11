@@ -2,6 +2,7 @@ publish:
   provider: github
   owner: jcanizalez
   repo: vibegrid
+  releaseType: release
 
 appId: com.vibegrid.app
 productName: VibeGrid

@@ -2,6 +2,9 @@ import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { configManager as ConfigManagerInstance } from '../config-manager'
 import type { AgentType } from '../../shared/types'
+import {
+  dbListProjects, dbGetProject, dbInsertProject, dbUpdateProject, dbDeleteProject
+} from '../database'
 
 type ConfigManager = typeof ConfigManagerInstance
 
@@ -14,8 +17,8 @@ export function registerProjectTools(server: McpServer, deps: { configManager: C
     'list_projects',
     'List all projects',
     async () => {
-      const config = configManager.loadConfig()
-      return { content: [{ type: 'text', text: JSON.stringify(config.projects, null, 2) }] }
+      const projects = dbListProjects()
+      return { content: [{ type: 'text', text: JSON.stringify(projects, null, 2) }] }
     }
   )
 
@@ -30,8 +33,7 @@ export function registerProjectTools(server: McpServer, deps: { configManager: C
       icon_color: z.string().optional().describe('Hex color for icon')
     },
     async (args) => {
-      const config = configManager.loadConfig()
-      if (config.projects.find(p => p.name === args.name)) {
+      if (dbGetProject(args.name)) {
         return { content: [{ type: 'text', text: `Error: project "${args.name}" already exists` }], isError: true }
       }
 
@@ -43,8 +45,7 @@ export function registerProjectTools(server: McpServer, deps: { configManager: C
         ...(args.icon_color && { iconColor: args.icon_color })
       }
 
-      config.projects.push(project)
-      configManager.saveConfig(config)
+      dbInsertProject(project)
       configManager.notifyChanged()
 
       return { content: [{ type: 'text', text: JSON.stringify(project, null, 2) }] }
@@ -62,21 +63,21 @@ export function registerProjectTools(server: McpServer, deps: { configManager: C
       icon_color: z.string().optional().describe('Hex color for icon')
     },
     async (args) => {
-      const config = configManager.loadConfig()
-      const project = config.projects.find(p => p.name === args.name)
-      if (!project) {
+      if (!dbGetProject(args.name)) {
         return { content: [{ type: 'text', text: `Error: project "${args.name}" not found` }], isError: true }
       }
 
-      if (args.path !== undefined) project.path = args.path
-      if (args.preferred_agents !== undefined) project.preferredAgents = args.preferred_agents as AgentType[]
-      if (args.icon !== undefined) project.icon = args.icon
-      if (args.icon_color !== undefined) project.iconColor = args.icon_color
+      const updates: Record<string, unknown> = {}
+      if (args.path !== undefined) updates.path = args.path
+      if (args.preferred_agents !== undefined) updates.preferredAgents = args.preferred_agents as AgentType[]
+      if (args.icon !== undefined) updates.icon = args.icon
+      if (args.icon_color !== undefined) updates.iconColor = args.icon_color
 
-      configManager.saveConfig(config)
+      dbUpdateProject(args.name, updates)
       configManager.notifyChanged()
 
-      return { content: [{ type: 'text', text: JSON.stringify(project, null, 2) }] }
+      const updated = dbGetProject(args.name)
+      return { content: [{ type: 'text', text: JSON.stringify(updated, null, 2) }] }
     }
   )
 
@@ -85,21 +86,14 @@ export function registerProjectTools(server: McpServer, deps: { configManager: C
     'Delete a project and all its tasks',
     { name: z.string().describe('Project name') },
     async (args) => {
-      const config = configManager.loadConfig()
-      const idx = config.projects.findIndex(p => p.name === args.name)
-      if (idx === -1) {
+      if (!dbGetProject(args.name)) {
         return { content: [{ type: 'text', text: `Error: project "${args.name}" not found` }], isError: true }
       }
 
-      const [removed] = config.projects.splice(idx, 1)
-      if (config.tasks) {
-        config.tasks = config.tasks.filter(t => t.projectName !== args.name)
-      }
-
-      configManager.saveConfig(config)
+      dbDeleteProject(args.name)
       configManager.notifyChanged()
 
-      return { content: [{ type: 'text', text: `Deleted project: ${removed.name}` }] }
+      return { content: [{ type: 'text', text: `Deleted project: ${args.name}` }] }
     }
   )
 }
