@@ -13,38 +13,35 @@ export function TerminalInstance({ terminalId, isFocused }: Props) {
 
   useStatusDetection(terminalId)
 
-  // Attach terminal to this container (moves DOM if already exists elsewhere)
+  // Attach terminal to this container (moves DOM if already exists elsewhere).
+  // isFocused is intentionally NOT a dependency — focus changes must not
+  // trigger a detach/reattach cycle which reparents the DOM and resets scroll.
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
 
-    // Capture viewport state BEFORE attaching — DOM move resets xterm's viewport
     const savedViewport = getViewportState(terminalId)
     attachTerminal(terminalId, el)
 
-    // Fit after a frame so the container has dimensions
     requestAnimationFrame(() => {
       fitTerminal(terminalId, savedViewport)
       if (!savedViewport) scrollToBottom(terminalId)
-      if (isFocused) {
-        focusTerminal(terminalId)
-      }
     })
 
     return () => {
       if (el) detachTerminal(terminalId, el)
     }
-  }, [terminalId, isFocused])
+  }, [terminalId])
 
-  // Re-fit and focus when isFocused changes or terminal switches
+  // Handle focus separately — no DOM manipulation, just focus the terminal
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fitTerminal(terminalId)
-      if (isFocused) {
+    if (isFocused) {
+      const timer = setTimeout(() => {
+        fitTerminal(terminalId)
         focusTerminal(terminalId)
-      }
-    }, 50)
-    return () => clearTimeout(timer)
+      }, 50)
+      return () => clearTimeout(timer)
+    }
   }, [isFocused, terminalId])
 
   // Fit on window resize

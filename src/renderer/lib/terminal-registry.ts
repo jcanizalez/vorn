@@ -138,15 +138,18 @@ export function attachTerminal(terminalId: string, container: HTMLDivElement): T
     return entry
   }
 
-  // Already exists — move the DOM element to the new container
-  if (entry.currentContainer !== container) {
-    const termEl = entry.term.element
-    if (termEl) {
-      container.innerHTML = ''
-      container.appendChild(termEl)
-    }
-    entry.currentContainer = container
+  // Already exists — skip if already attached to the same container
+  if (entry.currentContainer === container) {
+    return entry
   }
+
+  // Move the DOM element to a different container
+  const termEl = entry.term.element
+  if (termEl) {
+    container.innerHTML = ''
+    container.appendChild(termEl)
+  }
+  entry.currentContainer = container
 
   return entry
 }
@@ -168,7 +171,10 @@ export function detachTerminal(terminalId: string, container: HTMLDivElement): v
 export function fitTerminal(terminalId: string, preState?: TerminalViewportState | null): void {
   const entry = registry.get(terminalId)
   if (!entry || !entry.currentContainer) return
-  const viewportState = preState !== undefined ? preState : getViewportState(terminalId)
+  // Only capture/restore viewport state if we were given one (e.g. after a DOM move).
+  // Otherwise let xterm.js handle scroll naturally — it already auto-scrolls when at bottom
+  // and holds position when the user has scrolled up.
+  const viewportState = preState !== undefined ? preState : null
   try {
     entry.fitAddon.fit()
     if (viewportState) restoreViewportState(terminalId, viewportState)
