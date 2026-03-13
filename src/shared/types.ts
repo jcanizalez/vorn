@@ -5,6 +5,7 @@ export type AgentStatus = 'running' | 'waiting' | 'idle' | 'error'
 export interface AgentCommandConfig {
   command: string
   args: string[]
+  headlessArgs?: string[]
   fallbackCommand?: string
   fallbackArgs?: string[]
 }
@@ -273,6 +274,8 @@ export interface CreateTerminalPayload {
   headless?: boolean
   /** Task ID — when set, the main process writes a .vibegrid/context.md file before agent spawn */
   taskId?: string
+  /** Per-invocation arg overrides (replaces settings-level args when set) */
+  args?: string[]
 }
 
 export interface HeadlessSession {
@@ -357,6 +360,7 @@ export const IPC = {
   SCHEDULER_MISSED: 'scheduler:missed',
   SCHEDULER_GET_LOG: 'scheduler:getLog',
   SCHEDULER_GET_NEXT_RUN: 'scheduler:getNextRun',
+  WORKFLOW_EXECUTION_COMPLETE: 'workflow:executionComplete',
   WINDOW_MINIMIZE: 'window:minimize',
   WINDOW_MAXIMIZE: 'window:maximize',
   WINDOW_CLOSE: 'window:close',

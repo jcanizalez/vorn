@@ -252,6 +252,15 @@ const api = {
   ): Promise<(WorkflowExecution & { workflowName?: string })[]> =>
     ipcRenderer.invoke(IPC.WORKFLOW_RUN_LIST_BY_TASK, taskId, limit),
 
+  reportWorkflowComplete: (data: {
+    workflowId: string
+    workflowName: string
+    completedAt: string
+    status: string
+    sessionsLaunched: number
+    source?: 'scheduler' | 'manual'
+  }): Promise<void> => ipcRenderer.invoke(IPC.WORKFLOW_EXECUTION_COMPLETE, data),
+
   // App info
   getAppVersion: (): string => ipcRenderer.sendSync('get-app-version'),
   getMcpInfo: (): Promise<{ execPath: string; platform: string }> =>

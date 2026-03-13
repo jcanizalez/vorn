@@ -27,6 +27,19 @@ function resolveAgentCommand(
 }
 
 /**
+ * Resolve extra args with priority: per-step override > headlessArgs > base args.
+ */
+function resolveHeadlessArgs(
+  payload: CreateTerminalPayload,
+  cmdConfig: AgentCommandConfig,
+  baseArgs: string[]
+): string[] {
+  if (payload.args?.length) return payload.args
+  if (cmdConfig.headlessArgs?.length) return cmdConfig.headlessArgs
+  return baseArgs
+}
+
+/**
  * Builds the interactive launch command (for PTY/terminal sessions).
  * This starts the agent's TUI/interactive mode.
  */
@@ -37,7 +50,9 @@ export function buildAgentLaunchLine(
 ): string {
   const cmdConfig = agentCommands[payload.agentType] || DEFAULT_AGENT_COMMANDS[payload.agentType]
   const cmd = resolveAgentCommand(cmdConfig, env)
-  let launchLine = [cmd.command, ...cmd.args].join(' ')
+  // Per-step args override settings-level args
+  const effectiveArgs = payload.args?.length ? payload.args : cmd.args
+  let launchLine = [cmd.command, ...effectiveArgs].join(' ')
 
   if (payload.resumeSessionId) {
     switch (payload.agentType) {
@@ -97,33 +112,29 @@ export function buildHeadlessLaunchLine(
   const cmdConfig = agentCommands[payload.agentType] || DEFAULT_AGENT_COMMANDS[payload.agentType]
   const cmd = resolveAgentCommand(cmdConfig, env)
   const baseCmd = cmd.command
+  const extraArgs = resolveHeadlessArgs(payload, cmdConfig, cmd.args)
+  const argsStr = extraArgs.length > 0 ? extraArgs.join(' ') + ' ' : ''
 
   const prompt = payload.initialPrompt ? shellEscape(payload.initialPrompt) : "''"
 
   switch (payload.agentType) {
     case 'claude':
-      // claude -p 'prompt'  (--print mode, exits after completion)
-      return `${baseCmd} -p ${prompt}`
+      return `${baseCmd} ${argsStr}-p ${prompt}`
 
     case 'copilot':
-      // copilot -p 'prompt'  (non-interactive prompt mode)
-      return `${baseCmd} -p ${prompt}`
+      return `${baseCmd} ${argsStr}-p ${prompt}`
 
     case 'codex':
-      // codex exec 'prompt'  (non-interactive exec subcommand)
-      return `${baseCmd} exec ${prompt}`
+      return `${baseCmd} ${argsStr}exec ${prompt}`
 
     case 'opencode':
-      // opencode run 'prompt'  (non-interactive run subcommand)
-      return `${baseCmd} run ${prompt}`
+      return `${baseCmd} ${argsStr}run ${prompt}`
 
     case 'gemini':
-      // gemini -p 'prompt'  (non-interactive prompt mode)
-      return `${baseCmd} -p ${prompt}`
+      return `${baseCmd} ${argsStr}-p ${prompt}`
 
     default:
-      // Fallback: try -p flag
-      return `${baseCmd} -p ${prompt}`
+      return `${baseCmd} ${argsStr}-p ${prompt}`
   }
 }
 
@@ -139,19 +150,20 @@ export function buildHeadlessSpawnArgs(
   const cmdConfig = agentCommands[payload.agentType] || DEFAULT_AGENT_COMMANDS[payload.agentType]
   const cmd = resolveAgentCommand(cmdConfig, env)
   const prompt = payload.initialPrompt || ''
+  const extraArgs = resolveHeadlessArgs(payload, cmdConfig, cmd.args)
 
   switch (payload.agentType) {
     case 'claude':
-      return { command: cmd.command, args: ['-p', prompt] }
+      return { command: cmd.command, args: [...extraArgs, '-p', prompt] }
     case 'copilot':
-      return { command: cmd.command, args: ['-p', prompt] }
+      return { command: cmd.command, args: [...extraArgs, '-p', prompt] }
     case 'codex':
-      return { command: cmd.command, args: ['exec', prompt] }
+      return { command: cmd.command, args: [...extraArgs, 'exec', prompt] }
     case 'opencode':
-      return { command: cmd.command, args: ['run', prompt] }
+      return { command: cmd.command, args: [...extraArgs, 'run', prompt] }
     case 'gemini':
-      return { command: cmd.command, args: ['-p', prompt] }
+      return { command: cmd.command, args: [...extraArgs, '-p', prompt] }
     default:
-      return { command: cmd.command, args: ['-p', prompt] }
+      return { command: cmd.command, args: [...extraArgs, '-p', prompt] }
   }
 }

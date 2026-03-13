@@ -88,7 +88,7 @@ export function App() {
   const focusedId = useAppStore((s) => s.focusedTerminalId)
   const showBanner = useAppStore((s) => s.showSessionBanner)
   const setDialogOpen = useAppStore((s) => s.setNewAgentDialogOpen)
-  const terminals = useAppStore((s) => s.terminals)
+  const _terminals = useAppStore((s) => s.terminals)
   const isSidebarOpen = useAppStore((s) => s.isSidebarOpen)
   const toggleSidebar = useAppStore((s) => s.toggleSidebar)
   const isSettingsOpen = useAppStore((s) => s.isSettingsOpen)
@@ -100,8 +100,8 @@ export function App() {
   const mainViewMode = useAppStore((s) => s.config?.defaults?.mainViewMode ?? 'sessions')
   const setMainViewMode = useAppStore((s) => s.setMainViewMode)
   const selectedTaskId = useAppStore((s) => s.selectedTaskId)
-  const activeProject = useAppStore((s) => s.activeProject)
-  const taskCount = useAppStore((s) => {
+  const _activeProject = useAppStore((s) => s.activeProject)
+  const _taskCount = useAppStore((s) => {
     const tasks = s.config?.tasks || []
     return tasks.filter((t) => !s.activeProject || t.projectName === s.activeProject).length
   })
@@ -200,7 +200,7 @@ export function App() {
       const workflow = state.config?.workflows?.find((w) => w.id === workflowId)
       if (!workflow) return
 
-      await runWorkflow(workflow)
+      await runWorkflow(workflow, undefined, { source: 'scheduler' })
     })
 
     const removeUpdateListener = window.api.onUpdateDownloaded(({ version }) => {

@@ -167,6 +167,27 @@ export function LaunchAgentConfigForm({ config, onChange, triggerType }: Props) 
         </p>
       </div>
 
+      {/* Extra Arguments */}
+      <div>
+        <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-1.5">
+          Extra Arguments
+        </label>
+        <input
+          type="text"
+          value={(config.args || []).join(' ')}
+          onChange={(e) => {
+            const args = e.target.value.trim() ? e.target.value.trim().split(/\s+/) : undefined
+            onChange({ ...config, args })
+          }}
+          placeholder="e.g. --dangerously-skip-permissions"
+          className="w-full px-3 py-2 text-[13px] bg-white/[0.06] border border-white/[0.1] rounded-md
+                     text-white placeholder:text-gray-600 focus:outline-none focus:border-blue-500/50 font-mono"
+        />
+        <p className="text-[11px] text-gray-600 mt-1">
+          Overrides the default agent arguments for this step
+        </p>
+      </div>
+
       {/* Prompt Source */}
       <div>
         <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-1.5">

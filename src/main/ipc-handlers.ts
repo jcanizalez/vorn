@@ -38,7 +38,8 @@ import {
   listArchivedSessions,
   saveWorkflowRun,
   listWorkflowRuns,
-  listWorkflowRunsByTask
+  listWorkflowRunsByTask,
+  updateWorkflowRunStatus
 } from './database'
 import { executeScript } from './script-runner'
 import { WorkflowExecution, ScriptConfig } from '../shared/types'
@@ -226,6 +227,34 @@ export function registerIpcHandlers(options?: IpcHandlerOptions): void {
 
   safeHandle(IPC.WORKFLOW_RUN_LIST_BY_TASK, (_, taskId: string, limit?: number) =>
     listWorkflowRunsByTask(taskId, limit)
+  )
+
+  // Workflow execution complete — report status from renderer after actual execution
+  safeHandle(
+    IPC.WORKFLOW_EXECUTION_COMPLETE,
+    (
+      _,
+      data: {
+        workflowId: string
+        workflowName: string
+        completedAt: string
+        status: string
+        sessionsLaunched: number
+        source?: 'scheduler' | 'manual'
+      }
+    ) => {
+      if (data.source === 'scheduler') {
+        scheduleLogManager.addEntry({
+          workflowId: data.workflowId,
+          workflowName: data.workflowName,
+          executedAt: data.completedAt,
+          status: data.status as 'success' | 'error',
+          sessionsLaunched: data.sessionsLaunched
+        })
+      }
+      updateWorkflowRunStatus(data.workflowId, data.completedAt, data.status)
+      configManager.notifyChanged()
+    }
   )
 
   // App version (sync)

@@ -2,8 +2,6 @@ import cron from 'node-cron'
 import { BrowserWindow } from 'electron'
 import { WorkflowDefinition, TriggerConfig, IPC } from '../shared/types'
 import { configManager } from './config-manager'
-import { scheduleLogManager } from './schedule-log'
-import { updateWorkflowRunStatus } from './database'
 import log from './logger'
 
 export interface MissedSchedule {
@@ -97,24 +95,6 @@ class Scheduler {
 
   private executeWorkflow(workflowId: string): void {
     this.mainWindow?.webContents.send(IPC.SCHEDULER_EXECUTE, { workflowId })
-
-    const config = configManager.loadConfig()
-    const wf = config.workflows?.find((w) => w.id === workflowId)
-    if (wf) {
-      const now = new Date().toISOString()
-      const actionCount = wf.nodes.filter((n) => n.type === 'launchAgent').length
-      scheduleLogManager.addEntry({
-        workflowId,
-        workflowName: wf.name,
-        executedAt: now,
-        status: 'success',
-        sessionsLaunched: actionCount
-      })
-
-      updateWorkflowRunStatus(workflowId, now, 'success')
-      configManager.notifyChanged()
-    }
-
     this.timeouts.delete(workflowId)
   }
 

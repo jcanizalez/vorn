@@ -21,6 +21,7 @@ export function AgentSettings() {
   const config = useAppStore((s) => s.config)
   const setConfig = useAppStore((s) => s.setConfig)
   const [editingArgs, setEditingArgs] = useState<Record<string, string>>({})
+  const [editingHeadlessArgs, setEditingHeadlessArgs] = useState<Record<string, string>>({})
   const [copiedAgent, setCopiedAgent] = useState<string | null>(null)
   const [expandedNotInstalled, setExpandedNotInstalled] = useState<Record<string, boolean>>({})
   const {
@@ -66,6 +67,11 @@ export function AgentSettings() {
       delete next[agentType]
       return next
     })
+    setEditingHeadlessArgs((prev) => {
+      const next = { ...prev }
+      delete next[agentType]
+      return next
+    })
   }
 
   const getArgsString = (agentType: AgentType): string => {
@@ -90,12 +96,35 @@ export function AgentSettings() {
     }
   }
 
+  const getHeadlessArgsString = (agentType: AgentType): string => {
+    if (editingHeadlessArgs[agentType] !== undefined) return editingHeadlessArgs[agentType]
+    return (getCommand(agentType).headlessArgs || []).join(' ')
+  }
+
+  const handleHeadlessArgsChange = (agentType: AgentType, value: string): void => {
+    setEditingHeadlessArgs((prev) => ({ ...prev, [agentType]: value }))
+  }
+
+  const handleHeadlessArgsBlur = (agentType: AgentType): void => {
+    const value = editingHeadlessArgs[agentType]
+    if (value !== undefined) {
+      const headlessArgs = value.trim() ? value.trim().split(/\s+/) : []
+      updateAgentCommand(agentType, { headlessArgs })
+      setEditingHeadlessArgs((prev) => {
+        const next = { ...prev }
+        delete next[agentType]
+        return next
+      })
+    }
+  }
+
   const isModified = (agentType: AgentType): boolean => {
     const current = getCommand(agentType)
     const defaults = DEFAULT_AGENT_COMMANDS[agentType]
     return (
       current.command !== defaults.command ||
-      JSON.stringify(current.args) !== JSON.stringify(defaults.args)
+      JSON.stringify(current.args) !== JSON.stringify(defaults.args) ||
+      JSON.stringify(current.headlessArgs || []) !== JSON.stringify(defaults.headlessArgs || [])
     )
   }
 
@@ -218,7 +247,7 @@ export function AgentSettings() {
                   </div>
 
                   {/* Command config */}
-                  <div className="px-4 pb-3 pt-1">
+                  <div className="px-4 pb-3 pt-1 space-y-2">
                     <div className="grid grid-cols-[140px_1fr] gap-2">
                       <div>
                         <label className="text-[10px] text-gray-600 uppercase tracking-wider mb-1 block">
@@ -250,6 +279,21 @@ export function AgentSettings() {
                                      focus:ring-1 focus:ring-white/[0.06] transition-all"
                         />
                       </div>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-gray-600 uppercase tracking-wider mb-1 block">
+                        Headless Arguments
+                      </label>
+                      <input
+                        type="text"
+                        value={getHeadlessArgsString(agent.type)}
+                        onChange={(e) => handleHeadlessArgsChange(agent.type, e.target.value)}
+                        onBlur={() => handleHeadlessArgsBlur(agent.type)}
+                        placeholder="e.g. --dangerously-skip-permissions (used for headless/workflow runs)"
+                        className="w-full px-2.5 py-1.5 bg-black/30 border border-white/[0.06] rounded-md text-xs
+                                   text-gray-200 font-mono placeholder-gray-700 focus:border-white/[0.15] focus:outline-none
+                                   focus:ring-1 focus:ring-white/[0.06] transition-all"
+                      />
                     </div>
                   </div>
                 </div>
