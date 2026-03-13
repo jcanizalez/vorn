@@ -5,6 +5,7 @@ import { AgentType, ProjectConfig } from '../../shared/types'
 import { AGENT_LIST } from '../lib/agent-definitions'
 import { AgentIcon } from './AgentIcon'
 import { useLaunchSettings } from '../hooks/useLaunchSettings'
+import { useAgentInstallStatus } from '../hooks/useAgentInstallStatus'
 import { getRandomTips } from '../lib/tips-data'
 import {
   Folder,
@@ -88,6 +89,7 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
   const settings = useLaunchSettings()
   const selectedProjectConfig = config?.projects.find((p) => p.name === settings.selectedProject)
   const tip = useMemo(() => getRandomTips(1)[0], [])
+  const { status: installStatus } = useAgentInstallStatus()
 
   // Auto-focus textarea
   useEffect(() => {
@@ -242,24 +244,35 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
                           rounded-lg shadow-xl z-20 py-1 min-w-[160px]"
             style={{ background: '#1e1e22' }}
           >
-            {AGENT_LIST.map((agent) => (
-              <button
-                key={agent.type}
-                onClick={() => {
-                  settings.setSelectedAgent(agent.type as AgentType)
-                  setShowAgentPicker(false)
-                }}
-                className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2
-                           hover:bg-white/[0.06] transition-colors ${
-                             settings.selectedAgent === agent.type
-                               ? 'text-white bg-white/[0.04]'
-                               : 'text-gray-400'
-                           }`}
-              >
-                <AgentIcon agentType={agent.type} size={14} />
-                {agent.displayName}
-              </button>
-            ))}
+            {AGENT_LIST.map((agent) => {
+              const installed = installStatus[agent.type]
+              return (
+                <button
+                  key={agent.type}
+                  onClick={() => {
+                    if (!installed) return
+                    settings.setSelectedAgent(agent.type as AgentType)
+                    setShowAgentPicker(false)
+                  }}
+                  disabled={!installed}
+                  className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2
+                             transition-colors ${
+                               !installed
+                                 ? 'opacity-35 cursor-not-allowed text-gray-600'
+                                 : settings.selectedAgent === agent.type
+                                   ? 'text-white bg-white/[0.04]'
+                                   : 'text-gray-400 hover:bg-white/[0.06]'
+                             }`}
+                  title={!installed ? `${agent.displayName} is not installed` : undefined}
+                >
+                  <AgentIcon agentType={agent.type} size={14} />
+                  {agent.displayName}
+                  {!installed && (
+                    <span className="ml-auto text-[9px] text-gray-600">Not installed</span>
+                  )}
+                </button>
+              )
+            })}
           </div>
         )}
       </div>

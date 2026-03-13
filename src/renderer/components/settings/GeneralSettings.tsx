@@ -4,6 +4,7 @@ import { AGENT_LIST } from '../../lib/agent-definitions'
 import { AgentIcon } from '../AgentIcon'
 import { AgentType, NotificationConfig, TaskViewMode } from '../../../shared/types'
 import { playNotificationSound } from '../../lib/notifications'
+import { useAgentInstallStatus } from '../../hooks/useAgentInstallStatus'
 
 function NotificationToggle({
   label,
@@ -55,6 +56,7 @@ export function GeneralSettings() {
   const setConfig = useAppStore((s) => s.setConfig)
   const rowHeight = useAppStore((s) => s.rowHeight)
   const setRowHeight = useAppStore((s) => s.setRowHeight)
+  const { status: installStatus } = useAgentInstallStatus()
 
   if (!config) return null
 
@@ -124,21 +126,29 @@ export function GeneralSettings() {
             </div>
           </div>
           <div className="flex bg-white/[0.04] rounded-lg p-0.5 gap-0.5">
-            {AGENT_LIST.map((agent) => (
-              <button
-                key={agent.type}
-                onClick={() => updateDefaults({ defaultAgent: agent.type as AgentType })}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs transition-colors ${
-                  (config.defaults.defaultAgent || 'claude') === agent.type
-                    ? 'bg-white/[0.1] text-white'
-                    : 'text-gray-500 hover:text-gray-300'
-                }`}
-                title={agent.displayName}
-              >
-                <AgentIcon agentType={agent.type} size={14} />
-                <span className="hidden sm:inline">{agent.displayName.split(' ')[0]}</span>
-              </button>
-            ))}
+            {AGENT_LIST.map((agent) => {
+              const installed = installStatus[agent.type]
+              return (
+                <button
+                  key={agent.type}
+                  onClick={() =>
+                    installed && updateDefaults({ defaultAgent: agent.type as AgentType })
+                  }
+                  disabled={!installed}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs transition-colors ${
+                    !installed
+                      ? 'opacity-30 cursor-not-allowed text-gray-600'
+                      : (config.defaults.defaultAgent || 'claude') === agent.type
+                        ? 'bg-white/[0.1] text-white'
+                        : 'text-gray-500 hover:text-gray-300'
+                  }`}
+                  title={!installed ? `${agent.displayName} is not installed` : agent.displayName}
+                >
+                  <AgentIcon agentType={agent.type} size={14} />
+                  <span className="hidden sm:inline">{agent.displayName.split(' ')[0]}</span>
+                </button>
+              )
+            })}
           </div>
         </div>
 

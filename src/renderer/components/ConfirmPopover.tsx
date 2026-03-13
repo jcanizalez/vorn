@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -24,19 +24,19 @@ export function ConfirmPopover({
 }: ConfirmPopoverProps) {
   const [open, setOpen] = useState(false)
   const [position, setPosition] = useState({ top: 0, left: 0 })
-  const triggerRef = useRef<HTMLDivElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
 
   const handleTrigger = (e: React.MouseEvent) => {
     e.stopPropagation()
     e.preventDefault()
-    const rect = triggerRef.current?.getBoundingClientRect()
-    if (rect) {
-      setPosition({
-        top: rect.bottom + 6,
-        left: rect.left + rect.width / 2
-      })
-    }
+    // The wrapper div uses display:contents so getBoundingClientRect returns zeros.
+    // Measure the actual clicked element (button) instead.
+    const el = (e.target as HTMLElement).closest('button') ?? (e.target as HTMLElement)
+    const rect = el.getBoundingClientRect()
+    setPosition({
+      top: rect.bottom + 6,
+      left: rect.left + rect.width / 2
+    })
     setOpen(true)
   }
 
@@ -68,7 +68,7 @@ export function ConfirmPopover({
 
   return (
     <>
-      <div ref={triggerRef} onClick={handleTrigger} className="contents">
+      <div onClick={handleTrigger} className="contents">
         {children}
       </div>
 

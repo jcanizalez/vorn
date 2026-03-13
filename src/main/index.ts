@@ -26,23 +26,6 @@ const isMcpMode = process.argv.includes('--mcp')
 let isQuitting = false
 if (isMcpMode) app.disableHardwareAcceleration()
 
-// Singleton lock (GUI only) — prevents duplicate windows, hook servers, etc.
-if (!isMcpMode) {
-  if (!app.isPackaged) app.name = 'vibegrid-dev'
-  const gotLock = app.requestSingleInstanceLock()
-  if (!gotLock) {
-    app.quit()
-  }
-}
-
-app.on('second-instance', () => {
-  if (mainWindow) {
-    if (mainWindow.isMinimized()) mainWindow.restore()
-    mainWindow.show()
-    mainWindow.focus()
-  }
-})
-
 // Prevent EPIPE and other uncaught errors from crashing the main process
 process.on('uncaughtException', (err) => {
   if ((err as NodeJS.ErrnoException).code === 'EPIPE') return

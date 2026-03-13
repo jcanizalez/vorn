@@ -6,6 +6,8 @@ export interface AgentDefinition {
   color: string
   bgColor: string
   description: string
+  installCommand: string
+  installUrl: string
 }
 
 export const AGENT_DEFINITIONS: Record<AgentType, AgentDefinition> = {
@@ -14,35 +16,45 @@ export const AGENT_DEFINITIONS: Record<AgentType, AgentDefinition> = {
     displayName: 'Claude Code',
     color: '#D97757',
     bgColor: '#D9775720',
-    description: 'Anthropic Claude Code CLI'
+    description: 'Anthropic Claude Code CLI',
+    installCommand: 'npm install -g @anthropic-ai/claude-code',
+    installUrl: 'https://docs.anthropic.com/en/docs/claude-code'
   },
   copilot: {
     type: 'copilot',
     displayName: 'GitHub Copilot',
     color: '#6CC644',
     bgColor: '#6CC64420',
-    description: 'GitHub Copilot CLI'
+    description: 'GitHub Copilot CLI',
+    installCommand: 'npm install -g @githubnext/github-copilot-cli',
+    installUrl: 'https://githubnext.com/projects/copilot-cli'
   },
   codex: {
     type: 'codex',
     displayName: 'Codex',
     color: '#7A9DFF',
     bgColor: '#7A9DFF20',
-    description: 'OpenAI Codex CLI'
+    description: 'OpenAI Codex CLI',
+    installCommand: 'npm install -g @openai/codex',
+    installUrl: 'https://github.com/openai/codex'
   },
   opencode: {
     type: 'opencode',
     displayName: 'OpenCode',
     color: '#FFFFFF',
     bgColor: '#FFFFFF15',
-    description: 'OpenCode CLI'
+    description: 'OpenCode CLI',
+    installCommand: 'npm install -g opencode',
+    installUrl: 'https://opencode.ai'
   },
   gemini: {
     type: 'gemini',
     displayName: 'Gemini CLI',
     color: '#3186FF',
     bgColor: '#3186FF20',
-    description: 'Google Gemini CLI'
+    description: 'Google Gemini CLI',
+    installCommand: 'npm install -g @anthropic-ai/gemini-cli',
+    installUrl: 'https://github.com/google-gemini/gemini-cli'
   }
 }
 

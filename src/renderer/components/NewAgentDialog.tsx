@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../stores'
 import { AgentType, getProjectHostIds } from '../../shared/types'
-import { AGENT_LIST } from '../lib/agent-definitions'
+import { AGENT_LIST, AGENT_DEFINITIONS } from '../lib/agent-definitions'
 import { AgentIcon } from './AgentIcon'
-import { GitBranch, FolderGit2, RefreshCw, Loader2, Server } from 'lucide-react'
+import { useAgentInstallStatus } from '../hooks/useAgentInstallStatus'
+import { GitBranch, FolderGit2, RefreshCw, Loader2, Server, Download } from 'lucide-react'
 
 export function NewAgentDialog() {
   const isOpen = useAppStore((s) => s.isNewAgentDialogOpen)
@@ -33,6 +34,7 @@ export function NewAgentDialog() {
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   const remoteHosts = config?.remoteHosts || []
+  const { status: installStatus } = useAgentInstallStatus()
 
   // Reset to configured default each time dialog opens
   useEffect(() => {
@@ -168,22 +170,74 @@ export function NewAgentDialog() {
                   Agent
                 </label>
                 <div className="grid grid-cols-5 gap-2">
-                  {AGENT_LIST.map((agent) => (
-                    <button
-                      key={agent.type}
-                      onClick={() => setSelectedAgent(agent.type)}
-                      className={`flex flex-col items-center gap-2 p-3 rounded-lg border transition-all ${
-                        selectedAgent === agent.type
-                          ? 'border-white/[0.15] bg-white/[0.06]'
-                          : 'border-white/[0.04] bg-white/[0.02] hover:border-white/[0.1]'
-                      }`}
-                    >
-                      <AgentIcon agentType={agent.type} size={24} />
-                      <span className="text-xs text-gray-300 text-center leading-tight">
-                        {agent.displayName}
-                      </span>
-                    </button>
-                  ))}
+                  {AGENT_LIST.map((agent) => {
+                    const installed = installStatus[agent.type]
+                    const def = AGENT_DEFINITIONS[agent.type]
+                    const isSelected = selectedAgent === agent.type
+
+                    return (
+                      <button
+                        key={agent.type}
+                        onClick={() => installed && setSelectedAgent(agent.type)}
+                        disabled={!installed}
+                        className={`group relative flex flex-col items-center gap-2 p-3 rounded-lg border transition-all duration-200 ${
+                          !installed
+                            ? 'border-white/[0.03] bg-white/[0.01] cursor-not-allowed'
+                            : isSelected
+                              ? 'border-white/[0.15] bg-white/[0.06]'
+                              : 'border-white/[0.04] bg-white/[0.02] hover:border-white/[0.1] hover:bg-white/[0.04]'
+                        }`}
+                        title={
+                          !installed
+                            ? `${agent.displayName} — install via Settings`
+                            : agent.displayName
+                        }
+                      >
+                        {/* Brand accent line for selected agent */}
+                        {installed && isSelected && (
+                          <div
+                            className="absolute inset-x-0 top-0 h-[2px] rounded-t-lg"
+                            style={{ background: def.color }}
+                          />
+                        )}
+
+                        {/* Agent icon with brand bg when selected */}
+                        <div
+                          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200 ${
+                            !installed
+                              ? 'opacity-30 grayscale'
+                              : isSelected
+                                ? ''
+                                : 'opacity-70 group-hover:opacity-100'
+                          }`}
+                          style={installed && isSelected ? { background: def.bgColor } : undefined}
+                        >
+                          <AgentIcon agentType={agent.type} size={22} />
+                        </div>
+
+                        <span
+                          className={`text-[11px] text-center leading-tight transition-colors ${
+                            !installed
+                              ? 'text-gray-600'
+                              : isSelected
+                                ? 'text-gray-200 font-medium'
+                                : 'text-gray-400 group-hover:text-gray-300'
+                          }`}
+                        >
+                          {agent.displayName}
+                        </span>
+
+                        {/* Not-installed badge */}
+                        {!installed && (
+                          <span className="flex items-center gap-0.5 text-[9px] text-gray-600 group-hover:text-gray-500 transition-colors">
+                            <Download size={8} className="opacity-60" />
+                            <span className="group-hover:hidden">Not installed</span>
+                            <span className="hidden group-hover:inline">Settings</span>
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 

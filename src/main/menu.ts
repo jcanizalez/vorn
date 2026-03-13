@@ -8,7 +8,7 @@ export function createMenu(onToggleWidget?: () => void): void {
     applicationName: 'VibeGrid',
     applicationVersion: app.getVersion(),
     version: '',
-    copyright: '© 2026 Javier Canizalez',
+    copyright: 'VibeGrid 2026',
     iconPath: path.join(__dirname, '../../resources/icon.png')
   })
 

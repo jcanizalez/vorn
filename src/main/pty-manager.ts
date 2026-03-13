@@ -89,6 +89,8 @@ class PtyManager extends EventEmitter {
   private mainWindow: BrowserWindow | null = null
   private agentCommands: Record<AgentType, AgentCommandConfig> = { ...DEFAULT_AGENT_COMMANDS }
   private remoteHosts: RemoteHost[] = []
+  private dataBuffers = new Map<string, string>()
+  private flushTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
   setMainWindow(win: BrowserWindow): void {
     this.mainWindow = win
@@ -294,12 +296,48 @@ class PtyManager extends EventEmitter {
     }
   }
 
+  private bufferData(id: string, data: string): void {
+    const existing = this.dataBuffers.get(id)
+    this.dataBuffers.set(id, existing ? existing + data : data)
+
+    if (!this.flushTimers.has(id)) {
+      this.flushTimers.set(
+        id,
+        setTimeout(() => this.flushBuffer(id), 16)
+      )
+    }
+  }
+
+  private flushBuffer(id: string): void {
+    const data = this.dataBuffers.get(id)
+    this.dataBuffers.delete(id)
+    this.flushTimers.delete(id)
+    if (data) {
+      this.sendToRenderer(IPC.TERMINAL_DATA, { id, data })
+    }
+  }
+
+  private clearBuffer(id: string): void {
+    const timer = this.flushTimers.get(id)
+    if (timer) clearTimeout(timer)
+    this.flushTimers.delete(id)
+    this.dataBuffers.delete(id)
+  }
+
   private setupPtyEvents(id: string, ptyProcess: pty.IPty): void {
     ptyProcess.onData((data: string) => {
-      this.sendToRenderer(IPC.TERMINAL_DATA, { id, data })
+      this.bufferData(id, data)
     })
 
     ptyProcess.onExit(({ exitCode }) => {
+      // Flush any remaining buffered data before signaling exit
+      const pendingTimer = this.flushTimers.get(id)
+      if (pendingTimer) {
+        clearTimeout(pendingTimer)
+        this.flushBuffer(id)
+      }
+      this.clearBuffer(id)
+
       this.ptys.delete(id)
       const session = this.sessions.get(id)
       if (session) {
@@ -328,6 +366,14 @@ class PtyManager extends EventEmitter {
   killPty(id: string): void {
     const p = this.ptys.get(id)
 
+    // Flush any remaining buffered data before killing
+    const pendingTimer = this.flushTimers.get(id)
+    if (pendingTimer) {
+      clearTimeout(pendingTimer)
+      this.flushBuffer(id)
+    }
+    this.clearBuffer(id)
+
     // Delete session and PTY from maps BEFORE killing so the onExit handler
     // (setupPtyEvents) won't find them and emit a duplicate 'session-exit'.
     // Delete-then-check pattern: single removal point prevents races.
@@ -351,6 +397,13 @@ class PtyManager extends EventEmitter {
   }
 
   killAll(): void {
+    // Clear all data buffers and flush timers (window is closing, no point flushing)
+    for (const timer of this.flushTimers.values()) {
+      clearTimeout(timer)
+    }
+    this.dataBuffers.clear()
+    this.flushTimers.clear()
+
     this.mainWindow = null
     for (const [id, p] of this.ptys) {
       p.kill()

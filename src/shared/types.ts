@@ -384,7 +384,8 @@ export const IPC = {
   SCRIPT_EXECUTE: 'script:execute',
   WORKFLOW_RUN_SAVE: 'workflowRun:save',
   WORKFLOW_RUN_LIST: 'workflowRun:list',
-  WORKFLOW_RUN_LIST_BY_TASK: 'workflowRun:listByTask'
+  WORKFLOW_RUN_LIST_BY_TASK: 'workflowRun:listByTask',
+  AGENT_DETECT_INSTALLED: 'agent:detectInstalled'
 } as const
 
 export interface PermissionSuggestion {

@@ -3,6 +3,7 @@ import { LaunchAgentConfig, AgentType, TriggerConfig } from '../../../../shared/
 import { AgentIcon } from '../../AgentIcon'
 import { useAppStore } from '../../../stores'
 import { TEMPLATE_VARIABLES } from '../../../lib/template-vars'
+import { useAgentInstallStatus } from '../../../hooks/useAgentInstallStatus'
 
 interface Props {
   config: LaunchAgentConfig
@@ -17,6 +18,7 @@ const EMPTY_TASKS: import('../../../../shared/types').TaskConfig[] = []
 export function LaunchAgentConfigForm({ config, onChange, triggerType }: Props) {
   const projects = useAppStore((s) => s.config?.projects ?? EMPTY_PROJECTS)
   const tasks = useAppStore((s) => s.config?.tasks ?? EMPTY_TASKS)
+  const { status: installStatus } = useAgentInstallStatus()
   const projectTasks = tasks.filter(
     (t) => t.projectName === config.projectName && t.status === 'todo'
   )
@@ -57,21 +59,28 @@ export function LaunchAgentConfigForm({ config, onChange, triggerType }: Props) 
           Agent
         </label>
         <div className="flex gap-1.5">
-          {AGENT_TYPES.map((type) => (
-            <button
-              key={type}
-              onClick={() => onChange({ ...config, agentType: type })}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] rounded-md transition-colors capitalize
-                         ${
-                           config.agentType === type
-                             ? 'bg-white/[0.12] text-white border border-white/[0.15]'
-                             : 'bg-white/[0.04] text-gray-500 border border-white/[0.08] hover:bg-white/[0.08]'
-                         }`}
-            >
-              <AgentIcon agentType={type} size={14} />
-              {type}
-            </button>
-          ))}
+          {AGENT_TYPES.map((type) => {
+            const installed = installStatus[type]
+            return (
+              <button
+                key={type}
+                onClick={() => installed && onChange({ ...config, agentType: type })}
+                disabled={!installed}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] rounded-md transition-colors capitalize
+                           ${
+                             !installed
+                               ? 'opacity-35 cursor-not-allowed bg-white/[0.02] text-gray-600 border border-white/[0.04]'
+                               : config.agentType === type
+                                 ? 'bg-white/[0.12] text-white border border-white/[0.15]'
+                                 : 'bg-white/[0.04] text-gray-500 border border-white/[0.08] hover:bg-white/[0.08]'
+                           }`}
+                title={!installed ? `${type} is not installed` : undefined}
+              >
+                <AgentIcon agentType={type} size={14} />
+                {type}
+              </button>
+            )
+          })}
         </div>
       </div>
 

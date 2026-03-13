@@ -64,6 +64,17 @@ function createTerminalEntry(terminalId: string): TerminalEntry {
   term.attachCustomKeyEventHandler((e) => {
     const mod = rendererIsMac ? e.metaKey : e.ctrlKey
     if (!mod) return true
+
+    // Handle paste on Windows/Linux — Ctrl+V is intercepted by xterm as a
+    // control character (\x16) instead of triggering the browser paste event.
+    // Read clipboard manually and use term.paste() for bracketed-paste support.
+    if (!rendererIsMac && e.key.toLowerCase() === 'v' && e.type === 'keydown') {
+      navigator.clipboard.readText().then((text) => {
+        if (text) term.paste(text)
+      })
+      return false
+    }
+
     const passthrough = ['w', '[', ']', 'k', 'n', 'o', 'b', ',', '/']
     if (passthrough.includes(e.key.toLowerCase())) return false
     return true

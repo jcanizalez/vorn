@@ -7,6 +7,7 @@ import { AGENT_DEFINITIONS, AGENT_LIST } from '../lib/agent-definitions'
 import { AgentIcon } from './AgentIcon'
 import { getDisplayName } from '../lib/terminal-display'
 import { executeWorkflow } from '../lib/workflow-execution'
+import { useAgentInstallStatus } from '../hooks/useAgentInstallStatus'
 import {
   Search,
   Plus,
@@ -101,7 +102,10 @@ function scoreMatch(query: string, command: Command): number {
   return 0
 }
 
-function useCommands(recentSessions: RecentSession[]): Command[] {
+function useCommands(
+  recentSessions: RecentSession[],
+  installStatus: Record<string, boolean>
+): Command[] {
   const config = useAppStore((s) => s.config)
   const terminals = useAppStore((s) => s.terminals)
   const addTerminal = useAppStore((s) => s.addTerminal)
@@ -329,11 +333,12 @@ function useCommands(recentSessions: RecentSession[]): Command[] {
       })
     }
 
-    // --- Quick Launch (agent x project) + Worktree variants — local projects only ---
+    // --- Quick Launch (agent x project) + Worktree variants — local projects only, installed agents only ---
     const localProjects = (config?.projects ?? []).filter((p) =>
       getProjectHostIds(p).includes('local')
     )
-    for (const agent of AGENT_LIST) {
+    const installedAgents = AGENT_LIST.filter((a) => installStatus[a.type])
+    for (const agent of installedAgents) {
       for (const project of localProjects) {
         commands.push({
           id: `quicklaunch:${agent.type}:${project.name}`,
@@ -443,6 +448,7 @@ function useCommands(recentSessions: RecentSession[]): Command[] {
     terminals,
     config,
     recentSessions,
+    installStatus,
     addTerminal,
     setFocusedTerminal,
     setActiveProject,
@@ -471,6 +477,7 @@ export function CommandPalette() {
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  const { status: installStatus } = useAgentInstallStatus()
 
   // Fetch recent sessions when palette opens
   useEffect(() => {
@@ -482,7 +489,7 @@ export function CommandPalette() {
     }
   }, [isOpen])
 
-  const commands = useCommands(recentSessions)
+  const commands = useCommands(recentSessions, installStatus)
 
   const filtered = useMemo(() => {
     const q = query.trim()

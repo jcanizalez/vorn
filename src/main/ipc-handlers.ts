@@ -9,6 +9,7 @@ import { scheduleLogManager } from './schedule-log'
 import { scheduler } from './scheduler'
 import { getRecentSessions } from './agent-history'
 import { detectIDEs, openInIDE } from './ide-detector'
+import { detectInstalledAgents, clearAgentDetectionCache } from './agent-detector'
 import {
   CreateTerminalPayload,
   IPC,
@@ -58,7 +59,10 @@ export function registerIpcHandlers(options?: IpcHandlerOptions): void {
 
   safeHandle(IPC.CONFIG_LOAD, () => configManager.loadConfig())
 
-  safeHandle(IPC.CONFIG_SAVE, (_, config: AppConfig) => configManager.saveConfig(config))
+  safeHandle(IPC.CONFIG_SAVE, (_, config: AppConfig) => {
+    clearAgentDetectionCache()
+    return configManager.saveConfig(config)
+  })
 
   safeHandle(IPC.SESSIONS_GET_PREVIOUS, () => sessionManager.getPreviousSessions())
 
@@ -91,6 +95,8 @@ export function registerIpcHandlers(options?: IpcHandlerOptions): void {
   })
 
   safeHandle(IPC.IDE_DETECT, () => detectIDEs())
+
+  safeHandle(IPC.AGENT_DETECT_INSTALLED, () => detectInstalledAgents())
 
   safeHandle(IPC.IDE_OPEN, (_, { ideId, projectPath }: { ideId: string; projectPath: string }) =>
     openInIDE(ideId, projectPath)

@@ -13,7 +13,8 @@ import {
   ArchivedSession,
   HeadlessSession,
   WorkflowExecution,
-  ScriptConfig
+  ScriptConfig,
+  AgentType
 } from '../shared/types'
 
 const api = {
@@ -82,6 +83,9 @@ const api = {
 
   detectIDEs: (): Promise<{ id: string; name: string; command: string }[]> =>
     ipcRenderer.invoke(IPC.IDE_DETECT),
+
+  detectInstalledAgents: (): Promise<Record<AgentType, boolean>> =>
+    ipcRenderer.invoke(IPC.AGENT_DETECT_INSTALLED),
 
   openInIDE: (ideId: string, projectPath: string): Promise<void> =>
     ipcRenderer.invoke(IPC.IDE_OPEN, { ideId, projectPath }),
