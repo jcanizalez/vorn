@@ -169,6 +169,7 @@ export interface WorkflowNode {
   id: string
   type: WorkflowNodeType
   label: string
+  slug?: string
   config: WorkflowNodeConfig
   position: WorkflowNodePosition
 }
@@ -190,6 +191,7 @@ export interface NodeExecutionState {
   sessionId?: string
   error?: string
   logs?: string
+  output?: string
   taskId?: string
   agentSessionId?: string
 }

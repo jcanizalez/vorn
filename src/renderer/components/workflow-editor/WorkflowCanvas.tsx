@@ -1,96 +1,246 @@
-import { useMemo } from 'react'
+import { useMemo, Fragment } from 'react'
 import { TriggerNode } from './nodes/TriggerNode'
 import { LaunchAgentNode } from './nodes/LaunchAgentNode'
-import { AddStepNode } from './nodes/AddStepNode'
-import { WorkflowNode, WorkflowEdge, TriggerConfig, LaunchAgentConfig } from '../../../shared/types'
+import { ScriptNode } from './nodes/ScriptNode'
+import { ConnectorButton } from './nodes/AddStepNode'
+import {
+  WorkflowNode,
+  WorkflowEdge,
+  TriggerConfig,
+  LaunchAgentConfig,
+  ScriptConfig
+} from '../../../shared/types'
+import { computeFlowLayout, FlowRow } from '../../lib/workflow-helpers'
 
 interface Props {
   nodes: WorkflowNode[]
   edges: WorkflowEdge[]
   onNodeClick: (nodeId: string) => void
-  onAddNodeAtEnd: () => void
+  onInsertNode: (afterNodeId: string, beforeNodeId: string | null, type: 'agent' | 'script') => void
+  onAddParallelBranch: (forkFromId: string, type: 'agent' | 'script') => void
   selectedNodeId: string | null
+}
+
+function VerticalLine({ dashed, height }: { dashed?: boolean; height?: number }) {
+  return (
+    <div
+      className={`w-px shrink-0 ${
+        dashed ? 'border-l border-dashed border-white/[0.12]' : 'bg-white/[0.15]'
+      }`}
+      style={{ height: height ?? 24 }}
+    />
+  )
+}
+
+function NodeCard({
+  node,
+  selected,
+  onClick
+}: {
+  node: WorkflowNode
+  selected: boolean
+  onClick: () => void
+}) {
+  if (node.type === 'trigger') {
+    return (
+      <TriggerNode
+        label={node.label}
+        config={node.config as TriggerConfig}
+        selected={selected}
+        onClick={onClick}
+      />
+    )
+  }
+
+  if (node.type === 'script') {
+    return (
+      <ScriptNode
+        label={node.label}
+        config={node.config as ScriptConfig}
+        selected={selected}
+        onClick={onClick}
+      />
+    )
+  }
+
+  return (
+    <LaunchAgentNode
+      label={node.label}
+      config={node.config as LaunchAgentConfig}
+      selected={selected}
+      onClick={onClick}
+    />
+  )
+}
+
+function FlowRowRenderer({
+  rows,
+  onNodeClick,
+  onInsertNode,
+  onAddParallelBranch,
+  selectedNodeId,
+  isInsideBranch
+}: {
+  rows: FlowRow[]
+  onNodeClick: (nodeId: string) => void
+  onInsertNode: (afterNodeId: string, beforeNodeId: string | null, type: 'agent' | 'script') => void
+  onAddParallelBranch: (forkFromId: string, type: 'agent' | 'script') => void
+  selectedNodeId: string | null
+  isInsideBranch?: boolean
+}) {
+  return (
+    <>
+      {rows.map((row, i) => {
+        if (row.kind === 'node') {
+          const nextRow = rows[i + 1]
+          const isLast = i === rows.length - 1
+          const nextIsFork = nextRow?.kind === 'fork'
+
+          let beforeNodeId: string | null = null
+          if (nextIsFork) {
+            beforeNodeId = '__FORK__'
+          } else if (nextRow?.kind === 'node') {
+            beforeNodeId = nextRow.node.id
+          }
+
+          return (
+            <Fragment key={row.node.id}>
+              {i > 0 && <VerticalLine />}
+
+              <NodeCard
+                node={row.node}
+                selected={row.node.id === selectedNodeId}
+                onClick={() => onNodeClick(row.node.id)}
+              />
+
+              {!isLast && (
+                <>
+                  <VerticalLine />
+                  <ConnectorButton
+                    onAddAction={() => onInsertNode(row.node.id, beforeNodeId, 'agent')}
+                    onAddScript={() => onInsertNode(row.node.id, beforeNodeId, 'script')}
+                    onAddParallelBranch={() => onAddParallelBranch(row.node.id, 'agent')}
+                  />
+                </>
+              )}
+
+              {isLast && (
+                <>
+                  <VerticalLine dashed />
+                  <ConnectorButton
+                    onAddAction={() => onInsertNode(row.node.id, null, 'agent')}
+                    onAddScript={() => onInsertNode(row.node.id, null, 'script')}
+                    onAddParallelBranch={
+                      !isInsideBranch ? () => onAddParallelBranch(row.node.id, 'agent') : undefined
+                    }
+                  />
+                </>
+              )}
+            </Fragment>
+          )
+        }
+
+        return (
+          <ForkRenderer
+            key={`fork-${row.forkNodeId}`}
+            row={row}
+            onNodeClick={onNodeClick}
+            onInsertNode={onInsertNode}
+            onAddParallelBranch={onAddParallelBranch}
+            selectedNodeId={selectedNodeId}
+          />
+        )
+      })}
+    </>
+  )
+}
+
+function HorizontalBar({ branchCount }: { branchCount: number }) {
+  return (
+    <div className="flex w-full">
+      {Array.from({ length: branchCount }, (_, i) => (
+        <div key={i} className="flex-1 relative h-px">
+          {i > 0 && <div className="absolute left-0 right-1/2 top-0 h-px bg-white/[0.15]" />}
+          {i < branchCount - 1 && (
+            <div className="absolute left-1/2 right-0 top-0 h-px bg-white/[0.15]" />
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ForkRenderer({
+  row,
+  onNodeClick,
+  onInsertNode,
+  onAddParallelBranch,
+  selectedNodeId
+}: {
+  row: Extract<FlowRow, { kind: 'fork' }>
+  onNodeClick: (nodeId: string) => void
+  onInsertNode: (afterNodeId: string, beforeNodeId: string | null, type: 'agent' | 'script') => void
+  onAddParallelBranch: (forkFromId: string, type: 'agent' | 'script') => void
+  selectedNodeId: string | null
+}) {
+  const branchCount = row.branches.length
+
+  return (
+    <div className="flex flex-col items-center w-full">
+      <HorizontalBar branchCount={branchCount} />
+
+      <div className="flex w-full">
+        {row.branches.map((branch, bi) => {
+          const branchKey = branch[0]?.kind === 'node' ? branch[0].node.id : `branch-${bi}`
+
+          return (
+            <div
+              key={branchKey}
+              className="flex flex-col items-center flex-1"
+              style={{ minWidth: 310 }}
+            >
+              <VerticalLine />
+
+              <FlowRowRenderer
+                rows={branch}
+                onNodeClick={onNodeClick}
+                onInsertNode={onInsertNode}
+                onAddParallelBranch={onAddParallelBranch}
+                selectedNodeId={selectedNodeId}
+                isInsideBranch
+              />
+
+              {row.joinNodeId && <VerticalLine />}
+            </div>
+          )
+        })}
+      </div>
+
+      {row.joinNodeId && <HorizontalBar branchCount={branchCount} />}
+    </div>
+  )
 }
 
 export function WorkflowCanvas({
   nodes,
   edges,
   onNodeClick,
-  onAddNodeAtEnd,
+  onInsertNode,
+  onAddParallelBranch,
   selectedNodeId
 }: Props) {
-  // Order nodes: trigger first, then BFS through edges
-  const orderedNodes = useMemo(() => {
-    const trigger = nodes.find((n) => n.type === 'trigger')
-    if (!trigger) return nodes
-
-    const nodeMap = new Map(nodes.map((n) => [n.id, n]))
-    const childrenMap = new Map<string, string[]>()
-    for (const edge of edges) {
-      const children = childrenMap.get(edge.source) || []
-      children.push(edge.target)
-      childrenMap.set(edge.source, children)
-    }
-
-    const ordered: WorkflowNode[] = [trigger]
-    const visited = new Set([trigger.id])
-    const queue = [trigger.id]
-
-    while (queue.length > 0) {
-      const current = queue.shift()!
-      const children = childrenMap.get(current) || []
-      for (const childId of children) {
-        if (!visited.has(childId)) {
-          visited.add(childId)
-          queue.push(childId)
-          const node = nodeMap.get(childId)
-          if (node) ordered.push(node)
-        }
-      }
-    }
-
-    // Add any orphan nodes
-    for (const node of nodes) {
-      if (!visited.has(node.id)) ordered.push(node)
-    }
-
-    return ordered
-  }, [nodes, edges])
+  const flowLayout = useMemo(() => computeFlowLayout(nodes, edges), [nodes, edges])
 
   return (
     <div className="flex-1 h-full overflow-auto" onClick={() => onNodeClick('')}>
-      <div className="flex flex-col items-center py-12 min-h-full">
-        {orderedNodes.map((node, index) => (
-          <div key={node.id} className="flex flex-col items-center">
-            {/* Connector line before this node (except the first) */}
-            {index > 0 && <div className="w-px h-8 bg-white/[0.15]" />}
-
-            {/* Node card */}
-            {node.type === 'trigger' ? (
-              <TriggerNode
-                label={node.label}
-                config={node.config as TriggerConfig}
-                selected={node.id === selectedNodeId}
-                onClick={() => onNodeClick(node.id)}
-              />
-            ) : (
-              <LaunchAgentNode
-                label={node.label}
-                config={node.config as LaunchAgentConfig}
-                selected={node.id === selectedNodeId}
-                onClick={() => onNodeClick(node.id)}
-              />
-            )}
-          </div>
-        ))}
-
-        {/* Add Step button at end */}
-        {nodes.length > 0 && (
-          <div className="flex flex-col items-center">
-            <div className="w-px h-8 border-l border-dashed border-white/[0.12]" />
-            <AddStepNode onAdd={onAddNodeAtEnd} />
-          </div>
-        )}
+      <div className="flex flex-col items-center py-12 min-h-full px-8">
+        <FlowRowRenderer
+          rows={flowLayout}
+          onNodeClick={onNodeClick}
+          onInsertNode={onInsertNode}
+          onAddParallelBranch={onAddParallelBranch}
+          selectedNodeId={selectedNodeId}
+        />
       </div>
     </div>
   )

@@ -1,15 +1,26 @@
-import { ScriptConfig } from '../../../../shared/types'
+import { ScriptConfig, TriggerConfig } from '../../../../shared/types'
 import { useAppStore } from '../../../stores'
+import { TEMPLATE_VARIABLES, StepVariableGroup } from '../../../lib/template-vars'
+import { VariableAutocomplete } from './VariableAutocomplete'
 
 interface Props {
   config: ScriptConfig
   onChange: (config: ScriptConfig) => void
+  triggerType?: TriggerConfig['triggerType']
+  stepGroups?: StepVariableGroup[]
 }
 
 const SCRIPT_TYPES: ScriptConfig['scriptType'][] = ['bash', 'powershell', 'python', 'node']
 
-export function ScriptConfigForm({ config, onChange }: Props) {
+export function ScriptConfigForm({ config, onChange, triggerType, stepGroups = [] }: Props) {
   const projects = useAppStore((s) => s.config?.projects || [])
+  const isTaskTrigger = triggerType === 'taskCreated' || triggerType === 'taskStatusChanged'
+  const contextVars = isTaskTrigger
+    ? TEMPLATE_VARIABLES.filter(
+        (v) =>
+          v.category === 'task' || (v.category === 'trigger' && triggerType === 'taskStatusChanged')
+      )
+    : []
 
   return (
     <div className="space-y-4">
@@ -75,15 +86,14 @@ export function ScriptConfigForm({ config, onChange }: Props) {
         <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-1.5">
           Script
         </label>
-        <textarea
+        <VariableAutocomplete
           value={config.scriptContent || ''}
-          onChange={(e) => onChange({ ...config, scriptContent: e.target.value })}
+          onChange={(val) => onChange({ ...config, scriptContent: val })}
           placeholder={`Enter ${config.scriptType} script...`}
           rows={10}
-          className="w-full px-3 py-2 text-[12px] font-mono bg-[#0d0d0f] border border-white/[0.1] rounded-md
-                     text-gray-300 placeholder:text-gray-700 focus:outline-none focus:border-blue-500/50
-                     resize-none leading-relaxed"
-          spellCheck={false}
+          stepGroups={stepGroups}
+          contextVars={contextVars}
+          mono
         />
       </div>
 
