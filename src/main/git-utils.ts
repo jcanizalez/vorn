@@ -131,11 +131,7 @@ export function isWorktreeDirty(worktreePath: string): boolean {
   }
 }
 
-export function removeWorktree(
-  projectPath: string,
-  worktreePath: string,
-  force = false
-): boolean {
+export function removeWorktree(projectPath: string, worktreePath: string, force = false): boolean {
   try {
     const args = ['worktree', 'remove', worktreePath]
     if (force) args.push('--force')
