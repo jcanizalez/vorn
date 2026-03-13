@@ -34,8 +34,8 @@ function resolveHeadlessArgs(
   cmdConfig: AgentCommandConfig,
   baseArgs: string[]
 ): string[] {
-  if (payload.args?.length) return payload.args
-  if (cmdConfig.headlessArgs?.length) return cmdConfig.headlessArgs
+  if (payload.args !== undefined) return payload.args
+  if (cmdConfig.headlessArgs !== undefined) return cmdConfig.headlessArgs
   return baseArgs
 }
 
@@ -50,9 +50,9 @@ export function buildAgentLaunchLine(
 ): string {
   const cmdConfig = agentCommands[payload.agentType] || DEFAULT_AGENT_COMMANDS[payload.agentType]
   const cmd = resolveAgentCommand(cmdConfig, env)
-  // Per-step args override settings-level args
-  const effectiveArgs = payload.args?.length ? payload.args : cmd.args
-  let launchLine = [cmd.command, ...effectiveArgs].join(' ')
+  // Per-step args override settings-level args; escape each for shell safety
+  const effectiveArgs = payload.args !== undefined ? payload.args : cmd.args
+  let launchLine = [cmd.command, ...effectiveArgs.map((a) => shellEscape(a))].join(' ')
 
   if (payload.resumeSessionId) {
     switch (payload.agentType) {

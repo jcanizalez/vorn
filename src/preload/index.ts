@@ -256,7 +256,7 @@ const api = {
     workflowId: string
     workflowName: string
     completedAt: string
-    status: string
+    status: 'success' | 'error'
     sessionsLaunched: number
     source?: 'scheduler' | 'manual'
   }): Promise<void> => ipcRenderer.invoke(IPC.WORKFLOW_EXECUTION_COMPLETE, data),

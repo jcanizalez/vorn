@@ -408,7 +408,7 @@ export async function executeWorkflow(
   persistExecution(workflow.id, execution)
 
   // Report completion to main process for schedule log + workflow status update
-  window.api.reportWorkflowComplete({
+  await window.api.reportWorkflowComplete({
     workflowId: workflow.id,
     workflowName: workflow.name,
     completedAt: execution.completedAt!,

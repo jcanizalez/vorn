@@ -238,11 +238,14 @@ export function registerIpcHandlers(options?: IpcHandlerOptions): void {
         workflowId: string
         workflowName: string
         completedAt: string
-        status: string
+        status: 'success' | 'error'
         sessionsLaunched: number
         source?: 'scheduler' | 'manual'
       }
     ) => {
+      // Validate status is a terminal state
+      if (data.status !== 'success' && data.status !== 'error') return
+
       if (data.source === 'scheduler') {
         scheduleLogManager.addEntry({
           workflowId: data.workflowId,
