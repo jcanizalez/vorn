@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { FolderGit2, Trash2, FolderOpen } from 'lucide-react'
+import { FolderGit2, Trash2, FolderOpen, AlertTriangle } from 'lucide-react'
 
 interface WorktreeCleanupInfo {
   id: string
@@ -11,10 +11,19 @@ interface WorktreeCleanupInfo {
 export function WorktreeCleanupDialog() {
   const [pending, setPending] = useState<WorktreeCleanupInfo | null>(null)
   const [removing, setRemoving] = useState(false)
+  const [isDirty, setIsDirty] = useState(false)
+  const [checking, setChecking] = useState(false)
 
   useEffect(() => {
     const unsub = window.api.onWorktreeCleanup((session) => {
+      setIsDirty(false)
+      setChecking(true)
       setPending(session)
+      window.api
+        .isWorktreeDirty(session.worktreePath)
+        .then(setIsDirty)
+        .catch(() => setIsDirty(false))
+        .finally(() => setChecking(false))
     })
     return unsub
   }, [])
@@ -26,7 +35,7 @@ export function WorktreeCleanupDialog() {
   const handleRemove = async (): Promise<void> => {
     if (!pending) return
     setRemoving(true)
-    await window.api.removeWorktree(pending.projectPath, pending.worktreePath)
+    await window.api.removeWorktree(pending.projectPath, pending.worktreePath, isDirty)
     setRemoving(false)
     setPending(null)
   }
@@ -69,6 +78,16 @@ export function WorktreeCleanupDialog() {
               </div>
             </div>
 
+            {/* Dirty warning */}
+            {!checking && isDirty && (
+              <div className="mx-5 mb-2 px-3 py-2 bg-amber-500/[0.08] border border-amber-500/20 rounded-lg flex items-start gap-2">
+                <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-amber-300/90">
+                  This worktree has uncommitted changes that will be permanently lost.
+                </p>
+              </div>
+            )}
+
             <div className="px-5 py-3 border-t border-white/[0.06] flex justify-end gap-2">
               <button
                 onClick={handleKeep}
@@ -80,13 +99,22 @@ export function WorktreeCleanupDialog() {
               </button>
               <button
                 onClick={handleRemove}
-                disabled={removing}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-400
-                           bg-red-500/[0.08] hover:bg-red-500/[0.15]
-                           disabled:opacity-50 rounded-lg transition-colors"
+                disabled={removing || checking}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-colors
+                           disabled:opacity-50 ${
+                             isDirty
+                               ? 'text-red-300 bg-red-500/[0.15] hover:bg-red-500/[0.25] border border-red-500/30'
+                               : 'text-red-400 bg-red-500/[0.08] hover:bg-red-500/[0.15]'
+                           }`}
               >
                 <Trash2 size={12} />
-                {removing ? 'Removing...' : 'Remove'}
+                {removing
+                  ? 'Removing...'
+                  : checking
+                    ? 'Checking...'
+                    : isDirty
+                      ? 'Remove anyway'
+                      : 'Remove'}
               </button>
             </div>
           </motion.div>

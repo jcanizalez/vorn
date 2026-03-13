@@ -102,8 +102,11 @@ const api = {
   ): Promise<{ worktreePath: string; branch: string }> =>
     ipcRenderer.invoke(IPC.GIT_CREATE_WORKTREE, { projectPath, branch }),
 
-  removeWorktree: (projectPath: string, worktreePath: string): Promise<boolean> =>
-    ipcRenderer.invoke(IPC.GIT_REMOVE_WORKTREE, { projectPath, worktreePath }),
+  removeWorktree: (projectPath: string, worktreePath: string, force?: boolean): Promise<boolean> =>
+    ipcRenderer.invoke(IPC.GIT_REMOVE_WORKTREE, { projectPath, worktreePath, force }),
+
+  isWorktreeDirty: (worktreePath: string): Promise<boolean> =>
+    ipcRenderer.invoke(IPC.GIT_WORKTREE_DIRTY, worktreePath),
 
   listWorktrees: (
     projectPath: string

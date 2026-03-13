@@ -118,9 +118,28 @@ export function createWorktree(
   return { worktreePath: worktreeDir, branch }
 }
 
-export function removeWorktree(projectPath: string, worktreePath: string): boolean {
+export function isWorktreeDirty(worktreePath: string): boolean {
   try {
-    execFileSync('git', ['worktree', 'remove', worktreePath, '--force'], {
+    const output = execFileSync('git', ['status', '--porcelain'], {
+      cwd: worktreePath,
+      ...EXEC_OPTS,
+      timeout: 5000
+    }).trim()
+    return output.length > 0
+  } catch {
+    return false
+  }
+}
+
+export function removeWorktree(
+  projectPath: string,
+  worktreePath: string,
+  force = false
+): boolean {
+  try {
+    const args = ['worktree', 'remove', worktreePath]
+    if (force) args.push('--force')
+    execFileSync('git', args, {
       cwd: projectPath,
       ...EXEC_OPTS,
       timeout: 10000

@@ -24,6 +24,7 @@ import {
   getGitBranch,
   createWorktree,
   removeWorktree,
+  isWorktreeDirty,
   listWorktrees,
   getGitDiffStat,
   getGitDiffFull,
@@ -120,9 +121,17 @@ export function registerIpcHandlers(options?: IpcHandlerOptions): void {
 
   safeHandle(
     IPC.GIT_REMOVE_WORKTREE,
-    (_, { projectPath, worktreePath }: { projectPath: string; worktreePath: string }) =>
-      removeWorktree(projectPath, worktreePath)
+    (
+      _,
+      {
+        projectPath,
+        worktreePath,
+        force
+      }: { projectPath: string; worktreePath: string; force?: boolean }
+    ) => removeWorktree(projectPath, worktreePath, force)
   )
+
+  safeHandle(IPC.GIT_WORKTREE_DIRTY, (_, worktreePath: string) => isWorktreeDirty(worktreePath))
 
   safeHandle(IPC.GIT_LIST_WORKTREES, (_, projectPath: string) => listWorktrees(projectPath))
 
