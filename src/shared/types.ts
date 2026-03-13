@@ -265,6 +265,8 @@ export interface CreateTerminalPayload {
   displayName?: string
   branch?: string
   useWorktree?: boolean
+  /** Pass an existing worktree path to reuse it (skips createWorktree) */
+  existingWorktreePath?: string
   remoteHostId?: string
   initialPrompt?: string
   promptDelayMs?: number

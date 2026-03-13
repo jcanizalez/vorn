@@ -141,8 +141,14 @@ class PtyManager extends EventEmitter {
     let worktreePath: string | undefined
     let effectiveBranch: string | undefined
 
+    // Reuse existing worktree
+    if (payload.existingWorktreePath) {
+      effectivePath = payload.existingWorktreePath
+      worktreePath = payload.existingWorktreePath
+      effectiveBranch = payload.branch
+    }
     // Handle worktree creation
-    if (payload.useWorktree && payload.branch) {
+    else if (payload.useWorktree && payload.branch) {
       const result = createWorktree(payload.projectPath, payload.branch)
       effectivePath = result.worktreePath
       worktreePath = result.worktreePath
