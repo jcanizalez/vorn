@@ -393,11 +393,17 @@ class PtyManager extends EventEmitter {
       }
     }
     if (p) {
-      try {
-        p.kill()
-      } catch (err) {
-        log.warn(`[pty] kill failed for ${id} (already dead?):`, err)
-      }
+      // Defer the actual kill so the IPC response returns immediately.
+      // All state cleanup is already done above, so the renderer can proceed
+      // without waiting for the process to die (avoids UI freeze on Windows
+      // where conpty termination can block the event loop).
+      setImmediate(() => {
+        try {
+          p.kill()
+        } catch (err) {
+          log.warn(`[pty] kill failed for ${id} (already dead?):`, err)
+        }
+      })
     }
   }
 
