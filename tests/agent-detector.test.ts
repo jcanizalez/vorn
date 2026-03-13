@@ -77,9 +77,8 @@ describe('agent-detector', () => {
       PATH: '/usr/local/bin:/usr/bin',
       SHELL: '/bin/zsh'
     }
-    ;({ detectInstalledAgents, clearAgentDetectionCache } = await import(
-      '../src/main/agent-detector'
-    ))
+    ;({ detectInstalledAgents, clearAgentDetectionCache } =
+      await import('../src/main/agent-detector'))
   })
 
   afterEach(() => {

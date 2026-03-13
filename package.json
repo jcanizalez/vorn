@@ -24,7 +24,11 @@
     "pre-commit": "yarn lint-staged"
   },
   "lint-staged": {
-    "*.{ts,tsx}": "eslint --max-warnings 0"
+    "*.{ts,tsx}": [
+      "eslint --max-warnings 0",
+      "prettier --write"
+    ],
+    "*.{json,css,md,html}": "prettier --write"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
