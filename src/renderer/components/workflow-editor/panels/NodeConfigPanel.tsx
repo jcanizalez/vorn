@@ -8,6 +8,7 @@ import {
 import { TriggerConfigForm } from './TriggerConfigForm'
 import { LaunchAgentConfigForm } from './LaunchAgentConfigForm'
 import { ScriptConfigForm } from './ScriptConfigForm'
+import type { StepVariableGroup } from '../../../lib/template-vars'
 
 interface Props {
   node: WorkflowNode
@@ -16,6 +17,7 @@ interface Props {
   onDelete: (nodeId: string) => void
   onClose: () => void
   triggerType?: TriggerConfig['triggerType']
+  stepGroups?: StepVariableGroup[]
 }
 
 export function NodeConfigPanel({
@@ -24,7 +26,8 @@ export function NodeConfigPanel({
   onLabelChange,
   onDelete,
   onClose,
-  triggerType
+  triggerType,
+  stepGroups
 }: Props) {
   return (
     <div className="w-[300px] border-l border-white/[0.08] bg-[#1e1e22] flex flex-col h-full overflow-hidden titlebar-no-drag">
@@ -53,6 +56,11 @@ export function NodeConfigPanel({
             className="w-full px-3 py-2 text-[13px] bg-white/[0.06] border border-white/[0.1] rounded-md
                        text-white focus:outline-none focus:border-blue-500/50"
           />
+          {node.slug && node.type !== 'trigger' && (
+            <p className="text-[10px] text-gray-600 mt-1 font-mono">
+              Ref: steps.{node.slug}.output
+            </p>
+          )}
         </div>
 
         {/* Type-specific config */}
@@ -68,6 +76,7 @@ export function NodeConfigPanel({
             config={node.config as LaunchAgentConfig}
             onChange={(config) => onChange(node.id, config)}
             triggerType={triggerType}
+            stepGroups={stepGroups}
           />
         )}
 
@@ -75,6 +84,8 @@ export function NodeConfigPanel({
           <ScriptConfigForm
             config={node.config as ScriptConfig}
             onChange={(config) => onChange(node.id, config)}
+            triggerType={triggerType}
+            stepGroups={stepGroups}
           />
         )}
       </div>

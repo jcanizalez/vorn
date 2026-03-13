@@ -19,10 +19,20 @@ import {
   createLaunchAgentNode,
   createScriptNode,
   appendNode,
+  appendNodeAfter,
+  insertNodeBetween,
+  insertBeforeFork,
+  addParallelBranch,
   removeNode,
   autoLayoutNodes
 } from '../../lib/workflow-helpers'
 import { executeWorkflow } from '../../lib/workflow-execution'
+import {
+  slugify,
+  ensureUniqueSlug,
+  getAncestorNodes,
+  buildStepGroups
+} from '../../lib/template-vars'
 
 const EMPTY_TASKS: import('../../../shared/types').TaskConfig[] = []
 
@@ -70,6 +80,12 @@ export function WorkflowEditor() {
     return (triggerNode.config as TriggerConfig).triggerType
   }, [nodes])
 
+  const stepGroups = useMemo(() => {
+    if (!selectedNodeId) return []
+    const ancestors = getAncestorNodes(nodes, edges, selectedNodeId)
+    return buildStepGroups(ancestors)
+  }, [nodes, edges, selectedNodeId])
+
   // Load execution history from database
   useEffect(() => {
     if (editingId && isOpen && loadedRunsForId.current !== editingId) {
@@ -82,13 +98,24 @@ export function WorkflowEditor() {
     }
   }, [editingId, isOpen])
 
-  // Load existing workflow when editing
+  // Load existing workflow when editing (with slug migration)
   useEffect(() => {
     if (existingWorkflow) {
       setName(existingWorkflow.name)
       setIcon(existingWorkflow.icon)
       setIconColor(existingWorkflow.iconColor)
-      setNodes(existingWorkflow.nodes)
+      const usedSlugs = new Set<string>()
+      const migratedNodes = existingWorkflow.nodes.map((n) => {
+        if (n.slug) {
+          usedSlugs.add(n.slug)
+          return n
+        }
+        if (n.type === 'trigger') return n
+        const slug = ensureUniqueSlug(slugify(n.label), usedSlugs)
+        usedSlugs.add(slug)
+        return { ...n, slug }
+      })
+      setNodes(migratedNodes)
       setEdges(existingWorkflow.edges)
       setEnabled(existingWorkflow.enabled)
       setStaggerDelayMs(existingWorkflow.staggerDelayMs)
@@ -235,6 +262,66 @@ export function WorkflowEditor() {
     setSelectedNodeId(script.id)
   }, [nodes, edges])
 
+  // Helper: create a node with a unique slug
+  const createNodeWithUniqueSlug = useCallback(
+    (type: 'agent' | 'script') => {
+      const projects = useAppStore.getState().config?.projects || []
+      const firstProject = projects[0]
+      const newNode =
+        type === 'script'
+          ? createScriptNode()
+          : createLaunchAgentNode(
+              firstProject
+                ? { projectName: firstProject.name, projectPath: firstProject.path }
+                : {}
+            )
+      if (newNode.slug) {
+        const existingSlugs = new Set(nodes.filter((n) => n.slug).map((n) => n.slug!))
+        newNode.slug = ensureUniqueSlug(newNode.slug, existingSlugs)
+      }
+      return newNode
+    },
+    [nodes]
+  )
+
+  // Canvas "+" button handlers — insert between nodes or append at end
+  const handleInsertNode = useCallback(
+    (afterNodeId: string, beforeNodeId: string | null, type: 'agent' | 'script') => {
+      const newNode = createNodeWithUniqueSlug(type)
+
+      let result: { nodes: WorkflowNode[]; edges: WorkflowEdge[] }
+      if (beforeNodeId === '__FORK__') {
+        result = insertBeforeFork(nodes, edges, afterNodeId, newNode)
+      } else if (beforeNodeId) {
+        const edge = edges.find((e) => e.source === afterNodeId && e.target === beforeNodeId)
+        if (edge) {
+          result = insertNodeBetween(nodes, edges, edge.id, newNode)
+        } else {
+          result = appendNodeAfter(nodes, edges, afterNodeId, newNode)
+        }
+      } else {
+        result = appendNodeAfter(nodes, edges, afterNodeId, newNode)
+      }
+
+      setNodes(result.nodes)
+      setEdges(result.edges)
+      setSelectedNodeId(newNode.id)
+    },
+    [nodes, edges, createNodeWithUniqueSlug]
+  )
+
+  // Canvas "+" button handler — add a parallel branch
+  const handleAddParallelBranch = useCallback(
+    (forkFromId: string, type: 'agent' | 'script') => {
+      const newNode = createNodeWithUniqueSlug(type)
+      const result = addParallelBranch(nodes, edges, forkFromId, newNode)
+      setNodes(result.nodes)
+      setEdges(result.edges)
+      setSelectedNodeId(newNode.id)
+    },
+    [nodes, edges, createNodeWithUniqueSlug]
+  )
+
   const handleNodeClick = useCallback((nodeId: string) => {
     setSelectedNodeId(nodeId || null)
     setShowRunHistory(false)
@@ -245,7 +332,11 @@ export function WorkflowEditor() {
   }, [])
 
   const handleNodeLabelChange = useCallback((nodeId: string, label: string) => {
-    setNodes((nds) => nds.map((n) => (n.id === nodeId ? { ...n, label } : n)))
+    setNodes((nds) => {
+      const existingSlugs = new Set(nds.filter((n) => n.id !== nodeId && n.slug).map((n) => n.slug!))
+      const newSlug = ensureUniqueSlug(slugify(label), existingSlugs)
+      return nds.map((n) => (n.id === nodeId ? { ...n, label, slug: newSlug } : n))
+    })
   }, [])
 
   const handleDeleteNode = useCallback(
@@ -411,7 +502,8 @@ export function WorkflowEditor() {
           nodes={nodes}
           edges={edges}
           onNodeClick={handleNodeClick}
-          onAddNodeAtEnd={handleAddLaunchAgent}
+          onInsertNode={handleInsertNode}
+          onAddParallelBranch={handleAddParallelBranch}
           selectedNodeId={selectedNodeId}
         />
 
@@ -434,6 +526,7 @@ export function WorkflowEditor() {
             onDelete={handleDeleteNode}
             onClose={() => setSelectedNodeId(null)}
             triggerType={triggerType}
+            stepGroups={stepGroups}
           />
         )}
       </div>

@@ -7,27 +7,80 @@ import {
   ScriptConfig,
   WorkflowNodePosition
 } from '../../shared/types'
+import { slugify } from './template-vars'
 
-/**
- * Extract the trigger node's config from a workflow definition.
- */
+// --- Flow Layout Types ---
+
+export type FlowRow =
+  | { kind: 'node'; node: WorkflowNode }
+  | { kind: 'fork'; forkNodeId: string; branches: FlowRow[][]; joinNodeId?: string }
+
+// --- Graph Adjacency Helpers ---
+
+function buildSuccessorsMap(edges: WorkflowEdge[]): Map<string, string[]> {
+  const map = new Map<string, string[]>()
+  for (const edge of edges) {
+    const succs = map.get(edge.source) || []
+    succs.push(edge.target)
+    map.set(edge.source, succs)
+  }
+  return map
+}
+
+function findJoinPoint(
+  _forkNodeId: string,
+  children: string[],
+  successorsMap: Map<string, string[]>
+): string | null {
+  if (children.length <= 1) return null
+
+  const reachableSets = children.map((childId) => {
+    const reachable = new Set<string>()
+    const queue = [childId]
+    while (queue.length > 0) {
+      const current = queue.shift()!
+      if (reachable.has(current)) continue
+      reachable.add(current)
+      for (const next of successorsMap.get(current) || []) {
+        queue.push(next)
+      }
+    }
+    return reachable
+  })
+
+  const childrenSet = new Set(children)
+  const visited = new Set<string>()
+  const queue = [...children]
+
+  while (queue.length > 0) {
+    const current = queue.shift()!
+    if (visited.has(current)) continue
+    visited.add(current)
+
+    if (!childrenSet.has(current) && reachableSets.every((set) => set.has(current))) {
+      return current
+    }
+
+    for (const next of successorsMap.get(current) || []) {
+      queue.push(next)
+    }
+  }
+
+  return null
+}
+
+// --- Existing helpers (unchanged) ---
+
 export function getTriggerConfig(wf: WorkflowDefinition): TriggerConfig | null {
   const triggerNode = wf.nodes.find((n) => n.type === 'trigger')
   if (!triggerNode) return null
   return triggerNode.config as TriggerConfig
 }
 
-/**
- * Get the trigger node from a workflow definition.
- */
 export function getTriggerNode(wf: WorkflowDefinition): WorkflowNode | undefined {
   return wf.nodes.find((n) => n.type === 'trigger')
 }
 
-/**
- * Get action nodes in topological (execution) order.
- * Returns nodes after the trigger, following edge order.
- */
 export function getOrderedActionNodes(wf: WorkflowDefinition): WorkflowNode[] {
   const triggerNode = getTriggerNode(wf)
   if (!triggerNode) return []
@@ -40,7 +93,6 @@ export function getOrderedActionNodes(wf: WorkflowDefinition): WorkflowNode[] {
     childrenMap.set(edge.source, children)
   }
 
-  // BFS from trigger node
   const ordered: WorkflowNode[] = []
   const visited = new Set<string>()
   const queue = [triggerNode.id]
@@ -64,24 +116,15 @@ export function getOrderedActionNodes(wf: WorkflowDefinition): WorkflowNode[] {
   return ordered
 }
 
-/**
- * Get the count of launch agent actions in a workflow.
- */
 export function getActionCount(wf: WorkflowDefinition): number {
   return wf.nodes.filter((n) => n.type === 'launchAgent').length
 }
 
-/**
- * Check if a workflow has a scheduled trigger (not manual).
- */
 export function isScheduledWorkflow(wf: WorkflowDefinition): boolean {
   const trigger = getTriggerConfig(wf)
   return trigger != null && trigger.triggerType !== 'manual'
 }
 
-/**
- * Get a human-readable label for the trigger type.
- */
 export function getTriggerLabel(wf: WorkflowDefinition): string | undefined {
   const trigger = getTriggerConfig(wf)
   if (!trigger) return undefined
@@ -92,9 +135,6 @@ export function getTriggerLabel(wf: WorkflowDefinition): string | undefined {
   return undefined
 }
 
-/**
- * Create a default trigger node.
- */
 export function createTriggerNode(config: TriggerConfig = { triggerType: 'manual' }): WorkflowNode {
   const labelMap: Record<string, string> = {
     manual: 'Manual Trigger',
@@ -112,14 +152,12 @@ export function createTriggerNode(config: TriggerConfig = { triggerType: 'manual
   }
 }
 
-/**
- * Create a default launch agent node.
- */
 export function createLaunchAgentNode(config: Partial<LaunchAgentConfig> = {}): WorkflowNode {
   return {
     id: crypto.randomUUID(),
     type: 'launchAgent',
     label: 'Launch Agent',
+    slug: slugify('Launch Agent'),
     config: {
       agentType: 'claude',
       projectName: '',
@@ -130,14 +168,12 @@ export function createLaunchAgentNode(config: Partial<LaunchAgentConfig> = {}): 
   }
 }
 
-/**
- * Create a default script node.
- */
 export function createScriptNode(config: Partial<ScriptConfig> = {}): WorkflowNode {
   return {
     id: crypto.randomUUID(),
     type: 'script',
     label: 'Execute Script',
+    slug: slugify('Execute Script'),
     config: {
       scriptType: 'bash',
       scriptContent: '# Write your script here\n',
@@ -149,17 +185,12 @@ export function createScriptNode(config: Partial<ScriptConfig> = {}): WorkflowNo
   }
 }
 
-/**
- * Auto-layout nodes in a vertical (top-to-bottom) arrangement.
- * Simple layout without dagre dependency for basic cases.
- */
 export function autoLayoutNodes(nodes: WorkflowNode[], edges: WorkflowEdge[]): WorkflowNode[] {
   if (nodes.length === 0) return nodes
 
   const triggerNode = nodes.find((n) => n.type === 'trigger')
   const ordered = triggerNode ? [triggerNode] : []
 
-  // Build adjacency
   const childrenMap = new Map<string, string[]>()
   for (const edge of edges) {
     const children = childrenMap.get(edge.source) || []
@@ -167,7 +198,6 @@ export function autoLayoutNodes(nodes: WorkflowNode[], edges: WorkflowEdge[]): W
     childrenMap.set(edge.source, children)
   }
 
-  // BFS
   const nodeMap = new Map(nodes.map((n) => [n.id, n]))
   const visited = new Set(ordered.map((n) => n.id))
   const queue = ordered.map((n) => n.id)
@@ -185,14 +215,12 @@ export function autoLayoutNodes(nodes: WorkflowNode[], edges: WorkflowEdge[]): W
     }
   }
 
-  // Add any orphan nodes not connected
   for (const node of nodes) {
     if (!visited.has(node.id)) {
       ordered.push(node)
     }
   }
 
-  const NODE_WIDTH = 280
   const NODE_GAP = 80
 
   return ordered.map((node, index) => ({
@@ -201,9 +229,6 @@ export function autoLayoutNodes(nodes: WorkflowNode[], edges: WorkflowEdge[]): W
   }))
 }
 
-/**
- * Insert a new node between source and target, splitting an edge.
- */
 export function insertNodeBetween(
   nodes: WorkflowNode[],
   edges: WorkflowEdge[],
@@ -223,15 +248,11 @@ export function insertNodeBetween(
   return { nodes: autoLayoutNodes(newNodes, newEdges), edges: newEdges }
 }
 
-/**
- * Append a new node at the end of the chain.
- */
 export function appendNode(
   nodes: WorkflowNode[],
   edges: WorkflowEdge[],
   newNode: WorkflowNode
 ): { nodes: WorkflowNode[]; edges: WorkflowEdge[] } {
-  // Find the last node (no outgoing edges)
   const nodesWithOutgoing = new Set(edges.map((e) => e.source))
   const lastNode = [...nodes].reverse().find((n) => !nodesWithOutgoing.has(n.id))
 
@@ -244,9 +265,6 @@ export function appendNode(
   return { nodes: autoLayoutNodes(newNodes, newEdges), edges: newEdges }
 }
 
-/**
- * Remove a node and reconnect its parent to its child.
- */
 export function removeNode(
   nodes: WorkflowNode[],
   edges: WorkflowEdge[],
@@ -257,7 +275,6 @@ export function removeNode(
 
   const newEdges = [...edges.filter((e) => e.source !== nodeId && e.target !== nodeId)]
 
-  // Reconnect: each parent -> each child
   for (const incoming of incomingEdges) {
     for (const outgoing of outgoingEdges) {
       newEdges.push({ id: crypto.randomUUID(), source: incoming.source, target: outgoing.target })
@@ -265,5 +282,143 @@ export function removeNode(
   }
 
   const newNodes = nodes.filter((n) => n.id !== nodeId)
+  return { nodes: autoLayoutNodes(newNodes, newEdges), edges: newEdges }
+}
+
+// --- Flow Layout ---
+
+export function computeFlowLayout(nodes: WorkflowNode[], edges: WorkflowEdge[]): FlowRow[] {
+  if (nodes.length === 0) return []
+
+  const nodeMap = new Map(nodes.map((n) => [n.id, n]))
+  const successorsMap = buildSuccessorsMap(edges)
+  const triggerNode = nodes.find((n) => n.type === 'trigger')
+
+  if (!triggerNode) return nodes.map((n) => ({ kind: 'node' as const, node: n }))
+
+  return buildFlowFromNode(triggerNode.id, null, nodeMap, successorsMap)
+}
+
+function buildFlowFromNode(
+  startId: string,
+  stopBeforeId: string | null,
+  nodeMap: Map<string, WorkflowNode>,
+  successorsMap: Map<string, string[]>
+): FlowRow[] {
+  const rows: FlowRow[] = []
+  let currentId: string | null = startId
+
+  while (currentId) {
+    if (currentId === stopBeforeId) break
+
+    const node = nodeMap.get(currentId)
+    if (!node) break
+
+    const successors = successorsMap.get(currentId) || []
+
+    if (successors.length <= 1) {
+      rows.push({ kind: 'node', node })
+      currentId = successors[0] || null
+    } else {
+      rows.push({ kind: 'node', node })
+
+      const joinNodeId = findJoinPoint(currentId, successors, successorsMap)
+      const branches = successors.map((childId) =>
+        buildFlowFromNode(childId, joinNodeId, nodeMap, successorsMap)
+      )
+
+      rows.push({
+        kind: 'fork',
+        forkNodeId: currentId,
+        branches,
+        joinNodeId: joinNodeId || undefined
+      })
+
+      currentId = joinNodeId
+    }
+  }
+
+  return rows
+}
+
+// --- Parallel Branch Operations ---
+
+export function appendNodeAfter(
+  nodes: WorkflowNode[],
+  edges: WorkflowEdge[],
+  afterNodeId: string,
+  newNode: WorkflowNode
+): { nodes: WorkflowNode[]; edges: WorkflowEdge[] } {
+  const newNodes = [...nodes, newNode]
+  const newEdges = [
+    ...edges,
+    { id: crypto.randomUUID(), source: afterNodeId, target: newNode.id }
+  ]
+  return { nodes: autoLayoutNodes(newNodes, newEdges), edges: newEdges }
+}
+
+export function insertBeforeFork(
+  nodes: WorkflowNode[],
+  edges: WorkflowEdge[],
+  forkNodeId: string,
+  newNode: WorkflowNode
+): { nodes: WorkflowNode[]; edges: WorkflowEdge[] } {
+  const newEdges = edges.map((e) =>
+    e.source === forkNodeId
+      ? { id: crypto.randomUUID(), source: newNode.id, target: e.target }
+      : e
+  )
+  newEdges.push({ id: crypto.randomUUID(), source: forkNodeId, target: newNode.id })
+
+  const newNodes = [...nodes, newNode]
+  return { nodes: autoLayoutNodes(newNodes, newEdges), edges: newEdges }
+}
+
+export function addParallelBranch(
+  nodes: WorkflowNode[],
+  edges: WorkflowEdge[],
+  forkFromId: string,
+  newNode: WorkflowNode
+): { nodes: WorkflowNode[]; edges: WorkflowEdge[] } {
+  const successorsMap = buildSuccessorsMap(edges)
+  const successors = successorsMap.get(forkFromId) || []
+
+  const newNodes = [...nodes, newNode]
+  const newEdges = [...edges]
+
+  newEdges.push({ id: crypto.randomUUID(), source: forkFromId, target: newNode.id })
+
+  if (successors.length === 0) {
+    // Terminal — no convergence
+  } else if (successors.length === 1) {
+    let joinTarget: string | null = null
+    let current = successors[0]
+    while (true) {
+      const succs = successorsMap.get(current) || []
+      if (succs.length === 0) {
+        break
+      } else if (succs.length === 1) {
+        joinTarget = succs[0]
+        break
+      } else {
+        const jp = findJoinPoint(current, succs, successorsMap)
+        if (jp) {
+          current = jp
+        } else {
+          break
+        }
+      }
+    }
+
+    if (joinTarget) {
+      newEdges.push({ id: crypto.randomUUID(), source: newNode.id, target: joinTarget })
+    }
+  } else {
+    const joinNodeId = findJoinPoint(forkFromId, successors, successorsMap)
+    if (joinNodeId) {
+      newEdges.push({ id: crypto.randomUUID(), source: newNode.id, target: joinNodeId })
+    }
+  }
+
   return { nodes: autoLayoutNodes(newNodes, newEdges), edges: newEdges }
 }
