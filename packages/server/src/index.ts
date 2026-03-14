@@ -29,12 +29,15 @@ export async function startServer(
   headlessManager.setAgentCommands(config.agentCommands)
   scheduler.syncSchedules(config.workflows ?? [])
 
-  // Re-sync managers when config changes
+  // Re-sync managers and broadcast to clients when config changes
+  const { clientRegistry } = await import('./broadcast')
+  const { IPC } = await import('@vibegrid/shared/types')
   configManager.onConfigChanged((cfg) => {
     ptyManager.setAgentCommands(cfg.agentCommands)
     ptyManager.setRemoteHosts(cfg.remoteHosts ?? [])
     headlessManager.setAgentCommands(cfg.agentCommands)
     scheduler.syncSchedules(cfg.workflows ?? [])
+    clientRegistry.broadcast(IPC.CONFIG_CHANGED, cfg)
   })
 
   // Set up Fastify + WebSocket

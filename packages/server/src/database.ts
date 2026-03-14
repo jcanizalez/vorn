@@ -14,7 +14,9 @@ import {
   TaskConfig,
   TerminalSession,
   ScheduleLogEntry,
-  AgentType
+  AgentType,
+  WorkspaceConfig,
+  DEFAULT_WORKSPACE
 } from '@vibegrid/shared/types'
 import { DEFAULT_AGENT_COMMANDS } from '@vibegrid/shared/agent-defaults'
 
@@ -58,8 +60,8 @@ export function initDatabase(): void {
 }
 
 /**
- * Backs up the corrupt database file, creates a fresh one, and logs
- * a warning that settings were reset.
+ * Backs up the corrupt database file, creates a fresh one, and shows
+ * a dialog informing the user that their settings were reset.
  */
 function recoverCorruptDatabase(): void {
   // Close any partially-opened handle
@@ -99,8 +101,18 @@ function recoverCorruptDatabase(): void {
     throw freshErr
   }
 
-  // Log corruption recovery (no dialog in server mode)
-  log.warn(`[database] Database was corrupted and has been reset. Backup saved to: ${backupPath}`)
+  // Notify the user (non-blocking)
+  dialog
+    .showMessageBox({
+      type: 'warning',
+      title: 'Database Reset',
+      message: 'VibeGrid database was corrupted and has been reset.',
+      detail: `Your settings have been restored to defaults. A backup of the corrupt file was saved to:\n${backupPath}`,
+      buttons: ['OK']
+    })
+    .catch(() => {
+      /* dialog can fail in headless/test environments */
+    })
 }
 
 export function closeDatabase(): void {
@@ -231,6 +243,14 @@ function createSchema(): void {
       archived_at INTEGER NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS workspaces (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      icon TEXT,
+      icon_color TEXT,
+      "order" INTEGER NOT NULL DEFAULT 0
+    );
+
     CREATE TABLE IF NOT EXISTS workflow_runs (
       id TEXT PRIMARY KEY,
       workflow_id TEXT NOT NULL,
@@ -260,6 +280,48 @@ function createSchema(): void {
     CREATE INDEX IF NOT EXISTS idx_workflow_run_nodes_run ON workflow_run_nodes(run_id);
     CREATE INDEX IF NOT EXISTS idx_workflow_run_nodes_task ON workflow_run_nodes(task_id);
   `)
+
+  migrateSchema(d)
+}
+
+function migrateSchema(d: Database.Database): void {
+  const row = d.prepare("SELECT value FROM schema_meta WHERE key = 'schema_version'").get() as
+    | { value: string }
+    | undefined
+  const version = row ? parseInt(row.value, 10) : 0
+
+  if (version < 1) {
+    d.transaction(() => {
+      // Add workspace_id to projects and workflows
+      const projectCols = d.prepare('PRAGMA table_info(projects)').all() as Array<{ name: string }>
+      if (!projectCols.some((c) => c.name === 'workspace_id')) {
+        d.exec("ALTER TABLE projects ADD COLUMN workspace_id TEXT NOT NULL DEFAULT 'personal'")
+      }
+
+      const workflowCols = d.prepare('PRAGMA table_info(workflows)').all() as Array<{
+        name: string
+      }>
+      if (!workflowCols.some((c) => c.name === 'workspace_id')) {
+        d.exec("ALTER TABLE workflows ADD COLUMN workspace_id TEXT NOT NULL DEFAULT 'personal'")
+      }
+
+      // Seed default workspace
+      d.prepare(
+        `INSERT OR IGNORE INTO workspaces (id, name, icon, icon_color, "order") VALUES (?, ?, ?, ?, ?)`
+      ).run(
+        DEFAULT_WORKSPACE.id,
+        DEFAULT_WORKSPACE.name,
+        DEFAULT_WORKSPACE.icon ?? null,
+        DEFAULT_WORKSPACE.iconColor ?? null,
+        DEFAULT_WORKSPACE.order
+      )
+
+      d.prepare(
+        "INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('schema_version', '1')"
+      ).run()
+    })()
+    log.info('[database] migrated schema to version 1 (workspaces)')
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -275,6 +337,7 @@ export function loadConfig(): AppConfig {
   const workflows = loadWorkflows(d)
   const remoteHosts = loadRemoteHosts(d)
   const tasks = loadTasks(d)
+  const workspaces = loadWorkspaces(d)
 
   return {
     version: 1,
@@ -284,7 +347,8 @@ export function loadConfig(): AppConfig {
       Object.keys(agentCommands).length > 0 ? agentCommands : { ...DEFAULT_AGENT_COMMANDS },
     workflows,
     remoteHosts,
-    tasks
+    tasks,
+    workspaces
   }
 }
 
@@ -318,6 +382,9 @@ function loadDefaults(d: Database.Database): AppConfig['defaults'] {
     ...(map.widgetEnabled !== undefined && { widgetEnabled: map.widgetEnabled as boolean }),
     ...(map.taskViewMode !== undefined && {
       taskViewMode: map.taskViewMode as AppConfig['defaults']['taskViewMode']
+    }),
+    ...(map.activeWorkspace !== undefined && {
+      activeWorkspace: map.activeWorkspace as string
     })
   }
 }
@@ -330,6 +397,7 @@ function loadProjects(d: Database.Database): ProjectConfig[] {
     icon: string | null
     icon_color: string | null
     host_ids: string | null
+    workspace_id: string | null
   }>
   return rows.map(rowToProject)
 }
@@ -346,6 +414,7 @@ function loadWorkflows(d: Database.Database): WorkflowDefinition[] {
     last_run_at: string | null
     last_run_status: string | null
     stagger_delay_ms: number | null
+    workspace_id: string | null
   }>
   return rows.map(rowToWorkflow)
 }
@@ -411,6 +480,17 @@ function loadTasks(d: Database.Database): TaskConfig[] {
   return rows.map(rowToTask)
 }
 
+function loadWorkspaces(d: Database.Database): WorkspaceConfig[] {
+  const rows = d.prepare('SELECT * FROM workspaces ORDER BY "order"').all() as Array<{
+    id: string
+    name: string
+    icon: string | null
+    icon_color: string | null
+    order: number
+  }>
+  return rows.map(rowToWorkspace)
+}
+
 // ---------------------------------------------------------------------------
 // Config: save (full replace inside a transaction)
 // ---------------------------------------------------------------------------
@@ -431,7 +511,7 @@ export function saveConfig(config: AppConfig): void {
     // Projects
     d.prepare('DELETE FROM projects').run()
     const insertProject = d.prepare(
-      'INSERT INTO projects (name, path, preferred_agents, icon, icon_color, host_ids) VALUES (?, ?, ?, ?, ?, ?)'
+      'INSERT INTO projects (name, path, preferred_agents, icon, icon_color, host_ids, workspace_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
     )
     for (const p of config.projects) {
       insertProject.run(
@@ -440,15 +520,16 @@ export function saveConfig(config: AppConfig): void {
         JSON.stringify(p.preferredAgents),
         p.icon ?? null,
         p.iconColor ?? null,
-        p.hostIds ? JSON.stringify(p.hostIds) : null
+        p.hostIds ? JSON.stringify(p.hostIds) : null,
+        p.workspaceId ?? 'personal'
       )
     }
 
     // Workflows
     d.prepare('DELETE FROM workflows').run()
     const insertWorkflow = d.prepare(
-      `INSERT INTO workflows (id, name, icon, icon_color, nodes, edges, enabled, last_run_at, last_run_status, stagger_delay_ms)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO workflows (id, name, icon, icon_color, nodes, edges, enabled, last_run_at, last_run_status, stagger_delay_ms, workspace_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     for (const w of config.workflows ?? []) {
       insertWorkflow.run(
@@ -461,7 +542,8 @@ export function saveConfig(config: AppConfig): void {
         w.enabled ? 1 : 0,
         w.lastRunAt ?? null,
         w.lastRunStatus ?? null,
-        w.staggerDelayMs ?? null
+        w.staggerDelayMs ?? null,
+        w.workspaceId ?? 'personal'
       )
     }
 
@@ -524,6 +606,15 @@ export function saveConfig(config: AppConfig): void {
         t.updatedAt,
         t.completedAt ?? null
       )
+    }
+
+    // Workspaces
+    d.prepare('DELETE FROM workspaces').run()
+    const insertWorkspace = d.prepare(
+      `INSERT INTO workspaces (id, name, icon, icon_color, "order") VALUES (?, ?, ?, ?, ?)`
+    )
+    for (const ws of config.workspaces ?? [DEFAULT_WORKSPACE]) {
+      insertWorkspace.run(ws.id, ws.name, ws.icon ?? null, ws.iconColor ?? null, ws.order)
     }
   })
 
@@ -691,6 +782,7 @@ export function dbListProjects(): ProjectConfig[] {
     icon: string | null
     icon_color: string | null
     host_ids: string | null
+    workspace_id: string | null
   }>
   return rows.map(rowToProject)
 }
@@ -704,6 +796,7 @@ export function dbGetProject(name: string): ProjectConfig | null {
         icon: string | null
         icon_color: string | null
         host_ids: string | null
+        workspace_id: string | null
       }
     | undefined
   return row ? rowToProject(row) : null
@@ -712,7 +805,7 @@ export function dbGetProject(name: string): ProjectConfig | null {
 export function dbInsertProject(project: ProjectConfig): void {
   getDb()
     .prepare(
-      'INSERT INTO projects (name, path, preferred_agents, icon, icon_color, host_ids) VALUES (?, ?, ?, ?, ?, ?)'
+      'INSERT INTO projects (name, path, preferred_agents, icon, icon_color, host_ids, workspace_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
     )
     .run(
       project.name,
@@ -720,7 +813,8 @@ export function dbInsertProject(project: ProjectConfig): void {
       JSON.stringify(project.preferredAgents),
       project.icon ?? null,
       project.iconColor ?? null,
-      project.hostIds ? JSON.stringify(project.hostIds) : null
+      project.hostIds ? JSON.stringify(project.hostIds) : null,
+      project.workspaceId ?? 'personal'
     )
 }
 
@@ -746,6 +840,10 @@ export function dbUpdateProject(name: string, updates: Partial<ProjectConfig>): 
   if (updates.hostIds !== undefined) {
     sets.push('host_ids = ?')
     params.push(JSON.stringify(updates.hostIds))
+  }
+  if (updates.workspaceId !== undefined) {
+    sets.push('workspace_id = ?')
+    params.push(updates.workspaceId)
   }
   if (sets.length === 0) return
   params.push(name)
@@ -778,6 +876,7 @@ export function dbListWorkflows(): WorkflowDefinition[] {
     last_run_at: string | null
     last_run_status: string | null
     stagger_delay_ms: number | null
+    workspace_id: string | null
   }>
   return rows.map(rowToWorkflow)
 }
@@ -785,8 +884,8 @@ export function dbListWorkflows(): WorkflowDefinition[] {
 export function dbInsertWorkflow(workflow: WorkflowDefinition): void {
   getDb()
     .prepare(
-      `INSERT INTO workflows (id, name, icon, icon_color, nodes, edges, enabled, last_run_at, last_run_status, stagger_delay_ms)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO workflows (id, name, icon, icon_color, nodes, edges, enabled, last_run_at, last_run_status, stagger_delay_ms, workspace_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       workflow.id,
@@ -798,7 +897,8 @@ export function dbInsertWorkflow(workflow: WorkflowDefinition): void {
       workflow.enabled ? 1 : 0,
       workflow.lastRunAt ?? null,
       workflow.lastRunStatus ?? null,
-      workflow.staggerDelayMs ?? null
+      workflow.staggerDelayMs ?? null,
+      workflow.workspaceId ?? 'personal'
     )
 }
 
@@ -833,6 +933,10 @@ export function dbUpdateWorkflow(id: string, updates: Partial<WorkflowDefinition
     sets.push('stagger_delay_ms = ?')
     params.push(updates.staggerDelayMs)
   }
+  if (updates.workspaceId !== undefined) {
+    sets.push('workspace_id = ?')
+    params.push(updates.workspaceId)
+  }
   if (sets.length === 0) return
   params.push(id)
   getDb()
@@ -842,6 +946,69 @@ export function dbUpdateWorkflow(id: string, updates: Partial<WorkflowDefinition
 
 export function dbDeleteWorkflow(id: string): void {
   getDb().prepare('DELETE FROM workflows WHERE id = ?').run(id)
+}
+
+// ---------------------------------------------------------------------------
+// Targeted CRUD: Workspaces
+// ---------------------------------------------------------------------------
+
+export function dbListWorkspaces(): WorkspaceConfig[] {
+  const rows = getDb().prepare('SELECT * FROM workspaces ORDER BY "order"').all() as Array<{
+    id: string
+    name: string
+    icon: string | null
+    icon_color: string | null
+    order: number
+  }>
+  return rows.map(rowToWorkspace)
+}
+
+export function dbInsertWorkspace(workspace: WorkspaceConfig): void {
+  getDb()
+    .prepare(`INSERT INTO workspaces (id, name, icon, icon_color, "order") VALUES (?, ?, ?, ?, ?)`)
+    .run(
+      workspace.id,
+      workspace.name,
+      workspace.icon ?? null,
+      workspace.iconColor ?? null,
+      workspace.order
+    )
+}
+
+export function dbUpdateWorkspace(id: string, updates: Partial<WorkspaceConfig>): void {
+  const sets: string[] = []
+  const params: unknown[] = []
+  if (updates.name !== undefined) {
+    sets.push('name = ?')
+    params.push(updates.name)
+  }
+  if (updates.icon !== undefined) {
+    sets.push('icon = ?')
+    params.push(updates.icon)
+  }
+  if (updates.iconColor !== undefined) {
+    sets.push('icon_color = ?')
+    params.push(updates.iconColor)
+  }
+  if (updates.order !== undefined) {
+    sets.push('"order" = ?')
+    params.push(updates.order)
+  }
+  if (sets.length === 0) return
+  params.push(id)
+  getDb()
+    .prepare(`UPDATE workspaces SET ${sets.join(', ')} WHERE id = ?`)
+    .run(...params)
+}
+
+export function dbDeleteWorkspace(id: string): void {
+  const d = getDb()
+  d.transaction(() => {
+    // Move projects and workflows to 'personal' before deleting
+    d.prepare("UPDATE projects SET workspace_id = 'personal' WHERE workspace_id = ?").run(id)
+    d.prepare("UPDATE workflows SET workspace_id = 'personal' WHERE workspace_id = ?").run(id)
+    d.prepare('DELETE FROM workspaces WHERE id = ?').run(id)
+  })()
 }
 
 // ---------------------------------------------------------------------------
@@ -889,6 +1056,7 @@ function rowToProject(r: {
   icon: string | null
   icon_color: string | null
   host_ids: string | null
+  workspace_id?: string | null
 }): ProjectConfig {
   return {
     name: r.name,
@@ -896,7 +1064,8 @@ function rowToProject(r: {
     preferredAgents: JSON.parse(r.preferred_agents) as AgentType[],
     ...(r.icon != null && { icon: r.icon }),
     ...(r.icon_color != null && { iconColor: r.icon_color }),
-    ...(r.host_ids != null && { hostIds: JSON.parse(r.host_ids) as string[] })
+    ...(r.host_ids != null && { hostIds: JSON.parse(r.host_ids) as string[] }),
+    workspaceId: r.workspace_id ?? 'personal'
   }
 }
 
@@ -911,6 +1080,7 @@ function rowToWorkflow(r: {
   last_run_at: string | null
   last_run_status: string | null
   stagger_delay_ms: number | null
+  workspace_id?: string | null
 }): WorkflowDefinition {
   return {
     id: r.id,
@@ -922,7 +1092,24 @@ function rowToWorkflow(r: {
     enabled: r.enabled === 1,
     ...(r.last_run_at != null && { lastRunAt: r.last_run_at }),
     ...(r.last_run_status != null && { lastRunStatus: r.last_run_status as 'success' | 'error' }),
-    ...(r.stagger_delay_ms != null && { staggerDelayMs: r.stagger_delay_ms })
+    ...(r.stagger_delay_ms != null && { staggerDelayMs: r.stagger_delay_ms }),
+    workspaceId: r.workspace_id ?? 'personal'
+  }
+}
+
+function rowToWorkspace(r: {
+  id: string
+  name: string
+  icon: string | null
+  icon_color: string | null
+  order: number
+}): WorkspaceConfig {
+  return {
+    id: r.id,
+    name: r.name,
+    ...(r.icon != null && { icon: r.icon }),
+    ...(r.icon_color != null && { iconColor: r.icon_color }),
+    order: r.order
   }
 }
 
