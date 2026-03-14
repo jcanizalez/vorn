@@ -86,7 +86,7 @@ function getIDEDefinitions(): IDEDefinition[] {
 function commandExists(cmd: string): boolean {
   try {
     const bin = process.platform === 'win32' ? 'where' : 'which'
-    execFileSync(bin, [cmd], { stdio: 'pipe', timeout: 3000 })
+    execFileSync(bin, [cmd], { stdio: 'pipe', timeout: 3000, env: getSafeEnv() })
     return true
   } catch {
     return false
