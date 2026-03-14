@@ -20,9 +20,19 @@ export async function launchServer(): Promise<ServerBridge> {
 
   const dataDir = app.getPath('userData')
 
-  serverProcess = spawn(process.execPath, [serverEntryPoint, `--data-dir=${dataDir}`], {
+  const isDev = !!process.env.ELECTRON_RENDERER_URL
+  const command = isDev ? 'npx' : process.execPath
+  const args = isDev
+    ? ['tsx', serverEntryPoint, `--data-dir=${dataDir}`]
+    : [serverEntryPoint, `--data-dir=${dataDir}`]
+
+  serverProcess = spawn(command, args, {
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, NODE_ENV: process.env.NODE_ENV ?? 'production' }
+    env: {
+      ...process.env,
+      NODE_ENV: process.env.NODE_ENV ?? (isDev ? 'development' : 'production')
+    },
+    cwd: isDev ? path.join(__dirname, '../..') : undefined
   })
 
   serverProcess.stdin?.end()
@@ -93,7 +103,7 @@ function resolveServerEntry(): string {
   // In production: resources/server/index.js (bundled)
   if (process.env.ELECTRON_RENDERER_URL) {
     // Dev mode — use tsx to run TypeScript directly
-    return path.join(__dirname, '../../../packages/server/src/index.ts')
+    return path.join(__dirname, '../../packages/server/src/index.ts')
   }
   return path.join(process.resourcesPath, 'server', 'index.js')
 }
