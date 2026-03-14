@@ -168,7 +168,9 @@ export function App() {
     const removeExitListener = window.api.onTerminalExit(({ id }) => {
       const state = useAppStore.getState()
       if (consumePendingTerminalClose(id)) {
-        state.removeTerminal(id)
+        if (state.terminals.has(id)) {
+          state.removeTerminal(id)
+        }
         const assignedTask = (state.config?.tasks || []).find(
           (t) => t.assignedSessionId === id && t.status === 'in_progress'
         )
