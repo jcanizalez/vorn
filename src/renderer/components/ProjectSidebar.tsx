@@ -322,6 +322,7 @@ export function ProjectSidebar() {
   const setFocusedTerminal = useAppStore((s) => s.setFocusedTerminal)
   const setMainViewMode = useAppStore((s) => s.setMainViewMode)
   const setSelectedTaskId = useAppStore((s) => s.setSelectedTaskId)
+  const setTaskDialogOpen = useAppStore((s) => s.setTaskDialogOpen)
   const archivedSessions = useAppStore((s) => s.archivedSessions)
   const showArchivedSessions = useAppStore((s) => s.showArchivedSessions)
   const setShowArchivedSessions = useAppStore((s) => s.setShowArchivedSessions)
@@ -678,7 +679,7 @@ export function ProjectSidebar() {
                             e.stopPropagation()
                             setActiveProject(project.name)
                             setMainViewMode('tasks')
-                            setSelectedTaskId('new')
+                            setTaskDialogOpen(true)
                           }}
                           className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-blue-400
                                    p-1 rounded-md hover:bg-white/[0.06] transition-all"
@@ -1017,7 +1018,7 @@ export function ProjectSidebar() {
                                   onClick={() => {
                                     setActiveProject(project.name)
                                     setMainViewMode('tasks')
-                                    setSelectedTaskId('new')
+                                    setTaskDialogOpen(true)
                                   }}
                                   className="text-gray-600 hover:text-gray-300 p-0.5 transition-colors"
                                 >

@@ -24,3 +24,34 @@ export const STATUS_ACCENT: Record<TaskStatus, { dot: string; bar: string }> = {
   done: { dot: 'bg-green-500', bar: 'bg-green-500' },
   cancelled: { dot: 'bg-gray-600', bar: 'bg-gray-600' }
 }
+
+export const STATUS_ICON_COLOR: Record<TaskStatus, string> = {
+  todo: 'text-gray-400',
+  in_progress: 'text-yellow-500',
+  in_review: 'text-purple-400',
+  done: 'text-green-500',
+  cancelled: 'text-gray-500'
+}
+
+export const STATUS_HEADER_BG: Record<TaskStatus, string> = {
+  todo: 'bg-gray-500/10',
+  in_progress: 'bg-blue-500/10',
+  in_review: 'bg-purple-500/10',
+  done: 'bg-green-500/10',
+  cancelled: 'bg-gray-500/5'
+}
+
+export function formatTaskDate(dateStr: string): string {
+  const d = new Date(dateStr)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+export function getTaskShortId(task: { projectName: string; id: string }): string {
+  const prefix =
+    task.projectName
+      .replace(/[^a-zA-Z]/g, '')
+      .slice(0, 3)
+      .toUpperCase() || 'TSK'
+  const suffix = task.id.slice(0, 4).toUpperCase()
+  return `${prefix}-${suffix}`
+}

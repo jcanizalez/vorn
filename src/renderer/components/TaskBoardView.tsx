@@ -19,6 +19,7 @@ export function TaskBoardView() {
   const terminals = useAppStore((s) => s.terminals)
   const setFocusedTerminal = useAppStore((s) => s.setFocusedTerminal)
   const setSelectedTaskId = useAppStore((s) => s.setSelectedTaskId)
+  const setTaskDialogOpen = useAppStore((s) => s.setTaskDialogOpen)
   const taskStatusFilter = useAppStore((s) => s.taskStatusFilter)
 
   const viewMode = config?.defaults?.taskViewMode ?? 'list'
@@ -117,13 +118,33 @@ export function TaskBoardView() {
     setSelectedTaskId(task.id)
   }
 
-  const sections = [
-    { title: 'Todo', tasks: todoTasks, emptyText: 'No tasks in queue' },
-    { title: 'In Progress', tasks: inProgressTasks, emptyText: 'No active tasks' },
-    { title: 'In Review', tasks: inReviewTasks, emptyText: 'No tasks awaiting review' },
-    { title: 'Done', tasks: doneTasks, emptyText: 'No completed tasks' },
-    { title: 'Cancelled', tasks: cancelledTasks, emptyText: 'No cancelled tasks' }
-  ]
+  const handleAddTask = (status: TaskStatus) => {
+    setTaskDialogOpen(true, status)
+  }
+
+  const sections: { status: TaskStatus; title: string; tasks: TaskConfig[]; emptyText: string }[] =
+    [
+      { status: 'todo', title: 'Todo', tasks: todoTasks, emptyText: 'No tasks in queue' },
+      {
+        status: 'in_progress',
+        title: 'In Progress',
+        tasks: inProgressTasks,
+        emptyText: 'No active tasks'
+      },
+      {
+        status: 'in_review',
+        title: 'In Review',
+        tasks: inReviewTasks,
+        emptyText: 'No tasks awaiting review'
+      },
+      { status: 'done', title: 'Done', tasks: doneTasks, emptyText: 'No completed tasks' },
+      {
+        status: 'cancelled',
+        title: 'Cancelled',
+        tasks: cancelledTasks,
+        emptyText: 'No cancelled tasks'
+      }
+    ]
 
   const totalTasks = allTasks.length
 
@@ -170,6 +191,7 @@ export function TaskBoardView() {
             }}
             onReviewDiff={(id) => setSelectedTaskId(id)}
             onSelect={handleSelect}
+            onAddTask={handleAddTask}
             isSessionLive={isSessionLive}
           />
         ) : (
@@ -196,6 +218,7 @@ export function TaskBoardView() {
             }}
             onReviewDiff={(id) => setSelectedTaskId(id)}
             onSelect={handleSelect}
+            onAddTask={handleAddTask}
             isSessionLive={isSessionLive}
           />
         )}
