@@ -5,6 +5,7 @@ import { GeneralSettings } from './settings/GeneralSettings'
 import { AgentSettings } from './settings/AgentSettings'
 import { HostSettings } from './settings/HostSettings'
 import { McpSettings } from './settings/McpSettings'
+import { RemoteAccessSettings } from './settings/RemoteAccessSettings'
 
 const CATEGORIES: { key: SettingsCategory; label: string; icon: React.ReactNode }[] = [
   {
@@ -76,6 +77,25 @@ const CATEGORIES: { key: SettingsCategory; label: string; icon: React.ReactNode 
         <circle cx="12" cy="12" r="4" />
       </svg>
     )
+  },
+  {
+    key: 'remote',
+    label: 'Remote Access',
+    icon: (
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <path d="M5 12.55a11 11 0 0114.08 0" />
+        <path d="M1.42 9a16 16 0 0121.16 0" />
+        <path d="M8.53 16.11a6 6 0 016.95 0" />
+        <circle cx="12" cy="20" r="1" fill="currentColor" />
+      </svg>
+    )
   }
 ]
 
@@ -144,6 +164,7 @@ export function SettingsPage() {
           {settingsCategory === 'agents' && <AgentSettings />}
           {settingsCategory === 'hosts' && <HostSettings />}
           {settingsCategory === 'mcp' && <McpSettings />}
+          {settingsCategory === 'remote' && <RemoteAccessSettings />}
         </div>
       </div>
     </motion.div>

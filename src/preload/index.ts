@@ -261,6 +261,10 @@ const api = {
     source?: 'scheduler' | 'manual'
   }): Promise<void> => ipcRenderer.invoke(IPC.WORKFLOW_EXECUTION_COMPLETE, data),
 
+  // Generic RPC passthrough to server
+  rpcRequest: (method: string, params?: unknown): Promise<unknown> =>
+    ipcRenderer.invoke('rpc:request', { method, params }),
+
   // App info
   getAppVersion: (): string => ipcRenderer.sendSync('get-app-version'),
   // Auto-update

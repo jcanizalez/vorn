@@ -3,16 +3,17 @@ import path from 'node:path'
 import Fastify from 'fastify'
 import websocket from '@fastify/websocket'
 import { handleConnection, registerMethod } from './ws-handler'
-import { registerAllMethods } from './register-methods'
+import { registerAllMethods, setServerPort } from './register-methods'
 import { configManager } from './config-manager'
 import { ptyManager } from './pty-manager'
 import { headlessManager } from './headless-manager'
 import { scheduler } from './scheduler'
 import { setDataDir } from './task-images'
+import { isTailscaleIP } from './tailscale'
 import log from './logger'
 
 export async function startServer(
-  options: { host?: string; port?: number; dataDir?: string } = {}
+  options: { host?: string; port?: number; dataDir?: string; remote?: boolean } = {}
 ) {
   // Resolve data directory
   const dataDir = options.dataDir ?? path.join(os.homedir(), '.vibegrid')
@@ -44,7 +45,18 @@ export async function startServer(
   const app = Fastify({ logger: false })
   await app.register(websocket)
 
-  app.get('/ws', { websocket: true }, (socket) => {
+  app.get('/ws', { websocket: true }, (socket, req) => {
+    // In remote mode, only allow connections from Tailscale IPs
+    if (tailscaleIp) {
+      const clientIp = req.ip ?? req.socket.remoteAddress ?? ''
+      const isLocal =
+        clientIp === '127.0.0.1' || clientIp === '::1' || clientIp === '::ffff:127.0.0.1'
+      if (!isLocal && !isTailscaleIP(clientIp)) {
+        log.warn(`[server] rejected WS connection from non-tailnet IP: ${clientIp}`)
+        socket.close(4403, 'Forbidden: not on tailnet')
+        return
+      }
+    }
     handleConnection(socket)
   })
 
@@ -61,15 +73,41 @@ export async function startServer(
     }, 100)
   })
 
-  const host = options.host ?? '127.0.0.1'
+  // Determine bind address
+  let host = options.host ?? '127.0.0.1'
+  let tailscaleIp: string | null = null
+
+  if (options.remote) {
+    const { getTailscaleStatus } = await import('./tailscale')
+    const tsStatus = await getTailscaleStatus()
+    if (tsStatus.running && tsStatus.ip) {
+      // Bind to Tailscale IP so only tailnet devices can reach us
+      host = tsStatus.ip
+      tailscaleIp = tsStatus.ip
+      log.info(
+        `[server] remote mode: binding to Tailscale IP ${host} (${tsStatus.tailnetName ?? 'unknown tailnet'})`
+      )
+    } else if (!tsStatus.installed) {
+      log.warn(
+        '[server] remote mode requested but Tailscale is not installed — binding to localhost only'
+      )
+    } else {
+      log.warn(
+        '[server] remote mode requested but Tailscale is not running — binding to localhost only'
+      )
+    }
+  }
+
   const port = options.port ?? 0 // 0 = OS-assigned
 
   await app.listen({ host, port })
   const address = app.server.address()
   const actualPort = typeof address === 'object' && address ? address.port : port
 
-  // Write port to stdout for parent process (Electron) to read
-  process.stdout.write(JSON.stringify({ port: actualPort }) + '\n')
+  setServerPort(actualPort)
+
+  // Write port + remote info to stdout for parent process (Electron) to read
+  process.stdout.write(JSON.stringify({ port: actualPort, host, tailscaleIp }) + '\n')
   log.info(`[server] listening on ${host}:${actualPort}`)
 
   // Graceful shutdown
@@ -111,8 +149,9 @@ if (isDirectRun) {
 
   const dataDirArg = process.argv.find((a) => a.startsWith('--data-dir='))
   const dataDir = dataDirArg ? dataDirArg.split('=')[1] : undefined
+  const remote = process.argv.includes('--remote')
 
-  startServer({ port, dataDir }).catch((err) => {
+  startServer({ port, dataDir, remote }).catch((err) => {
     log.error({ err }, '[server] failed to start')
     process.exit(1)
   })

@@ -18,6 +18,7 @@ import {
   CopilotHookInstallation
 } from './copilot-hook-installer'
 import { IPC, WidgetAgentInfo, PermissionRequestInfo } from '@vibegrid/shared/types'
+import { getTailscaleStatus } from './tailscale'
 import * as gitUtils from './git-utils'
 import { saveTaskImage, deleteTaskImage, getTaskImagePath, cleanupTaskImages } from './task-images'
 import {
@@ -33,6 +34,11 @@ import { executeScript } from './script-runner'
 import log from './logger'
 
 const copilotInstallations = new Map<string, CopilotHookInstallation>()
+
+let _serverPort = 0
+export function setServerPort(port: number): void {
+  _serverPort = port
+}
 
 export function registerAllMethods(): void {
   // Terminal
@@ -113,6 +119,10 @@ export function registerAllMethods(): void {
   registerMethod('agent:detectInstalled', () => detectInstalledAgents())
   registerMethod('ide:detect', () => detectIDEs())
   registerMethod('ide:open', ({ ideId, projectPath }) => openInIDE(ideId, projectPath))
+
+  // Tailscale + server info
+  registerMethod('tailscale:status', () => getTailscaleStatus())
+  registerMethod('server:info', () => ({ port: _serverPort }))
 
   // Fire-and-forget notifications
   registerNotification('terminal:write', ({ id, data }) => ptyManager.writeToPty(id, data))

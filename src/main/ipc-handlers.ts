@@ -153,6 +153,11 @@ export function registerIpcHandlers(): void {
     return result.canceled ? null : result.filePaths
   })
 
+  // Generic RPC passthrough — for new server methods not yet in IPC constants
+  safeHandle('rpc:request', (_, { method, params }: { method: string; params?: unknown }) =>
+    requireBridge().request(method, params)
+  )
+
   // App version (sync)
   ipcMain.on('get-app-version', (event) => {
     event.returnValue = app.getVersion()
