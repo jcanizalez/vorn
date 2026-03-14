@@ -1,38 +1,21 @@
 import { TaskConfig } from '../../../shared/types'
 import { AgentIcon } from '../AgentIcon'
 import { MarkdownPreview } from '../MarkdownEditor'
+import { stripMarkdown } from '../../lib/markdown-utils'
+import { STATUS_BADGE, STATUS_ICON, STATUS_ACCENT } from '../../lib/task-status'
 import {
   Pencil,
   Trash2,
   Play,
-  CheckCircle2,
-  Clock,
-  Circle,
-  X,
   Terminal,
-  Eye,
-  XCircle,
   RotateCcw,
   FileCode,
-  ImageIcon
+  ImageIcon,
+  XCircle,
+  CheckCircle2
 } from 'lucide-react'
 import { ConfirmPopover } from '../ConfirmPopover'
-
-export const STATUS_BADGE: Record<string, { label: string; color: string; bg: string }> = {
-  todo: { label: 'Todo', color: 'text-gray-400', bg: 'bg-gray-500/20' },
-  in_progress: { label: 'In Progress', color: 'text-blue-400', bg: 'bg-blue-500/20' },
-  in_review: { label: 'In Review', color: 'text-purple-400', bg: 'bg-purple-500/20' },
-  done: { label: 'Done', color: 'text-green-400', bg: 'bg-green-500/20' },
-  cancelled: { label: 'Cancelled', color: 'text-gray-500', bg: 'bg-gray-500/10' }
-}
-
-export const STATUS_ICON: Record<string, React.FC<{ size?: number; className?: string }>> = {
-  todo: Circle,
-  in_progress: Clock,
-  in_review: Eye,
-  done: CheckCircle2,
-  cancelled: XCircle
-}
+import { KanbanCardMenu } from './KanbanCardMenu'
 
 export function TaskCard({
   task,
@@ -46,7 +29,7 @@ export function TaskCard({
   onReviewDiff,
   onSelect,
   sessionIsLive,
-  compact
+  variant = 'default'
 }: {
   task: TaskConfig
   onEdit: () => void
@@ -59,11 +42,91 @@ export function TaskCard({
   onReviewDiff?: () => void
   onSelect?: () => void
   sessionIsLive?: boolean
-  compact?: boolean
+  variant?: 'default' | 'kanban'
 }) {
   const badge = STATUS_BADGE[task.status]
   const StatusIcon = STATUS_ICON[task.status]
+  const accent = STATUS_ACCENT[task.status]
 
+  if (variant === 'kanban') {
+    const strippedDesc = task.description ? stripMarkdown(task.description) : ''
+
+    return (
+      <div
+        className={`group relative bg-white/[0.05] border border-white/[0.08] rounded-lg overflow-hidden
+                     shadow-sm hover:bg-white/[0.07] hover:border-white/[0.12] hover:shadow-md
+                     transition-all duration-150
+                     ${task.status === 'cancelled' ? 'opacity-60' : ''} ${onSelect ? 'cursor-pointer' : ''}`}
+        onClick={onSelect}
+      >
+        {/* Left accent bar (Jira-style) */}
+        <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${accent.bar}`} />
+
+        <div className="pl-3.5 pr-3 py-2.5">
+          {/* Title */}
+          <span
+            className={`text-[13px] font-medium leading-snug line-clamp-2 block
+                         ${task.status === 'cancelled' ? 'text-gray-500 line-through' : 'text-gray-200'}`}
+          >
+            {task.title}
+          </span>
+
+          {/* Description preview (stripped, one line) */}
+          {strippedDesc && (
+            <p className="text-xs text-gray-500 line-clamp-1 mt-1">{strippedDesc}</p>
+          )}
+
+          {/* Metadata footer */}
+          <div className="flex items-center gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+            {/* Left: agent + session indicator + images */}
+            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+              {task.assignedAgent && (
+                <span className="flex items-center gap-1">
+                  <AgentIcon agentType={task.assignedAgent} size={13} />
+                  {sessionIsLive && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse-dot" />
+                  )}
+                </span>
+              )}
+              {task.images && task.images.length > 0 && (
+                <span
+                  className="flex items-center gap-0.5 text-gray-600"
+                  title={`${task.images.length} image${task.images.length !== 1 ? 's' : ''}`}
+                >
+                  <ImageIcon size={11} strokeWidth={2} />
+                  <span className="text-[10px]">{task.images.length}</span>
+                </span>
+              )}
+              {task.branch && (
+                <span
+                  className="text-[10px] text-gray-600 truncate max-w-[100px]"
+                  title={task.branch}
+                >
+                  {task.branch}
+                </span>
+              )}
+            </div>
+
+            {/* Right: overflow menu */}
+            <KanbanCardMenu
+              status={task.status}
+              onStart={onStart}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onOpenSession={onOpenSession}
+              onComplete={onComplete}
+              onCancel={onCancel}
+              onReopen={onReopen}
+              onReviewDiff={onReviewDiff}
+              sessionIsLive={sessionIsLive}
+            />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Default variant (list view) — unchanged
   return (
     <div
       className={`group bg-white/[0.03] border border-white/[0.06] rounded-lg p-3 hover:border-white/[0.1] transition-colors
@@ -90,14 +153,9 @@ export function TaskCard({
               </span>
             )}
           </div>
-          {!compact && (
-            <div className="mt-1.5">
-              <MarkdownPreview content={task.description} className="line-clamp-3" />
-            </div>
-          )}
-          {compact && task.description && (
-            <p className="text-xs text-gray-500 mt-1 line-clamp-2">{task.description}</p>
-          )}
+          <div className="mt-1.5">
+            <MarkdownPreview content={task.description} className="line-clamp-3" />
+          </div>
         </div>
         <div
           className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"

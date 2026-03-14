@@ -16,6 +16,18 @@ interface ConfirmPopoverProps {
   destructive?: boolean
 }
 
+function readAnchorRect(anchorEl: HTMLElement): AnchorRect {
+  const rect = anchorEl.getBoundingClientRect()
+  return {
+    top: rect.top,
+    left: rect.left,
+    right: rect.right,
+    bottom: rect.bottom,
+    width: rect.width,
+    height: rect.height
+  }
+}
+
 export function ConfirmPopover({
   children,
   message,
@@ -24,14 +36,14 @@ export function ConfirmPopover({
   destructive = true
 }: ConfirmPopoverProps) {
   const [open, setOpen] = useState(false)
-  const [anchorRect, setAnchorRect] = useState<AnchorRect | null>(null)
   const [position, setPosition] = useState({ top: 0, left: 0, placement: 'bottom' as const })
+  const anchorRef = useRef<HTMLSpanElement | null>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
 
-  const updatePosition = (nextAnchor: AnchorRect): void => {
+  const updatePosition = (anchorEl: HTMLElement): void => {
     const popoverRect = popoverRef.current?.getBoundingClientRect()
     const { top, left, placement } = calculatePopoverPosition(
-      nextAnchor,
+      readAnchorRect(anchorEl),
       {
         width: popoverRect?.width ?? 220,
         height: popoverRect?.height ?? 86
@@ -44,23 +56,12 @@ export function ConfirmPopover({
     setPosition({ top, left, placement })
   }
 
-  const handleTrigger = (e: React.MouseEvent) => {
+  const handleTrigger = (e: React.MouseEvent<HTMLSpanElement>) => {
     e.stopPropagation()
     e.preventDefault()
-    // The wrapper div uses display:contents so getBoundingClientRect returns zeros.
-    // Measure the actual clicked element (button) instead.
-    const el = (e.target as HTMLElement).closest('button') ?? (e.target as HTMLElement)
-    const rect = el.getBoundingClientRect()
-    const nextAnchor = {
-      top: rect.top,
-      left: rect.left,
-      right: rect.right,
-      bottom: rect.bottom,
-      width: rect.width,
-      height: rect.height
-    }
-    setAnchorRect(nextAnchor)
-    updatePosition(nextAnchor)
+    const anchorEl = anchorRef.current ?? e.currentTarget
+    anchorRef.current = anchorEl
+    updatePosition(anchorEl)
     setOpen(true)
   }
 
@@ -91,13 +92,17 @@ export function ConfirmPopover({
   }, [open])
 
   useLayoutEffect(() => {
-    if (!open || !anchorRect) return
+    if (!open || !anchorRef.current) return
 
-    let frame = window.requestAnimationFrame(() => updatePosition(anchorRect))
+    let frame = window.requestAnimationFrame(() => {
+      if (anchorRef.current) updatePosition(anchorRef.current)
+    })
 
     const handleViewportChange = () => {
       window.cancelAnimationFrame(frame)
-      frame = window.requestAnimationFrame(() => updatePosition(anchorRect))
+      frame = window.requestAnimationFrame(() => {
+        if (anchorRef.current) updatePosition(anchorRef.current)
+      })
     }
     window.addEventListener('resize', handleViewportChange)
     window.addEventListener('scroll', handleViewportChange, true)
@@ -107,15 +112,15 @@ export function ConfirmPopover({
       window.removeEventListener('resize', handleViewportChange)
       window.removeEventListener('scroll', handleViewportChange, true)
     }
-  }, [open, anchorRect])
+  }, [open])
 
   const motionOffset = position.placement === 'top' ? 4 : -4
 
   return (
     <>
-      <div onClick={handleTrigger} className="contents">
+      <span ref={anchorRef} onClick={handleTrigger} className="inline-flex">
         {children}
-      </div>
+      </span>
 
       {createPortal(
         <AnimatePresence>
