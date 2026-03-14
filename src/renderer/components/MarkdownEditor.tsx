@@ -1,49 +1,72 @@
 import { useState } from 'react'
 import { Eye, Pencil } from 'lucide-react'
+import { escapeHtml } from './rich-editor/markdown-utils'
 
 function renderMarkdown(text: string): string {
-  return (
-    text
-      // Headers
-      .replace(/^### (.+)$/gm, '<h3 class="text-xs font-semibold text-gray-300 mt-3 mb-1">$1</h3>')
-      .replace(/^## (.+)$/gm, '<h2 class="text-sm font-semibold text-gray-200 mt-3 mb-1">$1</h2>')
-      // Bold
-      .replace(/\*\*(.+?)\*\*/g, '<strong class="text-gray-200">$1</strong>')
-      // Italic
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      // Inline code
-      .replace(
-        /`([^`]+)`/g,
-        '<code class="px-1 py-0.5 bg-white/[0.06] rounded text-[11px] font-mono text-gray-300">$1</code>'
-      )
-      // Code blocks
-      .replace(/```[\s\S]*?```/g, (match) => {
-        const code = match.replace(/```\w*\n?/, '').replace(/\n?```$/, '')
-        return `<pre class="px-2 py-1.5 bg-white/[0.04] rounded-md text-[11px] font-mono text-gray-300 overflow-x-auto my-1">${code}</pre>`
-      })
-      // Checkboxes
-      .replace(
-        /^- \[x\] (.+)$/gm,
-        '<div class="flex items-center gap-1.5 py-0.5"><span class="text-green-400">&#10003;</span><span class="text-gray-300 line-through">$1</span></div>'
-      )
-      .replace(
-        /^- \[ \] (.+)$/gm,
-        '<div class="flex items-center gap-1.5 py-0.5"><span class="text-gray-600">&#9744;</span><span class="text-gray-300">$1</span></div>'
-      )
-      // Unordered lists
-      .replace(
-        /^- (.+)$/gm,
-        '<div class="flex items-start gap-1.5 py-0.5"><span class="text-gray-600 mt-0.5">&#8226;</span><span class="text-gray-400">$1</span></div>'
-      )
-      // Ordered lists
-      .replace(
-        /^(\d+)\. (.+)$/gm,
-        '<div class="flex items-start gap-1.5 py-0.5"><span class="text-gray-600">$1.</span><span class="text-gray-400">$2</span></div>'
-      )
-      // Line breaks
-      .replace(/\n\n/g, '<div class="h-2"></div>')
-      .replace(/\n/g, '<br />')
-  )
+  // Tokenize code blocks and inline code first, replacing them with placeholders.
+  // This prevents markdown regexes (bold, italic, line breaks, etc.) from mangling
+  // code content. All user text is HTML-escaped to prevent XSS.
+  const tokens: string[] = []
+
+  const tokenize = (html: string): string => {
+    const id = tokens.length
+    tokens.push(html)
+    return `\uFFFDTOKEN${id}\uFFFD`
+  }
+
+  // 1. Extract fenced code blocks → placeholders
+  let result = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (_match, _lang, code) => {
+    return tokenize(
+      `<pre class="px-2 py-1.5 bg-white/[0.04] rounded-md text-[11px] font-mono text-gray-300 overflow-x-auto my-1">${escapeHtml(code.replace(/\n$/, ''))}</pre>`
+    )
+  })
+
+  // 2. Extract inline code → placeholders
+  result = result.replace(/`([^`]+)`/g, (_match, code) => {
+    return tokenize(
+      `<code class="px-1 py-0.5 bg-white/[0.06] rounded text-[11px] font-mono text-gray-300">${escapeHtml(code)}</code>`
+    )
+  })
+
+  // 3. Escape remaining text (everything outside code blocks)
+  result = escapeHtml(result)
+
+  // 4. Restore token placeholders (they were escaped, so fix them)
+  result = result.replace(/\uFFFDTOKEN(\d+)\uFFFD/g, (_match, id) => tokens[parseInt(id)])
+
+  // 5. Apply markdown formatting on non-code text
+  result = result
+    // Headers
+    .replace(/^### (.+)$/gm, '<h3 class="text-xs font-semibold text-gray-300 mt-3 mb-1">$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2 class="text-sm font-semibold text-gray-200 mt-3 mb-1">$1</h2>')
+    // Bold
+    .replace(/\*\*(.+?)\*\*/g, '<strong class="text-gray-200">$1</strong>')
+    // Italic
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    // Checkboxes
+    .replace(
+      /^- \[x\] (.+)$/gm,
+      '<div class="flex items-center gap-1.5 py-0.5"><span class="text-green-400">&#10003;</span><span class="text-gray-300 line-through">$1</span></div>'
+    )
+    .replace(
+      /^- \[ \] (.+)$/gm,
+      '<div class="flex items-center gap-1.5 py-0.5"><span class="text-gray-600">&#9744;</span><span class="text-gray-300">$1</span></div>'
+    )
+    // Unordered lists
+    .replace(
+      /^- (.+)$/gm,
+      '<div class="flex items-start gap-1.5 py-0.5"><span class="text-gray-600 mt-0.5">&#8226;</span><span class="text-gray-400">$1</span></div>'
+    )
+    // Ordered lists
+    .replace(
+      /^(\d+)\. (.+)$/gm,
+      '<div class="flex items-start gap-1.5 py-0.5"><span class="text-gray-600">$1.</span><span class="text-gray-400">$2</span></div>'
+    )
+    // Line breaks
+    .replace(/\n\n/g, '<div class="h-2"></div>')
+    .replace(/\n/g, '<br />')
+
+  return result
 }
 
 export const TASK_TEMPLATE = `## Description
