@@ -65,7 +65,10 @@ export async function startServer(
   app.get('/health', async () => ({ status: 'ok' }))
 
   // Serve built PWA at / (only if web dist exists)
-  const webDistPath = path.join(__dirname, '../../web/dist')
+  const webDistPath = path.join(
+    import.meta.dirname ?? path.dirname(new URL(import.meta.url).pathname),
+    '../../web/dist'
+  )
   if (fs.existsSync(webDistPath)) {
     await app.register(fastifyStatic, {
       root: webDistPath,
