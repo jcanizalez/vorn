@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../stores'
-import { FolderGit2, X, Maximize2, Paperclip, Circle } from 'lucide-react'
+import { FolderGit2, X, Maximize2, Paperclip } from 'lucide-react'
 import { RichMarkdownEditor } from './rich-editor/RichMarkdownEditor'
 import { TASK_TEMPLATE } from './MarkdownEditor'
 import { toast } from './Toast'
+import { STATUS_ICON, STATUS_ICON_COLOR, STATUS_BADGE } from '../lib/task-status'
 
 export function AddTaskDialog() {
   const isOpen = useAppStore((s) => s.isTaskDialogOpen)
@@ -16,6 +17,7 @@ export function AddTaskDialog() {
   const updateTask = useAppStore((s) => s.updateTask)
   const activeProject = useAppStore((s) => s.activeProject)
   const setSelectedTaskId = useAppStore((s) => s.setSelectedTaskId)
+  const defaultStatus = useAppStore((s) => s.taskDialogDefaultStatus)
 
   const [title, setTitle] = useState('')
   const [projectName, setProjectName] = useState('')
@@ -52,10 +54,11 @@ export function AddTaskDialog() {
     }
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (isOpen) initForm(editingTask)
-  }, [isOpen])
+    if (!isOpen) return
+    initForm(editingTask)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, editingTask])
 
   const resetForm = () => {
     setTitle('')
@@ -150,13 +153,14 @@ export function AddTaskDialog() {
       handleClose()
     } else {
       const existingTasks =
-        config?.tasks?.filter((t) => t.projectName === projectName && t.status === 'todo') || []
+        config?.tasks?.filter((t) => t.projectName === projectName && t.status === defaultStatus) ||
+        []
       addTask({
         id: taskIdRef.current,
         projectName,
         title: title.trim(),
         description: description.trim(),
-        status: 'todo',
+        status: defaultStatus,
         order: existingTasks.length,
         branch: branch.trim() || undefined,
         useWorktree: useWorktree || undefined,
@@ -275,10 +279,15 @@ export function AddTaskDialog() {
             {/* Property pills toolbar */}
             <div className="flex items-center gap-2 px-4 py-2 border-t border-white/[0.06]">
               {/* Status pill */}
-              <span className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/[0.06] text-xs text-gray-400">
-                <Circle size={10} className="text-gray-400" />
-                Todo
-              </span>
+              {(() => {
+                const StatusPillIcon = STATUS_ICON[defaultStatus]
+                return (
+                  <span className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/[0.06] text-xs text-gray-400">
+                    <StatusPillIcon size={10} className={STATUS_ICON_COLOR[defaultStatus]} />
+                    {STATUS_BADGE[defaultStatus].label}
+                  </span>
+                )
+              })()}
 
               {/* Project pill */}
               <select

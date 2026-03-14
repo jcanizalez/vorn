@@ -118,8 +118,8 @@ export function TaskBoardView() {
     setSelectedTaskId(task.id)
   }
 
-  const handleAddTask = (_status: TaskStatus) => {
-    setTaskDialogOpen(true)
+  const handleAddTask = (status: TaskStatus) => {
+    setTaskDialogOpen(true, status)
   }
 
   const sections: { status: TaskStatus; title: string; tasks: TaskConfig[]; emptyText: string }[] =

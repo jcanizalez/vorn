@@ -10,6 +10,7 @@ import {
   TerminalSession,
   GitDiffStat,
   TaskConfig,
+  TaskStatus,
   ArchivedSession
 } from '../../shared/types'
 
@@ -97,6 +98,7 @@ export interface UISlice {
   taskStatusFilter: TaskStatusFilter
   isTaskPanelOpen: boolean
   isTaskDialogOpen: boolean
+  taskDialogDefaultStatus: TaskStatus
   editingTask: TaskConfig | null
   isTerminalPanelOpen: boolean
   terminalPanelHeight: number
@@ -134,7 +136,7 @@ export interface UISlice {
   setSelectedTaskId: (id: string | null) => void
   setTaskStatusFilter: (filter: TaskStatusFilter) => void
   setTaskPanelOpen: (open: boolean) => void
-  setTaskDialogOpen: (open: boolean) => void
+  setTaskDialogOpen: (open: boolean, defaultStatus?: TaskStatus) => void
   setEditingTask: (task: TaskConfig | null) => void
   toggleTerminalPanel: () => void
   setTerminalPanelHeight: (height: number) => void

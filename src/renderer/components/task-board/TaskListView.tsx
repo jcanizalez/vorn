@@ -57,9 +57,9 @@ export function TaskListView({
         return (
           <div key={section.title}>
             {/* Section header bar */}
-            <button
+            <div
+              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg ${headerBg} transition-colors hover:brightness-110 cursor-pointer`}
               onClick={() => toggleSection(section.title)}
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg ${headerBg} transition-colors hover:brightness-110`}
             >
               {isCollapsed ? (
                 <ChevronRight size={14} className="text-gray-400 shrink-0" />
@@ -70,18 +70,19 @@ export function TaskListView({
               <span className="text-[13px] font-medium text-gray-300">{section.title}</span>
               <span className="text-[11px] text-gray-500">{section.tasks.length}</span>
               <div className="flex-1" />
-              <div
+              <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation()
                   onAddTask?.(section.status)
                 }}
                 className="p-1 text-gray-500 hover:text-gray-300 rounded transition-colors"
-                role="button"
+                aria-label={`Add task to ${section.title}`}
                 title="Add task"
               >
                 <Plus size={14} />
-              </div>
-            </button>
+              </button>
+            </div>
 
             {/* Collapsible task list */}
             <AnimatePresence initial={false}>

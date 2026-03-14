@@ -46,11 +46,12 @@ export function formatTaskDate(dateStr: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-export function getTaskShortId(task: { projectName: string; order: number }): string {
+export function getTaskShortId(task: { projectName: string; id: string }): string {
   const prefix =
     task.projectName
       .replace(/[^a-zA-Z]/g, '')
       .slice(0, 3)
       .toUpperCase() || 'TSK'
-  return `${prefix}-${task.order + 1}`
+  const suffix = task.id.slice(0, 4).toUpperCase()
+  return `${prefix}-${suffix}`
 }

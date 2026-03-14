@@ -57,6 +57,7 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   taskStatusFilter: 'all' as const,
   isTaskPanelOpen: false,
   isTaskDialogOpen: false,
+  taskDialogDefaultStatus: 'todo' as const,
   editingTask: null,
   isTerminalPanelOpen: false,
   terminalPanelHeight: 250,
@@ -176,7 +177,8 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   setSelectedTaskId: (id) => set({ selectedTaskId: id }),
   setTaskStatusFilter: (filter) => set({ taskStatusFilter: filter }),
   setTaskPanelOpen: (open) => set({ isTaskPanelOpen: open }),
-  setTaskDialogOpen: (open) => set({ isTaskDialogOpen: open }),
+  setTaskDialogOpen: (open, defaultStatus) =>
+    set({ isTaskDialogOpen: open, taskDialogDefaultStatus: defaultStatus ?? 'todo' }),
   setEditingTask: (task) => set({ editingTask: task }),
 
   toggleTerminalPanel: () => set((state) => ({ isTerminalPanelOpen: !state.isTerminalPanelOpen })),
