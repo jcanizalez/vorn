@@ -146,6 +146,8 @@ export function WorkflowEditor() {
     setShowRunHistory(false)
   }, [setOpen, setEditingId])
 
+  const activeWorkspace = useAppStore((s) => s.activeWorkspace)
+
   const handleSave = useCallback(() => {
     const workflow: WorkflowDefinition = {
       id: editingId || crypto.randomUUID(),
@@ -157,7 +159,8 @@ export function WorkflowEditor() {
       enabled,
       ...(staggerDelayMs && { staggerDelayMs }),
       ...(existingWorkflow?.lastRunAt && { lastRunAt: existingWorkflow.lastRunAt }),
-      ...(existingWorkflow?.lastRunStatus && { lastRunStatus: existingWorkflow.lastRunStatus })
+      ...(existingWorkflow?.lastRunStatus && { lastRunStatus: existingWorkflow.lastRunStatus }),
+      workspaceId: existingWorkflow?.workspaceId ?? activeWorkspace
     }
 
     if (editingId) {
@@ -178,7 +181,8 @@ export function WorkflowEditor() {
     existingWorkflow,
     updateWorkflow,
     addWorkflow,
-    handleClose
+    handleClose,
+    activeWorkspace
   ])
 
   const handleRun = useCallback(async () => {
@@ -191,7 +195,8 @@ export function WorkflowEditor() {
       nodes,
       edges,
       enabled,
-      ...(staggerDelayMs && { staggerDelayMs })
+      ...(staggerDelayMs && { staggerDelayMs }),
+      workspaceId: existingWorkflow?.workspaceId ?? activeWorkspace
     }
     if (editingId) {
       updateWorkflow(editingId, workflow)
@@ -209,9 +214,11 @@ export function WorkflowEditor() {
     edges,
     enabled,
     staggerDelayMs,
+    existingWorkflow,
     updateWorkflow,
     addWorkflow,
-    handleClose
+    handleClose,
+    activeWorkspace
   ])
 
   const handleDelete = useCallback(() => {

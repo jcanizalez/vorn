@@ -50,6 +50,22 @@ export interface RemoteHost {
   sshOptions?: string
 }
 
+export interface WorkspaceConfig {
+  id: string // 'personal' for default, UUID for user-created
+  name: string
+  icon?: string
+  iconColor?: string
+  order: number
+}
+
+export const DEFAULT_WORKSPACE: WorkspaceConfig = {
+  id: 'personal',
+  name: 'Personal',
+  icon: 'User',
+  iconColor: '#6b7280',
+  order: 0
+}
+
 export interface ProjectConfig {
   name: string
   path: string
@@ -57,6 +73,7 @@ export interface ProjectConfig {
   icon?: string
   iconColor?: string
   hostIds?: string[] // 'local' | remote host UUIDs; absent = ['local']
+  workspaceId?: string // defaults to 'personal' if absent
 }
 
 export function getProjectHostIds(project: ProjectConfig): string[] {
@@ -208,6 +225,7 @@ export interface WorkflowDefinition {
   lastRunAt?: string
   lastRunStatus?: 'success' | 'error'
   staggerDelayMs?: number
+  workspaceId?: string // defaults to 'personal' if absent
 }
 
 export interface WorkflowExecution {
@@ -243,12 +261,14 @@ export interface AppConfig {
     taskViewMode?: TaskViewMode
     layoutMode?: 'grid' | 'tabs'
     mainViewMode?: MainViewMode
+    activeWorkspace?: string
   }
   projects: ProjectConfig[]
   agentCommands?: Partial<Record<AgentType, AgentCommandConfig>>
   workflows?: WorkflowDefinition[]
   remoteHosts?: RemoteHost[]
   tasks?: TaskConfig[]
+  workspaces?: WorkspaceConfig[]
 }
 
 export interface RecentSession {

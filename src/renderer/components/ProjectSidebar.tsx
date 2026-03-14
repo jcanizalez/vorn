@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useAppStore } from '../stores'
 import {
   WorkflowDefinition,
@@ -11,17 +11,13 @@ import type { WorktreeInfo } from '../stores/types'
 import { buildTaskPrompt } from '../../shared/prompt-builder'
 import { closeTerminalSession } from '../lib/terminal-close'
 import { getDisplayName } from '../lib/terminal-display'
-import {
-  getTriggerConfig,
-  getActionCount,
-  isScheduledWorkflow,
-  getTriggerLabel
-} from '../lib/workflow-helpers'
+import { getActionCount, isScheduledWorkflow, getTriggerLabel } from '../lib/workflow-helpers'
 import { executeWorkflow } from '../lib/workflow-execution'
 import { KbdHint } from './KbdHint'
 import { Tooltip } from './Tooltip'
 import { toast } from './Toast'
 import { AgentIcon } from './AgentIcon'
+import { WorkspaceSwitcher } from './WorkspaceSwitcher'
 import {
   Folder,
   FolderGit2,
@@ -51,16 +47,13 @@ import {
   ChevronRight,
   Clock,
   Calendar,
-  Repeat,
   Power,
   X,
   ListTodo,
   Plus,
   Circle,
-  ChevronDown,
   LayoutList,
   Eye,
-  Archive,
   RotateCcw
 } from 'lucide-react'
 
@@ -329,9 +322,6 @@ export function ProjectSidebar() {
   const setFocusedTerminal = useAppStore((s) => s.setFocusedTerminal)
   const setMainViewMode = useAppStore((s) => s.setMainViewMode)
   const setSelectedTaskId = useAppStore((s) => s.setSelectedTaskId)
-  const setTaskPanelOpen = useAppStore((s) => s.setTaskPanelOpen)
-  const setTaskDialogOpen = useAppStore((s) => s.setTaskDialogOpen) // keep for now; TODO cleanup
-  const setEditingTask = useAppStore((s) => s.setEditingTask) // keep for now; TODO cleanup
   const archivedSessions = useAppStore((s) => s.archivedSessions)
   const showArchivedSessions = useAppStore((s) => s.showArchivedSessions)
   const setShowArchivedSessions = useAppStore((s) => s.setShowArchivedSessions)
@@ -339,6 +329,7 @@ export function ProjectSidebar() {
   const unarchiveSession = useAppStore((s) => s.unarchiveSession)
   const worktreeCache = useAppStore((s) => s.worktreeCache)
   const loadWorktrees = useAppStore((s) => s.loadWorktrees)
+  const activeWorkspace = useAppStore((s) => s.activeWorkspace)
 
   const [sidebarWidth, setSidebarWidth] = useState(256)
   const [openMenuProject, setOpenMenuProject] = useState<string | null>(null)
@@ -350,15 +341,23 @@ export function ProjectSidebar() {
   const [projectsSectionCollapsed, setProjectsSectionCollapsed] = useState(false)
   const [workflowsSectionCollapsed, setWorkflowsSectionCollapsed] = useState(false)
   const isResizing = useRef(false)
+  const [isResizingState, setIsResizingState] = useState(false)
   const widthBeforeCollapse = useRef(256)
 
   // Load archived sessions on mount
   useEffect(() => {
     loadArchivedSessions()
-  }, [])
+  }, [loadArchivedSessions])
 
-  // Auto-expand projects that have terminals
-  useEffect(() => {
+  // Auto-expand projects that have terminals (derive-state-from-props)
+  const [prevTerminalKeys, setPrevTerminalKeys] = useState('')
+  const terminalKeys = useMemo(() => {
+    const keys: string[] = []
+    for (const [, t] of terminals) keys.push(t.session.projectName)
+    return keys.sort().join(',')
+  }, [terminals])
+  if (terminalKeys !== prevTerminalKeys) {
+    setPrevTerminalKeys(terminalKeys)
     const withTerminals = new Set<string>()
     for (const [, t] of terminals) {
       withTerminals.add(t.session.projectName)
@@ -368,7 +367,7 @@ export function ProjectSidebar() {
       for (const name of withTerminals) next.add(name)
       return next
     })
-  }, [terminals])
+  }
 
   const isCollapsed = sidebarWidth <= COLLAPSED_WIDTH
   const iconSize = isCollapsed ? 22 : 14
@@ -377,6 +376,7 @@ export function ProjectSidebar() {
     (e: React.PointerEvent) => {
       e.preventDefault()
       isResizing.current = true
+      setIsResizingState(true)
       const startX = e.clientX
       const startWidth = sidebarWidth
 
@@ -393,6 +393,7 @@ export function ProjectSidebar() {
 
       const handleUp = () => {
         isResizing.current = false
+        setIsResizingState(false)
         document.removeEventListener('pointermove', handleMove)
         document.removeEventListener('pointerup', handleUp)
         document.body.style.cursor = ''
@@ -416,6 +417,23 @@ export function ProjectSidebar() {
       setSidebarWidth(COLLAPSED_WIDTH)
     }
   }, [isCollapsed, sidebarWidth])
+
+  // Filter projects and workflows by active workspace
+  const workspaceProjects = useMemo(
+    () => (config?.projects ?? []).filter((p) => (p.workspaceId ?? 'personal') === activeWorkspace),
+    [config?.projects, activeWorkspace]
+  )
+
+  const workspaceProjectNames = useMemo(
+    () => new Set(workspaceProjects.map((p) => p.name)),
+    [workspaceProjects]
+  )
+
+  const workspaceWorkflows = useMemo(
+    () =>
+      (config?.workflows ?? []).filter((w) => (w.workspaceId ?? 'personal') === activeWorkspace),
+    [config?.workflows, activeWorkspace]
+  )
 
   if (!isSidebarOpen) {
     return null
@@ -443,6 +461,14 @@ export function ProjectSidebar() {
       branch: t.session.branch,
       isWorktree: t.session.isWorktree
     })
+  }
+
+  // Count terminals in active workspace only
+  let workspaceTerminalCount = 0
+  for (const [, t] of terminals) {
+    if (workspaceProjectNames.has(t.session.projectName)) {
+      workspaceTerminalCount++
+    }
   }
 
   const toggleProjectExpanded = (name: string): void => {
@@ -498,18 +524,23 @@ export function ProjectSidebar() {
       style={{
         width: `${sidebarWidth}px`,
         background: '#141416',
-        transition: isResizing.current ? 'none' : 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+        transition: isResizingState ? 'none' : 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
       }}
     >
-      {/* Traffic light safe zone */}
+      {/* Traffic light safe zone + Workspace switcher */}
       <div
-        className="titlebar-drag h-[52px] pl-[78px] pr-3 flex items-center justify-end
+        className="titlebar-drag h-[52px] pl-[78px] pr-3 flex items-center
                       border-b border-white/[0.06] shrink-0"
       >
         {!isCollapsed && (
+          <div className="flex-1 titlebar-no-drag min-w-0">
+            <WorkspaceSwitcher />
+          </div>
+        )}
+        {!isCollapsed && (
           <button
             onClick={toggleSidebar}
-            className="text-gray-400 hover:text-white titlebar-no-drag p-1 rounded-md transition-colors"
+            className="text-gray-400 hover:text-white titlebar-no-drag p-1 rounded-md transition-colors shrink-0"
           >
             <svg
               width="16"
@@ -526,41 +557,9 @@ export function ProjectSidebar() {
         )}
       </div>
 
-      {/* Navigation items */}
-      <div className={`px-3 pt-3 space-y-0.5 ${isCollapsed ? 'px-1.5' : ''}`}>
-        <button
-          onClick={() => setActiveProject(null)}
-          className={`w-full text-left px-2.5 py-1.5 rounded-md text-[13px] transition-colors flex items-center gap-2 ${
-            activeProject === null
-              ? 'bg-white/[0.08] text-white'
-              : 'text-gray-300 hover:text-white hover:bg-white/[0.04]'
-          } ${isCollapsed ? 'justify-center px-0' : ''}`}
-          title={isCollapsed ? 'All Projects' : undefined}
-        >
-          <svg
-            width={iconSize}
-            height={iconSize}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            className="shrink-0"
-          >
-            <rect x="2" y="3" width="20" height="14" rx="2" />
-            <path d="M8 21h8M12 17v4" />
-          </svg>
-          {!isCollapsed && (
-            <>
-              All Projects
-              <span className="text-gray-500 text-xs ml-auto">{terminals.size}</span>
-            </>
-          )}
-        </button>
-      </div>
-
       {/* Section label */}
       {!isCollapsed && (
-        <div className="px-3 pt-5 pb-1.5 flex items-center justify-between">
+        <div className="px-3 pt-3 pb-1.5 flex items-center justify-between">
           <button
             onClick={() => setProjectsSectionCollapsed(!projectsSectionCollapsed)}
             className="flex items-center gap-1.5 hover:text-gray-300 transition-colors"
@@ -580,11 +579,42 @@ export function ProjectSidebar() {
 
       {/* Project list */}
       <div className={`flex-1 overflow-auto space-y-0.5 ${isCollapsed ? 'px-1.5' : 'px-3'}`}>
-        {!isCollapsed && !projectsSectionCollapsed && config?.projects.length === 0 && (
+        {/* All Projects (inside section) */}
+        {!projectsSectionCollapsed && (
+          <button
+            onClick={() => setActiveProject(null)}
+            className={`w-full text-left px-2.5 py-1.5 rounded-md text-[13px] transition-colors flex items-center gap-2 ${
+              activeProject === null
+                ? 'bg-white/[0.08] text-white'
+                : 'text-gray-300 hover:text-white hover:bg-white/[0.04]'
+            } ${isCollapsed ? 'justify-center px-0' : ''}`}
+            title={isCollapsed ? 'All Projects' : undefined}
+          >
+            <svg
+              width={iconSize}
+              height={iconSize}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              className="shrink-0"
+            >
+              <rect x="2" y="3" width="20" height="14" rx="2" />
+              <path d="M8 21h8M12 17v4" />
+            </svg>
+            {!isCollapsed && (
+              <>
+                All Projects
+                <span className="text-gray-500 text-xs ml-auto">{workspaceTerminalCount}</span>
+              </>
+            )}
+          </button>
+        )}
+        {!isCollapsed && !projectsSectionCollapsed && workspaceProjects.length === 0 && (
           <p className="text-[13px] text-gray-600 px-2.5 py-1">No projects</p>
         )}
         {!projectsSectionCollapsed &&
-          config?.projects.map((project) => {
+          workspaceProjects.map((project) => {
             const sessions = projectTerminals.get(project.name) || []
             const isExpanded = expandedProjects.has(project.name)
             return (
@@ -1217,13 +1247,11 @@ export function ProjectSidebar() {
         )}
         {isCollapsed && <div className="pt-4" />}
 
-        {!isCollapsed &&
-          !workflowsSectionCollapsed &&
-          (!config?.workflows || config.workflows.length === 0) && (
-            <p className="text-[13px] text-gray-600 px-2.5 py-1">No workflows</p>
-          )}
+        {!isCollapsed && !workflowsSectionCollapsed && workspaceWorkflows.length === 0 && (
+          <p className="text-[13px] text-gray-600 px-2.5 py-1">No workflows</p>
+        )}
         {(() => {
-          const allWorkflows = config?.workflows || []
+          const allWorkflows = workspaceWorkflows
           const manualWorkflows = allWorkflows.filter((w) => !isScheduledWorkflow(w))
           const scheduledWorkflows = allWorkflows.filter((w) => isScheduledWorkflow(w))
 
@@ -1356,77 +1384,89 @@ export function ProjectSidebar() {
         </button>
 
         {/* Archived sessions section */}
-        {!isCollapsed && archivedSessions.length > 0 && (
-          <>
-            <div className="pt-5 pb-1.5 flex items-center justify-between">
-              <button
-                onClick={() => setShowArchivedSessions(!showArchivedSessions)}
-                className="flex items-center gap-1.5 hover:text-gray-300 transition-colors"
-              >
-                <ChevronRight
-                  size={10}
-                  strokeWidth={2}
-                  className={`text-gray-600 transition-transform ${showArchivedSessions ? 'rotate-90' : ''}`}
-                />
-                <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">
-                  Archived
-                </span>
-                <span className="text-[10px] text-gray-600 bg-white/[0.06] px-1.5 py-0.5 rounded-full">
-                  {archivedSessions.length}
-                </span>
-              </button>
-            </div>
-            {showArchivedSessions && (
-              <div className="space-y-0.5">
-                {archivedSessions.map((session) => (
-                  <div key={session.id} className="group/archived flex items-center">
-                    <div
-                      className="flex-1 px-2.5 py-1.5 rounded-md text-[12px] text-gray-500
+        {(() => {
+          const wsArchived = archivedSessions.filter((s) =>
+            workspaceProjectNames.has(s.projectName)
+          )
+          return (
+            !isCollapsed &&
+            wsArchived.length > 0 && (
+              <>
+                <div className="pt-5 pb-1.5 flex items-center justify-between">
+                  <button
+                    onClick={() => setShowArchivedSessions(!showArchivedSessions)}
+                    className="flex items-center gap-1.5 hover:text-gray-300 transition-colors"
+                  >
+                    <ChevronRight
+                      size={10}
+                      strokeWidth={2}
+                      className={`text-gray-600 transition-transform ${showArchivedSessions ? 'rotate-90' : ''}`}
+                    />
+                    <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">
+                      Archived
+                    </span>
+                    <span className="text-[10px] text-gray-600 bg-white/[0.06] px-1.5 py-0.5 rounded-full">
+                      {wsArchived.length}
+                    </span>
+                  </button>
+                </div>
+                {showArchivedSessions && (
+                  <div className="space-y-0.5">
+                    {wsArchived.map((session) => (
+                      <div key={session.id} className="group/archived flex items-center">
+                        <div
+                          className="flex-1 px-2.5 py-1.5 rounded-md text-[12px] text-gray-500
                                     flex items-center gap-2 min-w-0 opacity-60"
-                    >
-                      <AgentIcon agentType={session.agentType} size={14} />
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate">{session.displayName || session.projectName}</div>
-                        {session.branch && (
-                          <div className="text-[10px] text-gray-600 truncate">{session.branch}</div>
-                        )}
+                        >
+                          <AgentIcon agentType={session.agentType} size={14} />
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate">
+                              {session.displayName || session.projectName}
+                            </div>
+                            {session.branch && (
+                              <div className="text-[10px] text-gray-600 truncate">
+                                {session.branch}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <Tooltip label="Unarchive" position="right">
+                          <button
+                            onClick={() => unarchiveSession(session.id)}
+                            className="opacity-0 group-hover/archived:opacity-100 text-gray-600 hover:text-gray-300
+                                   p-1 rounded-md hover:bg-white/[0.06] transition-all shrink-0"
+                          >
+                            <RotateCcw size={11} strokeWidth={2} />
+                          </button>
+                        </Tooltip>
+                        <Tooltip label="Resume session" position="right">
+                          <button
+                            onClick={async () => {
+                              const agentType = session.agentType
+                              const newSession = await window.api.createTerminal({
+                                agentType,
+                                projectName: session.projectName,
+                                projectPath: session.projectPath,
+                                resumeSessionId: session.agentSessionId
+                              })
+                              addTerminal(newSession)
+                              await unarchiveSession(session.id)
+                              setFocusedTerminal(newSession.id)
+                            }}
+                            className="opacity-0 group-hover/archived:opacity-100 text-gray-600 hover:text-green-400
+                                   p-1 rounded-md hover:bg-white/[0.06] transition-all shrink-0"
+                          >
+                            <Play size={11} strokeWidth={2} />
+                          </button>
+                        </Tooltip>
                       </div>
-                    </div>
-                    <Tooltip label="Unarchive" position="right">
-                      <button
-                        onClick={() => unarchiveSession(session.id)}
-                        className="opacity-0 group-hover/archived:opacity-100 text-gray-600 hover:text-gray-300
-                                   p-1 rounded-md hover:bg-white/[0.06] transition-all shrink-0"
-                      >
-                        <RotateCcw size={11} strokeWidth={2} />
-                      </button>
-                    </Tooltip>
-                    <Tooltip label="Resume session" position="right">
-                      <button
-                        onClick={async () => {
-                          const agentType = session.agentType
-                          const newSession = await window.api.createTerminal({
-                            agentType,
-                            projectName: session.projectName,
-                            projectPath: session.projectPath,
-                            resumeSessionId: session.agentSessionId
-                          })
-                          addTerminal(newSession)
-                          await unarchiveSession(session.id)
-                          setFocusedTerminal(newSession.id)
-                        }}
-                        className="opacity-0 group-hover/archived:opacity-100 text-gray-600 hover:text-green-400
-                                   p-1 rounded-md hover:bg-white/[0.06] transition-all shrink-0"
-                      >
-                        <Play size={11} strokeWidth={2} />
-                      </button>
-                    </Tooltip>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
+                )}
+              </>
+            )
+          )
+        })()}
       </div>
 
       {/* Bottom — Help & Settings */}
