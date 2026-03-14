@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { configManager as ConfigManagerInstance } from '@vibegrid/server/config-manager'
 import type { AgentType } from '@vibegrid/shared/types'
+import { V } from '../validation'
 import {
   dbListProjects,
   dbGetProject,
@@ -35,11 +36,11 @@ export function registerProjectTools(
     'create_project',
     'Create a new project',
     {
-      name: z.string().describe('Project name (unique identifier)'),
-      path: z.string().describe('Absolute path to project directory'),
+      name: V.name.describe('Project name (unique identifier)'),
+      path: V.absolutePath.describe('Absolute path to project directory'),
       preferred_agents: z.array(z.enum(AGENT_TYPES)).optional().describe('Preferred agent types'),
-      icon: z.string().optional().describe('Lucide icon name'),
-      icon_color: z.string().optional().describe('Hex color for icon')
+      icon: V.shortText.optional().describe('Lucide icon name'),
+      icon_color: V.hexColor.optional().describe('Hex color for icon')
     },
     async (args) => {
       if (dbGetProject(args.name)) {
@@ -68,11 +69,11 @@ export function registerProjectTools(
     'update_project',
     "Update a project's properties",
     {
-      name: z.string().describe('Project name (identifier, cannot be changed)'),
-      path: z.string().optional().describe('New project path'),
+      name: V.name.describe('Project name (identifier, cannot be changed)'),
+      path: V.absolutePath.optional().describe('New project path'),
       preferred_agents: z.array(z.enum(AGENT_TYPES)).optional().describe('Preferred agent types'),
-      icon: z.string().optional().describe('Lucide icon name'),
-      icon_color: z.string().optional().describe('Hex color for icon')
+      icon: V.shortText.optional().describe('Lucide icon name'),
+      icon_color: V.hexColor.optional().describe('Hex color for icon')
     },
     async (args) => {
       if (!dbGetProject(args.name)) {
@@ -100,7 +101,7 @@ export function registerProjectTools(
   server.tool(
     'delete_project',
     'Delete a project and all its tasks',
-    { name: z.string().describe('Project name') },
+    { name: V.name.describe('Project name') },
     async (args) => {
       if (!dbGetProject(args.name)) {
         return {

@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { configManager as ConfigManagerInstance } from '@vibegrid/server/config-manager'
 import type { scheduler as SchedulerInstance } from '@vibegrid/server/scheduler'
+import { V } from '../validation'
 import type {
   WorkflowDefinition,
   WorkflowNode,
@@ -22,48 +23,48 @@ type Scheduler = typeof SchedulerInstance
 
 const launchAgentConfigSchema = z.object({
   agentType: z.enum(['claude', 'copilot', 'codex', 'opencode', 'gemini']),
-  projectName: z.string(),
-  projectPath: z.string(),
-  args: z.array(z.string()).optional(),
-  displayName: z.string().optional(),
-  branch: z.string().optional(),
+  projectName: V.name,
+  projectPath: V.absolutePath,
+  args: z.array(V.shortText).optional(),
+  displayName: V.shortText.optional(),
+  branch: V.shortText.optional(),
   useWorktree: z.boolean().optional(),
-  remoteHostId: z.string().optional(),
-  prompt: z.string().optional(),
+  remoteHostId: V.id.optional(),
+  prompt: V.prompt.optional(),
   promptDelayMs: z.number().optional(),
-  taskId: z.string().optional(),
+  taskId: V.id.optional(),
   taskFromQueue: z.boolean().optional()
 })
 
 const triggerConfigSchema = z.union([
   z.object({ triggerType: z.literal('manual') }),
-  z.object({ triggerType: z.literal('once'), runAt: z.string() }),
+  z.object({ triggerType: z.literal('once'), runAt: V.shortText }),
   z.object({
     triggerType: z.literal('recurring'),
-    cron: z.string(),
-    timezone: z.string().optional()
+    cron: V.shortText,
+    timezone: V.shortText.optional()
   }),
-  z.object({ triggerType: z.literal('taskCreated'), projectFilter: z.string().optional() }),
+  z.object({ triggerType: z.literal('taskCreated'), projectFilter: V.name.optional() }),
   z.object({
     triggerType: z.literal('taskStatusChanged'),
-    projectFilter: z.string().optional(),
+    projectFilter: V.name.optional(),
     fromStatus: z.enum(['todo', 'in_progress', 'in_review', 'done', 'cancelled']).optional(),
     toStatus: z.enum(['todo', 'in_progress', 'in_review', 'done', 'cancelled']).optional()
   })
 ])
 
 const nodeSchema = z.object({
-  id: z.string(),
+  id: V.id,
   type: z.enum(['trigger', 'launchAgent']),
-  label: z.string(),
+  label: V.shortText,
   config: z.record(z.unknown()),
   position: z.object({ x: z.number(), y: z.number() })
 })
 
 const edgeSchema = z.object({
-  id: z.string(),
-  source: z.string(),
-  target: z.string()
+  id: V.id,
+  source: V.id,
+  target: V.id
 })
 
 /**
@@ -135,7 +136,7 @@ export function registerWorkflowTools(
     'create_workflow',
     'Create a new workflow. Accepts either full nodes/edges or a convenience flat format (trigger + actions array).',
     z.object({
-      name: z.string().describe('Workflow name'),
+      name: V.title.describe('Workflow name'),
       trigger: triggerConfigSchema
         .optional()
         .describe('Trigger config (convenience mode). Defaults to manual.'),
@@ -145,8 +146,8 @@ export function registerWorkflowTools(
         .describe('Actions to execute (convenience mode). Auto-generates graph.'),
       nodes: z.array(nodeSchema).optional().describe('Full graph nodes (advanced mode)'),
       edges: z.array(edgeSchema).optional().describe('Full graph edges (advanced mode)'),
-      icon: z.string().optional().describe('Lucide icon name (default: zap)'),
-      icon_color: z.string().optional().describe('Hex color (default: #6366f1)'),
+      icon: V.shortText.optional().describe('Lucide icon name (default: zap)'),
+      icon_color: V.hexColor.optional().describe('Hex color (default: #6366f1)'),
       enabled: z.boolean().optional().describe('Whether workflow is enabled (default: true)'),
       stagger_delay_ms: z.number().optional().describe('Delay in ms between actions')
     }),
@@ -188,12 +189,12 @@ export function registerWorkflowTools(
     'update_workflow',
     "Update a workflow's properties",
     z.object({
-      id: z.string().describe('Workflow ID'),
-      name: z.string().optional(),
+      id: V.id.describe('Workflow ID'),
+      name: V.title.optional(),
       nodes: z.array(nodeSchema).optional(),
       edges: z.array(edgeSchema).optional(),
-      icon: z.string().optional(),
-      icon_color: z.string().optional(),
+      icon: V.shortText.optional(),
+      icon_color: V.hexColor.optional(),
       enabled: z.boolean().optional(),
       stagger_delay_ms: z.number().optional()
     }),
@@ -229,7 +230,7 @@ export function registerWorkflowTools(
   server.tool(
     'delete_workflow',
     'Delete a workflow',
-    { id: z.string().describe('Workflow ID') },
+    { id: V.id.describe('Workflow ID') },
     async (args) => {
       const workflows = dbListWorkflows()
       const workflow = workflows.find((w) => w.id === args.id)

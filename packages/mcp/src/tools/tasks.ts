@@ -4,6 +4,7 @@ import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { configManager as ConfigManagerInstance } from '@vibegrid/server/config-manager'
 import type { TaskConfig, TaskStatus, AgentType } from '@vibegrid/shared/types'
+import { V } from '../validation'
 import {
   dbListTasks,
   dbGetTask,
@@ -33,7 +34,7 @@ export function registerTaskTools(server: McpServer, deps: { configManager: Conf
     'list_tasks',
     'List tasks, optionally filtered by project and/or status',
     {
-      project_name: z.string().optional().describe('Filter by project name'),
+      project_name: V.name.optional().describe('Filter by project name'),
       status: z
         .enum(TASK_STATUSES as [string, ...string[]])
         .optional()
@@ -49,14 +50,14 @@ export function registerTaskTools(server: McpServer, deps: { configManager: Conf
     'create_task',
     'Create a new task in a project',
     {
-      project_name: z.string().describe('Project name (must match existing project)'),
-      title: z.string().describe('Task title'),
-      description: z.string().optional().describe('Task description (markdown)'),
+      project_name: V.name.describe('Project name (must match existing project)'),
+      title: V.title.describe('Task title'),
+      description: V.description.optional().describe('Task description (markdown)'),
       status: z
         .enum(TASK_STATUSES as [string, ...string[]])
         .optional()
         .describe('Task status (default: todo)'),
-      branch: z.string().optional().describe('Git branch for this task'),
+      branch: V.shortText.optional().describe('Git branch for this task'),
       use_worktree: z.boolean().optional().describe('Create a git worktree for this task'),
       assigned_agent: z.enum(AGENT_TYPES).optional().describe('Assign to an agent type')
     },
@@ -95,34 +96,29 @@ export function registerTaskTools(server: McpServer, deps: { configManager: Conf
     }
   )
 
-  server.tool(
-    'get_task',
-    'Get a task by ID',
-    { id: z.string().describe('Task ID') },
-    async (args) => {
-      const task = dbGetTask(args.id)
-      if (!task) {
-        return {
-          content: [{ type: 'text', text: `Error: task "${args.id}" not found` }],
-          isError: true
-        }
+  server.tool('get_task', 'Get a task by ID', { id: V.id.describe('Task ID') }, async (args) => {
+    const task = dbGetTask(args.id)
+    if (!task) {
+      return {
+        content: [{ type: 'text', text: `Error: task "${args.id}" not found` }],
+        isError: true
       }
-      return { content: [{ type: 'text', text: JSON.stringify(task, null, 2) }] }
     }
-  )
+    return { content: [{ type: 'text', text: JSON.stringify(task, null, 2) }] }
+  })
 
   server.tool(
     'update_task',
     "Update a task's properties",
     {
-      id: z.string().describe('Task ID'),
-      title: z.string().optional().describe('New title'),
-      description: z.string().optional().describe('New description'),
+      id: V.id.describe('Task ID'),
+      title: V.title.optional().describe('New title'),
+      description: V.description.optional().describe('New description'),
       status: z
         .enum(TASK_STATUSES as [string, ...string[]])
         .optional()
         .describe('New status'),
-      branch: z.string().optional().describe('Git branch'),
+      branch: V.shortText.optional().describe('Git branch'),
       use_worktree: z.boolean().optional().describe('Use git worktree'),
       assigned_agent: z.enum(AGENT_TYPES).optional().describe('Assigned agent type'),
       order: z.number().optional().describe('Queue order')
@@ -165,7 +161,7 @@ export function registerTaskTools(server: McpServer, deps: { configManager: Conf
   server.tool(
     'delete_task',
     'Delete a task by ID',
-    { id: z.string().describe('Task ID') },
+    { id: V.id.describe('Task ID') },
     async (args) => {
       const task = dbGetTask(args.id)
       if (!task) {
@@ -186,15 +182,13 @@ export function registerTaskTools(server: McpServer, deps: { configManager: Conf
     'Get your current task and project context. Auto-detects based on your working directory. ' +
       'Call this at the start of a session to understand what you are working on.',
     {
-      cwd: z
-        .string()
+      cwd: V.absolutePath
         .optional()
         .describe(
           'Your current working directory (auto-detected if omitted). ' +
             'Used to match against known projects and task worktrees.'
         ),
-      task_id: z
-        .string()
+      task_id: V.id
         .optional()
         .describe('Specific task ID to get context for (overrides auto-detection)')
     },

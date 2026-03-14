@@ -1,12 +1,12 @@
-import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { listBranches, getGitBranch, getGitDiffFull } from '@vibegrid/server/git-utils'
+import { V } from '../validation'
 
 export function registerGitTools(server: McpServer): void {
   server.tool(
     'list_branches',
     'List git branches for a project',
-    { project_path: z.string().describe('Absolute path to project directory') },
+    { project_path: V.absolutePath.describe('Absolute path to project directory') },
     async (args) => {
       try {
         const local = listBranches(args.project_path)
@@ -26,7 +26,7 @@ export function registerGitTools(server: McpServer): void {
   server.tool(
     'get_diff',
     'Get git diff for a project (staged and unstaged changes)',
-    { project_path: z.string().describe('Absolute path to project directory') },
+    { project_path: V.absolutePath.describe('Absolute path to project directory') },
     async (args) => {
       try {
         const result = getGitDiffFull(args.project_path)

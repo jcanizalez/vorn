@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ptyManager as PtyManagerInstance } from '@vibegrid/server/pty-manager'
 import type { AgentType, CreateTerminalPayload } from '@vibegrid/shared/types'
+import { V } from '../validation'
 
 type PtyManager = typeof PtyManagerInstance
 
@@ -35,12 +36,12 @@ export function registerSessionTools(server: McpServer, deps: { ptyManager: PtyM
     'Launch an AI agent in a new terminal session',
     {
       agent_type: z.enum(AGENT_TYPES).describe('Agent type to launch'),
-      project_name: z.string().describe('Project name'),
-      project_path: z.string().describe('Absolute path to project directory'),
-      prompt: z.string().optional().describe('Initial prompt to send to the agent'),
-      branch: z.string().optional().describe('Git branch to checkout'),
+      project_name: V.name.describe('Project name'),
+      project_path: V.absolutePath.describe('Absolute path to project directory'),
+      prompt: V.prompt.optional().describe('Initial prompt to send to the agent'),
+      branch: V.shortText.optional().describe('Git branch to checkout'),
       use_worktree: z.boolean().optional().describe('Create a git worktree'),
-      display_name: z.string().optional().describe('Display name for the session')
+      display_name: V.shortText.optional().describe('Display name for the session')
     },
     async (args) => {
       const payload: CreateTerminalPayload = {
@@ -82,7 +83,7 @@ export function registerSessionTools(server: McpServer, deps: { ptyManager: PtyM
   server.tool(
     'kill_session',
     'Kill a terminal session',
-    { id: z.string().describe('Session ID to kill') },
+    { id: V.id.describe('Session ID to kill') },
     async (args) => {
       try {
         ptyManager.killPty(args.id)
@@ -97,8 +98,11 @@ export function registerSessionTools(server: McpServer, deps: { ptyManager: PtyM
     'write_to_terminal',
     'Send input to a running terminal session',
     {
-      id: z.string().describe('Session ID'),
-      data: z.string().describe('Data to write (text input to send to the agent)')
+      id: V.id.describe('Session ID'),
+      data: z
+        .string()
+        .max(50000, 'Data must be 50000 characters or less')
+        .describe('Data to write (text input to send to the agent)')
     },
     async (args) => {
       try {
