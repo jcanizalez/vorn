@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { listBranches, getGitBranch, getGitDiffFull } from '../git-utils'
+import { listBranches, getGitBranch, getGitDiffFull } from '@vibegrid/server/git-utils'
 
 export function registerGitTools(server: McpServer): void {
   server.tool(

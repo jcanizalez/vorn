@@ -1,21 +1,18 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import type { WorkflowDefinition, WorkflowNode, TriggerConfig } from '../src/shared/types'
 
 // Mock dependencies before importing
 vi.mock('node-cron', () => ({
   default: { schedule: vi.fn(() => ({ stop: vi.fn() })) }
 }))
-vi.mock('electron', () => ({
-  BrowserWindow: vi.fn()
-}))
-vi.mock('../src/main/config-manager', () => ({
+vi.mock('../packages/server/src/config-manager', () => ({
   configManager: { loadConfig: vi.fn(), saveConfig: vi.fn() }
 }))
-vi.mock('../src/main/schedule-log', () => ({
+vi.mock('../packages/server/src/schedule-log', () => ({
   scheduleLogManager: { addEntry: vi.fn() }
 }))
 
-import { scheduler } from '../src/main/scheduler'
+import { scheduler } from '../packages/server/src/scheduler'
 
 function makeTriggerNode(config: TriggerConfig): WorkflowNode {
   return {

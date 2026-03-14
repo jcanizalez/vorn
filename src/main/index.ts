@@ -7,11 +7,8 @@ import { IPC, PermissionRequestInfo } from '../shared/types'
 import { launchServer, stopServer, getServerBridge } from './server/server-launcher'
 import type { ServerBridge } from './server/server-bridge'
 import log from './logger'
-import { safeHandle } from './ipc-safe-handle'
 
-const isMcpMode = process.argv.includes('--mcp')
 let isQuitting = false
-if (isMcpMode) app.disableHardwareAcceleration()
 
 // Prevent EPIPE and other uncaught errors from crashing the main process
 process.on('uncaughtException', (err) => {
@@ -25,11 +22,6 @@ process.on('unhandledRejection', (reason) => {
 
 let mainWindow: BrowserWindow | null = null
 let widgetWindow: BrowserWindow | null = null
-
-safeHandle('get-mcp-info', () => ({
-  execPath: process.execPath,
-  platform: process.platform
-}))
 
 function createWindow(): void {
   const isMac = process.platform === 'darwin'
@@ -253,36 +245,6 @@ function updatePermissionShortcuts(): void {
 }
 
 app.whenReady().then(async () => {
-  if (isMcpMode) {
-    // MCP mode still uses local managers directly (not via server)
-    const { getSocketPath } = await import('./mcp-socket-server')
-    const { isSocketAvailable, runProxy } = await import('./mcp-proxy')
-    const socketPath = getSocketPath()
-    const available = await isSocketAvailable(socketPath)
-
-    if (available) {
-      runProxy(socketPath)
-      return
-    }
-
-    // No GUI running — fall back to standalone MCP
-    const { configManager } = await import('./config-manager')
-    const { ptyManager } = await import('./pty-manager')
-    const { scheduler } = await import('./scheduler')
-    configManager.init()
-    const config = configManager.loadConfig()
-    if (config.agentCommands) {
-      ptyManager.setAgentCommands(config.agentCommands)
-    }
-    ptyManager.setRemoteHosts(config.remoteHosts ?? [])
-    scheduler.syncSchedules(config.workflows ?? [])
-    const { runStdioMcp } = await import('./mcp-stdio')
-    await runStdioMcp({ configManager, ptyManager, scheduler })
-    return
-  }
-
-  // ─── Normal GUI mode: launch server + connect bridge ───────────
-
   let bridge: ServerBridge
   try {
     bridge = await launchServer()
@@ -431,7 +393,6 @@ app.on('before-quit', async () => {
 })
 
 app.on('window-all-closed', () => {
-  if (isMcpMode) return
   if (process.platform !== 'darwin') {
     app.quit()
   }

@@ -1,0 +1,23 @@
+{
+  "name": "@vibegrid/mcp",
+  "version": "0.7.2",
+  "type": "module",
+  "bin": {
+    "vibegrid-mcp": "./dist/index.js"
+  },
+  "main": "./src/server.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "@vibegrid/server": "workspace:*",
+    "@vibegrid/shared": "workspace:*",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.4",
+    "typescript": "^5.6.0"
+  }
+}

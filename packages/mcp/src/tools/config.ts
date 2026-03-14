@@ -1,5 +1,5 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import type { configManager as ConfigManagerInstance } from '../config-manager'
+import type { configManager as ConfigManagerInstance } from '@vibegrid/server/config-manager'
 
 type ConfigManager = typeof ConfigManagerInstance
 

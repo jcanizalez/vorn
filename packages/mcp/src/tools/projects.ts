@@ -1,14 +1,14 @@
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import type { configManager as ConfigManagerInstance } from '../config-manager'
-import type { AgentType } from '../../shared/types'
+import type { configManager as ConfigManagerInstance } from '@vibegrid/server/config-manager'
+import type { AgentType } from '@vibegrid/shared/types'
 import {
   dbListProjects,
   dbGetProject,
   dbInsertProject,
   dbUpdateProject,
   dbDeleteProject
-} from '../database'
+} from '@vibegrid/server/database'
 
 type ConfigManager = typeof ConfigManagerInstance
 

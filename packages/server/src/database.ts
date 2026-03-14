@@ -101,18 +101,7 @@ function recoverCorruptDatabase(): void {
     throw freshErr
   }
 
-  // Notify the user (non-blocking)
-  dialog
-    .showMessageBox({
-      type: 'warning',
-      title: 'Database Reset',
-      message: 'VibeGrid database was corrupted and has been reset.',
-      detail: `Your settings have been restored to defaults. A backup of the corrupt file was saved to:\n${backupPath}`,
-      buttons: ['OK']
-    })
-    .catch(() => {
-      /* dialog can fail in headless/test environments */
-    })
+  log.warn(`[database] Database was corrupted and has been reset. Backup saved to: ${backupPath}`)
 }
 
 export function closeDatabase(): void {

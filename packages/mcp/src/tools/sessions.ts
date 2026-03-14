@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import type { ptyManager as PtyManagerInstance } from '../pty-manager'
-import type { AgentType, CreateTerminalPayload } from '../../shared/types'
+import type { ptyManager as PtyManagerInstance } from '@vibegrid/server/pty-manager'
+import type { AgentType, CreateTerminalPayload } from '@vibegrid/shared/types'
 
 type PtyManager = typeof PtyManagerInstance
 

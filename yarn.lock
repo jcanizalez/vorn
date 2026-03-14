@@ -2598,7 +2598,22 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@vibegrid/server@workspace:packages/server":
+"@vibegrid/mcp@workspace:packages/mcp":
+  version: 0.0.0-use.local
+  resolution: "@vibegrid/mcp@workspace:packages/mcp"
+  dependencies:
+    "@modelcontextprotocol/sdk": "npm:^1.27.1"
+    "@vibegrid/server": "workspace:*"
+    "@vibegrid/shared": "workspace:*"
+    tsx: "npm:^4.19.4"
+    typescript: "npm:^5.6.0"
+    zod: "npm:^4.3.6"
+  bin:
+    vibegrid-mcp: ./dist/index.js
+  languageName: unknown
+  linkType: soft
+
+"@vibegrid/server@workspace:*, @vibegrid/server@workspace:packages/server":
   version: 0.0.0-use.local
   resolution: "@vibegrid/server@workspace:packages/server"
   dependencies:

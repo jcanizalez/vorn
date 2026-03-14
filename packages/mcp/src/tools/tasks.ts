@@ -2,8 +2,8 @@ import crypto from 'node:crypto'
 import path from 'node:path'
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import type { configManager as ConfigManagerInstance } from '../config-manager'
-import type { TaskConfig, TaskStatus, AgentType } from '../../shared/types'
+import type { configManager as ConfigManagerInstance } from '@vibegrid/server/config-manager'
+import type { TaskConfig, TaskStatus, AgentType } from '@vibegrid/shared/types'
 import {
   dbListTasks,
   dbGetTask,
@@ -13,7 +13,7 @@ import {
   dbGetMaxTaskOrder,
   dbGetProject,
   dbListProjects
-} from '../database'
+} from '@vibegrid/server/database'
 
 type ConfigManager = typeof ConfigManagerInstance
 

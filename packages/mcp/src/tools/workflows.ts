@@ -1,16 +1,21 @@
 import crypto from 'node:crypto'
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import type { configManager as ConfigManagerInstance } from '../config-manager'
-import type { scheduler as SchedulerInstance } from '../scheduler'
+import type { configManager as ConfigManagerInstance } from '@vibegrid/server/config-manager'
+import type { scheduler as SchedulerInstance } from '@vibegrid/server/scheduler'
 import type {
   WorkflowDefinition,
   WorkflowNode,
   WorkflowEdge,
   TriggerConfig,
   LaunchAgentConfig
-} from '../../shared/types'
-import { dbListWorkflows, dbInsertWorkflow, dbUpdateWorkflow, dbDeleteWorkflow } from '../database'
+} from '@vibegrid/shared/types'
+import {
+  dbListWorkflows,
+  dbInsertWorkflow,
+  dbUpdateWorkflow,
+  dbDeleteWorkflow
+} from '@vibegrid/server/database'
 
 type ConfigManager = typeof ConfigManagerInstance
 type Scheduler = typeof SchedulerInstance
@@ -129,7 +134,7 @@ export function registerWorkflowTools(
   server.tool(
     'create_workflow',
     'Create a new workflow. Accepts either full nodes/edges or a convenience flat format (trigger + actions array).',
-    {
+    z.object({
       name: z.string().describe('Workflow name'),
       trigger: triggerConfigSchema
         .optional()
@@ -144,7 +149,7 @@ export function registerWorkflowTools(
       icon_color: z.string().optional().describe('Hex color (default: #6366f1)'),
       enabled: z.boolean().optional().describe('Whether workflow is enabled (default: true)'),
       stagger_delay_ms: z.number().optional().describe('Delay in ms between actions')
-    },
+    }),
     async (args) => {
       let nodes: WorkflowNode[]
       let edges: WorkflowEdge[]
@@ -182,7 +187,7 @@ export function registerWorkflowTools(
   server.tool(
     'update_workflow',
     "Update a workflow's properties",
-    {
+    z.object({
       id: z.string().describe('Workflow ID'),
       name: z.string().optional(),
       nodes: z.array(nodeSchema).optional(),
@@ -191,7 +196,7 @@ export function registerWorkflowTools(
       icon_color: z.string().optional(),
       enabled: z.boolean().optional(),
       stagger_delay_ms: z.number().optional()
-    },
+    }),
     async (args) => {
       const workflows = dbListWorkflows()
       const workflow = workflows.find((w) => w.id === args.id)

@@ -263,9 +263,6 @@ const api = {
 
   // App info
   getAppVersion: (): string => ipcRenderer.sendSync('get-app-version'),
-  getMcpInfo: (): Promise<{ execPath: string; platform: string }> =>
-    ipcRenderer.invoke('get-mcp-info'),
-
   // Auto-update
   onUpdateDownloaded: (callback: (info: { version: string }) => void) => {
     const listener = (_: Electron.IpcRendererEvent, info: { version: string }): void =>
