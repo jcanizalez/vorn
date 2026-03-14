@@ -7,7 +7,7 @@ import { RichMarkdownEditor } from './rich-editor/RichMarkdownEditor'
 import { AgentIcon } from './AgentIcon'
 import { DiffFileList, DiffContent } from './DiffSidebar'
 import { CommitDialog } from './CommitDialog'
-import { STATUS_BADGE, STATUS_ICON } from './task-board/TaskCard'
+import { STATUS_BADGE, STATUS_ICON } from '../lib/task-status'
 import { toast } from './Toast'
 import {
   X,
@@ -143,21 +143,24 @@ export function TaskDetailPanel() {
       return
     }
     window.api.listWorkflowRunsByTask(task.id, 20).then(setRelatedRuns)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task?.id])
 
   // Live refresh: re-query when any related workflow execution changes
   useEffect(() => {
     if (!task) return
+    const taskId = task.id
     let relevant = false
     for (const [, exec] of workflowExecutions) {
-      if (exec.triggerTaskId === task.id || exec.nodeStates.some((ns) => ns.taskId === task.id)) {
+      if (exec.triggerTaskId === taskId || exec.nodeStates.some((ns) => ns.taskId === taskId)) {
         relevant = true
         break
       }
     }
     if (relevant) {
-      window.api.listWorkflowRunsByTask(task.id, 20).then(setRelatedRuns)
+      window.api.listWorkflowRunsByTask(taskId, 20).then(setRelatedRuns)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task?.id, workflowExecutions])
 
   // Initialize form when entering edit mode

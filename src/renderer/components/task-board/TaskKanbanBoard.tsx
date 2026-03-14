@@ -1,13 +1,14 @@
 import { useState, useRef } from 'react'
 import { TaskConfig, TaskStatus } from '../../../shared/types'
-import { TaskCard, STATUS_BADGE } from './TaskCard'
+import { TaskCard } from './TaskCard'
+import { STATUS_ACCENT } from '../../lib/task-status'
 
-const KANBAN_COLUMNS: { status: TaskStatus; title: string; color: string }[] = [
-  { status: 'todo', title: 'Todo', color: 'border-gray-500/30' },
-  { status: 'in_progress', title: 'In Progress', color: 'border-blue-500/30' },
-  { status: 'in_review', title: 'In Review', color: 'border-purple-500/30' },
-  { status: 'done', title: 'Done', color: 'border-green-500/30' },
-  { status: 'cancelled', title: 'Cancelled', color: 'border-gray-500/20' }
+const KANBAN_COLUMNS: { status: TaskStatus; title: string }[] = [
+  { status: 'todo', title: 'Todo' },
+  { status: 'in_progress', title: 'In Progress' },
+  { status: 'in_review', title: 'In Review' },
+  { status: 'done', title: 'Done' },
+  { status: 'cancelled', title: 'Cancelled' }
 ]
 
 export function TaskKanbanBoard({
@@ -38,19 +39,32 @@ export function TaskKanbanBoard({
   isSessionLive: (task: TaskConfig) => boolean
 }) {
   const [dragOverCol, setDragOverCol] = useState<TaskStatus | null>(null)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
   const dragTaskId = useRef<string | null>(null)
+  const dragEnterCount = useRef<Map<TaskStatus, number>>(new Map())
 
   const handleDragStart = (taskId: string) => {
     dragTaskId.current = taskId
+    setDraggingId(taskId)
   }
 
-  const handleDragOver = (e: React.DragEvent, status: TaskStatus) => {
+  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
+  }
+
+  const handleDragEnter = (status: TaskStatus) => {
+    const count = (dragEnterCount.current.get(status) ?? 0) + 1
+    dragEnterCount.current.set(status, count)
     setDragOverCol(status)
   }
 
-  const handleDragLeave = () => {
-    setDragOverCol(null)
+  const handleDragLeave = (status: TaskStatus) => {
+    const count = (dragEnterCount.current.get(status) ?? 1) - 1
+    dragEnterCount.current.set(status, count)
+    if (count <= 0) {
+      dragEnterCount.current.delete(status)
+      if (dragOverCol === status) setDragOverCol(null)
+    }
   }
 
   const handleDrop = (status: TaskStatus) => {
@@ -58,51 +72,62 @@ export function TaskKanbanBoard({
       onDrop(dragTaskId.current, status)
       dragTaskId.current = null
     }
+    dragEnterCount.current.clear()
+    setDraggingId(null)
+    setDragOverCol(null)
+  }
+
+  const handleDragEnd = () => {
+    dragTaskId.current = null
+    dragEnterCount.current.clear()
+    setDraggingId(null)
     setDragOverCol(null)
   }
 
   return (
-    <div className="flex gap-3 flex-1 overflow-x-auto min-h-0">
+    <div className="flex gap-2 flex-1 min-h-0">
       {KANBAN_COLUMNS.map((col) => {
         const tasks = allTasks
           .filter((t) => t.status === col.status)
           .sort((a, b) => a.order - b.order)
-        const badge = STATUS_BADGE[col.status]
+        const accent = STATUS_ACCENT[col.status]
         const isDragOver = dragOverCol === col.status
 
         return (
           <div
             key={col.status}
-            className={`flex-1 min-w-[200px] flex flex-col rounded-lg border transition-all duration-200 ${
-              isDragOver
-                ? `${col.color} bg-white/[0.03] ring-1 ring-inset ${col.color.replace('border-', 'ring-')}`
-                : 'border-white/[0.06]'
+            className={`flex-1 min-w-0 flex flex-col rounded-lg transition-all duration-200 ${
+              isDragOver ? 'bg-white/[0.04] ring-1 ring-inset ring-white/[0.1]' : 'bg-white/[0.02]'
             }`}
-            onDragOver={(e) => handleDragOver(e, col.status)}
-            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDragEnter={() => handleDragEnter(col.status)}
+            onDragLeave={() => handleDragLeave(col.status)}
             onDrop={() => handleDrop(col.status)}
           >
             {/* Column header */}
-            <div className="px-3 py-2.5 border-b border-white/[0.06] flex items-center gap-2 shrink-0">
-              <span className={`text-[11px] font-medium uppercase tracking-wider ${badge.color}`}>
-                {col.title}
-              </span>
-              <span className="text-[10px] text-gray-600 bg-white/[0.04] px-1.5 py-0.5 rounded-full">
-                {tasks.length}
-              </span>
+            <div className="px-3 py-3 flex items-center gap-2 shrink-0">
+              <span className={`w-2 h-2 rounded-full ${accent.dot} shrink-0`} />
+              <span className="text-[13px] font-medium text-gray-300">{col.title}</span>
+              <span className="text-[11px] text-gray-500 ml-0.5">{tasks.length}</span>
             </div>
 
             {/* Cards */}
-            <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+            <div className="flex-1 overflow-y-auto px-2 pb-2 pt-0 space-y-2">
               {tasks.length === 0 ? (
-                <p className="text-xs text-gray-600 text-center py-4">No tasks</p>
+                <div className="flex-1 flex items-center justify-center min-h-[80px]">
+                  <div className="border border-dashed border-white/[0.08] rounded-lg px-4 py-5 text-center w-full">
+                    <p className="text-xs text-gray-600">Drop tasks here</p>
+                  </div>
+                </div>
               ) : (
                 tasks.map((task) => (
                   <div
                     key={task.id}
                     draggable
                     onDragStart={() => handleDragStart(task.id)}
-                    className="cursor-grab active:cursor-grabbing"
+                    onDragEnd={handleDragEnd}
+                    className="cursor-grab active:cursor-grabbing transition-opacity duration-150"
+                    style={{ opacity: draggingId === task.id ? 0.4 : 1 }}
                   >
                     <TaskCard
                       task={task}
@@ -116,7 +141,7 @@ export function TaskKanbanBoard({
                       onReviewDiff={() => onReviewDiff(task.id)}
                       onSelect={onSelect ? () => onSelect(task) : undefined}
                       sessionIsLive={isSessionLive(task)}
-                      compact
+                      variant="kanban"
                     />
                   </div>
                 ))
