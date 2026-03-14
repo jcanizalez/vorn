@@ -5,7 +5,12 @@ export const createProjectsSlice: StateCreator<AppStore, [], [], ProjectsSlice> 
   config: null,
   activeProject: null,
 
-  setConfig: (config) => set({ config, rowHeight: config.defaults.rowHeight || 208 }),
+  setConfig: (config) =>
+    set({
+      config,
+      rowHeight: config.defaults.rowHeight || 208,
+      activeWorkspace: config.defaults.activeWorkspace ?? 'personal'
+    }),
 
   setActiveProject: (name) => set({ activeProject: name }),
 
@@ -103,6 +108,53 @@ export const createProjectsSlice: StateCreator<AppStore, [], [], ProjectsSlice> 
       const updated = {
         ...state.config,
         remoteHosts: (state.config.remoteHosts || []).map((h) => (h.id === id ? host : h))
+      }
+      window.api.saveConfig(updated)
+      return { config: updated }
+    }),
+
+  addWorkspace: (workspace) =>
+    set((state) => {
+      if (!state.config) return {}
+      const updated = {
+        ...state.config,
+        workspaces: [...(state.config.workspaces || []), workspace]
+      }
+      window.api.saveConfig(updated)
+      return { config: updated }
+    }),
+
+  removeWorkspace: (id) =>
+    set((state) => {
+      if (!state.config || id === 'personal') return {}
+      const switchToPersonal = state.activeWorkspace === id
+      // Move projects and workflows from deleted workspace to 'personal'
+      const updated = {
+        ...state.config,
+        workspaces: (state.config.workspaces || []).filter((ws) => ws.id !== id),
+        projects: state.config.projects.map((p) =>
+          (p.workspaceId ?? 'personal') === id ? { ...p, workspaceId: 'personal' } : p
+        ),
+        workflows: (state.config.workflows || []).map((w) =>
+          (w.workspaceId ?? 'personal') === id ? { ...w, workspaceId: 'personal' } : w
+        ),
+        defaults: {
+          ...state.config.defaults,
+          ...(switchToPersonal && { activeWorkspace: 'personal' })
+        }
+      }
+      window.api.saveConfig(updated)
+      return { config: updated, ...(switchToPersonal && { activeWorkspace: 'personal' }) }
+    }),
+
+  updateWorkspace: (id, updates) =>
+    set((state) => {
+      if (!state.config) return {}
+      const updated = {
+        ...state.config,
+        workspaces: (state.config.workspaces || []).map((ws) =>
+          ws.id === id ? { ...ws, ...updates } : ws
+        )
       }
       window.api.saveConfig(updated)
       return { config: updated }

@@ -24,6 +24,7 @@ function saveGridSettings(patch: Record<string, unknown>): void {
 const savedGrid = loadGridSettings()
 
 export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get) => ({
+  activeWorkspace: 'personal',
   focusedTerminalId: null,
   selectedTerminalId: null,
   renamingTerminalId: null,
@@ -63,6 +64,15 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   shellTabs: [],
   activeShellTab: null,
 
+  setActiveWorkspace: (id) => {
+    set({ activeWorkspace: id, activeProject: null })
+    const config = get().config
+    if (config) {
+      const updated = { ...config, defaults: { ...config.defaults, activeWorkspace: id } }
+      window.api.saveConfig(updated)
+      set({ config: updated })
+    }
+  },
   setFocusedTerminal: (id) =>
     set(() => ({
       focusedTerminalId: id,

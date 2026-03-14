@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../stores'
 import { AgentType } from '../../shared/types'
@@ -63,25 +63,28 @@ export function AddProjectDialog() {
   const editingProject = useAppStore((s) => s.editingProject)
   const setEditingProject = useAppStore((s) => s.setEditingProject)
   const config = useAppStore((s) => s.config)
+  const activeWorkspace = useAppStore((s) => s.activeWorkspace)
+
+  const isEditMode = !!editingProject
 
   const [selectedPath, setSelectedPath] = useState('')
   const [projectName, setProjectName] = useState('')
   const [selectedIcon, setSelectedIcon] = useState('Folder')
   const [selectedColor, setSelectedColor] = useState('#6b7280')
   const [hostIds, setHostIds] = useState<string[]>(['local'])
+  const [prevOpen, setPrevOpen] = useState(false)
 
-  const isEditMode = !!editingProject
-
-  // Pre-fill fields when editing
-  useEffect(() => {
-    if (editingProject && isOpen) {
-      setProjectName(editingProject.name)
-      setSelectedPath(editingProject.path)
-      setSelectedIcon(editingProject.icon || 'Folder')
-      setSelectedColor(editingProject.iconColor || '#6b7280')
-      setHostIds(editingProject.hostIds?.length ? editingProject.hostIds : ['local'])
-    }
-  }, [editingProject, isOpen])
+  // Sync form fields when dialog opens for editing (derive-state-from-props pattern)
+  if (isOpen && !prevOpen && editingProject) {
+    setProjectName(editingProject.name)
+    setSelectedPath(editingProject.path)
+    setSelectedIcon(editingProject.icon || 'Folder')
+    setSelectedColor(editingProject.iconColor || '#6b7280')
+    setHostIds(editingProject.hostIds?.length ? editingProject.hostIds : ['local'])
+  }
+  if (isOpen !== prevOpen) {
+    setPrevOpen(isOpen)
+  }
 
   const handleBrowse = async (): Promise<void> => {
     const path = await window.api.openDirectoryDialog()
@@ -103,7 +106,8 @@ export function AddProjectDialog() {
       preferredAgents: (editingProject?.preferredAgents || ['claude']) as AgentType[],
       icon: selectedIcon,
       iconColor: selectedColor,
-      hostIds
+      hostIds,
+      workspaceId: editingProject?.workspaceId ?? activeWorkspace
     }
 
     if (isEditMode) {
