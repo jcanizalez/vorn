@@ -1,11 +1,11 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import path from 'node:path'
 import { createInterface } from 'node:readline'
-import { app } from 'electron'
+import { app, utilityProcess, type UtilityProcess } from 'electron'
 import log from '../logger'
 import { ServerBridge } from './server-bridge'
 
-let serverProcess: ChildProcess | null = null
+let serverProcess: ChildProcess | UtilityProcess | null = null
 let bridge: ServerBridge | null = null
 
 /**
@@ -13,49 +13,86 @@ let bridge: ServerBridge | null = null
  *
  * The server writes `{"port": N}` to stdout on startup.
  * We read the port, then connect a WebSocket bridge.
+ *
+ * In dev mode: uses `npx tsx` via child_process.spawn (TypeScript execution).
+ * In production: uses Electron's utilityProcess.fork() to run the bundled
+ * server script as a Node.js process WITHOUT launching another Electron window.
+ *
+ * NOTE: Previously this used `spawn(process.execPath, ...)` in production,
+ * which caused an infinite app spawn loop because process.execPath is the
+ * Electron binary — spawning it launches another full Electron app instance.
  */
 export async function launchServer(): Promise<ServerBridge> {
   const serverEntryPoint = resolveServerEntry()
   log.info(`[launcher] starting server: ${serverEntryPoint}`)
 
   const dataDir = app.getPath('userData')
-
   const isDev = !!process.env.ELECTRON_RENDERER_URL
-  const command = isDev ? 'npx' : process.execPath
-  const args = isDev
-    ? ['tsx', serverEntryPoint, `--data-dir=${dataDir}`]
-    : [serverEntryPoint, `--data-dir=${dataDir}`]
 
-  serverProcess = spawn(command, args, {
-    stdio: ['pipe', 'pipe', 'pipe'],
-    env: {
-      ...process.env,
-      NODE_ENV: process.env.NODE_ENV ?? (isDev ? 'development' : 'production'),
-      // In production, native modules live in the asar-unpacked node_modules
-      ...(isDev
-        ? {}
-        : {
-            NODE_PATH: [
-              path.join(app.getAppPath(), 'node_modules'),
-              path.join(app.getAppPath() + '.unpacked', 'node_modules')
-            ].join(path.delimiter)
-          })
-    },
-    cwd: isDev ? path.join(__dirname, '../..') : undefined
-  })
+  let port: number
 
-  serverProcess.stdin?.end()
-
-  // Forward server stderr to our log
-  if (serverProcess.stderr) {
-    const errLines = createInterface({ input: serverProcess.stderr })
-    errLines.on('line', (line) => {
-      log.info(`[server] ${line}`)
+  if (isDev) {
+    // Dev mode: use npx tsx to run TypeScript directly
+    const child = spawn('npx', ['tsx', serverEntryPoint, `--data-dir=${dataDir}`], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        NODE_ENV: process.env.NODE_ENV ?? 'development'
+      },
+      cwd: path.join(__dirname, '../..')
     })
+
+    child.stdin?.end()
+
+    // Forward server stderr to our log
+    if (child.stderr) {
+      const errLines = createInterface({ input: child.stderr })
+      errLines.on('line', (line) => {
+        log.info(`[server] ${line}`)
+      })
+    }
+
+    port = await readServerPort(child)
+
+    child.on('exit', (code, signal) => {
+      log.warn(`[launcher] server exited (code=${code}, signal=${signal})`)
+      serverProcess = null
+    })
+
+    serverProcess = child
+  } else {
+    // Production: use Electron's utilityProcess.fork() to run the bundled
+    // server as a proper Node.js child process (NOT another Electron instance)
+    const child = utilityProcess.fork(serverEntryPoint, [`--data-dir=${dataDir}`], {
+      stdio: 'pipe',
+      env: {
+        ...process.env,
+        NODE_ENV: 'production',
+        NODE_PATH: [
+          path.join(app.getAppPath(), 'node_modules'),
+          path.join(app.getAppPath() + '.unpacked', 'node_modules')
+        ].join(path.delimiter)
+      }
+    })
+
+    // Forward server stderr to our log
+    if (child.stderr) {
+      const errLines = createInterface({ input: child.stderr })
+      errLines.on('line', (line) => {
+        log.info(`[server] ${line}`)
+      })
+    }
+
+    port = await readServerPort(child)
+
+    child.on('exit', (code) => {
+      log.warn(`[launcher] server exited (code=${code})`)
+      serverProcess = null
+    })
+
+    serverProcess = child
   }
 
-  // Read port from server stdout
-  const port = await readServerPort(serverProcess)
   log.info(`[launcher] server started on port ${port}`)
 
   // Connect bridge
@@ -69,12 +106,6 @@ export async function launchServer(): Promise<ServerBridge> {
       clearTimeout(timeout)
       resolve()
     })
-  })
-
-  // Handle server crash
-  serverProcess.on('exit', (code, signal) => {
-    log.warn(`[launcher] server exited (code=${code}, signal=${signal})`)
-    serverProcess = null
   })
 
   return bridge
@@ -95,14 +126,22 @@ export async function stopServer(): Promise<void> {
     bridge = null
   }
 
-  if (serverProcess && !serverProcess.killed) {
-    serverProcess.kill('SIGTERM')
-    // Force kill after 3 seconds
-    setTimeout(() => {
-      if (serverProcess && !serverProcess.killed) {
-        serverProcess.kill('SIGKILL')
+  if (serverProcess) {
+    if ('killed' in serverProcess) {
+      // ChildProcess (dev mode)
+      const child = serverProcess as ChildProcess
+      if (!child.killed) {
+        child.kill('SIGTERM')
+        setTimeout(() => {
+          if (child && !child.killed) {
+            child.kill('SIGKILL')
+          }
+        }, 3000)
       }
-    }, 3000)
+    } else {
+      // UtilityProcess (production) — only has kill()
+      serverProcess.kill()
+    }
     serverProcess = null
   }
 }
@@ -117,7 +156,7 @@ function resolveServerEntry(): string {
   return path.join(process.resourcesPath, 'server', 'index.js')
 }
 
-function readServerPort(child: ChildProcess): Promise<number> {
+function readServerPort(child: ChildProcess | UtilityProcess): Promise<number> {
   return new Promise((resolve, reject) => {
     if (!child.stdout) {
       reject(new Error('No stdout on server process'))
@@ -142,9 +181,16 @@ function readServerPort(child: ChildProcess): Promise<number> {
       }
     })
 
-    child.on('exit', (code) => {
+    // Listen for process exit — use type-safe approach since ChildProcess
+    // and UtilityProcess have different event signatures for 'exit'
+    const onExit = (code: number | null) => {
       clearTimeout(timeout)
       reject(new Error(`Server exited before reporting port (code=${code})`))
-    })
+    }
+    if ('pid' in child && typeof (child as ChildProcess).on === 'function') {
+      ;(child as ChildProcess).on('exit', onExit)
+    } else {
+      ;(child as UtilityProcess).on('exit', onExit)
+    }
   })
 }
