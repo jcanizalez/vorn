@@ -1,0 +1,10 @@
+{
+  "name": "VibeGrid",
+  "short_name": "VibeGrid",
+  "description": "AI Agent Terminal Manager",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1a1e",
+  "theme_color": "#1a1a1e",
+  "icons": []
+}

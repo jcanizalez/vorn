@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "dev": "electron-vite dev",
+    "dev:web": "cd packages/web && npx vite",
     "build:server": "cd packages/server && npx tsup src/index.ts --format cjs --target node20 --external node-pty --external better-sqlite3 --clean",
     "build": "yarn build:server && electron-vite build",
     "preview": "electron-vite preview",
