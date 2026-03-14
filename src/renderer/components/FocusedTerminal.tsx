@@ -10,7 +10,7 @@ import { OpenInButton } from './OpenInButton'
 import { CommitDialog } from './CommitDialog'
 import { DiffFileList, DiffContent } from './DiffSidebar'
 import { AGENT_DEFINITIONS } from '../lib/agent-definitions'
-import { destroyTerminal } from '../lib/terminal-registry'
+import { closeTerminalSession } from '../lib/terminal-close'
 import { getDisplayName } from '../lib/terminal-display'
 import { useTerminalScrollButton } from '../hooks/useTerminalScrollButton'
 import {
@@ -33,7 +33,6 @@ export function FocusedTerminal() {
   const focusedId = useAppStore((s) => s.focusedTerminalId)
   const terminal = useAppStore((s) => (focusedId ? s.terminals.get(focusedId) : undefined))
   const setFocused = useAppStore((s) => s.setFocusedTerminal)
-  const removeTerminal = useAppStore((s) => s.removeTerminal)
   const isRenaming = useAppStore((s) => s.renamingTerminalId === focusedId)
   const setRenamingTerminalId = useAppStore((s) => s.setRenamingTerminalId)
   const renameTerminal = useAppStore((s) => s.renameTerminal)
@@ -84,18 +83,9 @@ export function FocusedTerminal() {
 
   const handleKill = async (): Promise<void> => {
     const name = getDisplayName(terminal.session)
-    // Clear focus FIRST to prevent re-renders referencing the deleted terminal
     setFocused(null)
-    try {
-      await window.api.killTerminal(focusedId)
-      destroyTerminal(focusedId)
-      removeTerminal(focusedId)
-      toast.success(`Session "${name}" closed`)
-    } catch (err) {
-      console.error('[FocusedTerminal] killTerminal failed:', err)
-      // Restore focus — the terminal is still running in the backend
-      setFocused(focusedId)
-    }
+    await closeTerminalSession(focusedId)
+    toast.success(`Session "${name}" closed`)
   }
 
   const handleToggleDiff = (): void => {

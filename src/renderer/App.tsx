@@ -18,6 +18,7 @@ import { RotateCcw, Monitor, ListTodo, Plus } from 'lucide-react'
 import { TaskToolbar } from './components/TaskToolbar'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useGitDiffPolling } from './hooks/useGitDiffPolling'
+import { consumePendingTerminalClose } from './lib/terminal-close'
 import { setDefaultFontSize } from './lib/terminal-registry'
 import { KbdHint } from './components/KbdHint'
 import { WorktreeCleanupDialog } from './components/WorktreeCleanupDialog'
@@ -166,10 +167,24 @@ export function App() {
 
     const removeExitListener = window.api.onTerminalExit(({ id }) => {
       const state = useAppStore.getState()
+      if (consumePendingTerminalClose(id)) {
+        state.removeTerminal(id)
+        const assignedTask = (state.config?.tasks || []).find(
+          (t) => t.assignedSessionId === id && t.status === 'in_progress'
+        )
+        if (assignedTask) {
+          state.reviewTask(assignedTask.id)
+        }
+        return
+      }
+
       // If it's a shell tab, remove it; otherwise update agent status
       if (state.shellTabs.some((t) => t.id === id)) {
         state.removeShellTab(id)
       } else {
+        const terminal = state.terminals.get(id)
+        if (!terminal) return
+
         state.updateStatus(id, 'idle')
 
         // Move assigned task to review when agent exits

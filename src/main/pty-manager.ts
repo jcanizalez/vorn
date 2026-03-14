@@ -410,6 +410,10 @@ class PtyManager extends EventEmitter {
           log.warn(`[pty] kill failed for ${id} (already dead?):`, err)
         }
       })
+    } else {
+      // Surface an exit event even if the PTY was already gone so the
+      // renderer can complete any close-intent cleanup.
+      this.sendToRenderer(IPC.TERMINAL_EXIT, { id, exitCode: 0 })
     }
   }
 
