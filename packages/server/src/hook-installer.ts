@@ -31,6 +31,7 @@ function isVibeGridHook(hook: Record<string, unknown>): boolean {
 }
 
 export function installHooks(port: number, token: string): void {
+  installedPort = port
   let settings: Record<string, unknown> = {}
 
   // Read existing settings
@@ -76,9 +77,19 @@ export function installHooks(port: number, token: string): void {
   fs.writeFileSync(CLAUDE_SETTINGS_PATH, JSON.stringify(settings, null, 2), 'utf-8')
 }
 
+const PORT_FILE = path.join(os.homedir(), '.vibegrid', 'port')
+
+let installedPort: number | null = null
+
 export function uninstallHooks(): void {
   try {
     if (!fs.existsSync(CLAUDE_SETTINGS_PATH)) return
+
+    // Don't remove hooks if another instance owns them
+    if (installedPort !== null && fs.existsSync(PORT_FILE)) {
+      const currentPort = fs.readFileSync(PORT_FILE, 'utf-8').trim()
+      if (currentPort !== String(installedPort)) return
+    }
 
     const settings = JSON.parse(fs.readFileSync(CLAUDE_SETTINGS_PATH, 'utf-8'))
     const hooks = (settings.hooks ?? {}) as Record<string, unknown[]>

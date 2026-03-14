@@ -40,3 +40,8 @@ npmRebuild: true
 files:
   - 'out/**/*'
   - 'node_modules/**/*'
+extraResources:
+  - from: 'packages/server/dist'
+    to: 'server'
+    filter:
+      - '**/*'

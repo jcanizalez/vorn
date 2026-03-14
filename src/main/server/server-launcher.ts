@@ -30,7 +30,9 @@ export async function launchServer(): Promise<ServerBridge> {
     stdio: ['pipe', 'pipe', 'pipe'],
     env: {
       ...process.env,
-      NODE_ENV: process.env.NODE_ENV ?? (isDev ? 'development' : 'production')
+      NODE_ENV: process.env.NODE_ENV ?? (isDev ? 'development' : 'production'),
+      // In production, native modules (node-pty, better-sqlite3) live in the app's node_modules
+      ...(isDev ? {} : { NODE_PATH: path.join(process.resourcesPath, '..', 'node_modules') })
     },
     cwd: isDev ? path.join(__dirname, '../..') : undefined
   })

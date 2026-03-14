@@ -13,7 +13,7 @@
     "./git-utils": "./src/git-utils.ts"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsup src/index.ts --format esm --target node20 --external node-pty --external better-sqlite3 --clean",
     "dev": "tsx src/index.ts"
   },
   "dependencies": {
@@ -31,6 +31,7 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/node-cron": "^3.0.11",
     "@types/ws": "^8.18.1",
+    "tsup": "^8.5.0",
     "tsx": "^4.19.4",
     "typescript": "^5.6.0"
   }
