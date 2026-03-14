@@ -13,7 +13,7 @@
     "./git-utils": "./src/git-utils.ts"
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --target node20 --external node-pty --external better-sqlite3 --clean",
+    "build": "tsup src/index.ts --format cjs --target node20 --external node-pty --external better-sqlite3 --clean",
     "dev": "tsx src/index.ts"
   },
   "dependencies": {

@@ -78,13 +78,15 @@ describe('server integration', () => {
     const origWrite = process.stdout.write.bind(process.stdout)
     process.stdout.write = (() => true) as typeof process.stdout.write
 
-    const { app, port } = await startServer({ port: 0 })
-    serverPort = port
-    serverClose = async () => {
-      await app.close()
+    try {
+      const { app, port } = await startServer({ port: 0 })
+      serverPort = port
+      serverClose = async () => {
+        await app.close()
+      }
+    } finally {
+      process.stdout.write = origWrite
     }
-
-    process.stdout.write = origWrite
   }, 15000)
 
   afterAll(async () => {

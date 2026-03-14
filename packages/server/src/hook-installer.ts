@@ -85,10 +85,16 @@ export function uninstallHooks(): void {
   try {
     if (!fs.existsSync(CLAUDE_SETTINGS_PATH)) return
 
-    // Don't remove hooks if another instance owns them
-    if (installedPort !== null && fs.existsSync(PORT_FILE)) {
-      const currentPort = fs.readFileSync(PORT_FILE, 'utf-8').trim()
-      if (currentPort !== String(installedPort)) return
+    // Don't remove hooks if another instance owns them.
+    // If port file is missing (already deleted by hookServer.stop()), compare
+    // against our own installed port — if we never installed, bail out.
+    if (installedPort !== null) {
+      try {
+        const currentPort = fs.readFileSync(PORT_FILE, 'utf-8').trim()
+        if (currentPort !== String(installedPort)) return
+      } catch {
+        // Port file already deleted (our shutdown) or missing — safe to proceed
+      }
     }
 
     const settings = JSON.parse(fs.readFileSync(CLAUDE_SETTINGS_PATH, 'utf-8'))
