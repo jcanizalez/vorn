@@ -24,7 +24,7 @@ import {
   getGitDiffStat,
   gitCommit,
   listWorktrees
-} from '../src/main/git-utils'
+} from '../packages/server/src/git-utils'
 
 const mockExecFileSync = vi.mocked(execFileSync)
 

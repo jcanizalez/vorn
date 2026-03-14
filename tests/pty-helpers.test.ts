@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest'
 
-// Mock heavy dependencies so the module loads without node-pty/electron
+// Mock heavy dependencies so the module loads without node-pty
 vi.mock('node-pty', () => ({ default: {} }))
-vi.mock('electron', () => ({ BrowserWindow: vi.fn() }))
 vi.mock('node:child_process', async () => {
   const actual = await vi.importActual<typeof import('node:child_process')>('node:child_process')
   return {
@@ -15,14 +14,14 @@ vi.mock('node:child_process', async () => {
     })
   }
 })
-vi.mock('../src/main/git-utils', () => ({
+vi.mock('../packages/server/src/git-utils', () => ({
   getGitBranch: vi.fn(),
   checkoutBranch: vi.fn(),
   createWorktree: vi.fn()
 }))
 
-let shellEscape: typeof import('../src/main/pty-manager').shellEscape
-let getSafeEnv: typeof import('../src/main/pty-manager').getSafeEnv
+let shellEscape: typeof import('../packages/server/src/process-utils').shellEscape
+let getSafeEnv: typeof import('../packages/server/src/process-utils').getSafeEnv
 
 const TEST_ENV = {
   HOME: '/home/user',
@@ -49,7 +48,7 @@ const TEST_ENV = {
 describe('shellEscape', () => {
   beforeAll(async () => {
     vi.resetModules()
-    ;({ shellEscape } = await import('../src/main/pty-manager'))
+    ;({ shellEscape } = await import('../packages/server/src/process-utils'))
   })
 
   it('wraps simple string in single quotes', () => {
@@ -91,7 +90,7 @@ describe('getSafeEnv', () => {
   beforeEach(async () => {
     vi.resetModules()
     process.env = { ...TEST_ENV }
-    ;({ getSafeEnv } = await import('../src/main/pty-manager'))
+    ;({ getSafeEnv } = await import('../packages/server/src/process-utils'))
   })
 
   afterEach(() => {
