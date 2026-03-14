@@ -164,12 +164,11 @@ export function TaskToolbar() {
   const setConfig = useAppStore((s) => s.setConfig)
   const taskViewMode = (config?.defaults?.taskViewMode ?? 'list') as TaskViewMode
 
-  const toggleViewMode = (): void => {
-    if (!config) return
-    const next = taskViewMode === 'list' ? 'kanban' : 'list'
+  const setViewMode = (mode: TaskViewMode): void => {
+    if (!config || taskViewMode === mode) return
     const updated = {
       ...config,
-      defaults: { ...config.defaults, taskViewMode: next as TaskViewMode }
+      defaults: { ...config.defaults, taskViewMode: mode }
     }
     window.api.saveConfig(updated)
     setConfig(updated)
@@ -187,15 +186,31 @@ export function TaskToolbar() {
         label="Status"
       />
 
-      {/* View toggle */}
-      <button
-        onClick={toggleViewMode}
-        className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors
-                   text-gray-400 hover:text-white hover:bg-white/[0.06]"
-        title={taskViewMode === 'list' ? 'Switch to kanban' : 'Switch to list'}
-      >
-        {taskViewMode === 'list' ? KanbanIcon : ListIcon}
-      </button>
+      {/* View toggle — pill segmented control */}
+      <div className="flex items-center bg-white/[0.06] rounded-lg p-0.5">
+        <button
+          onClick={() => setViewMode('list')}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs transition-colors ${
+            taskViewMode === 'list'
+              ? 'bg-white/[0.1] text-white'
+              : 'text-gray-500 hover:text-gray-300'
+          }`}
+        >
+          {ListIcon}
+          <span>List</span>
+        </button>
+        <button
+          onClick={() => setViewMode('kanban')}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs transition-colors ${
+            taskViewMode === 'kanban'
+              ? 'bg-white/[0.1] text-white'
+              : 'text-gray-500 hover:text-gray-300'
+          }`}
+        >
+          {KanbanIcon}
+          <span>Board</span>
+        </button>
+      </div>
     </div>
   )
 }

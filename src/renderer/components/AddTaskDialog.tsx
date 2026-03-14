@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../stores'
-import { FolderGit2, ImagePlus, X } from 'lucide-react'
+import { FolderGit2, X, Maximize2, Paperclip, Circle } from 'lucide-react'
 import { RichMarkdownEditor } from './rich-editor/RichMarkdownEditor'
 import { TASK_TEMPLATE } from './MarkdownEditor'
 import { toast } from './Toast'
@@ -15,55 +15,70 @@ export function AddTaskDialog() {
   const addTask = useAppStore((s) => s.addTask)
   const updateTask = useAppStore((s) => s.updateTask)
   const activeProject = useAppStore((s) => s.activeProject)
+  const setSelectedTaskId = useAppStore((s) => s.setSelectedTaskId)
 
   const [title, setTitle] = useState('')
   const [projectName, setProjectName] = useState('')
   const [description, setDescription] = useState('')
   const [branch, setBranch] = useState('')
   const [useWorktree, setUseWorktree] = useState(false)
-  const [images, setImages] = useState<string[]>([]) // filenames
-  const [imagePaths, setImagePaths] = useState<Map<string, string>>(new Map()) // filename -> absolute path for display
+  const [images, setImages] = useState<string[]>([])
+  const [imagePaths, setImagePaths] = useState<Map<string, string>>(new Map())
   const taskIdRef = useRef<string>(crypto.randomUUID())
 
   const isEditMode = !!editingTask
 
-  useEffect(() => {
-    if (isOpen && editingTask) {
-      setTitle(editingTask.title)
-      setProjectName(editingTask.projectName)
-      setDescription(editingTask.description)
-      setBranch(editingTask.branch || '')
-      setUseWorktree(editingTask.useWorktree || false)
-      setImages(editingTask.images || [])
-      taskIdRef.current = editingTask.id
-      // Resolve image paths
-      if (editingTask.images?.length) {
+  const initForm = (editing: typeof editingTask) => {
+    if (editing) {
+      setTitle(editing.title)
+      setProjectName(editing.projectName)
+      setDescription(editing.description)
+      setBranch(editing.branch || '')
+      setUseWorktree(editing.useWorktree || false)
+      setImages(editing.images || [])
+      taskIdRef.current = editing.id
+      if (editing.images?.length) {
         Promise.all(
-          editingTask.images.map(async (f) => {
-            const p = await window.api.getTaskImagePath(editingTask.id, f)
+          editing.images.map(async (f) => {
+            const p = await window.api.getTaskImagePath(editing.id, f)
             return [f, p] as [string, string]
           })
         ).then((pairs) => setImagePaths(new Map(pairs)))
       }
-    } else if (isOpen) {
+    } else {
       setProjectName(activeProject || config?.projects[0]?.name || '')
+      setDescription(TASK_TEMPLATE)
       taskIdRef.current = crypto.randomUUID()
-      if (!editingTask) {
-        setDescription(TASK_TEMPLATE)
-      }
     }
-  }, [isOpen, editingTask, activeProject, config])
+  }
 
-  const handleClose = () => {
-    setOpen(false)
-    setEditingTask(null)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (isOpen) initForm(editingTask)
+  }, [isOpen])
+
+  const resetForm = () => {
     setTitle('')
-    setProjectName('')
-    setDescription('')
+    setProjectName(activeProject || config?.projects[0]?.name || '')
+    setDescription(TASK_TEMPLATE)
     setBranch('')
     setUseWorktree(false)
     setImages([])
     setImagePaths(new Map())
+    taskIdRef.current = crypto.randomUUID()
+  }
+
+  const handleClose = () => {
+    setOpen(false)
+    setEditingTask(null)
+    resetForm()
+  }
+
+  const handleExpand = () => {
+    setOpen(false)
+    setEditingTask(null)
+    setSelectedTaskId('new')
+    resetForm()
   }
 
   const handleAddImages = async () => {
@@ -131,6 +146,8 @@ export function AddTaskDialog() {
         useWorktree: useWorktree || undefined,
         images: images.length > 0 ? images : undefined
       })
+      toast.success('Task updated')
+      handleClose()
     } else {
       const existingTasks =
         config?.tasks?.filter((t) => t.projectName === projectName && t.status === 'todo') || []
@@ -147,9 +164,9 @@ export function AddTaskDialog() {
         createdAt: now,
         updatedAt: now
       })
+      toast.success('Task created')
+      handleClose()
     }
-    toast.success(isEditMode ? 'Task updated' : 'Task created')
-    handleClose()
   }
 
   const canSubmit = title.trim() && projectName && description.trim()
@@ -158,18 +175,20 @@ export function AddTaskDialog() {
     <AnimatePresence>
       {isOpen && (
         <>
+          {/* Light backdrop */}
           <motion.div
-            className="fixed inset-0 bg-black/50 z-50"
+            className="fixed inset-0 bg-black/30 z-50"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={handleClose}
           />
 
+          {/* Floating inline form */}
           <motion.div
-            className="fixed top-1/2 left-1/2 z-50 w-[600px] max-h-[85vh] border border-white/[0.08]
+            className="fixed z-50 w-[560px] border border-white/[0.1]
                        rounded-xl shadow-2xl overflow-hidden flex flex-col"
-            style={{ background: '#1e1e22' }}
+            style={{ background: '#1e1e22', left: '50%', top: '50%' }}
             initial={{ opacity: 0, scale: 0.95, x: '-50%', y: '-50%' }}
             animate={{ opacity: 1, scale: 1, x: '-50%', y: '-50%' }}
             exit={{ opacity: 0, scale: 0.95, x: '-50%', y: '-50%' }}
@@ -177,83 +196,60 @@ export function AddTaskDialog() {
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDrop}
           >
-            {/* Header */}
-            <div className="px-6 py-4 border-b border-white/[0.06] shrink-0">
-              <h2 className="text-lg font-medium text-white">
-                {isEditMode ? 'Edit Task' : 'Add Task'}
-              </h2>
-              <p className="text-sm text-gray-500 mt-0.5">
-                {isEditMode ? 'Update task details' : 'Create a task for an agent to work on'}
-              </p>
+            {/* Header bar */}
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06]">
+              <div className="flex items-center gap-2 text-[13px] text-gray-400">
+                <span className="text-gray-500">{isEditMode ? 'Edit Task' : 'New task'}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={handleExpand}
+                  className="p-1 text-gray-500 hover:text-white rounded transition-colors"
+                  title="Expand to full panel"
+                >
+                  <Maximize2 size={14} />
+                </button>
+                <button
+                  onClick={handleClose}
+                  className="p-1 text-gray-500 hover:text-white rounded transition-colors"
+                  title="Close"
+                >
+                  <X size={14} />
+                </button>
+              </div>
             </div>
 
-            <div className="p-6 space-y-4 overflow-auto">
-              {/* Title */}
-              <div>
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 block">
-                  Title
-                </label>
-                <input
-                  type="text"
-                  placeholder="Fix authentication bug"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  autoFocus
-                  className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/[0.06] rounded-lg text-sm
-                             text-gray-200 placeholder-gray-600 focus:border-white/[0.15] focus:outline-none"
-                />
-              </div>
+            {/* Form body */}
+            <div className="flex flex-col max-h-[60vh] overflow-auto">
+              {/* Title input */}
+              <input
+                type="text"
+                placeholder="Task title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                autoFocus
+                className="w-full px-4 pt-3 pb-1 bg-transparent text-[15px] font-medium
+                           text-gray-200 placeholder-gray-600 focus:outline-none"
+              />
 
-              {/* Project */}
-              <div>
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 block">
-                  Project
-                </label>
-                <select
-                  value={projectName}
-                  onChange={(e) => setProjectName(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/[0.06] rounded-lg text-sm
-                             text-gray-200 focus:border-white/[0.15] focus:outline-none"
-                >
-                  <option value="">Select project</option>
-                  {config?.projects.map((p) => (
-                    <option key={p.name} value={p.name}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Description with Markdown */}
-              <div>
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 block">
-                  Description
-                </label>
-                <p className="text-[11px] text-gray-600 mb-1.5">
-                  This will be sent as the prompt to the coding agent.
-                </p>
+              {/* Description */}
+              <div className="px-4 pb-3 min-h-[120px]">
                 <RichMarkdownEditor
                   value={description}
                   onChange={setDescription}
-                  placeholder="Describe the task in detail, or type / for commands..."
+                  placeholder="Add description..."
                 />
               </div>
 
-              {/* Image attachments */}
-              <div>
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 block">
-                  Images
-                  <span className="text-gray-600 normal-case tracking-normal ml-1">
-                    (optional — drag & drop or click to add)
-                  </span>
-                </label>
-                <div className="flex flex-wrap gap-2">
+              {/* Image previews */}
+              {images.length > 0 && (
+                <div className="px-4 pb-3 flex flex-wrap gap-2">
                   {images.map((filename) => {
                     const absPath = imagePaths.get(filename)
                     return (
                       <div
                         key={filename}
-                        className="relative group/img w-16 h-16 rounded-lg border border-white/[0.08] overflow-hidden bg-white/[0.03]"
+                        className="relative group/img w-14 h-14 rounded-lg border border-white/[0.08] overflow-hidden bg-white/[0.03]"
                       >
                         {absPath && (
                           <img
@@ -272,67 +268,65 @@ export function AddTaskDialog() {
                       </div>
                     )
                   })}
-                  <button
-                    onClick={handleAddImages}
-                    className="w-16 h-16 rounded-lg border border-dashed border-white/[0.1] flex items-center justify-center
-                               text-gray-600 hover:text-gray-400 hover:border-white/[0.2] transition-colors"
-                    title="Add images"
-                  >
-                    <ImagePlus size={18} strokeWidth={1.5} />
-                  </button>
                 </div>
-              </div>
+              )}
+            </div>
 
-              {/* Branch & Worktree */}
-              <div className="flex gap-3 items-end">
-                <div className="flex-1">
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 block">
-                    Branch
-                    <span className="text-gray-600 normal-case tracking-normal ml-1">
-                      (optional)
-                    </span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="feature/my-task"
-                    value={branch}
-                    onChange={(e) => setBranch(e.target.value)}
-                    className="w-full px-3 py-2 bg-white/[0.03] border border-white/[0.06] rounded-lg text-sm
-                               text-gray-200 placeholder-gray-600 focus:border-white/[0.15] focus:outline-none"
-                  />
-                </div>
-                <button
-                  onClick={() => setUseWorktree(!useWorktree)}
-                  className={`p-2.5 rounded-lg border transition-all shrink-0 ${
-                    useWorktree
-                      ? 'border-amber-500/30 bg-amber-500/10 text-amber-400'
-                      : 'border-white/[0.06] text-gray-600 hover:text-gray-400'
-                  }`}
-                  title={useWorktree ? 'Worktree enabled' : 'Enable worktree isolation'}
-                >
-                  <FolderGit2 size={16} strokeWidth={1.5} />
-                </button>
-              </div>
+            {/* Property pills toolbar */}
+            <div className="flex items-center gap-2 px-4 py-2 border-t border-white/[0.06]">
+              {/* Status pill */}
+              <span className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/[0.06] text-xs text-gray-400">
+                <Circle size={10} className="text-gray-400" />
+                Todo
+              </span>
+
+              {/* Project pill */}
+              <select
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+                className="px-2 py-1 rounded-full bg-white/[0.06] text-xs text-gray-400
+                           border-none focus:outline-none cursor-pointer appearance-none"
+                style={{ backgroundImage: 'none' }}
+              >
+                <option value="">Project</option>
+                {config?.projects.map((p) => (
+                  <option key={p.name} value={p.name}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Branch pill */}
+              {(branch || isEditMode) && (
+                <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-white/[0.06] text-xs text-gray-400">
+                  <FolderGit2 size={10} />
+                  {branch || 'branch'}
+                </span>
+              )}
+
+              <div className="flex-1" />
+
+              {/* Attach images */}
+              <button
+                onClick={handleAddImages}
+                className="p-1.5 text-gray-500 hover:text-gray-300 rounded transition-colors"
+                title="Attach images"
+              >
+                <Paperclip size={14} />
+              </button>
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 border-t border-white/[0.06] flex justify-end gap-3 shrink-0">
-              <button
-                onClick={handleClose}
-                className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200
-                           bg-white/[0.04] hover:bg-white/[0.08] rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
+            <div className="flex items-center justify-end px-4 py-3 border-t border-white/[0.06]">
               <button
                 onClick={handleSubmit}
                 disabled={!canSubmit}
-                className="px-4 py-2 text-sm font-medium text-white
+                className="px-3 py-1.5 text-sm font-medium text-white
                            bg-white/[0.1] hover:bg-white/[0.15]
                            disabled:opacity-30 disabled:cursor-not-allowed
                            rounded-lg transition-colors"
               >
-                {isEditMode ? 'Save' : 'Create Task'}
+                {isEditMode ? 'Save' : 'Create task'}
               </button>
             </div>
           </motion.div>

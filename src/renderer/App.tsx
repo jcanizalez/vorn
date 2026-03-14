@@ -31,6 +31,7 @@ import { OnboardingModal } from './components/OnboardingModal'
 import { TerminalPanel } from './components/TerminalPanel'
 import { UpdateBanner } from './components/UpdateBanner'
 import { ToastContainer } from './components/Toast'
+import { AddTaskDialog } from './components/AddTaskDialog'
 
 const isMac = navigator.platform.toUpperCase().includes('MAC')
 
@@ -365,7 +366,7 @@ export function App() {
                   </svg>
                 </button>
                 <button
-                  onClick={() => useAppStore.getState().setSelectedTaskId('new')}
+                  onClick={() => useAppStore.getState().setTaskDialogOpen(true)}
                   className="px-3 py-1.5 text-sm font-medium text-gray-200
                              hover:text-white bg-white/[0.06] hover:bg-white/[0.1]
                              rounded-md transition-colors flex items-center gap-2"
@@ -403,6 +404,7 @@ export function App() {
       <AddProjectDialog />
       <WorkflowEditor />
       <CommandPalette />
+      <AddTaskDialog />
       <WorktreeCleanupDialog />
       <MissedScheduleDialog />
       <DiffSidebar />

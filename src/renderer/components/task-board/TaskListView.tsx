@@ -1,5 +1,9 @@
-import { TaskConfig } from '../../../shared/types'
+import { useState } from 'react'
+import { TaskConfig, TaskStatus } from '../../../shared/types'
 import { TaskCard } from './TaskCard'
+import { STATUS_ICON, STATUS_ICON_COLOR, STATUS_HEADER_BG } from '../../lib/task-status'
+import { ChevronDown, ChevronRight, Plus } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 
 export function TaskListView({
   sections,
@@ -12,9 +16,10 @@ export function TaskListView({
   onReopen,
   onReviewDiff,
   onSelect,
+  onAddTask,
   isSessionLive
 }: {
-  sections: { title: string; tasks: TaskConfig[]; emptyText: string }[]
+  sections: { status: TaskStatus; title: string; tasks: TaskConfig[]; emptyText: string }[]
   onEdit: (task: TaskConfig) => void
   onDelete: (id: string) => void
   onStart: (task: TaskConfig) => void
@@ -24,44 +29,98 @@ export function TaskListView({
   onReopen: (id: string) => void
   onReviewDiff: (id: string) => void
   onSelect?: (task: TaskConfig) => void
+  onAddTask?: (status: TaskStatus) => void
   isSessionLive: (task: TaskConfig) => boolean
 }) {
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+
+  const toggleSection = (title: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(title)) {
+        next.delete(title)
+      } else {
+        next.add(title)
+      }
+      return next
+    })
+  }
+
   return (
-    <div className="space-y-5">
-      {sections.map((section) => (
-        <div key={section.title}>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">
-              {section.title}
-            </span>
-            <span className="text-[10px] text-gray-600 bg-white/[0.04] px-1.5 py-0.5 rounded-full">
-              {section.tasks.length}
-            </span>
+    <div className="space-y-1">
+      {sections.map((section) => {
+        const isCollapsed = collapsed.has(section.title)
+        const SectionIcon = STATUS_ICON[section.status]
+        const iconColor = STATUS_ICON_COLOR[section.status]
+        const headerBg = STATUS_HEADER_BG[section.status]
+
+        return (
+          <div key={section.title}>
+            {/* Section header bar */}
+            <button
+              onClick={() => toggleSection(section.title)}
+              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg ${headerBg} transition-colors hover:brightness-110`}
+            >
+              {isCollapsed ? (
+                <ChevronRight size={14} className="text-gray-400 shrink-0" />
+              ) : (
+                <ChevronDown size={14} className="text-gray-400 shrink-0" />
+              )}
+              <SectionIcon size={14} className={`${iconColor} shrink-0`} />
+              <span className="text-[13px] font-medium text-gray-300">{section.title}</span>
+              <span className="text-[11px] text-gray-500">{section.tasks.length}</span>
+              <div className="flex-1" />
+              <div
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onAddTask?.(section.status)
+                }}
+                className="p-1 text-gray-500 hover:text-gray-300 rounded transition-colors"
+                role="button"
+                title="Add task"
+              >
+                <Plus size={14} />
+              </div>
+            </button>
+
+            {/* Collapsible task list */}
+            <AnimatePresence initial={false}>
+              {!isCollapsed && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  className="overflow-hidden"
+                >
+                  <div className="py-1">
+                    {section.tasks.length === 0 ? (
+                      <p className="text-xs text-gray-600 py-2 pl-10">{section.emptyText}</p>
+                    ) : (
+                      section.tasks.map((task) => (
+                        <TaskCard
+                          key={task.id}
+                          task={task}
+                          onEdit={() => onEdit(task)}
+                          onDelete={() => onDelete(task.id)}
+                          onStart={() => onStart(task)}
+                          onOpenSession={onOpenSession(task)}
+                          onComplete={() => onComplete(task.id)}
+                          onCancel={() => onCancel(task.id)}
+                          onReopen={() => onReopen(task.id)}
+                          onReviewDiff={() => onReviewDiff(task.id)}
+                          onSelect={onSelect ? () => onSelect(task) : undefined}
+                          sessionIsLive={isSessionLive(task)}
+                        />
+                      ))
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-          {section.tasks.length === 0 ? (
-            <p className="text-xs text-gray-600 py-2 pl-1">{section.emptyText}</p>
-          ) : (
-            <div className="space-y-1.5">
-              {section.tasks.map((task) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  onEdit={() => onEdit(task)}
-                  onDelete={() => onDelete(task.id)}
-                  onStart={() => onStart(task)}
-                  onOpenSession={onOpenSession(task)}
-                  onComplete={() => onComplete(task.id)}
-                  onCancel={() => onCancel(task.id)}
-                  onReopen={() => onReopen(task.id)}
-                  onReviewDiff={() => onReviewDiff(task.id)}
-                  onSelect={onSelect ? () => onSelect(task) : undefined}
-                  sessionIsLive={isSessionLive(task)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

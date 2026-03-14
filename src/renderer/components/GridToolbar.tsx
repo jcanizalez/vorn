@@ -184,12 +184,11 @@ export function GridToolbar() {
   const setConfig = useAppStore((s) => s.setConfig)
   const layoutMode = config?.defaults?.layoutMode ?? 'grid'
 
-  const toggleLayout = (): void => {
-    if (!config) return
-    const next = layoutMode === 'grid' ? 'tabs' : 'grid'
+  const setLayoutMode = (mode: 'grid' | 'tabs'): void => {
+    if (!config || layoutMode === mode) return
     const updated = {
       ...config,
-      defaults: { ...config.defaults, layoutMode: next as 'grid' | 'tabs' }
+      defaults: { ...config.defaults, layoutMode: mode }
     }
     window.api.saveConfig(updated)
     setConfig(updated)
@@ -229,15 +228,31 @@ export function GridToolbar() {
         />
       )}
 
-      {/* Layout toggle */}
-      <button
-        onClick={toggleLayout}
-        className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors
-                   text-gray-400 hover:text-white hover:bg-white/[0.06]"
-        title={layoutMode === 'grid' ? 'Switch to tabs' : 'Switch to grid'}
-      >
-        {layoutMode === 'grid' ? TabIcon : GridIcon}
-      </button>
+      {/* Layout toggle — pill segmented control */}
+      <div className="flex items-center bg-white/[0.06] rounded-lg p-0.5">
+        <button
+          onClick={() => setLayoutMode('grid')}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs transition-colors ${
+            layoutMode === 'grid'
+              ? 'bg-white/[0.1] text-white'
+              : 'text-gray-500 hover:text-gray-300'
+          }`}
+        >
+          {GridIcon}
+          <span>Grid</span>
+        </button>
+        <button
+          onClick={() => setLayoutMode('tabs')}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs transition-colors ${
+            layoutMode === 'tabs'
+              ? 'bg-white/[0.1] text-white'
+              : 'text-gray-500 hover:text-gray-300'
+          }`}
+        >
+          {TabIcon}
+          <span>Tabs</span>
+        </button>
+      </div>
     </div>
   )
 }
