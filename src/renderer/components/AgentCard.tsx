@@ -7,12 +7,10 @@ import { TerminalInstance } from './TerminalInstance'
 import { TrafficLights } from './TrafficLights'
 import { InlineRename } from './InlineRename'
 import { GitChangesIndicator } from './GitChangesIndicator'
-import { AGENT_DEFINITIONS } from '../lib/agent-definitions'
-import { destroyTerminal } from '../lib/terminal-registry'
+import { closeTerminalSession } from '../lib/terminal-close'
 import { getDisplayName } from '../lib/terminal-display'
 import { useTerminalScrollButton } from '../hooks/useTerminalScrollButton'
 import { GitBranch, FolderGit2, Server, Pencil, ListTodo, Pin, Archive } from 'lucide-react'
-import { ConfirmPopover } from './ConfirmPopover'
 import { toast } from './Toast'
 
 interface Props {
@@ -60,7 +58,6 @@ export const AgentCard = forwardRef<HTMLDivElement, Props>(function AgentCard(
   const selectedId = useAppStore((s) => s.selectedTerminalId)
   const setSelected = useAppStore((s) => s.setSelectedTerminal)
   const setFocused = useAppStore((s) => s.setFocusedTerminal)
-  const removeTerminal = useAppStore((s) => s.removeTerminal)
   const isMinimized = useAppStore((s) => s.minimizedTerminals.has(terminalId))
   const toggleMinimized = useAppStore((s) => s.toggleMinimized)
   const isRenaming = useAppStore((s) => s.renamingTerminalId === terminalId)
@@ -82,18 +79,10 @@ export const AgentCard = forwardRef<HTMLDivElement, Props>(function AgentCard(
   const isSelected = selectedId === terminalId
   const isPinned = terminal.session.pinned === true
   const isIdlePinned = terminal.status === 'idle' && isPinned
-  const def = AGENT_DEFINITIONS[terminal.session.agentType]
-
   const handleKill = async (): Promise<void> => {
     const name = getDisplayName(terminal.session)
     if (focusedId === terminalId) setFocused(null)
-    try {
-      await window.api.killTerminal(terminalId)
-    } catch (err) {
-      console.warn(`[AgentCard] killTerminal failed for ${terminalId}:`, err)
-    }
-    destroyTerminal(terminalId)
-    removeTerminal(terminalId)
+    await closeTerminalSession(terminalId)
     toast.success(`Session "${name}" closed`)
   }
 

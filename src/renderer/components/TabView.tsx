@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { useAppStore } from '../stores'
 import { useVisibleTerminals } from '../hooks/useVisibleTerminals'
 import { AgentIcon } from './AgentIcon'
 import { TerminalInstance } from './TerminalInstance'
 import { PromptLauncher } from './PromptLauncher'
 import { getDisplayName } from '../lib/terminal-display'
-import { destroyTerminal } from '../lib/terminal-registry'
+import { closeTerminalSession } from '../lib/terminal-close'
 import { AgentStatus } from '../../shared/types'
 import { ConfirmPopover } from './ConfirmPopover'
 import { toast } from './Toast'
@@ -24,7 +24,6 @@ export function TabView() {
   const setActiveTabId = useAppStore((s) => s.setActiveTabId)
   const setSelected = useAppStore((s) => s.setSelectedTerminal)
   const setFocused = useAppStore((s) => s.setFocusedTerminal)
-  const removeTerminal = useAppStore((s) => s.removeTerminal)
   const focusedId = useAppStore((s) => s.focusedTerminalId)
   const statusFilter = useAppStore((s) => s.statusFilter)
 
@@ -65,13 +64,7 @@ export function TabView() {
       setActiveTabId(nextId)
     }
 
-    try {
-      await window.api.killTerminal(id)
-    } catch {
-      // Terminal may already be dead — proceed with cleanup
-    }
-    destroyTerminal(id)
-    removeTerminal(id)
+    await closeTerminalSession(id)
     toast.success(`Session "${name}" closed`)
   }
 

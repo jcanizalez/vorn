@@ -9,6 +9,7 @@ import {
 } from '../../shared/types'
 import type { WorktreeInfo } from '../stores/types'
 import { buildTaskPrompt } from '../../shared/prompt-builder'
+import { closeTerminalSession } from '../lib/terminal-close'
 import { getDisplayName } from '../lib/terminal-display'
 import {
   getTriggerConfig,
@@ -776,12 +777,7 @@ export function ProjectSidebar() {
                                   <button
                                     onClick={async (e) => {
                                       e.stopPropagation()
-                                      try {
-                                        await window.api.killTerminal(s.id)
-                                      } catch {
-                                        // Terminal may already be dead
-                                      }
-                                      useAppStore.getState().removeTerminal(s.id)
+                                      await closeTerminalSession(s.id)
                                     }}
                                     className="opacity-0 group-hover/session:opacity-100 text-gray-600 hover:text-red-400
                                              p-1 rounded-md hover:bg-white/[0.06] transition-all shrink-0"
