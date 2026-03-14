@@ -1,0 +1,312 @@
+import { registerMethod, registerNotification } from './ws-handler'
+import { ptyManager } from './pty-manager'
+import { headlessManager } from './headless-manager'
+import { configManager } from './config-manager'
+import { sessionManager } from './session-persistence'
+import { scheduler } from './scheduler'
+import { scheduleLogManager } from './schedule-log'
+import { getRecentSessions } from './agent-history'
+import { detectIDEs, openInIDE } from './ide-detector'
+import { detectInstalledAgents, clearAgentDetectionCache } from './agent-detector'
+import { clientRegistry } from './broadcast'
+import { hookServer } from './hook-server'
+import { hookStatusMapper } from './hook-status-mapper'
+import { installHooks } from './hook-installer'
+import {
+  installCopilotHooks,
+  uninstallCopilotHooks,
+  CopilotHookInstallation
+} from './copilot-hook-installer'
+import { IPC, WidgetAgentInfo, PermissionRequestInfo } from '@vibegrid/shared/types'
+import * as gitUtils from './git-utils'
+import { saveTaskImage, deleteTaskImage, getTaskImagePath, cleanupTaskImages } from './task-images'
+import {
+  archiveSession,
+  unarchiveSession,
+  listArchivedSessions,
+  saveWorkflowRun,
+  listWorkflowRuns,
+  listWorkflowRunsByTask,
+  updateWorkflowRunStatus
+} from './database'
+import { executeScript } from './script-runner'
+import log from './logger'
+
+const copilotInstallations = new Map<string, CopilotHookInstallation>()
+
+export function registerAllMethods(): void {
+  // Terminal
+  registerMethod('terminal:create', (payload) => {
+    return ptyManager.createPty(payload)
+  })
+  registerMethod('terminal:kill', (id) => ptyManager.killPty(id))
+  registerMethod('shell:create', (cwd) => ptyManager.createShellPty(cwd))
+
+  // Config
+  registerMethod('config:load', () => configManager.loadConfig())
+  registerMethod('config:save', (config) => {
+    clearAgentDetectionCache()
+    return configManager.saveConfig(config)
+  })
+
+  // Sessions
+  registerMethod('sessions:getPrevious', () => sessionManager.getPreviousSessions())
+  registerMethod('sessions:clear', () => sessionManager.clear())
+  registerMethod('sessions:getRecent', (projectPath) => getRecentSessions(projectPath))
+
+  // Git
+  registerMethod('git:listBranches', (projectPath) => ({
+    local: gitUtils.listBranches(projectPath),
+    current: gitUtils.getGitBranch(projectPath)
+  }))
+  registerMethod('git:listRemoteBranches', (projectPath) =>
+    gitUtils.listRemoteBranches(projectPath)
+  )
+  registerMethod('git:createWorktree', ({ projectPath, branch }) =>
+    gitUtils.createWorktree(projectPath, branch)
+  )
+  registerMethod('git:removeWorktree', ({ projectPath, worktreePath, force }) =>
+    gitUtils.removeWorktree(projectPath, worktreePath, force)
+  )
+  registerMethod('git:worktreeDirty', (worktreePath) => gitUtils.isWorktreeDirty(worktreePath))
+  registerMethod('git:listWorktrees', (projectPath) => gitUtils.listWorktrees(projectPath))
+  registerMethod('git:diffStat', (cwd) => gitUtils.getGitDiffStat(cwd))
+  registerMethod('git:diffFull', (cwd) => gitUtils.getGitDiffFull(cwd))
+  registerMethod('git:commit', ({ cwd, message, includeUnstaged }) =>
+    gitUtils.gitCommit(cwd, message, includeUnstaged)
+  )
+  registerMethod('git:push', (cwd) => gitUtils.gitPush(cwd))
+
+  // Scheduler
+  registerMethod('scheduler:getLog', (workflowId) => scheduleLogManager.getEntries(workflowId))
+  registerMethod('scheduler:getNextRun', (workflowId) => {
+    const config = configManager.loadConfig()
+    return scheduler.getNextRun(workflowId, config.workflows ?? [])
+  })
+
+  // Task images
+  registerMethod('task:imageSave', ({ taskId, sourcePath }) => saveTaskImage(taskId, sourcePath))
+  registerMethod('task:imageDelete', ({ taskId, filename }) => deleteTaskImage(taskId, filename))
+  registerMethod('task:imageGetPath', ({ taskId, filename }) => getTaskImagePath(taskId, filename))
+  registerMethod('task:imageCleanup', (taskId) => cleanupTaskImages(taskId))
+
+  // Session archive
+  registerMethod('session:archive', (session) => archiveSession(session))
+  registerMethod('session:unarchive', (id) => unarchiveSession(id))
+  registerMethod('session:listArchived', () => listArchivedSessions())
+
+  // Headless
+  registerMethod('headless:create', (payload) => headlessManager.createHeadless(payload))
+  registerMethod('headless:kill', (id) => headlessManager.killHeadless(id))
+
+  // Scripts
+  registerMethod('script:execute', (config) => executeScript(config))
+
+  // Workflow runs
+  registerMethod('workflowRun:save', (execution) => saveWorkflowRun(execution))
+  registerMethod('workflowRun:list', ({ workflowId, limit }) => listWorkflowRuns(workflowId, limit))
+  registerMethod('workflowRun:listByTask', ({ taskId, limit }) =>
+    listWorkflowRunsByTask(taskId, limit)
+  )
+
+  // Agent/IDE detection
+  registerMethod('agent:detectInstalled', () => detectInstalledAgents())
+  registerMethod('ide:detect', () => detectIDEs())
+  registerMethod('ide:open', ({ ideId, projectPath }) => openInIDE(ideId, projectPath))
+
+  // Fire-and-forget notifications
+  registerNotification('terminal:write', ({ id, data }) => ptyManager.writeToPty(id, data))
+  registerNotification('terminal:resize', ({ id, cols, rows }) =>
+    ptyManager.resizePty(id, cols, rows)
+  )
+
+  // Permission resolution
+  registerMethod('permission:resolve', ({ requestId, allow, updatedPermissions, updatedInput }) => {
+    hookServer.resolvePermission(requestId, allow, { updatedPermissions, updatedInput })
+  })
+
+  // Resolve top pending permission (for global shortcuts)
+  registerMethod('permission:resolve-top', ({ allow }) => {
+    const pending = hookServer.getPendingPermissions()
+    if (pending.length > 0) {
+      hookServer.resolvePermission(pending[0].requestId, allow)
+    }
+  })
+
+  // Widget status update request
+  registerMethod('widget:requestUpdate', () => {
+    broadcastWidgetUpdate()
+  })
+
+  // Workflow execution complete
+  registerMethod(
+    'workflow:executionComplete',
+    (data: {
+      workflowId: string
+      workflowName: string
+      completedAt: string
+      status: 'success' | 'error'
+      sessionsLaunched: number
+      source?: 'scheduler' | 'manual'
+    }) => {
+      if (data.status !== 'success' && data.status !== 'error') return
+      if (data.source === 'scheduler') {
+        scheduleLogManager.addEntry({
+          workflowId: data.workflowId,
+          workflowName: data.workflowName,
+          executedAt: data.completedAt,
+          status: data.status,
+          sessionsLaunched: data.sessionsLaunched
+        })
+      }
+      updateWorkflowRunStatus(data.workflowId, data.completedAt, data.status)
+      configManager.notifyChanged()
+    }
+  )
+
+  // Wire manager events → broadcast to WS clients
+  ptyManager.on('client-message', (channel: string, payload: unknown) => {
+    clientRegistry.broadcast(channel, payload)
+  })
+  headlessManager.on('client-message', (channel: string, payload: unknown) => {
+    clientRegistry.broadcast(channel, payload)
+  })
+  scheduler.on('client-message', (channel: string, payload: unknown) => {
+    clientRegistry.broadcast(channel, payload)
+  })
+
+  // ─── Hook server integration ──────────────────────────────────
+
+  // Handle new terminal sessions (Copilot hook setup)
+  ptyManager.on('session-created', (session, payload) => {
+    if (payload.agentType === 'copilot') {
+      const port = hookServer.getPort()
+      if (port <= 0) return
+      const cwd = session.worktreePath || session.projectPath
+      const installation = installCopilotHooks(cwd, port)
+      copilotInstallations.set(session.id, installation)
+      hookStatusMapper.forceLink(installation.sessionId, session.id)
+      session.hookSessionId = installation.sessionId
+      session.statusSource = 'hooks'
+    }
+  })
+
+  // Clean up Copilot hooks on session exit
+  ptyManager.on('session-exit', (session) => {
+    const inst = copilotInstallations.get(session.id)
+    if (inst) {
+      uninstallCopilotHooks(inst)
+      copilotInstallations.delete(session.id)
+    }
+  })
+
+  // Start hook server
+  hookServer
+    .start()
+    .then((port) => {
+      try {
+        installHooks(port, hookServer.getAuthToken())
+      } catch (err) {
+        log.error('[hooks] failed to install hooks:', err)
+      }
+
+      hookServer.on('permission-cancelled', (requestId: string) => {
+        clientRegistry.broadcast(IPC.WIDGET_PERMISSION_CANCELLED, requestId)
+      })
+
+      hookServer.on('hook-event', (event) => {
+        log.info(`[hooks] ${event.hook_event_name}: session=${event.session_id} cwd=${event.cwd}`)
+        const result = hookStatusMapper.mapEventToStatus(event)
+        if (result) {
+          ptyManager.updateSessionStatus(result.terminalId, result.status)
+          broadcastWidgetUpdate()
+
+          if (event.hook_event_name === 'SessionStart') {
+            try {
+              const config = configManager.loadConfig()
+              const task = config.tasks?.find(
+                (t) =>
+                  t.assignedSessionId === result.terminalId &&
+                  t.status === 'in_progress' &&
+                  !t.agentSessionId
+              )
+              if (task) {
+                task.agentSessionId = event.session_id
+                task.updatedAt = new Date().toISOString()
+                configManager.saveConfig(config)
+                log.info(
+                  `[hooks] stored agentSessionId ${event.session_id} on task "${task.title}"`
+                )
+              }
+            } catch (err) {
+              log.error('[hooks] failed to persist agentSessionId:', err)
+            }
+          }
+        }
+
+        const dismissEvents = ['PostToolUse', 'PostToolUseFailure', 'Stop', 'UserPromptSubmit']
+        if (dismissEvents.includes(event.hook_event_name)) {
+          hookServer.cancelSessionPermissions(event.session_id)
+        }
+      })
+
+      hookServer.on('permission-request', ({ requestId, event }) => {
+        const terminalId =
+          hookStatusMapper.getLinkedTerminal(event.session_id) ??
+          hookStatusMapper.tryLink(event.session_id, event.cwd)
+
+        log.info(
+          `[hooks] permission-request: session=${event.session_id} tool=${event.tool_name} → terminal=${terminalId ?? 'none (passthrough)'}`
+        )
+
+        if (!terminalId) {
+          hookServer.passthroughPermission(requestId)
+          return
+        }
+
+        const session = ptyManager.getActiveSessions().find((s) => s.id === terminalId)
+
+        const permReq: PermissionRequestInfo = {
+          requestId,
+          sessionId: event.session_id,
+          terminalId,
+          toolName: event.tool_name || 'unknown',
+          toolInput: event.tool_input || {},
+          description:
+            typeof event.tool_input?.file_path === 'string'
+              ? (event.tool_input.file_path as string)
+              : typeof event.tool_input?.command === 'string'
+                ? (event.tool_input.command as string)
+                : typeof event.tool_input?.description === 'string'
+                  ? (event.tool_input.description as string)
+                  : undefined,
+          agentType: session?.agentType,
+          projectName: session?.projectName,
+          permissionSuggestions: event.permission_suggestions,
+          questions:
+            event.tool_name === 'AskUserQuestion'
+              ? (event.tool_input?.questions as PermissionRequestInfo['questions'] | undefined)
+              : undefined
+        }
+
+        clientRegistry.broadcast(IPC.WIDGET_PERMISSION_REQUEST, permReq)
+        ptyManager.updateSessionStatus(terminalId, 'waiting')
+        broadcastWidgetUpdate()
+      })
+    })
+    .catch((err) => {
+      log.error('Failed to start hook server:', err)
+    })
+}
+
+function broadcastWidgetUpdate(): void {
+  const sessions = ptyManager.getActiveSessions()
+  const agents: WidgetAgentInfo[] = sessions.map((s) => ({
+    id: s.id,
+    agentType: s.agentType,
+    displayName: s.displayName,
+    projectName: s.projectName,
+    status: s.status
+  }))
+  clientRegistry.broadcast(IPC.WIDGET_STATUS_UPDATE, agents)
+}

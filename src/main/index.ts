@@ -1,24 +1,11 @@
 import { app, BrowserWindow, ipcMain, nativeImage, screen, globalShortcut } from 'electron'
 import path from 'node:path'
-import { registerIpcHandlers } from './ipc-handlers'
-import { ptyManager } from './pty-manager'
-import { headlessManager } from './headless-manager'
-import { configManager } from './config-manager'
-import { sessionManager } from './session-persistence'
-import { scheduler } from './scheduler'
+import { registerIpcHandlers, setBridge } from './ipc-handlers'
 import { createMenu } from './menu'
-import { hookServer } from './hook-server'
-import { installHooks, uninstallHooks } from './hook-installer'
-import {
-  installCopilotHooks,
-  uninstallCopilotHooks,
-  uninstallAllCopilotHooks,
-  CopilotHookInstallation
-} from './copilot-hook-installer'
-import { hookStatusMapper } from './hook-status-mapper'
 import { updateManager } from './update-manager'
-import { IPC, WidgetAgentInfo, PermissionRequestInfo } from '../shared/types'
-import { startMcpSocketServer, stopMcpSocketServer, getSocketPath } from './mcp-socket-server'
+import { IPC, PermissionRequestInfo } from '../shared/types'
+import { launchServer, stopServer, getServerBridge } from './server/server-launcher'
+import type { ServerBridge } from './server/server-bridge'
 import log from './logger'
 import { safeHandle } from './ipc-safe-handle'
 
@@ -38,7 +25,6 @@ process.on('unhandledRejection', (reason) => {
 
 let mainWindow: BrowserWindow | null = null
 let widgetWindow: BrowserWindow | null = null
-const copilotInstallations = new Map<string, CopilotHookInstallation>()
 
 safeHandle('get-mcp-info', () => ({
   execPath: process.execPath,
@@ -78,38 +64,6 @@ function createWindow(): void {
     app.dock.setIcon(nativeImage.createFromPath(iconPath))
   }
 
-  ptyManager.setMainWindow(mainWindow)
-  headlessManager.setMainWindow(mainWindow)
-  scheduler.setMainWindow(mainWindow)
-
-  // Load config and sync agent commands + remote hosts + schedules
-  const config = configManager.loadConfig()
-  if (config.agentCommands) {
-    ptyManager.setAgentCommands(config.agentCommands)
-    headlessManager.setAgentCommands(config.agentCommands)
-  }
-  ptyManager.setRemoteHosts(config.remoteHosts ?? [])
-  scheduler.syncSchedules(config.workflows ?? [])
-
-  // Check for missed schedules on startup
-  const missed = scheduler.checkMissedSchedules(config.workflows ?? [])
-  if (missed.length > 0) {
-    mainWindow.webContents.once('did-finish-load', () => {
-      mainWindow?.webContents.send(IPC.SCHEDULER_MISSED, missed)
-    })
-  }
-
-  // Register config-change callback for main-process mutations (scheduler, hooks, etc.)
-  configManager.onConfigChanged((updatedConfig) => {
-    if (updatedConfig.agentCommands) {
-      ptyManager.setAgentCommands(updatedConfig.agentCommands)
-      headlessManager.setAgentCommands(updatedConfig.agentCommands)
-    }
-    ptyManager.setRemoteHosts(updatedConfig.remoteHosts ?? [])
-    scheduler.syncSchedules(updatedConfig.workflows ?? [])
-    mainWindow?.webContents.send(IPC.CONFIG_CHANGED, updatedConfig)
-  })
-
   if (process.env.ELECTRON_RENDERER_URL) {
     mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {
@@ -117,13 +71,11 @@ function createWindow(): void {
   }
 
   // macOS: close hides window, app stays alive (quit via Cmd+Q)
-  // Windows/Linux: close quits the app
   mainWindow.on('close', (e) => {
     if (process.platform === 'darwin' && !isQuitting) {
       e.preventDefault()
       mainWindow?.hide()
       showWidget()
-      // Keep dock icon visible so user can click to reopen
       app.dock.show().catch(() => {})
       return
     }
@@ -141,7 +93,6 @@ function createWindow(): void {
 let widgetEnabled = true
 let widgetReady = false
 
-/** Send a message to the widget window only if it exists and has finished loading */
 function sendToWidget(channel: string, ...args: unknown[]): void {
   if (!widgetWindow || widgetWindow.isDestroyed() || !widgetReady) return
   widgetWindow.webContents.send(channel, ...args)
@@ -190,28 +141,13 @@ function createWidgetWindow(): void {
   }
 
   widgetReady = false
-
   widgetWindow.webContents.once('did-finish-load', () => {
     widgetReady = true
   })
-
   widgetWindow.on('closed', () => {
     widgetWindow = null
     widgetReady = false
   })
-}
-
-function sendWidgetUpdate(): void {
-  if (!widgetWindow || widgetWindow.isDestroyed()) return
-  const sessions = ptyManager.getActiveSessions()
-  const agents: WidgetAgentInfo[] = sessions.map((s) => ({
-    id: s.id,
-    agentType: s.agentType,
-    displayName: s.displayName,
-    projectName: s.projectName,
-    status: s.status
-  }))
-  sendToWidget(IPC.WIDGET_STATUS_UPDATE, agents)
 }
 
 function showWidget(): void {
@@ -220,7 +156,6 @@ function showWidget(): void {
     createWidgetWindow()
   }
   if (widgetWindow && !widgetWindow.isVisible()) {
-    sendWidgetUpdate()
     widgetWindow.showInactive()
   }
 }
@@ -240,9 +175,87 @@ function toggleWidget(): void {
   }
 }
 
+/**
+ * Wire up server notification forwarding.
+ * When the server pushes events via WebSocket, forward them to the
+ * renderer and widget windows.
+ */
+function wireServerNotifications(bridge: ServerBridge): void {
+  bridge.on('server-notification', (method: string, params: unknown) => {
+    switch (method) {
+      // Terminal data/exit → forward to renderer
+      case IPC.TERMINAL_DATA:
+      case IPC.TERMINAL_EXIT:
+      case IPC.HEADLESS_DATA:
+      case IPC.HEADLESS_EXIT:
+      case IPC.WORKTREE_CONFIRM_CLEANUP:
+      case IPC.CONFIG_CHANGED:
+      case IPC.SCHEDULER_EXECUTE:
+      case IPC.SCHEDULER_MISSED:
+      case IPC.WORKFLOW_EXECUTION_COMPLETE:
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send(method, params)
+        }
+        break
+
+      // Widget status updates
+      case IPC.WIDGET_STATUS_UPDATE:
+        sendToWidget(method, params)
+        break
+
+      // Permission requests → both widget and main window
+      case IPC.WIDGET_PERMISSION_REQUEST: {
+        const permReq = params as PermissionRequestInfo
+        sendToWidget(method, permReq)
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send(method, permReq)
+        }
+        // Show widget only when main window is not focused
+        if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.isFocused()) {
+          showWidget()
+        }
+        updatePermissionShortcuts()
+        break
+      }
+
+      case IPC.WIDGET_PERMISSION_CANCELLED:
+        sendToWidget(method, params)
+        updatePermissionShortcuts()
+        break
+
+      default:
+        // Forward any other server notifications to renderer
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send(method, params)
+        }
+        break
+    }
+  })
+}
+
+function updatePermissionShortcuts(): void {
+  const bridge = getServerBridge()
+  if (!bridge) return
+
+  // Unregister old shortcuts
+  globalShortcut.unregister('CmdOrCtrl+Shift+A')
+  globalShortcut.unregister('CmdOrCtrl+Shift+D')
+
+  // We can't query pending permissions synchronously anymore since they're on the server.
+  // Instead, register shortcuts that send approval/denial for whatever is pending.
+  // The server tracks what's pending.
+  globalShortcut.register('CmdOrCtrl+Shift+A', () => {
+    bridge.request('permission:resolve-top', { allow: true }).catch(() => {})
+  })
+  globalShortcut.register('CmdOrCtrl+Shift+D', () => {
+    bridge.request('permission:resolve-top', { allow: false }).catch(() => {})
+  })
+}
+
 app.whenReady().then(async () => {
   if (isMcpMode) {
-    // Try relaying through the running GUI's socket first
+    // MCP mode still uses local managers directly (not via server)
+    const { getSocketPath } = await import('./mcp-socket-server')
     const { isSocketAvailable, runProxy } = await import('./mcp-proxy')
     const socketPath = getSocketPath()
     const available = await isSocketAvailable(socketPath)
@@ -253,6 +266,9 @@ app.whenReady().then(async () => {
     }
 
     // No GUI running — fall back to standalone MCP
+    const { configManager } = await import('./config-manager')
+    const { ptyManager } = await import('./pty-manager')
+    const { scheduler } = await import('./scheduler')
     configManager.init()
     const config = configManager.loadConfig()
     if (config.agentCommands) {
@@ -265,34 +281,21 @@ app.whenReady().then(async () => {
     return
   }
 
-  configManager.init()
-  configManager.watchDb()
-  registerIpcHandlers({
-    onSessionCreated: (session, payload) => {
-      if (payload.agentType === 'copilot') {
-        const port = hookServer.getPort()
-        if (port <= 0) return
-        const cwd = session.worktreePath || session.projectPath
-        const installation = installCopilotHooks(cwd, port)
-        copilotInstallations.set(session.id, installation)
-        hookStatusMapper.forceLink(installation.sessionId, session.id)
-        session.hookSessionId = installation.sessionId
-        session.statusSource = 'hooks'
-      }
-    }
-  })
+  // ─── Normal GUI mode: launch server + connect bridge ───────────
 
-  // Clean up Copilot hooks.json when sessions exit
-  ptyManager.on('session-exit', (session) => {
-    const inst = copilotInstallations.get(session.id)
-    if (inst) {
-      uninstallCopilotHooks(inst)
-      copilotInstallations.delete(session.id)
-    }
-  })
+  let bridge: ServerBridge
+  try {
+    bridge = await launchServer()
+  } catch (err) {
+    log.error('[main] Failed to launch server:', err)
+    app.quit()
+    return
+  }
 
-  // Window control IPC handlers (used by custom titlebar on Windows/Linux)
-  // Registered once here — NOT inside createWindow() — to prevent double-registration on macOS activate.
+  setBridge(bridge)
+  registerIpcHandlers()
+
+  // Window control IPC handlers (Electron-only)
   ipcMain.on(IPC.WINDOW_MINIMIZE, () => mainWindow?.minimize())
   ipcMain.on(IPC.WINDOW_MAXIMIZE, () => {
     if (mainWindow?.isMaximized()) mainWindow.unmaximize()
@@ -310,16 +313,21 @@ app.whenReady().then(async () => {
     return
   }
 
-  updateManager.init(mainWindow)
-  startMcpSocketServer({ configManager, ptyManager, scheduler })
+  // Wire server notifications → renderer/widget
+  wireServerNotifications(bridge)
 
-  // Load widget setting
-  const config = configManager.loadConfig()
-  widgetEnabled = config.defaults.widgetEnabled !== false
+  updateManager.init(mainWindow)
+
+  // Load widget setting via bridge
+  try {
+    const config = await bridge.request<{ defaults: { widgetEnabled?: boolean } }>(IPC.CONFIG_LOAD)
+    widgetEnabled = config.defaults.widgetEnabled !== false
+  } catch {
+    // Config not available yet, use default
+  }
 
   // Auto show/hide widget based on main window focus
   mainWindow.on('blur', () => {
-    // Only show if a non-widget window got focus (not our own widget)
     setTimeout(() => {
       if (widgetWindow?.isFocused()) return
       showWidget()
@@ -354,18 +362,17 @@ app.whenReady().then(async () => {
     }
   })
 
-  // Renderer relays status changes to widget
   ipcMain.on(IPC.WIDGET_RENDERER_STATUS, () => {
-    sendWidgetUpdate()
+    // Request widget update from server
+    bridge.request('widget:requestUpdate').catch(() => {})
   })
 
-  // Widget enabled/disabled setting
   ipcMain.on(IPC.WIDGET_SET_ENABLED, (_, enabled: boolean) => {
     widgetEnabled = enabled
     if (!enabled) hideWidget()
   })
 
-  // Widget view mode resize (full / compact)
+  // Widget view mode resize
   const VIEW_SIZES = { full: { w: 280, h: 400 }, compact: { w: 140, h: 36 } }
   ipcMain.on('widget:set-view-mode', (_, mode: 'full' | 'compact') => {
     if (!widgetWindow || widgetWindow.isDestroyed()) return
@@ -374,133 +381,15 @@ app.whenReady().then(async () => {
     const [oldX, oldY] = widgetWindow.getPosition()
     const [oldW, oldH] = widgetWindow.getSize()
     const { w, h } = VIEW_SIZES[mode]
-    // Anchor bottom-right corner
     let newX = oldX + (oldW - w)
     let newY = oldY + (oldH - h)
-    // Clamp to screen bounds
     newX = Math.max(0, Math.min(newX, screenW - w))
     newY = Math.max(0, Math.min(newY, screenH - h))
     widgetWindow.setSize(w, h)
     widgetWindow.setPosition(newX, newY)
   })
 
-  // Start hook server for agent status events
-  hookServer
-    .start()
-    .then((port) => {
-      try {
-        installHooks(port, hookServer.getAuthToken())
-      } catch (err) {
-        log.error('[hooks] failed to install hooks:', err)
-      }
-
-      hookServer.on('permission-cancelled', (requestId: string) => {
-        sendToWidget(IPC.WIDGET_PERMISSION_CANCELLED, requestId)
-      })
-
-      hookServer.on('hook-event', (event) => {
-        log.info(`[hooks] ${event.hook_event_name}: session=${event.session_id} cwd=${event.cwd}`)
-        const result = hookStatusMapper.mapEventToStatus(event)
-        if (result) {
-          ptyManager.updateSessionStatus(result.terminalId, result.status)
-          sendWidgetUpdate()
-
-          // Persist agent session ID on the linked task for resume support
-          if (event.hook_event_name === 'SessionStart') {
-            try {
-              const config = configManager.loadConfig()
-              const task = config.tasks?.find(
-                (t) =>
-                  t.assignedSessionId === result.terminalId &&
-                  t.status === 'in_progress' &&
-                  !t.agentSessionId
-              )
-              if (task) {
-                task.agentSessionId = event.session_id
-                task.updatedAt = new Date().toISOString()
-                configManager.saveConfig(config)
-                log.info(
-                  `[hooks] stored agentSessionId ${event.session_id} on task "${task.title}"`
-                )
-              }
-            } catch (err) {
-              log.error('[hooks] failed to persist agentSessionId:', err)
-            }
-          }
-        }
-
-        const dismissEvents = ['PostToolUse', 'PostToolUseFailure', 'Stop', 'UserPromptSubmit']
-        if (dismissEvents.includes(event.hook_event_name)) {
-          hookServer.cancelSessionPermissions(event.session_id)
-        }
-      })
-
-      hookServer.on('permission-request', ({ requestId, event }) => {
-        // Try confirmed link first; fall back to cwd matching in case SessionStart was missed
-        const terminalId =
-          hookStatusMapper.getLinkedTerminal(event.session_id) ??
-          hookStatusMapper.tryLink(event.session_id, event.cwd)
-
-        log.info(
-          `[hooks] permission-request: session=${event.session_id} tool=${event.tool_name} cwd=${event.cwd} → terminal=${terminalId ?? 'none (passthrough)'}`
-        )
-
-        // Not a VibeGrid-managed session — release immediately so Claude handles it natively
-        if (!terminalId) {
-          hookServer.passthroughPermission(requestId)
-          return
-        }
-
-        const session = ptyManager.getActiveSessions().find((s) => s.id === terminalId)
-
-        const permReq: PermissionRequestInfo = {
-          requestId,
-          sessionId: event.session_id,
-          terminalId,
-          toolName: event.tool_name || 'unknown',
-          toolInput: event.tool_input || {},
-          description:
-            typeof event.tool_input?.file_path === 'string'
-              ? (event.tool_input.file_path as string)
-              : typeof event.tool_input?.command === 'string'
-                ? (event.tool_input.command as string)
-                : typeof event.tool_input?.description === 'string'
-                  ? (event.tool_input.description as string)
-                  : undefined,
-          agentType: session?.agentType,
-          projectName: session?.projectName,
-          permissionSuggestions: event.permission_suggestions,
-          questions:
-            event.tool_name === 'AskUserQuestion'
-              ? (event.tool_input?.questions as PermissionRequestInfo['questions'] | undefined)
-              : undefined
-        }
-
-        // Send to widget
-        sendToWidget(IPC.WIDGET_PERMISSION_REQUEST, permReq)
-
-        // Also send to main window
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send(IPC.WIDGET_PERMISSION_REQUEST, permReq)
-        }
-
-        ptyManager.updateSessionStatus(terminalId, 'waiting')
-        sendWidgetUpdate()
-
-        // Show widget only when main window is not focused (permission already sent to main renderer)
-        if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.isFocused()) {
-          showWidget()
-        }
-
-        // Register global shortcuts for quick approval
-        updatePermissionShortcuts()
-      })
-    })
-    .catch((err) => {
-      log.error('Failed to start hook server:', err)
-    })
-
-  // Permission response from widget or main window
+  // Permission response from widget or main window → forward to server
   ipcMain.on(
     IPC.WIDGET_PERMISSION_RESPONSE,
     (
@@ -517,7 +406,9 @@ app.whenReady().then(async () => {
         updatedInput?: unknown
       }
     ) => {
-      hookServer.resolvePermission(requestId, allow, { updatedPermissions, updatedInput })
+      bridge
+        .request('permission:resolve', { requestId, allow, updatedPermissions, updatedInput })
+        .catch((err) => log.error('[main] permission resolve failed:', err))
       updatePermissionShortcuts()
     }
   )
@@ -532,57 +423,15 @@ app.whenReady().then(async () => {
   })
 })
 
-function updatePermissionShortcuts(): void {
-  const pending = hookServer.getPendingPermissions()
-
-  // Unregister old shortcuts
-  globalShortcut.unregister('CmdOrCtrl+Shift+A')
-  globalShortcut.unregister('CmdOrCtrl+Shift+D')
-
-  if (pending.length > 0) {
-    const topRequest = pending[0]
-
-    globalShortcut.register('CmdOrCtrl+Shift+A', () => {
-      hookServer.resolvePermission(topRequest.requestId, true)
-      updatePermissionShortcuts()
-    })
-
-    globalShortcut.register('CmdOrCtrl+Shift+D', () => {
-      hookServer.resolvePermission(topRequest.requestId, false)
-      updatePermissionShortcuts()
-    })
-  }
-}
-
-app.on('before-quit', () => {
+app.on('before-quit', async () => {
   isQuitting = true
-  if (isMcpMode) {
-    scheduler.stopAll()
-    ptyManager.killAll()
-    configManager.close()
-    return
-  }
-  const sessions = ptyManager.getActiveSessions()
-  if (sessions.length > 0) {
-    sessionManager.saveSessions(sessions)
-  }
   globalShortcut.unregisterAll()
-  stopMcpSocketServer()
-  hookServer.stop()
-  uninstallHooks()
-  uninstallAllCopilotHooks()
-  hookStatusMapper.clear()
   updateManager.stop()
-  scheduler.stopAll()
-  headlessManager.killAll()
-  ptyManager.killAll()
-  configManager.close()
+  await stopServer()
 })
 
 app.on('window-all-closed', () => {
   if (isMcpMode) return
-  // macOS: app stays alive (reopen via dock click or Cmd+Q to quit)
-  // Windows/Linux: quit when all windows close
   if (process.platform !== 'darwin') {
     app.quit()
   }

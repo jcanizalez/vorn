@@ -1,0 +1,29 @@
+{
+  "name": "@vibegrid/server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@fastify/websocket": "^11.0.2",
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "@vibegrid/shared": "workspace:*",
+    "better-sqlite3": "^12.6.2",
+    "fastify": "^5.3.3",
+    "node-cron": "^3.0.3",
+    "node-pty": "^1.0.0",
+    "pino": "^9.6.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node-cron": "^3.0.11",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.19.4",
+    "typescript": "^5.6.0"
+  }
+}

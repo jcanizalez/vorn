@@ -1,0 +1,459 @@
+export type AgentType = 'claude' | 'copilot' | 'codex' | 'opencode' | 'gemini'
+
+export type AgentStatus = 'running' | 'waiting' | 'idle' | 'error'
+
+export interface AgentCommandConfig {
+  command: string
+  args: string[]
+  headlessArgs?: string[]
+  fallbackCommand?: string
+  fallbackArgs?: string[]
+}
+
+export interface TerminalSession {
+  id: string
+  agentType: AgentType
+  projectName: string
+  projectPath: string
+  status: AgentStatus
+  createdAt: number
+  pid: number
+  displayName?: string
+  branch?: string
+  worktreePath?: string
+  isWorktree?: boolean
+  remoteHostId?: string
+  remoteHostLabel?: string
+  hookSessionId?: string
+  statusSource?: 'hooks' | 'pattern'
+  pinned?: boolean
+}
+
+export interface ArchivedSession {
+  id: string
+  agentType: AgentType
+  projectName: string
+  projectPath: string
+  displayName?: string
+  branch?: string
+  agentSessionId?: string
+  archivedAt: number
+}
+
+export interface RemoteHost {
+  id: string
+  label: string
+  hostname: string
+  user: string
+  port: number
+  sshKeyPath?: string
+  sshOptions?: string
+}
+
+export interface ProjectConfig {
+  name: string
+  path: string
+  preferredAgents: AgentType[]
+  icon?: string
+  iconColor?: string
+  hostIds?: string[] // 'local' | remote host UUIDs; absent = ['local']
+}
+
+export function getProjectHostIds(project: ProjectConfig): string[] {
+  return project.hostIds?.length ? project.hostIds : ['local']
+}
+
+// Task queue types
+export type TaskStatus = 'todo' | 'in_progress' | 'in_review' | 'done' | 'cancelled'
+
+export type TaskViewMode = 'list' | 'kanban'
+
+export type MainViewMode = 'sessions' | 'tasks'
+
+export interface TaskConfig {
+  id: string
+  projectName: string
+  title: string
+  description: string
+  status: TaskStatus
+  order: number
+  assignedSessionId?: string
+  assignedAgent?: AgentType
+  agentSessionId?: string // Real agent session ID (e.g. Claude session_id from hooks) for resume
+  branch?: string
+  useWorktree?: boolean
+  worktreePath?: string
+  images?: string[] // filenames relative to task-images/{taskId}/
+  createdAt: string
+  updatedAt: string
+  completedAt?: string
+}
+
+// --- Workflow engine types (Logic Apps-style) ---
+
+// Execution context passed from triggers to the execution engine
+export interface WorkflowExecutionContext {
+  task?: TaskConfig
+  trigger?: {
+    type: TriggerConfig['triggerType']
+    fromStatus?: TaskStatus
+    toStatus?: TaskStatus
+  }
+}
+
+export type WorkflowNodeType = 'trigger' | 'launchAgent' | 'script'
+
+export interface WorkflowNodePosition {
+  x: number
+  y: number
+}
+
+// Trigger configs (discriminated union)
+export interface ManualTriggerConfig {
+  triggerType: 'manual'
+}
+export interface OnceTriggerConfig {
+  triggerType: 'once'
+  runAt: string
+}
+export interface RecurringTriggerConfig {
+  triggerType: 'recurring'
+  cron: string
+  timezone?: string
+}
+export interface TaskCreatedTriggerConfig {
+  triggerType: 'taskCreated'
+  projectFilter?: string
+}
+export interface TaskStatusChangedTriggerConfig {
+  triggerType: 'taskStatusChanged'
+  projectFilter?: string
+  fromStatus?: TaskStatus
+  toStatus?: TaskStatus
+}
+export type TriggerConfig =
+  | ManualTriggerConfig
+  | OnceTriggerConfig
+  | RecurringTriggerConfig
+  | TaskCreatedTriggerConfig
+  | TaskStatusChangedTriggerConfig
+
+// Launch Agent action config
+export interface LaunchAgentConfig {
+  agentType: AgentType
+  projectName: string
+  projectPath: string
+  args?: string[]
+  displayName?: string
+  branch?: string
+  useWorktree?: boolean
+  remoteHostId?: string
+  prompt?: string
+  promptDelayMs?: number
+  taskId?: string
+  taskFromQueue?: boolean
+  headless?: boolean
+}
+
+export interface ScriptConfig {
+  scriptType: 'bash' | 'powershell' | 'python' | 'node'
+  scriptContent: string
+  cwd?: string
+  projectName?: string // for resolving cwd
+  projectPath?: string
+  args?: string[]
+}
+
+export type WorkflowNodeConfig = TriggerConfig | LaunchAgentConfig | ScriptConfig
+
+export interface WorkflowNode {
+  id: string
+  type: WorkflowNodeType
+  label: string
+  slug?: string
+  config: WorkflowNodeConfig
+  position: WorkflowNodePosition
+}
+
+export interface WorkflowEdge {
+  id: string
+  source: string
+  target: string
+}
+
+// Execution tracking (runtime only)
+export type NodeExecutionStatus = 'pending' | 'running' | 'success' | 'error' | 'skipped'
+
+export interface NodeExecutionState {
+  nodeId: string
+  status: NodeExecutionStatus
+  startedAt?: string
+  completedAt?: string
+  sessionId?: string
+  error?: string
+  logs?: string
+  output?: string
+  taskId?: string
+  agentSessionId?: string
+}
+
+export interface WorkflowDefinition {
+  id: string
+  name: string
+  icon: string
+  iconColor: string
+  nodes: WorkflowNode[]
+  edges: WorkflowEdge[]
+  enabled: boolean
+  lastRunAt?: string
+  lastRunStatus?: 'success' | 'error'
+  staggerDelayMs?: number
+}
+
+export interface WorkflowExecution {
+  workflowId: string
+  startedAt: string
+  completedAt?: string
+  status: 'running' | 'success' | 'error'
+  nodeStates: NodeExecutionState[]
+  triggerTaskId?: string
+}
+
+export interface NotificationConfig {
+  enabled: boolean
+  onWaiting: boolean
+  onError: boolean
+  onBell: boolean
+  soundEnabled?: boolean
+  soundVolume?: number // 0.0 – 1.0, default 0.5
+}
+
+export interface AppConfig {
+  version: number
+  defaults: {
+    shell: string
+    fontSize: number
+    theme: 'dark' | 'light'
+    rowHeight?: number
+    defaultAgent?: AgentType
+    notifications?: NotificationConfig
+    hasSeenOnboarding?: boolean
+    reopenSessions?: boolean
+    widgetEnabled?: boolean
+    taskViewMode?: TaskViewMode
+    layoutMode?: 'grid' | 'tabs'
+    mainViewMode?: MainViewMode
+  }
+  projects: ProjectConfig[]
+  agentCommands?: Partial<Record<AgentType, AgentCommandConfig>>
+  workflows?: WorkflowDefinition[]
+  remoteHosts?: RemoteHost[]
+  tasks?: TaskConfig[]
+}
+
+export interface RecentSession {
+  sessionId: string
+  agentType: AgentType
+  display: string
+  projectPath: string
+  timestamp: number
+  messageCount: number
+}
+
+export interface CreateTerminalPayload {
+  agentType: AgentType
+  projectName: string
+  projectPath: string
+  resumeSessionId?: string
+  displayName?: string
+  branch?: string
+  useWorktree?: boolean
+  /** Pass an existing worktree path to reuse it (skips createWorktree) */
+  existingWorktreePath?: string
+  remoteHostId?: string
+  initialPrompt?: string
+  promptDelayMs?: number
+  headless?: boolean
+  /** Task ID — when set, the main process writes a .vibegrid/context.md file before agent spawn */
+  taskId?: string
+  /** Per-invocation arg overrides (replaces settings-level args when set) */
+  args?: string[]
+}
+
+export interface HeadlessSession {
+  id: string
+  pid: number
+  agentType: AgentType
+  projectName: string
+  projectPath: string
+  displayName?: string
+  branch?: string
+  status: 'running' | 'exited'
+  exitCode?: number
+  startedAt: number
+  endedAt?: number
+}
+
+export interface ResizePayload {
+  id: string
+  cols: number
+  rows: number
+}
+
+export interface GitDiffStat {
+  filesChanged: number
+  insertions: number
+  deletions: number
+}
+
+export interface GitFileDiff {
+  filePath: string
+  status: 'added' | 'modified' | 'deleted' | 'renamed'
+  insertions: number
+  deletions: number
+  diff: string
+}
+
+export interface GitDiffResult {
+  stat: GitDiffStat
+  files: GitFileDiff[]
+}
+
+export interface GitCommitPayload {
+  cwd: string
+  message: string
+  includeUnstaged: boolean
+}
+
+export interface GitCommitResult {
+  success: boolean
+  error?: string
+}
+
+export const IPC = {
+  TERMINAL_CREATE: 'terminal:create',
+  TERMINAL_WRITE: 'terminal:write',
+  TERMINAL_RESIZE: 'terminal:resize',
+  TERMINAL_KILL: 'terminal:kill',
+  TERMINAL_DATA: 'terminal:data',
+  TERMINAL_EXIT: 'terminal:exit',
+  CONFIG_LOAD: 'config:load',
+  CONFIG_SAVE: 'config:save',
+  CONFIG_CHANGED: 'config:changed',
+  SESSIONS_GET_PREVIOUS: 'sessions:getPrevious',
+  SESSIONS_CLEAR: 'sessions:clear',
+  SESSIONS_GET_RECENT: 'sessions:getRecent',
+  DIALOG_OPEN_DIRECTORY: 'dialog:openDirectory',
+  IDE_DETECT: 'ide:detect',
+  IDE_OPEN: 'ide:open',
+  GIT_LIST_BRANCHES: 'git:listBranches',
+  GIT_LIST_REMOTE_BRANCHES: 'git:listRemoteBranches',
+  GIT_CREATE_WORKTREE: 'git:createWorktree',
+  GIT_REMOVE_WORKTREE: 'git:removeWorktree',
+  GIT_WORKTREE_DIRTY: 'git:worktreeDirty',
+  GIT_LIST_WORKTREES: 'git:listWorktrees',
+  WORKTREE_CONFIRM_CLEANUP: 'worktree:confirmCleanup',
+  GIT_DIFF_STAT: 'git:diffStat',
+  GIT_DIFF_FULL: 'git:diffFull',
+  GIT_COMMIT: 'git:commit',
+  GIT_PUSH: 'git:push',
+  DIALOG_OPEN_FILE: 'dialog:openFile',
+  SCHEDULER_EXECUTE: 'scheduler:execute',
+  SCHEDULER_MISSED: 'scheduler:missed',
+  SCHEDULER_GET_LOG: 'scheduler:getLog',
+  SCHEDULER_GET_NEXT_RUN: 'scheduler:getNextRun',
+  WORKFLOW_EXECUTION_COMPLETE: 'workflow:executionComplete',
+  WINDOW_MINIMIZE: 'window:minimize',
+  WINDOW_MAXIMIZE: 'window:maximize',
+  WINDOW_CLOSE: 'window:close',
+  WIDGET_STATUS_UPDATE: 'widget:status-update',
+  WIDGET_FOCUS_TERMINAL: 'widget:focus-terminal',
+  WIDGET_HIDE: 'widget:hide',
+  WIDGET_TOGGLE: 'widget:toggle',
+  WIDGET_RENDERER_STATUS: 'widget:renderer-status',
+  WIDGET_SET_ENABLED: 'widget:set-enabled',
+  WIDGET_PERMISSION_REQUEST: 'widget:permission-request',
+  WIDGET_PERMISSION_RESPONSE: 'widget:permission-response',
+  WIDGET_PERMISSION_CANCELLED: 'widget:permission-cancelled',
+  SHELL_CREATE: 'shell:create',
+  UPDATE_DOWNLOADED: 'update:downloaded',
+  UPDATE_INSTALL: 'update:install',
+  TASK_IMAGE_SAVE: 'task:imageSave',
+  TASK_IMAGE_DELETE: 'task:imageDelete',
+  TASK_IMAGE_GET_PATH: 'task:imageGetPath',
+  TASK_IMAGE_CLEANUP: 'task:imageCleanup',
+  DIALOG_OPEN_IMAGE: 'dialog:openImage',
+  SESSION_ARCHIVE: 'session:archive',
+  SESSION_UNARCHIVE: 'session:unarchive',
+  SESSION_LIST_ARCHIVED: 'session:listArchived',
+  HEADLESS_CREATE: 'headless:create',
+  HEADLESS_KILL: 'headless:kill',
+  HEADLESS_DATA: 'headless:data',
+  HEADLESS_EXIT: 'headless:exit',
+  SCRIPT_EXECUTE: 'script:execute',
+  WORKFLOW_RUN_SAVE: 'workflowRun:save',
+  WORKFLOW_RUN_LIST: 'workflowRun:list',
+  WORKFLOW_RUN_LIST_BY_TASK: 'workflowRun:listByTask',
+  AGENT_DETECT_INSTALLED: 'agent:detectInstalled'
+} as const
+
+export interface PermissionSuggestion {
+  type: 'addRules' | 'setMode' | string
+  destination?: string // "session" | "localSettings"
+  behavior?: string // "allow"
+  rules?: Array<{ toolName?: string; ruleContent?: string }>
+  mode?: string // "acceptEdits" | "plan"
+  [key: string]: unknown
+}
+
+export interface AskUserQuestion {
+  question: string
+  header?: string
+  multiSelect?: boolean
+  options?: Array<{ label: string; description?: string }>
+}
+
+export interface HookEvent {
+  session_id: string
+  hook_event_name: string
+  cwd: string
+  tool_name?: string
+  tool_input?: Record<string, unknown>
+  tool_use_id?: string
+  permission_mode?: string
+  transcript_path?: string
+  message?: string
+  title?: string
+  permission_suggestions?: PermissionSuggestion[]
+}
+
+export interface PermissionRequestInfo {
+  requestId: string
+  sessionId: string
+  terminalId?: string
+  toolName: string
+  toolInput: Record<string, unknown>
+  description?: string
+  agentType?: AgentType
+  projectName?: string
+  permissionSuggestions?: PermissionSuggestion[]
+  /** Populated when toolName === "AskUserQuestion" */
+  questions?: AskUserQuestion[]
+}
+
+export interface WidgetAgentInfo {
+  id: string
+  agentType: AgentType
+  displayName?: string
+  projectName: string
+  status: AgentStatus
+}
+
+export interface ScheduleLogEntry {
+  workflowId: string
+  workflowName: string
+  executedAt: string
+  status: 'success' | 'error' | 'missed'
+  sessionsLaunched: number
+  error?: string
+}
