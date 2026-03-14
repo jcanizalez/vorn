@@ -104,7 +104,10 @@ export async function startServer(
 }
 
 // Run directly
-const isDirectRun = process.argv[1]?.endsWith('index.ts') || process.argv[1]?.endsWith('index.js')
+const isDirectRun =
+  process.argv[1]?.endsWith('index.ts') ||
+  process.argv[1]?.endsWith('index.js') ||
+  process.argv[1]?.endsWith('index.cjs')
 if (isDirectRun) {
   const portArg = process.argv.find((a) => a.startsWith('--port='))
   const port = portArg ? parseInt(portArg.split('=')[1], 10) : 0
