@@ -41,19 +41,30 @@ export function TaskKanbanBoard({
   const [dragOverCol, setDragOverCol] = useState<TaskStatus | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const dragTaskId = useRef<string | null>(null)
+  const dragEnterCount = useRef<Map<TaskStatus, number>>(new Map())
 
   const handleDragStart = (taskId: string) => {
     dragTaskId.current = taskId
     setDraggingId(taskId)
   }
 
-  const handleDragOver = (e: React.DragEvent, status: TaskStatus) => {
+  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
+  }
+
+  const handleDragEnter = (status: TaskStatus) => {
+    const count = (dragEnterCount.current.get(status) ?? 0) + 1
+    dragEnterCount.current.set(status, count)
     setDragOverCol(status)
   }
 
-  const handleDragLeave = () => {
-    setDragOverCol(null)
+  const handleDragLeave = (status: TaskStatus) => {
+    const count = (dragEnterCount.current.get(status) ?? 1) - 1
+    dragEnterCount.current.set(status, count)
+    if (count <= 0) {
+      dragEnterCount.current.delete(status)
+      if (dragOverCol === status) setDragOverCol(null)
+    }
   }
 
   const handleDrop = (status: TaskStatus) => {
@@ -61,12 +72,14 @@ export function TaskKanbanBoard({
       onDrop(dragTaskId.current, status)
       dragTaskId.current = null
     }
+    dragEnterCount.current.clear()
     setDraggingId(null)
     setDragOverCol(null)
   }
 
   const handleDragEnd = () => {
     dragTaskId.current = null
+    dragEnterCount.current.clear()
     setDraggingId(null)
     setDragOverCol(null)
   }
@@ -86,8 +99,9 @@ export function TaskKanbanBoard({
             className={`flex-1 min-w-0 flex flex-col rounded-lg transition-all duration-200 ${
               isDragOver ? 'bg-white/[0.04] ring-1 ring-inset ring-white/[0.1]' : 'bg-white/[0.02]'
             }`}
-            onDragOver={(e) => handleDragOver(e, col.status)}
-            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDragEnter={() => handleDragEnter(col.status)}
+            onDragLeave={() => handleDragLeave(col.status)}
             onDrop={() => handleDrop(col.status)}
           >
             {/* Column header */}

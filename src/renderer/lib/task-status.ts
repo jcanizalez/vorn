@@ -1,7 +1,7 @@
 import { TaskStatus } from '../../shared/types'
 import { Circle, Clock, Eye, CheckCircle2, XCircle } from 'lucide-react'
 
-export const STATUS_BADGE: Record<string, { label: string; color: string; bg: string }> = {
+export const STATUS_BADGE: Record<TaskStatus, { label: string; color: string; bg: string }> = {
   todo: { label: 'Todo', color: 'text-gray-400', bg: 'bg-gray-500/20' },
   in_progress: { label: 'In Progress', color: 'text-blue-400', bg: 'bg-blue-500/20' },
   in_review: { label: 'In Review', color: 'text-purple-400', bg: 'bg-purple-500/20' },
@@ -9,7 +9,7 @@ export const STATUS_BADGE: Record<string, { label: string; color: string; bg: st
   cancelled: { label: 'Cancelled', color: 'text-gray-500', bg: 'bg-gray-500/10' }
 }
 
-export const STATUS_ICON: Record<string, React.FC<{ size?: number; className?: string }>> = {
+export const STATUS_ICON: Record<TaskStatus, React.FC<{ size?: number; className?: string }>> = {
   todo: Circle,
   in_progress: Clock,
   in_review: Eye,

@@ -49,10 +49,15 @@ export function KanbanCardMenu({
   const [position, setPosition] = useState({ top: 0, left: 0 })
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
 
   const handleTrigger = (e: React.MouseEvent) => {
     e.stopPropagation()
     e.preventDefault()
+    if (open) {
+      close()
+      return
+    }
     const el = (e.target as HTMLElement).closest('button') ?? (e.target as HTMLElement)
     const rect = el.getBoundingClientRect()
     setPosition({
@@ -76,7 +81,9 @@ export function KanbanCardMenu({
   useEffect(() => {
     if (!open) return
     const handleClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) close()
+      const target = e.target as Node
+      if (triggerRef.current?.contains(target)) return
+      if (menuRef.current && !menuRef.current.contains(target)) close()
     }
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') close()
@@ -155,6 +162,7 @@ export function KanbanCardMenu({
   return (
     <>
       <button
+        ref={triggerRef}
         onClick={handleTrigger}
         className="p-1 text-gray-600 hover:text-gray-300 rounded transition-colors opacity-0 group-hover:opacity-100"
         title="More actions"
@@ -210,7 +218,7 @@ export function KanbanCardMenu({
                       className="w-full flex items-center gap-2.5 px-3 py-1.5 text-xs text-gray-300 hover:bg-white/[0.06] transition-colors"
                     >
                       <item.icon size={14} className={item.className ?? 'text-gray-500'} />
-                      <span className={item.className ? '' : ''}>{item.label}</span>
+                      <span>{item.label}</span>
                     </button>
                   </div>
                 ))
