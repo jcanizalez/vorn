@@ -63,15 +63,19 @@ export async function launchServer(): Promise<ServerBridge> {
   } else {
     // Production: use Electron's utilityProcess.fork() to run the bundled
     // server as a proper Node.js child process (NOT another Electron instance)
+    //
+    // The main process has Electron's ASAR patching so it can resolve native
+    // modules. The utilityProcess does NOT, so we resolve the absolute paths
+    // here and pass them via environment variables for the server banner to use.
+    const asarUnpacked = path.join(app.getAppPath() + '.unpacked', 'node_modules')
+
     const child = utilityProcess.fork(serverEntryPoint, [`--data-dir=${dataDir}`], {
       stdio: 'pipe',
       env: {
         ...process.env,
         NODE_ENV: 'production',
-        NODE_PATH: [
-          path.join(app.getAppPath(), 'node_modules'),
-          path.join(app.getAppPath() + '.unpacked', 'node_modules')
-        ].join(path.delimiter)
+        VIBEGRID_NATIVE_MODULES_PATH: asarUnpacked,
+        NODE_PATH: [path.join(app.getAppPath(), 'node_modules'), asarUnpacked].join(path.delimiter)
       }
     })
 
@@ -153,7 +157,7 @@ function resolveServerEntry(): string {
     // Dev mode — use tsx to run TypeScript directly
     return path.join(__dirname, '../../packages/server/src/index.ts')
   }
-  return path.join(process.resourcesPath, 'server', 'index.js')
+  return path.join(process.resourcesPath, 'server', 'index.cjs')
 }
 
 function readServerPort(child: ChildProcess | UtilityProcess): Promise<number> {
