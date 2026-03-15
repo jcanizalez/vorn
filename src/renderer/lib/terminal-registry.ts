@@ -7,6 +7,7 @@ interface TerminalEntry {
   fitAddon: FitAddon
   removeDataListener: () => void
   currentContainer: HTMLDivElement | null
+  _loadRenderer?: (() => void) | null
 }
 
 export interface TerminalViewportState {
@@ -117,7 +118,7 @@ function createTerminalEntry(terminalId: string): TerminalEntry {
   }
 
   // Store a flag so we only load renderer once after first open
-  ;(entry as any)._loadRenderer = loadRenderer
+  entry._loadRenderer = loadRenderer
 
   registry.set(terminalId, entry)
 
@@ -143,8 +144,8 @@ export function attachTerminal(terminalId: string, container: HTMLDivElement): T
     entry.term.open(container)
     entry.currentContainer = container
     // Load GPU renderer after open
-    ;(entry as any)._loadRenderer?.()
-    delete (entry as any)._loadRenderer
+    entry._loadRenderer?.()
+    entry._loadRenderer = null
     setTimeout(() => entry!.fitAddon.fit(), 0)
     return entry
   }

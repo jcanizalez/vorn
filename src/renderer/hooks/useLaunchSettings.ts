@@ -28,10 +28,10 @@ export function useLaunchSettings() {
   const activeProject = useAppStore((s) => s.activeProject)
   const defaultAgent = config?.defaults.defaultAgent || 'claude'
 
-  const saved = useRef(loadSaved())
-  const [selectedAgent, setSelectedAgent] = useState<AgentType>(saved.current.agent || defaultAgent)
-  const [selectedProject, setSelectedProject] = useState(saved.current.project || '')
-  const [selectedHost, setSelectedHost] = useState(saved.current.host || 'local')
+  const saved = loadSaved()
+  const [selectedAgent, setSelectedAgent] = useState<AgentType>(saved.agent || defaultAgent)
+  const [selectedProject, setSelectedProject] = useState(saved.project || '')
+  const [selectedHost, setSelectedHost] = useState(saved.host || 'local')
   const [localBranches, setLocalBranches] = useState<string[]>([])
   const [remoteBranches, setRemoteBranches] = useState<string[]>([])
   const [currentBranch, setCurrentBranch] = useState<string | null>(null)
@@ -50,6 +50,7 @@ export function useLaunchSettings() {
   useEffect(() => {
     if (selectedProject && config?.projects) {
       const exists = config.projects.some((p) => p.name === selectedProject)
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: clear invalid selection when config changes
       if (!exists) setSelectedProject('')
     }
   }, [config?.projects, selectedProject])
@@ -58,6 +59,7 @@ export function useLaunchSettings() {
   useEffect(() => {
     if (activeProject && config?.projects) {
       const exists = config.projects.some((p) => p.name === activeProject)
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: sync UI selection to sidebar state
       if (exists) setSelectedProject(activeProject)
     }
   }, [activeProject, config?.projects])
@@ -68,6 +70,7 @@ export function useLaunchSettings() {
   // Load branches when project changes
   useEffect(() => {
     if (!activeProjectPath) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: reset state when project deselected
       setLocalBranches([])
       setRemoteBranches([])
       setCurrentBranch(null)

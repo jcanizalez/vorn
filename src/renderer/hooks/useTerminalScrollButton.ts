@@ -10,10 +10,7 @@ export function useTerminalScrollButton(terminalId: string | null | undefined) {
   const [showScrollBtn, setShowScrollBtn] = useState(false)
 
   useEffect(() => {
-    if (!terminalId) {
-      setShowScrollBtn(false)
-      return
-    }
+    if (!terminalId) return
 
     let scrollDispose: (() => void) | undefined
     const check = (): void => setShowScrollBtn(!isAtBottom(terminalId))
@@ -26,6 +23,7 @@ export function useTerminalScrollButton(terminalId: string | null | undefined) {
     return () => {
       readyDispose()
       scrollDispose?.()
+      setShowScrollBtn(false)
     }
   }, [terminalId])
 
