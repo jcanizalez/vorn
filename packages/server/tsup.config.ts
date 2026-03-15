@@ -40,7 +40,7 @@ const NATIVE_MODULE_PATCH = `
       if (nativeModules[request]) {
         return origLoad.call(this, path.join(nativePath, request), parent, isMain);
       }
-      // Shim the 'bindings' package — return a function that resolves
+      // Shim the 'bindings' package -- return a function that resolves
       // addon names from our known unpacked paths
       if (request === 'bindings') {
         return function(opts) {
@@ -62,7 +62,7 @@ const NATIVE_MODULE_PATCH = `
 export default defineConfig({
   entry: ['src/index.ts'],
   format: ['cjs'],
-  target: 'node20',
+  target: 'node22',
   clean: true,
   banner: {
     js: NATIVE_MODULE_PATCH

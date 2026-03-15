@@ -37,6 +37,7 @@ linux:
   icon: resources/icon.png
 
 npmRebuild: true
+afterPack: scripts/afterPack.cjs
 files:
   - 'out/**/*'
   - 'node_modules/**/*'

@@ -20,10 +20,10 @@
     "@fastify/websocket": "^11.0.2",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@vibegrid/shared": "workspace:*",
-    "better-sqlite3": "^12.6.2",
+    "better-sqlite3": "^12.8.0",
     "fastify": "^5.3.3",
     "node-cron": "^3.0.3",
-    "node-pty": "^1.0.0",
+    "node-pty": "^1.2.0-beta.12",
     "pino": "^9.6.0",
     "zod": "^4.3.6"
   },
