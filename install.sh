@@ -40,7 +40,7 @@ case "$OS" in
     curl -fSL --progress-bar -o "${TMPDIR_INSTALL}/${ARTIFACT}" "$URL"
 
     echo "Mounting DMG..."
-    MOUNT_POINT="$(hdiutil attach "${TMPDIR_INSTALL}/${ARTIFACT}" -nobrowse -quiet | tail -1 | awk '{print $NF}')"
+    MOUNT_POINT="$(hdiutil attach "${TMPDIR_INSTALL}/${ARTIFACT}" -nobrowse -quiet | grep '/Volumes/' | sed 's/.*\(\/Volumes\/.*\)/\1/' | head -1)"
 
     if [ -d "/Applications/${APP_NAME}.app" ]; then
       echo "Removing previous installation..."
