@@ -28,7 +28,11 @@ echo "Installing ${APP_NAME} ${VERSION}..."
 
 case "$OS" in
   Darwin)
-    ARTIFACT="${APP_NAME}-${VERSION_NUM}.dmg"
+    case "$ARCH" in
+      arm64) DMG_ARCH="arm64" ;;
+      *)     DMG_ARCH="x64" ;;
+    esac
+    ARTIFACT="${APP_NAME}-${VERSION_NUM}-${DMG_ARCH}.dmg"
     URL="https://github.com/${REPO}/releases/download/${VERSION}/${ARTIFACT}"
     TMPDIR_INSTALL="$(mktemp -d)"
 
