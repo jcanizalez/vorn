@@ -13,9 +13,13 @@ let isQuitting = false
 // Ensure only one instance of the app runs at a time.
 // Without this, spawning bugs (e.g. using process.execPath to launch the server)
 // could cause an infinite cascade of Electron app instances.
-const gotTheLock = app.requestSingleInstanceLock()
-if (!gotTheLock) {
-  app.quit()
+// In dev mode, skip the lock so dev and production can run side by side.
+const isDev = !!process.env.ELECTRON_RENDERER_URL
+if (!isDev) {
+  const gotTheLock = app.requestSingleInstanceLock()
+  if (!gotTheLock) {
+    app.quit()
+  }
 }
 
 // Prevent EPIPE and other uncaught errors from crashing the main process

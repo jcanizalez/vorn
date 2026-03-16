@@ -37,7 +37,7 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   isCommandPaletteOpen: false,
   isShortcutsPanelOpen: false,
   isSettingsOpen: false,
-  settingsCategory: 'general',
+  settingsCategory: 'appearance',
   showSessionBanner: false,
   previousSessions: [],
   gridColumns: (savedGrid.gridColumns as number) ?? 0,

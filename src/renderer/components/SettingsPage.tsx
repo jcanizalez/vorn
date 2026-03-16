@@ -1,81 +1,134 @@
 import { motion } from 'framer-motion'
 import { useAppStore } from '../stores'
 import { SettingsCategory } from '../stores/types'
+import { SectionHeader } from './settings/SectionHeader'
+import { AppearanceSettings } from './settings/AppearanceSettings'
 import { GeneralSettings } from './settings/GeneralSettings'
+import { NotificationSettings } from './settings/NotificationSettings'
 import { AgentSettings } from './settings/AgentSettings'
 import { HostSettings } from './settings/HostSettings'
 import { McpSettings } from './settings/McpSettings'
+import { AboutSettings } from './settings/AboutSettings'
 
-const CATEGORIES: { key: SettingsCategory; label: string; icon: React.ReactNode }[] = [
+interface SidebarSection {
+  header: string
+  items: { key: SettingsCategory; label: string; icon: React.ReactNode }[]
+}
+
+const SIDEBAR_SECTIONS: SidebarSection[] = [
   {
-    key: 'general',
-    label: 'General',
-    icon: (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      >
-        <circle cx="12" cy="12" r="3" />
-        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
-      </svg>
-    )
+    header: 'APP SETTINGS',
+    items: [
+      {
+        key: 'appearance',
+        label: 'Appearance',
+        icon: (
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          >
+            <circle cx="12" cy="12" r="5" />
+            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+          </svg>
+        )
+      },
+      {
+        key: 'general',
+        label: 'General',
+        icon: (
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          >
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
+          </svg>
+        )
+      },
+      {
+        key: 'notifications',
+        label: 'Notifications',
+        icon: (
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          >
+            <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 01-3.46 0" />
+          </svg>
+        )
+      }
+    ]
   },
   {
-    key: 'agents',
-    label: 'Coding Agents',
-    icon: (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      >
-        <polyline points="4 17 10 11 4 5" />
-        <line x1="12" y1="19" x2="20" y2="19" />
-      </svg>
-    )
-  },
-  {
-    key: 'hosts',
-    label: 'Remote Hosts',
-    icon: (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      >
-        <rect x="2" y="2" width="20" height="8" rx="2" />
-        <rect x="2" y="14" width="20" height="8" rx="2" />
-        <circle cx="6" cy="6" r="1" fill="currentColor" />
-        <circle cx="6" cy="18" r="1" fill="currentColor" />
-      </svg>
-    )
-  },
-  {
-    key: 'mcp',
-    label: 'MCP',
-    icon: (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      >
-        <path d="M12 2v4m0 12v4M2 12h4m12 0h4" />
-        <circle cx="12" cy="12" r="4" />
-      </svg>
-    )
+    header: 'CONNECTIONS',
+    items: [
+      {
+        key: 'agents',
+        label: 'Coding Agents',
+        icon: (
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          >
+            <polyline points="4 17 10 11 4 5" />
+            <line x1="12" y1="19" x2="20" y2="19" />
+          </svg>
+        )
+      },
+      {
+        key: 'hosts',
+        label: 'Remote Hosts',
+        icon: (
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          >
+            <rect x="2" y="2" width="20" height="8" rx="2" />
+            <rect x="2" y="14" width="20" height="8" rx="2" />
+            <circle cx="6" cy="6" r="1" fill="currentColor" />
+            <circle cx="6" cy="18" r="1" fill="currentColor" />
+          </svg>
+        )
+      },
+      {
+        key: 'mcp',
+        label: 'MCP',
+        icon: (
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          >
+            <path d="M12 2v4m0 12v4M2 12h4m12 0h4" />
+            <circle cx="12" cy="12" r="4" />
+          </svg>
+        )
+      }
+    ]
   }
 ]
 
@@ -118,32 +171,68 @@ export function SettingsPage() {
           </button>
         </div>
 
-        {/* Categories */}
-        <div className="flex-1 px-3 pt-4 space-y-0.5">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat.key}
-              onClick={() => setSettingsCategory(cat.key)}
-              className={`w-full text-left px-3 py-2 rounded-md text-[13px] transition-colors flex items-center gap-2.5 ${
-                settingsCategory === cat.key
-                  ? 'bg-white/[0.08] text-white'
-                  : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'
-              }`}
-            >
-              {cat.icon}
-              {cat.label}
-            </button>
+        {/* Sections */}
+        <div className="flex-1 px-3 pt-1 overflow-auto">
+          {SIDEBAR_SECTIONS.map((section) => (
+            <div key={section.header}>
+              <SectionHeader label={section.header} />
+              <div className="space-y-0.5">
+                {section.items.map((item) => (
+                  <button
+                    key={item.key}
+                    onClick={() => setSettingsCategory(item.key)}
+                    className={`w-full text-left px-3 py-2 rounded-md text-[13px] transition-colors flex items-center gap-2.5 ${
+                      settingsCategory === item.key
+                        ? 'bg-white/[0.08] text-white'
+                        : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'
+                    }`}
+                  >
+                    {item.icon}
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
+        </div>
+
+        {/* About — pinned to bottom */}
+        <div className="px-3 pb-4 pt-2 border-t border-white/[0.06]">
+          <button
+            onClick={() => setSettingsCategory('about')}
+            className={`w-full text-left px-3 py-2 rounded-md text-[13px] transition-colors flex items-center gap-2.5 ${
+              settingsCategory === 'about'
+                ? 'bg-white/[0.08] text-white'
+                : 'text-gray-500 hover:text-white hover:bg-white/[0.04]'
+            }`}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+            About
+          </button>
         </div>
       </div>
 
       {/* Content area */}
       <div className="flex-1 overflow-auto">
         <div className="max-w-2xl mx-auto px-8 py-8">
+          {settingsCategory === 'appearance' && <AppearanceSettings />}
           {settingsCategory === 'general' && <GeneralSettings />}
+          {settingsCategory === 'notifications' && <NotificationSettings />}
           {settingsCategory === 'agents' && <AgentSettings />}
           {settingsCategory === 'hosts' && <HostSettings />}
           {settingsCategory === 'mcp' && <McpSettings />}
+          {settingsCategory === 'about' && <AboutSettings />}
         </div>
       </div>
     </motion.div>

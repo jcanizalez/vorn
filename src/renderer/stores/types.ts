@@ -63,7 +63,14 @@ export interface ProjectsSlice {
   updateWorkspace: (id: string, updates: Partial<WorkspaceConfig>) => void
 }
 
-export type SettingsCategory = 'general' | 'agents' | 'hosts' | 'mcp'
+export type SettingsCategory =
+  | 'appearance'
+  | 'general'
+  | 'notifications'
+  | 'agents'
+  | 'hosts'
+  | 'mcp'
+  | 'about'
 
 export interface UISlice {
   activeWorkspace: string
