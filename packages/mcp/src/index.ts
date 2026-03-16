@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+declare const __MCP_VERSION__: string | undefined
+
+import { createRequire } from 'node:module'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { configManager } from '@vibegrid/server/config-manager'
 import { ptyManager } from '@vibegrid/server/pty-manager'
@@ -24,7 +27,11 @@ async function main() {
   ptyManager.setRemoteHosts(config.remoteHosts ?? [])
   scheduler.syncSchedules(config.workflows ?? [])
 
-  const server = createMcpServer({ configManager, ptyManager, scheduler }, '0.7.2')
+  const version =
+    typeof __MCP_VERSION__ !== 'undefined'
+      ? __MCP_VERSION__
+      : (createRequire(import.meta.url)('../package.json') as { version: string }).version
+  const server = createMcpServer({ configManager, ptyManager, scheduler }, version)
   const transport = new StdioServerTransport()
   await server.connect(transport)
 

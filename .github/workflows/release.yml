@@ -150,3 +150,47 @@ jobs:
           for f in dist/*.AppImage dist/*.deb dist/*.rpm dist/latest-linux.yml; do
             [ -f "$f" ] && gh release upload "$tag" "$f" --clobber
           done
+
+  publish-mcp:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install Python setuptools
+        run: pip install setuptools
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Sync MCP version from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cd packages/mcp && npm pkg set version="$VERSION"
+
+      - name: Build MCP package
+        run: yarn workspace @vibegrid/mcp build
+
+      - name: Publish to npm
+        working-directory: packages/mcp
+        run: |
+          VERSION=$(node -p 'require("./package.json").version')
+          PUBLISHED=$(npm view @vibegrid/mcp version 2>/dev/null || echo "none")
+          if [ "$VERSION" = "$PUBLISHED" ]; then
+            echo "Version $VERSION already published, skipping"
+          else
+            yarn npm publish --access public
+          fi
+        env:
+          YARN_NPM_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

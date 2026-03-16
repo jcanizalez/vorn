@@ -2535,11 +2535,16 @@ __metadata:
     "@modelcontextprotocol/sdk": "npm:^1.27.1"
     "@vibegrid/server": "workspace:*"
     "@vibegrid/shared": "workspace:*"
+    better-sqlite3: "npm:^12.8.0"
+    node-cron: "npm:^3.0.3"
+    node-pty: "npm:1.2.0-beta.12"
+    pino: "npm:^9.6.0"
+    tsup: "npm:^8.5.0"
     tsx: "npm:^4.19.4"
     typescript: "npm:^5.6.0"
     zod: "npm:^4.3.6"
   bin:
-    vibegrid-mcp: ./dist/index.js
+    vibegrid-mcp: dist/index.js
   languageName: unknown
   linkType: soft
 
