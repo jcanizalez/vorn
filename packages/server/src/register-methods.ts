@@ -46,7 +46,8 @@ export function registerAllMethods(): void {
   registerMethod('config:load', () => configManager.loadConfig())
   registerMethod('config:save', (config) => {
     clearAgentDetectionCache()
-    return configManager.saveConfig(config)
+    configManager.saveConfig(config)
+    configManager.notifyChanged()
   })
 
   // Sessions

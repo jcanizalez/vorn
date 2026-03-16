@@ -6,7 +6,7 @@ const STATUS_FILTERS: StatusFilter[] = ['all', 'running', 'waiting', 'idle', 'er
 const isMac = navigator.platform.toUpperCase().includes('MAC')
 const modKey = (e: KeyboardEvent): boolean => (isMac ? e.metaKey : e.ctrlKey)
 
-function isInputFocused(): boolean {
+function _isInputFocused(): boolean {
   const el = document.activeElement
   if (!el) return false
   const tag = el.tagName.toLowerCase()
@@ -180,10 +180,28 @@ export function useKeyboardShortcuts() {
         return
       }
 
-      // Cmd+1-5 — status filters
-      if (modKey(e) && e.key >= '1' && e.key <= '5') {
+      // Cmd+1-9 — jump to card by position
+      if (modKey(e) && !e.altKey && e.key >= '1' && e.key <= '9') {
         e.preventDefault()
         const index = parseInt(e.key) - 1
+        const ids = state.visibleTerminalIds
+        if (index < ids.length) {
+          const layoutMode = state.config?.defaults?.layoutMode ?? 'grid'
+          if (state.focusedTerminalId) {
+            state.setFocusedTerminal(ids[index])
+          } else if (layoutMode === 'tabs') {
+            state.setActiveTabId(ids[index])
+          } else {
+            state.setSelectedTerminal(ids[index])
+          }
+        }
+        return
+      }
+
+      // Alt+1-5 — status filters (use e.code since Alt produces special chars on Mac)
+      if (e.altKey && !modKey(e) && e.code >= 'Digit1' && e.code <= 'Digit5') {
+        e.preventDefault()
+        const index = parseInt(e.code.charAt(5)) - 1
         if (index < STATUS_FILTERS.length) {
           state.setStatusFilter(STATUS_FILTERS[index])
         }

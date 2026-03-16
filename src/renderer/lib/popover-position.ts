@@ -35,11 +35,12 @@ export function calculatePopoverPosition(
   popover: PopoverSize,
   viewport: ViewportSize
 ): PopoverPosition {
-  const halfWidth = popover.width / 2
+  // Compute left edge directly (no CSS translateX(-50%) needed)
   const centerX = anchor.left + anchor.width / 2
-  const minLeft = VIEWPORT_MARGIN + halfWidth
-  const maxLeft = viewport.width - VIEWPORT_MARGIN - halfWidth
-  const left = minLeft > maxLeft ? viewport.width / 2 : clamp(centerX, minLeft, maxLeft)
+  const idealLeft = centerX - popover.width / 2
+  const minLeft = VIEWPORT_MARGIN
+  const maxLeft = viewport.width - VIEWPORT_MARGIN - popover.width
+  const left = minLeft > maxLeft ? VIEWPORT_MARGIN : clamp(idealLeft, minLeft, maxLeft)
 
   const bottomTop = anchor.bottom + POPOVER_GAP
   const topTop = anchor.top - popover.height - POPOVER_GAP

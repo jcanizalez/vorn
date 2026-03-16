@@ -46,6 +46,7 @@ function createWindow(): void {
     height: 900,
     minWidth: 800,
     minHeight: 600,
+    show: false,
     icon: path.join(__dirname, '../../resources/icon.png'),
     titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
     frame: false,
@@ -61,6 +62,11 @@ function createWindow(): void {
       nodeIntegration: false,
       sandbox: false
     }
+  })
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.maximize()
+    mainWindow?.show()
   })
 
   // Set dock icon on macOS (needed in dev mode since there's no app bundle)

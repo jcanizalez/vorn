@@ -754,27 +754,6 @@ export function ProjectSidebar() {
                             <Play size={12} strokeWidth={2} />
                           </button>
                         </Tooltip>
-                        <Tooltip label="Launch in worktree (current branch)" position="right">
-                          <button
-                            onClick={async () => {
-                              const agentType = config?.defaults.defaultAgent || 'claude'
-                              const branchResult = await window.api.listBranches(project.path)
-                              const branch = branchResult.current || 'main'
-                              const session = await window.api.createTerminal({
-                                agentType,
-                                projectName: project.name,
-                                projectPath: project.path,
-                                branch,
-                                useWorktree: true
-                              })
-                              addTerminal(session)
-                            }}
-                            className="opacity-0 group-hover/sessions:opacity-100 text-gray-600 hover:text-amber-400
-                                     p-0.5 rounded-md hover:bg-white/[0.06] transition-all shrink-0"
-                          >
-                            <GitFork size={12} strokeWidth={2} />
-                          </button>
-                        </Tooltip>
                       </div>
                       {!collapsedSessions.has(project.name) && (
                         <div className="space-y-0.5">
@@ -853,6 +832,27 @@ export function ProjectSidebar() {
                                 </span>
                               )}
                             </button>
+                            <Tooltip label="Launch in worktree (current branch)" position="right">
+                              <button
+                                onClick={async () => {
+                                  const agentType = config?.defaults.defaultAgent || 'claude'
+                                  const branchResult = await window.api.listBranches(project.path)
+                                  const branch = branchResult.current || 'main'
+                                  const session = await window.api.createTerminal({
+                                    agentType,
+                                    projectName: project.name,
+                                    projectPath: project.path,
+                                    branch,
+                                    useWorktree: true
+                                  })
+                                  addTerminal(session)
+                                }}
+                                className="opacity-0 group-hover/worktrees:opacity-100 text-gray-600 hover:text-amber-400
+                                         p-0.5 rounded-md hover:bg-white/[0.06] transition-all shrink-0"
+                              >
+                                <GitFork size={12} strokeWidth={2} />
+                              </button>
+                            </Tooltip>
                           </div>
                           {isWorktreesExpanded && (
                             <div className="space-y-0.5">

@@ -13,6 +13,7 @@ export interface ShortcutDef {
 
 const isMac = navigator.platform.toUpperCase().includes('MAC')
 const MOD = isMac ? '\u2318' : 'Ctrl+'
+const ALT = isMac ? '\u2325' : 'Alt+'
 
 export const SHORTCUTS: ShortcutDef[] = [
   // Navigation
@@ -108,44 +109,49 @@ export const SHORTCUTS: ShortcutDef[] = [
     description: 'Tasks view'
   },
 
+  // Navigation — card jump
+  {
+    id: 'jump-to-card',
+    key: '1-9',
+    meta: true,
+    display: `${MOD}1-9`,
+    category: 'navigation',
+    description: 'Jump to card by position'
+  },
+
   // Filters
   {
     id: 'filter-all',
     key: '1',
-    meta: true,
-    display: `${MOD}1`,
+    display: `${ALT}1`,
     category: 'filter',
     description: 'Show all'
   },
   {
     id: 'filter-running',
     key: '2',
-    meta: true,
-    display: `${MOD}2`,
+    display: `${ALT}2`,
     category: 'filter',
     description: 'Show running'
   },
   {
     id: 'filter-waiting',
     key: '3',
-    meta: true,
-    display: `${MOD}3`,
+    display: `${ALT}3`,
     category: 'filter',
     description: 'Show waiting'
   },
   {
     id: 'filter-idle',
     key: '4',
-    meta: true,
-    display: `${MOD}4`,
+    display: `${ALT}4`,
     category: 'filter',
     description: 'Show idle'
   },
   {
     id: 'filter-error',
     key: '5',
-    meta: true,
-    display: `${MOD}5`,
+    display: `${ALT}5`,
     category: 'filter',
     description: 'Show errors'
   }

@@ -16,7 +16,8 @@ describe('calculatePopoverPosition', () => {
       { width: 420, height: 320 }
     )
 
-    expect(position.left).toBe(302)
+    // left edge clamped: viewport 420 - margin 8 - popover 220 = 192
+    expect(position.left).toBe(192)
     expect(position.placement).toBe('bottom')
   })
 

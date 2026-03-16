@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../stores'
 import { TaskConfig, TaskStatus, TaskViewMode } from '../../shared/types'
@@ -375,7 +375,9 @@ export function TaskQueuePanel() {
   const isOpen = useAppStore((s) => s.isTaskPanelOpen)
   const setOpen = useAppStore((s) => s.setTaskPanelOpen)
   const activeProject = useAppStore((s) => s.activeProject)
+  const activeWorkspace = useAppStore((s) => s.activeWorkspace)
   const config = useAppStore((s) => s.config)
+  const configProjects = useAppStore((s) => s.config?.projects)
   const removeTask = useAppStore((s) => s.removeTask)
   const setEditingTask = useAppStore((s) => s.setEditingTask)
   const setTaskDialogOpen = useAppStore((s) => s.setTaskDialogOpen)
@@ -385,7 +387,6 @@ export function TaskQueuePanel() {
   const cancelTask = useAppStore((s) => s.cancelTask)
   const reopenTask = useAppStore((s) => s.reopenTask)
   const updateTask = useAppStore((s) => s.updateTask)
-  const setConfig = useAppStore((s) => s.setConfig)
   const terminals = useAppStore((s) => s.terminals)
   const setFocusedTerminal = useAppStore((s) => s.setFocusedTerminal)
   const setDiffReviewTaskId = useAppStore((s) => s.setDiffReviewTaskId)
@@ -393,9 +394,20 @@ export function TaskQueuePanel() {
   const defaultView = config?.defaults.taskViewMode || 'list'
   const [viewMode, setViewMode] = useState<TaskViewMode>(defaultView)
 
-  if (!isOpen || !activeProject) return null
+  const workspaceProjectNames = useMemo(() => {
+    if (!configProjects) return new Set<string>()
+    return new Set(
+      configProjects
+        .filter((p) => (p.workspaceId ?? 'personal') === activeWorkspace)
+        .map((p) => p.name)
+    )
+  }, [configProjects, activeWorkspace])
 
-  const allTasks = config?.tasks?.filter((t) => t.projectName === activeProject) || []
+  if (!isOpen) return null
+
+  const allTasks = (config?.tasks ?? []).filter((t) =>
+    activeProject ? t.projectName === activeProject : workspaceProjectNames.has(t.projectName)
+  )
   const todoTasks = allTasks.filter((t) => t.status === 'todo').sort((a, b) => a.order - b.order)
   const inProgressTasks = allTasks.filter((t) => t.status === 'in_progress')
   const inReviewTasks = allTasks.filter((t) => t.status === 'in_review')
@@ -405,16 +417,17 @@ export function TaskQueuePanel() {
   const project = config?.projects.find((p) => p.name === activeProject)
 
   const handleStartTask = async (task: TaskConfig) => {
-    if (!project) return
+    const taskProject = project ?? config?.projects.find((p) => p.name === task.projectName)
+    if (!taskProject) return
     const agentType = config?.defaults.defaultAgent || 'claude'
     const siblingTasks = (config?.tasks || []).filter((t) => t.projectName === task.projectName)
     const session = await window.api.createTerminal({
       agentType,
-      projectName: project.name,
-      projectPath: project.path,
+      projectName: taskProject.name,
+      projectPath: taskProject.path,
       branch: task.branch,
       useWorktree: task.useWorktree,
-      initialPrompt: buildTaskPrompt({ task, project, siblingTasks }),
+      initialPrompt: buildTaskPrompt({ task, project: taskProject, siblingTasks }),
       taskId: task.id
     })
     addTerminal(session)
@@ -442,10 +455,12 @@ export function TaskQueuePanel() {
     ) {
       return async () => {
         const agentType = task.assignedAgent!
+        const taskProject = project ?? config?.projects.find((p) => p.name === task.projectName)
+        if (!taskProject) return
         const session = await window.api.createTerminal({
           agentType,
           projectName: task.projectName,
-          projectPath: project?.path || '',
+          projectPath: taskProject.path,
           branch: task.branch,
           useWorktree: task.useWorktree,
           resumeSessionId: task.agentSessionId

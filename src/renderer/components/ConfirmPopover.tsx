@@ -135,7 +135,6 @@ export function ConfirmPopover({
               style={{
                 top: position.top,
                 left: position.left,
-                transform: 'translateX(-50%)',
                 transformOrigin: position.placement === 'top' ? 'bottom center' : 'top center',
                 background: '#1e1e22',
                 minWidth: 180,
