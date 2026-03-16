@@ -2,26 +2,22 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAppStore } from '../stores'
 import { AgentType, GitDiffResult, WorkflowExecution } from '../../shared/types'
 import { buildTaskPrompt, buildFeedbackPrompt } from '../../shared/prompt-builder'
-import { MarkdownPreview, TASK_TEMPLATE } from './MarkdownEditor'
+import { TASK_TEMPLATE } from './MarkdownEditor'
 import { RichMarkdownEditor } from './rich-editor/RichMarkdownEditor'
 import { AgentIcon } from './AgentIcon'
 import { DiffFileList, DiffContent } from './DiffSidebar'
 import { CommitDialog } from './CommitDialog'
-import { STATUS_BADGE, STATUS_ICON } from '../lib/task-status'
+import { StatusPicker } from './StatusPicker'
+import { ProjectPicker } from './ProjectPicker'
 import { toast } from './Toast'
 import {
   X,
   Play,
-  CheckCircle2,
-  XCircle,
-  RotateCcw,
   Terminal,
-  Pencil,
   Trash2,
   GitBranch,
   Clock,
   Calendar,
-  ImageIcon,
   ImagePlus,
   FileCode,
   RefreshCw,
@@ -33,7 +29,6 @@ import {
   ChevronRight,
   FolderGit2,
   Save,
-  ArrowLeft,
   Workflow
 } from 'lucide-react'
 import { RunEntry } from './workflow-editor/RunEntry'
@@ -80,9 +75,6 @@ export function TaskDetailPanel() {
   const config = useAppStore((s) => s.config)
   const activeProject = useAppStore((s) => s.activeProject)
   const setSelectedTaskId = useAppStore((s) => s.setSelectedTaskId)
-  const completeTask = useAppStore((s) => s.completeTask)
-  const cancelTask = useAppStore((s) => s.cancelTask)
-  const reopenTask = useAppStore((s) => s.reopenTask)
   const removeTask = useAppStore((s) => s.removeTask)
   const startTask = useAppStore((s) => s.startTask)
   const addTask = useAppStore((s) => s.addTask)
@@ -93,7 +85,6 @@ export function TaskDetailPanel() {
   const allTasks = useAppStore((s) => s.config?.tasks ?? EMPTY_TASKS)
   const workflows = useAppStore((s) => s.config?.workflows ?? EMPTY_WORKFLOWS)
 
-  const [isEditing, setIsEditing] = useState(false)
   const [panelWidth, setPanelWidth] = useState(420)
   const [diffResult, setDiffResult] = useState<GitDiffResult | null>(null)
   const [diffLoading, setDiffLoading] = useState(false)
@@ -108,9 +99,8 @@ export function TaskDetailPanel() {
   const [showDiffSection, setShowDiffSection] = useState(true)
   const [showWorkflowRuns, setShowWorkflowRuns] = useState(true)
   const [fullOutputLogs, setFullOutputLogs] = useState<string | null>(null)
-  const [taskImagePaths, setTaskImagePaths] = useState<Map<string, string>>(new Map())
 
-  // Form state (edit/create modes)
+  // Form state (always active for existing tasks + create mode)
   const [formTitle, setFormTitle] = useState('')
   const [formProjectName, setFormProjectName] = useState('')
   const [formDescription, setFormDescription] = useState('')
@@ -119,16 +109,15 @@ export function TaskDetailPanel() {
   const [formImages, setFormImages] = useState<string[]>([])
   const [formImagePaths, setFormImagePaths] = useState<Map<string, string>>(new Map())
   const newTaskIdRef = useRef<string>(crypto.randomUUID())
+  const initializedRef = useRef(false)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const inEditOrCreate = isEditing || isCreateMode
   const taskId = isCreateMode ? newTaskIdRef.current : task?.id
 
-  const project = config?.projects.find(
-    (p) => p.name === (inEditOrCreate ? formProjectName : task?.projectName)
-  )
+  const project = config?.projects.find((p) => p.name === formProjectName)
   const cwd = task?.worktreePath || project?.path || ''
   const showDiff =
-    !inEditOrCreate && (task?.status === 'in_review' || task?.status === 'in_progress')
+    !isCreateMode && task && (task.status === 'in_review' || task.status === 'in_progress')
   const sessionIsLive = !!(task?.assignedSessionId && terminals.has(task.assignedSessionId))
   const canResume = !sessionIsLive && !!task?.agentSessionId && !!task?.assignedAgent
 
@@ -163,9 +152,10 @@ export function TaskDetailPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task?.id, workflowExecutions])
 
-  // Initialize form when entering edit mode
+  // Initialize form from task when switching tasks
   useEffect(() => {
-    if (isEditing && task) {
+    initializedRef.current = false
+    if (task) {
       setFormTitle(task.title)
       setFormProjectName(task.projectName)
       setFormDescription(task.description)
@@ -183,11 +173,17 @@ export function TaskDetailPanel() {
         setFormImagePaths(new Map())
       }
     }
-  }, [isEditing, task])
+    // Mark initialized after a tick so the save effect doesn't fire for initial population
+    requestAnimationFrame(() => {
+      initializedRef.current = true
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTaskId])
 
   // Initialize form for create mode
   useEffect(() => {
     if (isCreateMode) {
+      initializedRef.current = false
       newTaskIdRef.current = crypto.randomUUID()
       setFormTitle('')
       setFormProjectName(activeProject || config?.projects[0]?.name || '')
@@ -196,13 +192,42 @@ export function TaskDetailPanel() {
       setFormUseWorktree(false)
       setFormImages([])
       setFormImagePaths(new Map())
-      setIsEditing(false)
+      requestAnimationFrame(() => {
+        initializedRef.current = true
+      })
     }
   }, [isCreateMode, activeProject, config])
 
-  // Reset editing state when switching tasks
+  // Auto-save for existing tasks (debounced)
   useEffect(() => {
-    setIsEditing(false)
+    if (isCreateMode || !task || !initializedRef.current) return
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => {
+      updateTask(task.id, {
+        title: formTitle.trim(),
+        projectName: formProjectName,
+        description: formDescription.trim(),
+        branch: formBranch.trim() || undefined,
+        useWorktree: formUseWorktree || undefined,
+        images: formImages.length > 0 ? formImages : undefined
+      })
+    }, 500)
+
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formTitle, formProjectName, formDescription, formBranch, formUseWorktree, formImages])
+
+  // Flush pending save on unmount or task switch
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+        saveTimerRef.current = null
+      }
+    }
   }, [selectedTaskId])
 
   // Fetch diff for review tasks
@@ -231,28 +256,7 @@ export function TaskDetailPanel() {
     }
   }, [selectedTaskId, cwd, showDiff, fetchDiff])
 
-  // Load task images (view mode)
-  useEffect(() => {
-    if (!task?.images?.length || !selectedTaskId || selectedTaskId === 'new') return
-    const loadImages = async () => {
-      const paths = new Map<string, string>()
-      for (const filename of task.images!) {
-        try {
-          const path = await window.api.getTaskImagePath(selectedTaskId, filename)
-          paths.set(filename, path)
-        } catch {
-          /* ignore */
-        }
-      }
-      setTaskImagePaths(paths)
-    }
-    loadImages()
-  }, [selectedTaskId, task?.images])
-
   if (!task && !isCreateMode) return null
-
-  const badge = task ? STATUS_BADGE[task.status] : null
-  const StatusIcon = task ? STATUS_ICON[task.status] : null
 
   const handleResizeStart = (e: React.PointerEvent) => {
     e.preventDefault()
@@ -377,7 +381,7 @@ export function TaskDetailPanel() {
     setCommentingLine(null)
   }
 
-  // Image handlers for edit/create modes
+  // Image handlers
   const handleAddImages = async () => {
     if (!taskId) return
     const filePaths = await window.api.openImageDialog()
@@ -409,7 +413,7 @@ export function TaskDetailPanel() {
   }
 
   const handleDrop = async (e: React.DragEvent) => {
-    if (!inEditOrCreate || !taskId) return
+    if (!taskId) return
     e.preventDefault()
     const files = Array.from(e.dataTransfer.files).filter((f) =>
       /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(f.name)
@@ -430,49 +434,28 @@ export function TaskDetailPanel() {
     setFormImagePaths(newPaths)
   }
 
-  const handleSave = () => {
+  const handleCreate = () => {
     if (!formTitle.trim() || !formProjectName || !formDescription.trim()) return
 
     const now = new Date().toISOString()
-    if (isCreateMode) {
-      const existingTasks =
-        config?.tasks?.filter((t) => t.projectName === formProjectName && t.status === 'todo') || []
-      const newId = newTaskIdRef.current
-      addTask({
-        id: newId,
-        projectName: formProjectName,
-        title: formTitle.trim(),
-        description: formDescription.trim(),
-        status: 'todo',
-        order: existingTasks.length,
-        branch: formBranch.trim() || undefined,
-        useWorktree: formUseWorktree || undefined,
-        images: formImages.length > 0 ? formImages : undefined,
-        createdAt: now,
-        updatedAt: now
-      })
-      toast.success('Task created')
-      setSelectedTaskId(newId)
-    } else if (task) {
-      updateTask(task.id, {
-        title: formTitle.trim(),
-        projectName: formProjectName,
-        description: formDescription.trim(),
-        branch: formBranch.trim() || undefined,
-        useWorktree: formUseWorktree || undefined,
-        images: formImages.length > 0 ? formImages : undefined
-      })
-      toast.success('Task updated')
-      setIsEditing(false)
-    }
-  }
-
-  const handleCancelEdit = () => {
-    if (isCreateMode) {
-      setSelectedTaskId(null)
-    } else {
-      setIsEditing(false)
-    }
+    const existingTasks =
+      config?.tasks?.filter((t) => t.projectName === formProjectName && t.status === 'todo') || []
+    const newId = newTaskIdRef.current
+    addTask({
+      id: newId,
+      projectName: formProjectName,
+      title: formTitle.trim(),
+      description: formDescription.trim(),
+      status: 'todo',
+      order: existingTasks.length,
+      branch: formBranch.trim() || undefined,
+      useWorktree: formUseWorktree || undefined,
+      images: formImages.length > 0 ? formImages : undefined,
+      createdAt: now,
+      updatedAt: now
+    })
+    toast.success('Task created')
+    setSelectedTaskId(newId)
   }
 
   const canSubmit = formTitle.trim() && formProjectName && formDescription.trim()
@@ -497,12 +480,15 @@ export function TaskDetailPanel() {
     })
   }
 
+  const hasSessionActions =
+    !isCreateMode && task && (task.status === 'todo' || sessionIsLive || canResume)
+
   return (
     <div
       className="shrink-0 flex flex-col border-l border-white/[0.08] overflow-hidden"
       style={{ width: panelWidth, background: '#141416' }}
-      onDragOver={inEditOrCreate ? (e) => e.preventDefault() : undefined}
-      onDrop={inEditOrCreate ? handleDrop : undefined}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={handleDrop}
     >
       {/* Resize handle */}
       <div
@@ -513,518 +499,379 @@ export function TaskDetailPanel() {
 
       {/* Header */}
       <div className="px-4 py-3 border-b border-white/[0.06] shrink-0">
-        {inEditOrCreate ? (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleCancelEdit}
-              className="p-1 text-gray-500 hover:text-white rounded transition-colors"
-              title="Back"
-            >
-              <ArrowLeft size={14} strokeWidth={1.5} />
-            </button>
-            <h3 className="text-[14px] font-medium text-gray-100">
-              {isCreateMode ? 'New Task' : 'Edit Task'}
-            </h3>
+        <div className="flex items-center gap-2">
+          {isCreateMode ? (
+            <h3 className="text-[14px] font-medium text-gray-100 flex-1">New Task</h3>
+          ) : (
             <div className="flex-1" />
-            <button
-              onClick={() => setSelectedTaskId(null)}
-              className="p-1 text-gray-500 hover:text-white rounded transition-colors"
-              title="Close"
+          )}
+          {!isCreateMode && task && (
+            <ConfirmPopover
+              message="Delete this task permanently?"
+              confirmLabel="Delete"
+              onConfirm={() => {
+                removeTask(task.id)
+                setSelectedTaskId(null)
+                toast.success('Task deleted')
+              }}
             >
-              <X size={14} strokeWidth={1.5} />
-            </button>
-          </div>
-        ) : task && badge && StatusIcon ? (
-          <div className="flex items-start gap-2">
-            <StatusIcon size={16} className={`${badge.color} mt-0.5 shrink-0`} />
-            <div className="flex-1 min-w-0">
-              <h3 className="text-[14px] font-medium text-gray-100 leading-tight">{task.title}</h3>
-              <div className="flex items-center gap-2 mt-1">
-                <span className={`text-[11px] px-1.5 py-0.5 rounded ${badge.bg} ${badge.color}`}>
-                  {badge.label}
-                </span>
-                {task.assignedAgent && (
-                  <span className="flex items-center gap-1 text-[11px] text-gray-500">
-                    <AgentIcon agentType={task.assignedAgent} size={12} />
-                    {task.assignedAgent}
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
               <button
-                onClick={() => setIsEditing(true)}
-                className="p-1 text-gray-500 hover:text-white rounded transition-colors"
-                title="Edit task"
+                className="p-1 text-gray-600 hover:text-red-400 rounded transition-colors"
+                title="Delete task"
               >
-                <Pencil size={13} strokeWidth={1.5} />
+                <Trash2 size={13} strokeWidth={1.5} />
               </button>
-              <button
-                onClick={() => setSelectedTaskId(null)}
-                className="p-1 text-gray-500 hover:text-white rounded transition-colors"
-                title="Close"
-              >
-                <X size={14} strokeWidth={1.5} />
-              </button>
-            </div>
-          </div>
-        ) : null}
+            </ConfirmPopover>
+          )}
+          <button
+            onClick={() => setSelectedTaskId(null)}
+            className="p-1 text-gray-500 hover:text-white rounded transition-colors"
+            title="Close"
+          >
+            <X size={14} strokeWidth={1.5} />
+          </button>
+        </div>
       </div>
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto">
-        {inEditOrCreate ? (
-          /* ── Edit / Create Form ────────────────────────── */
-          <div className="p-4 space-y-4">
-            {/* Title */}
-            <div>
-              <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-1.5 block">
-                Title
-              </label>
+        {/* Properties section */}
+        <div className="px-4 py-3 border-b border-white/[0.06] space-y-2.5">
+          {/* Status */}
+          <div className="flex items-center gap-2 text-[12px]">
+            <span className="text-gray-600 w-20 shrink-0">Status</span>
+            <StatusPicker
+              taskId={task?.id}
+              currentStatus={task?.status ?? 'todo'}
+              disabled={isCreateMode}
+            />
+          </div>
+
+          {/* Project */}
+          <div className="flex items-center gap-2 text-[12px]">
+            <span className="text-gray-600 w-20 shrink-0">Project</span>
+            <ProjectPicker
+              currentProject={formProjectName}
+              projects={config?.projects || []}
+              onChange={setFormProjectName}
+            />
+          </div>
+
+          {/* Branch */}
+          <div className="flex items-center gap-2 text-[12px]">
+            <span className="text-gray-600 w-20 shrink-0">Branch</span>
+            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              <GitBranch size={11} strokeWidth={2} className="text-gray-500 shrink-0" />
               <input
                 type="text"
-                placeholder="Fix authentication bug"
-                value={formTitle}
-                onChange={(e) => setFormTitle(e.target.value)}
-                autoFocus
-                className="w-full px-3 py-2 bg-white/[0.03] border border-white/[0.06] rounded-lg text-sm
-                           text-gray-200 placeholder-gray-600 focus:border-white/[0.15] focus:outline-none"
+                placeholder="feature/my-task"
+                value={formBranch}
+                onChange={(e) => setFormBranch(e.target.value)}
+                className="flex-1 min-w-0 bg-transparent text-[12px] text-gray-300 placeholder-gray-600
+                           focus:outline-none border-none px-0 py-0.5"
               />
-            </div>
-
-            {/* Project */}
-            <div>
-              <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-1.5 block">
-                Project
-              </label>
-              <select
-                value={formProjectName}
-                onChange={(e) => setFormProjectName(e.target.value)}
-                className="w-full px-3 py-2 bg-white/[0.03] border border-white/[0.06] rounded-lg text-sm
-                           text-gray-200 focus:border-white/[0.15] focus:outline-none"
-              >
-                <option value="">Select project</option>
-                {config?.projects.map((p) => (
-                  <option key={p.name} value={p.name}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Description */}
-            <div>
-              <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-1 block">
-                Description
-              </label>
-              <p className="text-[11px] text-gray-600 mb-1.5">
-                This will be sent as the prompt to the coding agent.
-              </p>
-              <RichMarkdownEditor
-                value={formDescription}
-                onChange={setFormDescription}
-                placeholder="Describe the task in detail, or type / for commands..."
-              />
-            </div>
-
-            {/* Images */}
-            <div>
-              <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-1.5 block">
-                Images
-                <span className="text-gray-600 normal-case tracking-normal ml-1">(optional)</span>
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {formImages.map((filename) => {
-                  const absPath = formImagePaths.get(filename)
-                  return (
-                    <div
-                      key={filename}
-                      className="relative group/img w-16 h-16 rounded-lg border border-white/[0.08] overflow-hidden bg-white/[0.03]"
-                    >
-                      {absPath && (
-                        <img
-                          src={`file://${absPath}`}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                      )}
-                      <button
-                        onClick={() => handleRemoveImage(filename)}
-                        className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/70 flex items-center justify-center
-                                   opacity-0 group-hover/img:opacity-100 transition-opacity text-white hover:text-red-400"
-                      >
-                        <X size={10} strokeWidth={3} />
-                      </button>
-                    </div>
-                  )
-                })}
-                <button
-                  onClick={handleAddImages}
-                  className="w-16 h-16 rounded-lg border border-dashed border-white/[0.1] flex items-center justify-center
-                             text-gray-600 hover:text-gray-400 hover:border-white/[0.2] transition-colors"
-                  title="Add images"
-                >
-                  <ImagePlus size={18} strokeWidth={1.5} />
-                </button>
-              </div>
-            </div>
-
-            {/* Branch & Worktree */}
-            <div className="flex gap-3 items-end">
-              <div className="flex-1">
-                <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-1.5 block">
-                  Branch
-                  <span className="text-gray-600 normal-case tracking-normal ml-1">(optional)</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="feature/my-task"
-                  value={formBranch}
-                  onChange={(e) => setFormBranch(e.target.value)}
-                  className="w-full px-3 py-2 bg-white/[0.03] border border-white/[0.06] rounded-lg text-sm
-                             text-gray-200 placeholder-gray-600 focus:border-white/[0.15] focus:outline-none"
-                />
-              </div>
-              <button
-                onClick={() => setFormUseWorktree(!formUseWorktree)}
-                className={`p-2.5 rounded-lg border transition-all shrink-0 ${
-                  formUseWorktree
-                    ? 'border-amber-500/30 bg-amber-500/10 text-amber-400'
-                    : 'border-white/[0.06] text-gray-600 hover:text-gray-400'
-                }`}
-                title={formUseWorktree ? 'Worktree enabled' : 'Enable worktree isolation'}
-              >
-                <FolderGit2 size={16} strokeWidth={1.5} />
-              </button>
             </div>
           </div>
-        ) : task ? (
-          /* ── View Mode ─────────────────────────────────── */
-          <>
-            {/* Actions */}
-            <div className="px-4 py-3 border-b border-white/[0.06] flex flex-wrap gap-2">
-              {task.status === 'todo' && (
-                <button
-                  onClick={handleStartTask}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium
-                             bg-green-500/10 hover:bg-green-500/20 border border-green-500/20
-                             rounded-md transition-colors text-green-400 hover:text-green-300"
+
+          {/* Worktree */}
+          <div className="flex items-center gap-2 text-[12px]">
+            <span className="text-gray-600 w-20 shrink-0">Worktree</span>
+            <button
+              onClick={() => setFormUseWorktree(!formUseWorktree)}
+              className={`flex items-center gap-1.5 hover:bg-white/[0.04] rounded px-1.5 py-0.5 -mx-1.5 transition-colors ${
+                formUseWorktree ? 'text-amber-400' : 'text-gray-500'
+              }`}
+            >
+              <FolderGit2 size={13} strokeWidth={1.5} />
+              <span className="text-[12px]">{formUseWorktree ? 'Enabled' : 'Disabled'}</span>
+            </button>
+          </div>
+
+          {/* Agent */}
+          {!isCreateMode && task?.assignedAgent && (
+            <div className="flex items-center gap-2 text-[12px]">
+              <span className="text-gray-600 w-20 shrink-0">Agent</span>
+              <span className="flex items-center gap-1.5 text-gray-400">
+                <AgentIcon agentType={task.assignedAgent} size={12} />
+                {task.assignedAgent}
+              </span>
+            </div>
+          )}
+
+          {/* Created */}
+          {!isCreateMode && task && (
+            <div className="flex items-center gap-2 text-[12px]">
+              <span className="text-gray-600 w-20 shrink-0">Created</span>
+              <span className="flex items-center gap-1 text-gray-400">
+                <Calendar size={11} strokeWidth={2} />
+                {formatDate(task.createdAt)}
+              </span>
+            </div>
+          )}
+
+          {/* Completed */}
+          {!isCreateMode && task?.completedAt && (
+            <div className="flex items-center gap-2 text-[12px]">
+              <span className="text-gray-600 w-20 shrink-0">Completed</span>
+              <span className="flex items-center gap-1 text-gray-400">
+                <Clock size={11} strokeWidth={2} />
+                {formatDate(task.completedAt)}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Title */}
+        <div className="px-4 pt-4 pb-2">
+          <input
+            type="text"
+            placeholder="Task title"
+            value={formTitle}
+            onChange={(e) => setFormTitle(e.target.value)}
+            autoFocus={isCreateMode}
+            className="w-full text-[16px] font-semibold text-gray-100 bg-transparent
+                       border-none outline-none placeholder-gray-600
+                       focus:bg-white/[0.02] rounded px-1 -mx-1 py-0.5 transition-colors"
+          />
+        </div>
+
+        {/* Description */}
+        <div className="px-4 pb-3">
+          <RichMarkdownEditor
+            value={formDescription}
+            onChange={setFormDescription}
+            placeholder="Describe the task in detail, or type / for commands..."
+          />
+        </div>
+
+        {/* Images */}
+        <div className="px-4 pb-3">
+          <div className="flex flex-wrap gap-2">
+            {formImages.map((filename) => {
+              const absPath = formImagePaths.get(filename)
+              return (
+                <div
+                  key={filename}
+                  className="relative group/img w-16 h-16 rounded-lg border border-white/[0.08] overflow-hidden bg-white/[0.03]"
                 >
-                  <Play size={12} strokeWidth={2} />
-                  Start Task
-                </button>
-              )}
-              {sessionIsLive && (
-                <button
-                  onClick={handleFocusSession}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium
-                             bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20
-                             rounded-md transition-colors text-violet-400 hover:text-violet-300"
-                >
-                  <Terminal size={12} strokeWidth={2} />
-                  Focus Session
-                </button>
-              )}
-              {canResume && (
-                <button
-                  onClick={handleResumeSession}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium
-                             bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20
-                             rounded-md transition-colors text-amber-400 hover:text-amber-300"
-                >
-                  <Play size={12} strokeWidth={2} />
-                  Resume Session
-                </button>
-              )}
-              {(task.status === 'in_review' || task.status === 'in_progress') && (
-                <button
-                  onClick={() => {
-                    completeTask(task.id)
-                    toast.success('Task completed')
-                  }}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium
-                             bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06]
-                             rounded-md transition-colors text-gray-300 hover:text-gray-100"
-                >
-                  <CheckCircle2 size={12} strokeWidth={2} />
-                  Done
-                </button>
-              )}
-              {task.status !== 'cancelled' && task.status !== 'done' && (
-                <button
-                  onClick={() => {
-                    cancelTask(task.id)
-                    toast.info('Task cancelled')
-                  }}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium
-                             bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06]
-                             rounded-md transition-colors text-gray-400 hover:text-gray-200"
-                >
-                  <XCircle size={12} strokeWidth={2} />
-                  Cancel
-                </button>
-              )}
-              {(task.status === 'cancelled' || task.status === 'done') && (
-                <button
-                  onClick={() => {
-                    reopenTask(task.id)
-                    toast.success('Task reopened')
-                  }}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium
-                             bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06]
-                             rounded-md transition-colors text-gray-300 hover:text-gray-100"
-                >
-                  <RotateCcw size={12} strokeWidth={2} />
-                  Reopen
-                </button>
-              )}
-              <ConfirmPopover
-                message="Delete this task permanently?"
-                confirmLabel="Delete"
-                onConfirm={() => {
-                  removeTask(task.id)
-                  setSelectedTaskId(null)
-                  toast.success('Task deleted')
-                }}
+                  {absPath && (
+                    <img src={`file://${absPath}`} alt="" className="w-full h-full object-cover" />
+                  )}
+                  <button
+                    onClick={() => handleRemoveImage(filename)}
+                    className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/70 flex items-center justify-center
+                                 opacity-0 group-hover/img:opacity-100 transition-opacity text-white hover:text-red-400"
+                  >
+                    <X size={10} strokeWidth={3} />
+                  </button>
+                </div>
+              )
+            })}
+            <button
+              onClick={handleAddImages}
+              className="w-16 h-16 rounded-lg border border-dashed border-white/[0.1] flex items-center justify-center
+                           text-gray-600 hover:text-gray-400 hover:border-white/[0.2] transition-colors"
+              title="Add images"
+            >
+              <ImagePlus size={18} strokeWidth={1.5} />
+            </button>
+          </div>
+        </div>
+
+        {/* Session action buttons (compact) */}
+        {hasSessionActions && (
+          <div className="px-4 py-2 border-t border-white/[0.06] flex flex-wrap gap-2">
+            {task.status === 'todo' && (
+              <button
+                onClick={handleStartTask}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium
+                           bg-green-500/10 hover:bg-green-500/20 border border-green-500/20
+                           rounded-md transition-colors text-green-400 hover:text-green-300"
               >
-                <button
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium
-                             bg-white/[0.04] hover:bg-red-500/10 border border-white/[0.06]
-                             rounded-md transition-colors text-gray-500 hover:text-red-400"
-                >
-                  <Trash2 size={12} strokeWidth={2} />
-                  Delete
-                </button>
-              </ConfirmPopover>
-            </div>
+                <Play size={12} strokeWidth={2} />
+                Start Task
+              </button>
+            )}
+            {sessionIsLive && (
+              <button
+                onClick={handleFocusSession}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium
+                           bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20
+                           rounded-md transition-colors text-violet-400 hover:text-violet-300"
+              >
+                <Terminal size={12} strokeWidth={2} />
+                Focus Session
+              </button>
+            )}
+            {canResume && (
+              <button
+                onClick={handleResumeSession}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium
+                           bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20
+                           rounded-md transition-colors text-amber-400 hover:text-amber-300"
+              >
+                <Play size={12} strokeWidth={2} />
+                Resume Session
+              </button>
+            )}
+          </div>
+        )}
 
-            {/* Metadata */}
-            <div className="px-4 py-3 border-b border-white/[0.06] space-y-2">
-              <div className="flex items-center gap-2 text-[12px]">
-                <span className="text-gray-600 w-16">Project</span>
-                <span className="text-gray-300">{task.projectName}</span>
-              </div>
-              {task.branch && (
-                <div className="flex items-center gap-2 text-[12px]">
-                  <span className="text-gray-600 w-16">Branch</span>
-                  <span className="flex items-center gap-1 text-gray-300">
-                    <GitBranch size={11} strokeWidth={2} />
-                    {task.branch}
-                  </span>
-                </div>
-              )}
-              <div className="flex items-center gap-2 text-[12px]">
-                <span className="text-gray-600 w-16">Created</span>
-                <span className="flex items-center gap-1 text-gray-400">
-                  <Calendar size={11} strokeWidth={2} />
-                  {formatDate(task.createdAt)}
-                </span>
-              </div>
-              {task.completedAt && (
-                <div className="flex items-center gap-2 text-[12px]">
-                  <span className="text-gray-600 w-16">Completed</span>
-                  <span className="flex items-center gap-1 text-gray-400">
-                    <Clock size={11} strokeWidth={2} />
-                    {formatDate(task.completedAt)}
-                  </span>
-                </div>
-              )}
-            </div>
+        {/* Workflow Runs section */}
+        {!isCreateMode && relatedRuns.length > 0 && (
+          <div className="border-t border-white/[0.06]">
+            <button
+              onClick={() => setShowWorkflowRuns(!showWorkflowRuns)}
+              className="w-full px-4 py-2.5 flex items-center gap-2 text-[11px] font-medium text-gray-500
+                         uppercase tracking-wider hover:text-gray-300 transition-colors"
+            >
+              {showWorkflowRuns ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+              <Workflow size={12} strokeWidth={2} />
+              Workflow Runs ({relatedRuns.length})
+            </button>
 
-            {/* Description */}
-            {task.description && (
-              <div className="px-4 py-3 border-b border-white/[0.06]">
-                <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-2 block">
-                  Description
-                </span>
-                <MarkdownPreview content={task.description} />
+            {showWorkflowRuns && (
+              <div className="px-3 pb-3 space-y-2">
+                {relatedRuns.map((run, i) => {
+                  const wf = workflows.find((w) => w.id === run.workflowId)
+                  return (
+                    <RunEntry
+                      key={`${run.workflowId}-${run.startedAt}-${i}`}
+                      execution={run}
+                      nodes={wf?.nodes || []}
+                      workflowName={run.workflowName || wf?.name}
+                      tasks={allTasks}
+                      onViewFullOutput={setFullOutputLogs}
+                      onResumeSession={handleRunResumeSession}
+                    />
+                  )
+                })}
               </div>
             )}
+          </div>
+        )}
 
-            {/* Images */}
-            {task.images && task.images.length > 0 && (
-              <div className="px-4 py-3 border-b border-white/[0.06]">
-                <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-2 block">
-                  <ImageIcon size={11} strokeWidth={2} className="inline mr-1" />
-                  Attachments ({task.images.length})
+        {/* Diff review section */}
+        {showDiff && (
+          <div className="border-t border-white/[0.06]">
+            <button
+              onClick={() => setShowDiffSection(!showDiffSection)}
+              className="w-full px-4 py-2.5 flex items-center gap-2 text-[11px] font-medium text-gray-500
+                         uppercase tracking-wider hover:text-gray-300 transition-colors"
+            >
+              {showDiffSection ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+              <FileCode size={12} strokeWidth={2} />
+              Changes
+              {stat && (
+                <span className="flex items-center gap-1.5 font-mono normal-case">
+                  <span className="text-green-400">+{stat.insertions}</span>
+                  <span className="text-red-400">-{stat.deletions}</span>
                 </span>
-                <div className="space-y-2">
-                  {task.images.map((filename) => {
-                    const path = taskImagePaths.get(filename)
-                    return path ? (
-                      <img
-                        key={filename}
-                        src={`file://${path}`}
-                        alt={filename}
-                        className="rounded-md border border-white/[0.06] max-w-full"
-                      />
-                    ) : (
-                      <div key={filename} className="text-xs text-gray-600 py-1">
-                        {filename}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Workflow Runs section */}
-            {relatedRuns.length > 0 && (
-              <div className="border-b border-white/[0.06]">
-                <button
-                  onClick={() => setShowWorkflowRuns(!showWorkflowRuns)}
-                  className="w-full px-4 py-2.5 flex items-center gap-2 text-[11px] font-medium text-gray-500
-                             uppercase tracking-wider hover:text-gray-300 transition-colors"
+              )}
+              <div className="flex-1" />
+              {hasChanges && (
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowCommitDialog(true)
+                  }}
+                  className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium normal-case
+                             bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06]
+                             rounded transition-colors text-gray-400 hover:text-gray-200"
                 >
-                  {showWorkflowRuns ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-                  <Workflow size={12} strokeWidth={2} />
-                  Workflow Runs ({relatedRuns.length})
-                </button>
+                  <GitCommitHorizontal size={11} strokeWidth={1.5} />
+                  Commit
+                </span>
+              )}
+              <span
+                onClick={(e) => {
+                  e.stopPropagation()
+                  fetchDiff()
+                }}
+                className="p-0.5 text-gray-500 hover:text-white rounded transition-colors"
+              >
+                <RefreshCw
+                  size={12}
+                  className={diffLoading ? 'animate-spin' : ''}
+                  strokeWidth={1.5}
+                />
+              </span>
+            </button>
 
-                {showWorkflowRuns && (
-                  <div className="px-3 pb-3 space-y-2">
-                    {relatedRuns.map((run, i) => {
-                      const wf = workflows.find((w) => w.id === run.workflowId)
-                      return (
-                        <RunEntry
-                          key={`${run.workflowId}-${run.startedAt}-${i}`}
-                          execution={run}
-                          nodes={wf?.nodes || []}
-                          workflowName={run.workflowName || wf?.name}
-                          tasks={allTasks}
-                          onViewFullOutput={setFullOutputLogs}
-                          onResumeSession={handleRunResumeSession}
-                        />
-                      )
-                    })}
+            {showDiffSection && (
+              <>
+                {/* Review feedback bar */}
+                {comments.length > 0 && (
+                  <div className="px-3 py-2 border-t border-purple-500/15 bg-purple-500/[0.05] flex items-center gap-2">
+                    <MessageSquare size={13} className="text-purple-400 shrink-0" />
+                    <span className="text-[12px] text-purple-300 flex-1">
+                      {comments.length} comment{comments.length !== 1 ? 's' : ''}
+                    </span>
+                    <button
+                      onClick={() => setComments([])}
+                      className="text-[11px] text-gray-500 hover:text-gray-300 transition-colors"
+                    >
+                      Clear
+                    </button>
+                    <button
+                      onClick={handleSendFeedback}
+                      className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium
+                                 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/20
+                                 rounded-md transition-colors text-purple-300 hover:text-purple-200"
+                    >
+                      <Send size={11} strokeWidth={2} />
+                      {task?.agentSessionId ? 'Send to Agent' : 'Copy Feedback'}
+                    </button>
                   </div>
                 )}
-              </div>
-            )}
 
-            {/* Diff review section */}
-            {showDiff && (
-              <div className="border-b border-white/[0.06]">
-                <button
-                  onClick={() => setShowDiffSection(!showDiffSection)}
-                  className="w-full px-4 py-2.5 flex items-center gap-2 text-[11px] font-medium text-gray-500
-                             uppercase tracking-wider hover:text-gray-300 transition-colors"
-                >
-                  {showDiffSection ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-                  <FileCode size={12} strokeWidth={2} />
-                  Changes
-                  {stat && (
-                    <span className="flex items-center gap-1.5 font-mono normal-case">
-                      <span className="text-green-400">+{stat.insertions}</span>
-                      <span className="text-red-400">-{stat.deletions}</span>
-                    </span>
-                  )}
-                  <div className="flex-1" />
-                  {hasChanges && (
-                    <span
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setShowCommitDialog(true)
-                      }}
-                      className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium normal-case
-                                 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06]
-                                 rounded transition-colors text-gray-400 hover:text-gray-200"
-                    >
-                      <GitCommitHorizontal size={11} strokeWidth={1.5} />
-                      Commit
-                    </span>
-                  )}
-                  <span
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      fetchDiff()
-                    }}
-                    className="p-0.5 text-gray-500 hover:text-white rounded transition-colors"
-                  >
-                    <RefreshCw
-                      size={12}
-                      className={diffLoading ? 'animate-spin' : ''}
-                      strokeWidth={1.5}
-                    />
-                  </span>
-                </button>
-
-                {showDiffSection && (
+                {diffLoading && !diffResult ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 size={18} className="text-gray-500 animate-spin" />
+                  </div>
+                ) : diffResult && diffResult.files.length > 0 ? (
                   <>
-                    {/* Review feedback bar */}
-                    {comments.length > 0 && (
-                      <div className="px-3 py-2 border-t border-purple-500/15 bg-purple-500/[0.05] flex items-center gap-2">
-                        <MessageSquare size={13} className="text-purple-400 shrink-0" />
-                        <span className="text-[12px] text-purple-300 flex-1">
-                          {comments.length} comment{comments.length !== 1 ? 's' : ''}
-                        </span>
-                        <button
-                          onClick={() => setComments([])}
-                          className="text-[11px] text-gray-500 hover:text-gray-300 transition-colors"
-                        >
-                          Clear
-                        </button>
-                        <button
-                          onClick={handleSendFeedback}
-                          className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium
-                                     bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/20
-                                     rounded-md transition-colors text-purple-300 hover:text-purple-200"
-                        >
-                          <Send size={11} strokeWidth={2} />
-                          {task.agentSessionId ? 'Send to Agent' : 'Copy Feedback'}
-                        </button>
-                      </div>
-                    )}
-
-                    {diffLoading && !diffResult ? (
-                      <div className="flex items-center justify-center py-8">
-                        <Loader2 size={18} className="text-gray-500 animate-spin" />
-                      </div>
-                    ) : diffResult && diffResult.files.length > 0 ? (
-                      <>
-                        <DiffFileList
-                          files={diffResult.files}
-                          selectedFile={selectedFile}
-                          onSelectFile={setSelectedFile}
-                        />
-                        <DiffContent
-                          files={diffResult.files}
-                          selectedFile={selectedFile}
-                          comments={comments}
-                          commentingLine={commentingLine}
-                          onClickLine={handleClickLine}
-                          onAddComment={handleAddComment}
-                          onCancelComment={() => setCommentingLine(null)}
-                          onRemoveComment={(idx) =>
-                            setComments((prev) => prev.filter((_, i) => i !== idx))
-                          }
-                        />
-                      </>
-                    ) : (
-                      <div className="text-center py-6 text-xs text-gray-600">
-                        {cwd ? 'No uncommitted changes' : 'No project path'}
-                      </div>
-                    )}
+                    <DiffFileList
+                      files={diffResult.files}
+                      selectedFile={selectedFile}
+                      onSelectFile={setSelectedFile}
+                    />
+                    <DiffContent
+                      files={diffResult.files}
+                      selectedFile={selectedFile}
+                      comments={comments}
+                      commentingLine={commentingLine}
+                      onClickLine={handleClickLine}
+                      onAddComment={handleAddComment}
+                      onCancelComment={() => setCommentingLine(null)}
+                      onRemoveComment={(idx) =>
+                        setComments((prev) => prev.filter((_, i) => i !== idx))
+                      }
+                    />
                   </>
+                ) : (
+                  <div className="text-center py-6 text-xs text-gray-600">
+                    {cwd ? 'No uncommitted changes' : 'No project path'}
+                  </div>
                 )}
-              </div>
+              </>
             )}
-          </>
-        ) : null}
+          </div>
+        )}
       </div>
 
-      {/* Save/Cancel footer for edit/create modes */}
-      {inEditOrCreate && (
+      {/* Footer: only for create mode */}
+      {isCreateMode && (
         <div className="px-4 py-3 border-t border-white/[0.06] flex justify-end gap-2 shrink-0">
           <button
-            onClick={handleCancelEdit}
+            onClick={() => setSelectedTaskId(null)}
             className="px-3 py-1.5 text-sm text-gray-400 hover:text-gray-200
                        bg-white/[0.04] hover:bg-white/[0.08] rounded-lg transition-colors"
           >
             Cancel
           </button>
           <button
-            onClick={handleSave}
+            onClick={handleCreate}
             disabled={!canSubmit}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white
                        bg-white/[0.1] hover:bg-white/[0.15]
@@ -1032,7 +879,7 @@ export function TaskDetailPanel() {
                        rounded-lg transition-colors"
           >
             <Save size={13} strokeWidth={2} />
-            {isCreateMode ? 'Create Task' : 'Save'}
+            Create Task
           </button>
         </div>
       )}

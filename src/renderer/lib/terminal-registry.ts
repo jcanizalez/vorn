@@ -8,6 +8,7 @@ interface TerminalEntry {
   removeDataListener: () => void
   currentContainer: HTMLDivElement | null
   _loadRenderer?: (() => void) | null
+  _gpuAddon?: { dispose(): void } | null
 }
 
 export interface TerminalViewportState {
@@ -85,17 +86,29 @@ function createTerminalEntry(terminalId: string): TerminalEntry {
   const loadRenderer = (): void => {
     import('@xterm/addon-webgl')
       .then(({ WebglAddon }) => {
+        if (!registry.has(terminalId)) return // terminal already destroyed
         try {
-          term.loadAddon(new WebglAddon())
+          const addon = new WebglAddon()
+          term.loadAddon(addon)
+          const e = registry.get(terminalId)
+          if (e) e._gpuAddon = addon
         } catch {
           import('@xterm/addon-canvas').then(({ CanvasAddon }) => {
-            term.loadAddon(new CanvasAddon())
+            if (!registry.has(terminalId)) return
+            const addon = new CanvasAddon()
+            term.loadAddon(addon)
+            const e = registry.get(terminalId)
+            if (e) e._gpuAddon = addon
           })
         }
       })
       .catch(() => {
         import('@xterm/addon-canvas').then(({ CanvasAddon }) => {
-          term.loadAddon(new CanvasAddon())
+          if (!registry.has(terminalId)) return
+          const addon = new CanvasAddon()
+          term.loadAddon(addon)
+          const e = registry.get(terminalId)
+          if (e) e._gpuAddon = addon
         })
       })
   }
@@ -278,6 +291,16 @@ export function destroyTerminal(terminalId: string): void {
   const entry = registry.get(terminalId)
   if (!entry) return
   entry.removeDataListener()
+  // Dispose GPU addon first to avoid WebGL errors when the terminal
+  // tears down the DOM element before the addon can clean up its GL context
+  if (entry._gpuAddon) {
+    try {
+      entry._gpuAddon.dispose()
+    } catch {
+      // GL context may already be lost
+    }
+    entry._gpuAddon = null
+  }
   entry.term.dispose()
   registry.delete(terminalId)
   readyCallbacks.delete(terminalId)

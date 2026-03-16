@@ -299,14 +299,20 @@ export function registerAllMethods(): void {
     })
 }
 
+let widgetUpdateTimer: ReturnType<typeof setTimeout> | null = null
+
 function broadcastWidgetUpdate(): void {
-  const sessions = ptyManager.getActiveSessions()
-  const agents: WidgetAgentInfo[] = sessions.map((s) => ({
-    id: s.id,
-    agentType: s.agentType,
-    displayName: s.displayName,
-    projectName: s.projectName,
-    status: s.status
-  }))
-  clientRegistry.broadcast(IPC.WIDGET_STATUS_UPDATE, agents)
+  if (widgetUpdateTimer) return
+  widgetUpdateTimer = setTimeout(() => {
+    widgetUpdateTimer = null
+    const sessions = ptyManager.getActiveSessions()
+    const agents: WidgetAgentInfo[] = sessions.map((s) => ({
+      id: s.id,
+      agentType: s.agentType,
+      displayName: s.displayName,
+      projectName: s.projectName,
+      status: s.status
+    }))
+    clientRegistry.broadcast(IPC.WIDGET_STATUS_UPDATE, agents)
+  }, 500)
 }

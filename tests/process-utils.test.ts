@@ -34,10 +34,35 @@ describe('process-utils (server package)', () => {
     process.env = originalEnv
   })
 
-  it('shellEscape wraps in single quotes', async () => {
+  it('shellEscape skips quoting for simple safe strings', async () => {
     const { shellEscape } = await import('../packages/server/src/process-utils')
-    expect(shellEscape('hello')).toBe("'hello'")
+    // Simple flags — no quotes needed
+    expect(shellEscape('--dangerously-skip-permissions')).toBe('--dangerously-skip-permissions')
+    expect(shellEscape('--allow-all')).toBe('--allow-all')
+    expect(shellEscape('-y')).toBe('-y')
+    expect(shellEscape('-a')).toBe('-a')
+    expect(shellEscape('never')).toBe('never')
+    // Paths and values without spaces
+    expect(shellEscape('/usr/bin/claude')).toBe('/usr/bin/claude')
+    expect(shellEscape('--model=opus')).toBe('--model=opus')
+    expect(shellEscape('file.txt')).toBe('file.txt')
+  })
+
+  it('shellEscape quotes strings with special characters', async () => {
+    const { shellEscape } = await import('../packages/server/src/process-utils')
+    // Strings with spaces
+    expect(shellEscape('hello world')).toBe("'hello world'")
+    expect(shellEscape('fix the bug')).toBe("'fix the bug'")
+    // Strings with single quotes
     expect(shellEscape("it's")).toBe("'it'\\''s'")
+    // Strings with shell metacharacters
+    expect(shellEscape('echo $HOME')).toBe("'echo $HOME'")
+    expect(shellEscape('a && b')).toBe("'a && b'")
+    expect(shellEscape('test;rm -rf')).toBe("'test;rm -rf'")
+    expect(shellEscape('$(whoami)')).toBe("'$(whoami)'")
+    expect(shellEscape('`id`')).toBe("'`id`'")
+    // Empty string
+    expect(shellEscape('')).toBe("''")
   })
 
   it('getSafeEnv filters sensitive vars', async () => {

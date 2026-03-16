@@ -44,9 +44,7 @@ function createWindow(): void {
     frame: false,
     ...(isMac
       ? {
-          trafficLightPosition: { x: 16, y: 16 },
-          vibrancy: 'under-window',
-          visualEffectState: 'active'
+          trafficLightPosition: { x: 16, y: 16 }
         }
       : {}),
     backgroundColor: '#1a1a1e',
@@ -125,8 +123,7 @@ function createWidgetWindow(): void {
       preload: path.join(__dirname, '../preload/widget-preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
-      backgroundThrottling: false
+      sandbox: false
     }
   })
 
@@ -284,7 +281,6 @@ app.whenReady().then(async () => {
 
   createMenu(toggleWidget)
   createWindow()
-  createWidgetWindow()
 
   if (!mainWindow) {
     log.error('[main] Failed to create main window')

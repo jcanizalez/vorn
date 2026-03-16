@@ -32,6 +32,8 @@ export function getDefaultShell(): string {
 }
 
 export function shellEscape(s: string): string {
+  // Skip quoting for simple safe strings (flags, paths without spaces, etc.)
+  if (/^[a-zA-Z0-9_./:=@%+,-]+$/.test(s)) return s
   return "'" + s.replace(/'/g, "'\\''") + "'"
 }
 

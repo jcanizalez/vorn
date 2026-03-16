@@ -26,12 +26,13 @@ export const AGENT_DEFINITIONS: Record<AgentType, AgentDefinition> = {
     color: '#6CC644',
     bgColor: '#6CC64420',
     description: 'GitHub Copilot CLI',
-    installCommand: 'npm install -g @githubnext/github-copilot-cli',
-    installUrl: 'https://githubnext.com/projects/copilot-cli'
+    installCommand: 'brew install copilot-cli',
+    installUrl:
+      'https://docs.github.com/en/copilot/using-github-copilot/using-github-copilot-agent-mode'
   },
   codex: {
     type: 'codex',
-    displayName: 'Codex',
+    displayName: 'Codex CLI',
     color: '#7A9DFF',
     bgColor: '#7A9DFF20',
     description: 'OpenAI Codex CLI',
@@ -44,7 +45,7 @@ export const AGENT_DEFINITIONS: Record<AgentType, AgentDefinition> = {
     color: '#FFFFFF',
     bgColor: '#FFFFFF15',
     description: 'OpenCode CLI',
-    installCommand: 'npm install -g opencode',
+    installCommand: 'npm install -g opencode-ai',
     installUrl: 'https://opencode.ai'
   },
   gemini: {
@@ -53,7 +54,7 @@ export const AGENT_DEFINITIONS: Record<AgentType, AgentDefinition> = {
     color: '#3186FF',
     bgColor: '#3186FF20',
     description: 'Google Gemini CLI',
-    installCommand: 'npm install -g @anthropic-ai/gemini-cli',
+    installCommand: 'npm install -g @google/gemini-cli',
     installUrl: 'https://github.com/google-gemini/gemini-cli'
   }
 }
