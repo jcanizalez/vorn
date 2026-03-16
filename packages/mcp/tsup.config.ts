@@ -13,6 +13,6 @@ export default defineConfig({
   },
   // Bundle workspace packages so the npm package is self-contained
   noExternal: [/@vibegrid\//],
-  // Native modules must remain external (compiled at install time)
-  external: ['node-pty', 'better-sqlite3']
+  // Native/CJS modules must remain external
+  external: ['better-sqlite3', 'ws', 'pino']
 })
