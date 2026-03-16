@@ -5,6 +5,7 @@ import {
   TriggerConfig,
   LaunchAgentConfig,
   ScriptConfig,
+  ConditionConfig,
   WorkflowNodePosition
 } from '../../shared/types'
 import { slugify } from './template-vars'
@@ -183,6 +184,79 @@ export function createScriptNode(config: Partial<ScriptConfig> = {}): WorkflowNo
     } as ScriptConfig,
     position: { x: 0, y: 0 }
   }
+}
+
+export function createConditionNode(config: Partial<ConditionConfig> = {}): WorkflowNode {
+  return {
+    id: crypto.randomUUID(),
+    type: 'condition',
+    label: 'Condition',
+    slug: slugify('Condition'),
+    config: {
+      variable: '',
+      operator: 'equals',
+      value: '',
+      ...config
+    } as ConditionConfig,
+    position: { x: 0, y: 0 }
+  }
+}
+
+/**
+ * Insert a condition node between two nodes (or at the end).
+ * Creates the condition + placeholder branch-start nodes for true/false.
+ * If there's a downstream node, both branches rejoin at it via their placeholders.
+ * This avoids pointing both branches directly at the same target, which would
+ * cause markSkippedBranch to incorrectly skip the shared join node.
+ */
+export function insertConditionBetween(
+  nodes: WorkflowNode[],
+  edges: WorkflowEdge[],
+  afterNodeId: string,
+  beforeNodeId: string | null
+): { nodes: WorkflowNode[]; edges: WorkflowEdge[] } {
+  const conditionNode = createConditionNode()
+
+  const newNodes = [...nodes, conditionNode]
+  let newEdges = [...edges]
+
+  if (beforeNodeId) {
+    // Create placeholder nodes for each branch so they don't share a target
+    const trueBranch = createScriptNode({ scriptContent: '# True branch\nexit 0\n' })
+    trueBranch.label = 'True Branch'
+    trueBranch.slug = slugify('True Branch')
+    const falseBranch = createScriptNode({ scriptContent: '# False branch\nexit 0\n' })
+    falseBranch.label = 'False Branch'
+    falseBranch.slug = slugify('False Branch')
+    newNodes.push(trueBranch, falseBranch)
+
+    // Remove the direct edge between after → before
+    newEdges = newEdges.filter((e) => !(e.source === afterNodeId && e.target === beforeNodeId))
+    // after → condition
+    newEdges.push({ id: crypto.randomUUID(), source: afterNodeId, target: conditionNode.id })
+    // condition → true placeholder
+    newEdges.push({
+      id: crypto.randomUUID(),
+      source: conditionNode.id,
+      target: trueBranch.id,
+      conditionBranch: 'true'
+    })
+    // condition → false placeholder
+    newEdges.push({
+      id: crypto.randomUUID(),
+      source: conditionNode.id,
+      target: falseBranch.id,
+      conditionBranch: 'false'
+    })
+    // Both placeholders rejoin at the downstream node
+    newEdges.push({ id: crypto.randomUUID(), source: trueBranch.id, target: beforeNodeId })
+    newEdges.push({ id: crypto.randomUUID(), source: falseBranch.id, target: beforeNodeId })
+  } else {
+    // Appending at the end — just connect after → condition
+    newEdges.push({ id: crypto.randomUUID(), source: afterNodeId, target: conditionNode.id })
+  }
+
+  return { nodes: autoLayoutNodes(newNodes, newEdges), edges: newEdges }
 }
 
 export function autoLayoutNodes(nodes: WorkflowNode[], edges: WorkflowEdge[]): WorkflowNode[] {

@@ -5,7 +5,9 @@ import { FolderGit2, X, Maximize2, Paperclip } from 'lucide-react'
 import { RichMarkdownEditor } from './rich-editor/RichMarkdownEditor'
 import { TASK_TEMPLATE } from './MarkdownEditor'
 import { toast } from './Toast'
-import { STATUS_ICON, STATUS_ICON_COLOR, STATUS_BADGE } from '../lib/task-status'
+import { StatusPicker } from './StatusPicker'
+import { ProjectPicker } from './ProjectPicker'
+import type { TaskStatus } from '../../shared/types'
 
 export function AddTaskDialog() {
   const isOpen = useAppStore((s) => s.isTaskDialogOpen)
@@ -17,9 +19,10 @@ export function AddTaskDialog() {
   const updateTask = useAppStore((s) => s.updateTask)
   const activeProject = useAppStore((s) => s.activeProject)
   const setSelectedTaskId = useAppStore((s) => s.setSelectedTaskId)
-  const defaultStatus = useAppStore((s) => s.taskDialogDefaultStatus)
+  const storeDefaultStatus = useAppStore((s) => s.taskDialogDefaultStatus)
 
   const [title, setTitle] = useState('')
+  const [status, setStatus] = useState<TaskStatus>(storeDefaultStatus)
   const [projectName, setProjectName] = useState('')
   const [description, setDescription] = useState('')
   const [branch, setBranch] = useState('')
@@ -38,6 +41,7 @@ export function AddTaskDialog() {
       setBranch(editing.branch || '')
       setUseWorktree(editing.useWorktree || false)
       setImages(editing.images || [])
+      setStatus(editing.status)
       taskIdRef.current = editing.id
       if (editing.images?.length) {
         Promise.all(
@@ -57,6 +61,7 @@ export function AddTaskDialog() {
   useEffect(() => {
     if (!isOpen) return
     initForm(editingTask)
+    setStatus(storeDefaultStatus)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, editingTask])
 
@@ -68,6 +73,7 @@ export function AddTaskDialog() {
     setUseWorktree(false)
     setImages([])
     setImagePaths(new Map())
+    setStatus('todo')
     taskIdRef.current = crypto.randomUUID()
   }
 
@@ -145,6 +151,7 @@ export function AddTaskDialog() {
         title: title.trim(),
         projectName,
         description: description.trim(),
+        status,
         branch: branch.trim() || undefined,
         useWorktree: useWorktree || undefined,
         images: images.length > 0 ? images : undefined
@@ -153,14 +160,13 @@ export function AddTaskDialog() {
       handleClose()
     } else {
       const existingTasks =
-        config?.tasks?.filter((t) => t.projectName === projectName && t.status === defaultStatus) ||
-        []
+        config?.tasks?.filter((t) => t.projectName === projectName && t.status === status) || []
       addTask({
         id: taskIdRef.current,
         projectName,
         title: title.trim(),
         description: description.trim(),
-        status: defaultStatus,
+        status: status,
         order: existingTasks.length,
         branch: branch.trim() || undefined,
         useWorktree: useWorktree || undefined,
@@ -278,32 +284,15 @@ export function AddTaskDialog() {
 
             {/* Property pills toolbar */}
             <div className="flex items-center gap-2 px-4 py-2 border-t border-white/[0.06]">
-              {/* Status pill */}
-              {(() => {
-                const StatusPillIcon = STATUS_ICON[defaultStatus]
-                return (
-                  <span className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/[0.06] text-xs text-gray-400">
-                    <StatusPillIcon size={10} className={STATUS_ICON_COLOR[defaultStatus]} />
-                    {STATUS_BADGE[defaultStatus].label}
-                  </span>
-                )
-              })()}
+              {/* Status picker */}
+              <StatusPicker currentStatus={status} onChange={setStatus} />
 
-              {/* Project pill */}
-              <select
-                value={projectName}
-                onChange={(e) => setProjectName(e.target.value)}
-                className="px-2 py-1 rounded-full bg-white/[0.06] text-xs text-gray-400
-                           border-none focus:outline-none cursor-pointer appearance-none"
-                style={{ backgroundImage: 'none' }}
-              >
-                <option value="">Project</option>
-                {config?.projects.map((p) => (
-                  <option key={p.name} value={p.name}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+              {/* Project picker */}
+              <ProjectPicker
+                currentProject={projectName}
+                projects={config?.projects || []}
+                onChange={setProjectName}
+              />
 
               {/* Branch pill */}
               {(branch || isEditMode) && (

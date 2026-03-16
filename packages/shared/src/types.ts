@@ -118,7 +118,7 @@ export interface WorkflowExecutionContext {
   }
 }
 
-export type WorkflowNodeType = 'trigger' | 'launchAgent' | 'script'
+export type WorkflowNodeType = 'trigger' | 'launchAgent' | 'script' | 'condition'
 
 export interface WorkflowNodePosition {
   x: number
@@ -181,7 +181,21 @@ export interface ScriptConfig {
   args?: string[]
 }
 
-export type WorkflowNodeConfig = TriggerConfig | LaunchAgentConfig | ScriptConfig
+export type ConditionOperator =
+  | 'equals'
+  | 'notEquals'
+  | 'contains'
+  | 'notContains'
+  | 'isEmpty'
+  | 'isNotEmpty'
+
+export interface ConditionConfig {
+  variable: string
+  operator: ConditionOperator
+  value: string
+}
+
+export type WorkflowNodeConfig = TriggerConfig | LaunchAgentConfig | ScriptConfig | ConditionConfig
 
 export interface WorkflowNode {
   id: string
@@ -196,6 +210,7 @@ export interface WorkflowEdge {
   id: string
   source: string
   target: string
+  conditionBranch?: 'true' | 'false'
 }
 
 // Execution tracking (runtime only)

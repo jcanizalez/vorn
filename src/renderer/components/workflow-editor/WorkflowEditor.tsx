@@ -17,10 +17,12 @@ import {
   createTriggerNode,
   createLaunchAgentNode,
   createScriptNode,
+  createConditionNode,
   appendNode,
   appendNodeAfter,
   insertNodeBetween,
   insertBeforeFork,
+  insertConditionBetween,
   addParallelBranch,
   removeNode
 } from '../../lib/workflow-helpers'
@@ -275,15 +277,19 @@ export function WorkflowEditor() {
 
   // Helper: create a node with a unique slug
   const createNodeWithUniqueSlug = useCallback(
-    (type: 'agent' | 'script') => {
+    (type: 'agent' | 'script' | 'condition') => {
       const projects = useAppStore.getState().config?.projects || []
       const firstProject = projects[0]
       const newNode =
-        type === 'script'
-          ? createScriptNode()
-          : createLaunchAgentNode(
-              firstProject ? { projectName: firstProject.name, projectPath: firstProject.path } : {}
-            )
+        type === 'condition'
+          ? createConditionNode()
+          : type === 'script'
+            ? createScriptNode()
+            : createLaunchAgentNode(
+                firstProject
+                  ? { projectName: firstProject.name, projectPath: firstProject.path }
+                  : {}
+              )
       if (newNode.slug) {
         const existingSlugs = new Set(nodes.filter((n) => n.slug).map((n) => n.slug!))
         newNode.slug = ensureUniqueSlug(newNode.slug, existingSlugs)
@@ -295,7 +301,20 @@ export function WorkflowEditor() {
 
   // Canvas "+" button handlers — insert between nodes or append at end
   const handleInsertNode = useCallback(
-    (afterNodeId: string, beforeNodeId: string | null, type: 'agent' | 'script') => {
+    (afterNodeId: string, beforeNodeId: string | null, type: 'agent' | 'script' | 'condition') => {
+      // Condition nodes use a special insertion that creates true/false branches
+      if (type === 'condition') {
+        const result = insertConditionBetween(nodes, edges, afterNodeId, beforeNodeId)
+        setNodes(result.nodes)
+        setEdges(result.edges)
+        // Select the condition node (last added)
+        const condNode = result.nodes.find(
+          (n) => n.type === 'condition' && !nodes.find((o) => o.id === n.id)
+        )
+        if (condNode) setSelectedNodeId(condNode.id)
+        return
+      }
+
       const newNode = createNodeWithUniqueSlug(type)
 
       let result: { nodes: WorkflowNode[]; edges: WorkflowEdge[] }

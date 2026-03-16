@@ -1,13 +1,19 @@
 import { useState, useRef, useEffect } from 'react'
-import { Plus, Play, GitBranch, Terminal } from 'lucide-react'
+import { Plus, Play, GitBranch, Terminal, Split } from 'lucide-react'
 
 interface Props {
   onAddAction: () => void
   onAddParallelBranch?: () => void
   onAddScript?: () => void
+  onAddCondition?: () => void
 }
 
-export function ConnectorButton({ onAddAction, onAddParallelBranch, onAddScript }: Props) {
+export function ConnectorButton({
+  onAddAction,
+  onAddParallelBranch,
+  onAddScript,
+  onAddCondition
+}: Props) {
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -72,6 +78,21 @@ export function ConnectorButton({ onAddAction, onAddParallelBranch, onAddScript 
             >
               <Terminal size={14} className="text-yellow-400 shrink-0" />
               Add a script
+            </button>
+          )}
+
+          {onAddCondition && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setOpen(false)
+                onAddCondition()
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] text-gray-300
+                         hover:bg-white/[0.06] hover:text-white transition-colors text-left"
+            >
+              <Split size={14} className="text-purple-400 shrink-0" />
+              Add a condition
             </button>
           )}
 

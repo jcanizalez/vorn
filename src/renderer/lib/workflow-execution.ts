@@ -6,6 +6,8 @@ import {
   NodeExecutionState,
   LaunchAgentConfig,
   ScriptConfig,
+  ConditionConfig,
+  ConditionOperator,
   TaskConfig
 } from '../../shared/types'
 import { getTriggerNode } from './workflow-helpers'
@@ -75,6 +77,25 @@ function buildStepOutputsMap(
   return outputs
 }
 
+function evaluateCondition(operator: ConditionOperator, resolved: string, value: string): boolean {
+  switch (operator) {
+    case 'equals':
+      return resolved === value
+    case 'notEquals':
+      return resolved !== value
+    case 'contains':
+      return resolved.includes(value)
+    case 'notContains':
+      return !resolved.includes(value)
+    case 'isEmpty':
+      return resolved.trim() === ''
+    case 'isNotEmpty':
+      return resolved.trim() !== ''
+    default:
+      return false
+  }
+}
+
 async function executeNode(
   node: WorkflowNode,
   workflow: WorkflowDefinition,
@@ -87,6 +108,25 @@ async function executeNode(
     startedAt: new Date().toISOString()
   })
   persistExecution(workflow.id, execution)
+
+  if (node.type === 'condition') {
+    const config = node.config as ConditionConfig
+    const resolved = resolveTemplateVars(config.variable || '', context, stepOutputs)
+    const value = resolveTemplateVars(config.value || '', context, stepOutputs)
+    const result = evaluateCondition(config.operator, resolved, value)
+
+    console.log(
+      `[workflow] condition "${node.label}": "${resolved}" ${config.operator} "${value}" → ${result}`
+    )
+
+    updateNodeState(execution, node.id, {
+      status: 'success',
+      completedAt: new Date().toISOString(),
+      output: String(result)
+    })
+    persistExecution(workflow.id, execution)
+    return
+  }
 
   if (node.type === 'script') {
     const config = node.config as ScriptConfig
@@ -315,14 +355,39 @@ export async function executeWorkflow(
     completed.add(triggerNode.id)
   }
 
+  // Track which nodes are blocked by condition branches
+  const skippedByCondition = new Set<string>()
+
+  function markSkippedBranch(startNodeId: string): void {
+    const queue = [startNodeId]
+    while (queue.length > 0) {
+      const id = queue.shift()!
+      if (skippedByCondition.has(id) || completed.has(id)) continue
+      skippedByCondition.add(id)
+      // Only follow edges that stay within this branch (stop at join points)
+      const succs = successorsMap.get(id) || []
+      for (const s of succs) {
+        // Don't skip nodes that have other incoming paths (join points)
+        const otherPreds = (predecessorsMap.get(s) || []).filter(
+          (p) => p !== id && !skippedByCondition.has(p)
+        )
+        if (otherPreds.length === 0) {
+          queue.push(s)
+        }
+      }
+    }
+  }
+
   function getReadyNodes(): WorkflowNode[] {
     const ready: WorkflowNode[] = []
     for (const node of workflow.nodes) {
       if (node.type === 'trigger') continue
       if (completed.has(node.id) || running.has(node.id)) continue
+      if (skippedByCondition.has(node.id)) continue
 
       const preds = predecessorsMap.get(node.id) || []
-      if (preds.every((p) => completed.has(p))) {
+      const allPredsReady = preds.every((p) => completed.has(p) || skippedByCondition.has(p))
+      if (allPredsReady && preds.some((p) => completed.has(p))) {
         ready.push(node)
       }
     }
@@ -361,6 +426,27 @@ export async function executeWorkflow(
         }
         running.delete(node.id)
         completed.add(node.id)
+
+        // After a condition node completes, skip the non-matching branch
+        if (node.type === 'condition') {
+          const condState = execution.nodeStates.find((s) => s.nodeId === node.id)
+          const result = condState?.output // "true" or "false"
+          const skipBranch = result === 'true' ? 'false' : 'true'
+
+          for (const edge of workflow.edges) {
+            if (edge.source === node.id && edge.conditionBranch === skipBranch) {
+              markSkippedBranch(edge.target)
+              // Mark skipped nodes in execution state
+              for (const skippedId of skippedByCondition) {
+                updateNodeState(execution, skippedId, {
+                  status: 'skipped',
+                  completedAt: new Date().toISOString()
+                })
+              }
+              persistExecution(workflow.id, execution)
+            }
+          }
+        }
       })
 
       await Promise.all(promises)
@@ -377,7 +463,9 @@ export async function executeWorkflow(
       persistExecution(workflow.id, execution)
     }
 
-    const hasErrors = execution.nodeStates.some((ns) => ns.status === 'error')
+    const hasErrors = execution.nodeStates.some(
+      (ns) => ns.status === 'error' && !skippedByCondition.has(ns.nodeId)
+    )
     execution.status = hasErrors ? 'error' : 'success'
     execution.completedAt = new Date().toISOString()
   } catch (err) {

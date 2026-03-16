@@ -1,9 +1,25 @@
 import { AgentType, AgentCommandConfig } from './types'
 
 export const DEFAULT_AGENT_COMMANDS: Record<AgentType, AgentCommandConfig> = {
-  claude: { command: 'claude', args: [] },
-  copilot: { command: 'copilot', args: [] },
-  codex: { command: 'codex', args: [] },
+  claude: {
+    command: 'claude',
+    args: [],
+    headlessArgs: ['--dangerously-skip-permissions']
+  },
+  copilot: {
+    command: 'copilot',
+    args: [],
+    headlessArgs: ['--allow-all']
+  },
+  codex: {
+    command: 'codex',
+    args: [],
+    headlessArgs: ['-a', 'never']
+  },
   opencode: { command: 'opencode', args: [] },
-  gemini: { command: 'gemini', args: [] }
+  gemini: {
+    command: 'gemini',
+    args: [],
+    headlessArgs: ['-y']
+  }
 }

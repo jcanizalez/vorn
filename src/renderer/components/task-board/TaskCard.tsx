@@ -114,7 +114,6 @@ export function TaskCard({
     )
   }
 
-  // Default variant — Linear-style flat row
   return (
     <div
       className={`group flex items-center gap-3 px-3 py-2 hover:bg-white/[0.04] rounded-md transition-colors

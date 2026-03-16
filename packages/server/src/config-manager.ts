@@ -84,12 +84,12 @@ class ConfigManager {
     // Watch the directory for WAL file changes (WAL may not exist yet)
     try {
       this.dbWatcher = fs.watch(DB_DIR, (eventType, filename) => {
-        if (!filename || (!filename.endsWith('.db-wal') && !filename.endsWith('.db'))) return
+        if (!filename || !filename.endsWith('.db-wal')) return
         // Debounce -- multiple writes can fire rapidly
         if (this.debounceTimer) clearTimeout(this.debounceTimer)
         this.debounceTimer = setTimeout(() => {
           this.notifyChanged()
-        }, 200)
+        }, 1000)
       })
     } catch {
       // Directory may not exist yet; ignore

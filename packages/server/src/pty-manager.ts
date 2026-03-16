@@ -233,7 +233,7 @@ class PtyManager extends EventEmitter {
     if (!this.flushTimers.has(id)) {
       this.flushTimers.set(
         id,
-        setTimeout(() => this.flushBuffer(id), 16)
+        setTimeout(() => this.flushBuffer(id), 50)
       )
     }
   }

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { TaskConfig, TaskStatus } from '../../../shared/types'
 import { TaskCard } from './TaskCard'
-import { STATUS_ICON, STATUS_ICON_COLOR, STATUS_HEADER_BG } from '../../lib/task-status'
+import { STATUS_ICON, STATUS_ICON_COLOR } from '../../lib/task-status'
 import { ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -52,13 +52,12 @@ export function TaskListView({
         const isCollapsed = collapsed.has(section.title)
         const SectionIcon = STATUS_ICON[section.status]
         const iconColor = STATUS_ICON_COLOR[section.status]
-        const headerBg = STATUS_HEADER_BG[section.status]
 
         return (
           <div key={section.title}>
             {/* Section header bar */}
             <div
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg ${headerBg} transition-colors hover:brightness-110 cursor-pointer`}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.03] transition-colors hover:bg-white/[0.06] cursor-pointer"
               onClick={() => toggleSection(section.title)}
             >
               {isCollapsed ? (

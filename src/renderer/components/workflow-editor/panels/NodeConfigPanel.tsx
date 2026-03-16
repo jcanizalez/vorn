@@ -3,11 +3,13 @@ import {
   WorkflowNode,
   TriggerConfig,
   LaunchAgentConfig,
-  ScriptConfig
+  ScriptConfig,
+  ConditionConfig
 } from '../../../../shared/types'
 import { TriggerConfigForm } from './TriggerConfigForm'
 import { LaunchAgentConfigForm } from './LaunchAgentConfigForm'
 import { ScriptConfigForm } from './ScriptConfigForm'
+import { ConditionConfigForm } from './ConditionConfigForm'
 import type { StepVariableGroup } from '../../../lib/template-vars'
 
 interface Props {
@@ -33,7 +35,8 @@ export function NodeConfigPanel({
     <div className="w-[300px] border-l border-white/[0.08] bg-[#1e1e22] flex flex-col h-full overflow-hidden titlebar-no-drag">
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.08]">
         <span className="text-[13px] font-medium text-white">
-          {node.type === 'trigger' ? 'Trigger' : 'Action'} Config
+          {node.type === 'trigger' ? 'Trigger' : node.type === 'condition' ? 'Condition' : 'Action'}{' '}
+          Config
         </span>
         <button
           onClick={onClose}
@@ -86,6 +89,15 @@ export function NodeConfigPanel({
             onChange={(config) => onChange(node.id, config)}
             triggerType={triggerType}
             stepGroups={stepGroups}
+          />
+        )}
+
+        {node.type === 'condition' && (
+          <ConditionConfigForm
+            config={node.config as ConditionConfig}
+            onChange={(config) => onChange(node.id, config)}
+            triggerType={triggerType}
+            stepGroups={stepGroups || []}
           />
         )}
       </div>

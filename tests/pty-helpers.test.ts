@@ -51,8 +51,8 @@ describe('shellEscape', () => {
     ;({ shellEscape } = await import('../packages/server/src/process-utils'))
   })
 
-  it('wraps simple string in single quotes', () => {
-    expect(shellEscape('hello')).toBe("'hello'")
+  it('returns safe strings unquoted', () => {
+    expect(shellEscape('hello')).toBe('hello')
   })
 
   it('escapes single quotes', () => {

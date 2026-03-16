@@ -2,13 +2,15 @@ import { useMemo, Fragment } from 'react'
 import { TriggerNode } from './nodes/TriggerNode'
 import { LaunchAgentNode } from './nodes/LaunchAgentNode'
 import { ScriptNode } from './nodes/ScriptNode'
+import { ConditionNode } from './nodes/ConditionNode'
 import { ConnectorButton } from './nodes/AddStepNode'
 import {
   WorkflowNode,
   WorkflowEdge,
   TriggerConfig,
   LaunchAgentConfig,
-  ScriptConfig
+  ScriptConfig,
+  ConditionConfig
 } from '../../../shared/types'
 import { computeFlowLayout, FlowRow } from '../../lib/workflow-helpers'
 
@@ -16,7 +18,11 @@ interface Props {
   nodes: WorkflowNode[]
   edges: WorkflowEdge[]
   onNodeClick: (nodeId: string) => void
-  onInsertNode: (afterNodeId: string, beforeNodeId: string | null, type: 'agent' | 'script') => void
+  onInsertNode: (
+    afterNodeId: string,
+    beforeNodeId: string | null,
+    type: 'agent' | 'script' | 'condition'
+  ) => void
   onAddParallelBranch: (forkFromId: string, type: 'agent' | 'script') => void
   selectedNodeId: string | null
 }
@@ -63,6 +69,17 @@ function NodeCard({
     )
   }
 
+  if (node.type === 'condition') {
+    return (
+      <ConditionNode
+        label={node.label}
+        config={node.config as ConditionConfig}
+        selected={selected}
+        onClick={onClick}
+      />
+    )
+  }
+
   return (
     <LaunchAgentNode
       label={node.label}
@@ -75,6 +92,8 @@ function NodeCard({
 
 function FlowRowRenderer({
   rows,
+  edges,
+  nodes,
   onNodeClick,
   onInsertNode,
   onAddParallelBranch,
@@ -82,8 +101,14 @@ function FlowRowRenderer({
   isInsideBranch
 }: {
   rows: FlowRow[]
+  edges?: WorkflowEdge[]
+  nodes?: WorkflowNode[]
   onNodeClick: (nodeId: string) => void
-  onInsertNode: (afterNodeId: string, beforeNodeId: string | null, type: 'agent' | 'script') => void
+  onInsertNode: (
+    afterNodeId: string,
+    beforeNodeId: string | null,
+    type: 'agent' | 'script' | 'condition'
+  ) => void
   onAddParallelBranch: (forkFromId: string, type: 'agent' | 'script') => void
   selectedNodeId: string | null
   isInsideBranch?: boolean
@@ -119,6 +144,7 @@ function FlowRowRenderer({
                   <ConnectorButton
                     onAddAction={() => onInsertNode(row.node.id, beforeNodeId, 'agent')}
                     onAddScript={() => onInsertNode(row.node.id, beforeNodeId, 'script')}
+                    onAddCondition={() => onInsertNode(row.node.id, beforeNodeId, 'condition')}
                     onAddParallelBranch={() => onAddParallelBranch(row.node.id, 'agent')}
                   />
                 </>
@@ -130,6 +156,7 @@ function FlowRowRenderer({
                   <ConnectorButton
                     onAddAction={() => onInsertNode(row.node.id, null, 'agent')}
                     onAddScript={() => onInsertNode(row.node.id, null, 'script')}
+                    onAddCondition={() => onInsertNode(row.node.id, null, 'condition')}
                     onAddParallelBranch={
                       !isInsideBranch ? () => onAddParallelBranch(row.node.id, 'agent') : undefined
                     }
@@ -148,6 +175,8 @@ function FlowRowRenderer({
             onInsertNode={onInsertNode}
             onAddParallelBranch={onAddParallelBranch}
             selectedNodeId={selectedNodeId}
+            edges={edges}
+            nodes={nodes}
           />
         )
       })}
@@ -175,15 +204,43 @@ function ForkRenderer({
   onNodeClick,
   onInsertNode,
   onAddParallelBranch,
-  selectedNodeId
+  selectedNodeId,
+  edges,
+  nodes
 }: {
   row: Extract<FlowRow, { kind: 'fork' }>
   onNodeClick: (nodeId: string) => void
-  onInsertNode: (afterNodeId: string, beforeNodeId: string | null, type: 'agent' | 'script') => void
+  onInsertNode: (
+    afterNodeId: string,
+    beforeNodeId: string | null,
+    type: 'agent' | 'script' | 'condition'
+  ) => void
   onAddParallelBranch: (forkFromId: string, type: 'agent' | 'script') => void
   selectedNodeId: string | null
+  edges?: WorkflowEdge[]
+  nodes?: WorkflowNode[]
 }) {
   const branchCount = row.branches.length
+
+  // Check if this fork is from a condition node
+  const forkNode = nodes?.find((n) => n.id === row.forkNodeId)
+  const isConditionFork = forkNode?.type === 'condition'
+
+  // Determine branch labels for condition forks
+  const getBranchLabel = (branchIndex: number): string | null => {
+    if (!isConditionFork || !edges) return null
+    const branch = row.branches[branchIndex]
+    const firstNodeInBranch = branch?.[0]?.kind === 'node' ? branch[0].node.id : null
+    if (!firstNodeInBranch) return null
+    const edge = edges.find(
+      (e) => e.source === row.forkNodeId && e.target === firstNodeInBranch && e.conditionBranch
+    )
+    return edge?.conditionBranch === 'true'
+      ? 'True'
+      : edge?.conditionBranch === 'false'
+        ? 'False'
+        : null
+  }
 
   return (
     <div className="flex flex-col items-center w-full">
@@ -192,6 +249,7 @@ function ForkRenderer({
       <div className="flex w-full">
         {row.branches.map((branch, bi) => {
           const branchKey = branch[0]?.kind === 'node' ? branch[0].node.id : `branch-${bi}`
+          const label = getBranchLabel(bi)
 
           return (
             <div
@@ -199,10 +257,24 @@ function ForkRenderer({
               className="flex flex-col items-center flex-1"
               style={{ minWidth: 310 }}
             >
+              {label && (
+                <div
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold mb-1 ${
+                    label === 'True'
+                      ? 'bg-green-500/20 text-green-400'
+                      : 'bg-red-500/20 text-red-400'
+                  }`}
+                >
+                  {label}
+                </div>
+              )}
+
               <VerticalLine />
 
               <FlowRowRenderer
                 rows={branch}
+                edges={edges}
+                nodes={nodes}
                 onNodeClick={onNodeClick}
                 onInsertNode={onInsertNode}
                 onAddParallelBranch={onAddParallelBranch}
@@ -236,6 +308,8 @@ export function WorkflowCanvas({
       <div className="flex flex-col items-center py-12 min-h-full px-8">
         <FlowRowRenderer
           rows={flowLayout}
+          edges={edges}
+          nodes={nodes}
           onNodeClick={onNodeClick}
           onInsertNode={onInsertNode}
           onAddParallelBranch={onAddParallelBranch}
