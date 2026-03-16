@@ -3,6 +3,7 @@ import { AnimatePresence, LayoutGroup } from 'framer-motion'
 import { useAppStore } from '../stores'
 import { AgentCard } from './AgentCard'
 import { PromptLauncher } from './PromptLauncher'
+import { GridContextMenu } from './GridContextMenu'
 import { useVisibleTerminals } from '../hooks/useVisibleTerminals'
 
 interface DragState {
@@ -20,6 +21,7 @@ export function GridView() {
 
   const [dragState, setDragState] = useState<DragState | null>(null)
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null)
+  const [gridContextMenu, setGridContextMenu] = useState<{ x: number; y: number } | null>(null)
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
   const orderedIds = useVisibleTerminals()
@@ -81,12 +83,37 @@ export function GridView() {
     setDropTargetIndex(null)
   }, [dragState, dropTargetIndex, orderedIds, reorderTerminals])
 
+  const handleGridDoubleClick = useCallback((e: React.MouseEvent) => {
+    if (e.target !== e.currentTarget) return
+    const state = useAppStore.getState()
+    const activeProjectName = state.activeProject
+    const project = activeProjectName
+      ? state.config?.projects.find((p) => p.name === activeProjectName)
+      : state.config?.projects[0]
+    if (!project) {
+      state.setNewAgentDialogOpen(true)
+      return
+    }
+    const agentType = state.config?.defaults.defaultAgent || 'claude'
+    window.api
+      .createTerminal({ agentType, projectName: project.name, projectPath: project.path })
+      .then((session) => state.addTerminal(session))
+  }, [])
+
+  const handleGridContextMenu = useCallback((e: React.MouseEvent) => {
+    if (e.target !== e.currentTarget) return
+    e.preventDefault()
+    setGridContextMenu({ x: e.clientX, y: e.clientY })
+  }, [])
+
   return (
     <div
       className="h-full overflow-auto p-4"
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
+      onDoubleClick={handleGridDoubleClick}
+      onContextMenu={handleGridContextMenu}
     >
       {orderedIds.length === 0 ? (
         isFiltered ? (
@@ -112,7 +139,12 @@ export function GridView() {
         )
       ) : (
         <LayoutGroup>
-          <div className="grid gap-4" style={gridStyle}>
+          <div
+            className="grid gap-4"
+            style={gridStyle}
+            onDoubleClick={handleGridDoubleClick}
+            onContextMenu={handleGridContextMenu}
+          >
             <AnimatePresence>
               {orderedIds.map((id, index) => (
                 <AgentCard
@@ -122,6 +154,7 @@ export function GridView() {
                     else cardRefs.current.delete(id)
                   }}
                   terminalId={id}
+                  index={index}
                   isDragTarget={dragState?.isDragging === true && dropTargetIndex === index}
                   onDragStart={sortMode === 'manual' ? (e) => handleDragStart(id, e) : undefined}
                 />
@@ -129,6 +162,9 @@ export function GridView() {
             </AnimatePresence>
           </div>
         </LayoutGroup>
+      )}
+      {gridContextMenu && (
+        <GridContextMenu position={gridContextMenu} onClose={() => setGridContextMenu(null)} />
       )}
     </div>
   )

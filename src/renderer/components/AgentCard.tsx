@@ -9,12 +9,16 @@ import { InlineRename } from './InlineRename'
 import { GitChangesIndicator } from './GitChangesIndicator'
 import { closeTerminalSession } from '../lib/terminal-close'
 import { getDisplayName } from '../lib/terminal-display'
+import { CardContextMenu } from './CardContextMenu'
 import { useTerminalScrollButton } from '../hooks/useTerminalScrollButton'
 import { GitBranch, FolderGit2, Server, Pencil, ListTodo, Pin, Archive } from 'lucide-react'
 import { toast } from './Toast'
 
+const isMac = navigator.platform.toUpperCase().includes('MAC')
+
 interface Props {
   terminalId: string
+  index?: number
   isDragTarget?: boolean
   onDragStart?: (e: React.PointerEvent) => void
 }
@@ -50,7 +54,7 @@ function RowResizeHandle() {
 }
 
 export const AgentCard = forwardRef<HTMLDivElement, Props>(function AgentCard(
-  { terminalId, isDragTarget, onDragStart },
+  { terminalId, index, isDragTarget, onDragStart },
   ref
 ) {
   const terminal = useAppStore((s) => s.terminals.get(terminalId))
@@ -71,6 +75,7 @@ export const AgentCard = forwardRef<HTMLDivElement, Props>(function AgentCard(
   const togglePinned = useAppStore((s) => s.togglePinned)
   const archiveSession = useAppStore((s) => s.archiveSession)
   const [cardHovered, setCardHovered] = useState(false)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const { showScrollBtn, handleScrollToBottom } = useTerminalScrollButton(terminalId)
 
   if (!terminal) return null
@@ -121,6 +126,11 @@ export const AgentCard = forwardRef<HTMLDivElement, Props>(function AgentCard(
       }}
       onMouseEnter={() => setCardHovered(true)}
       onMouseLeave={() => setCardHovered(false)}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        setContextMenu({ x: e.clientX, y: e.clientY })
+      }}
     >
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-white/[0.04] shrink-0">
@@ -318,6 +328,27 @@ export const AgentCard = forwardRef<HTMLDivElement, Props>(function AgentCard(
 
       {/* Resize handle */}
       {!isMinimized && <RowResizeHandle />}
+
+      {/* Shortcut badge */}
+      {typeof index === 'number' && index < 9 && (
+        <span
+          className="absolute top-1.5 right-1.5 z-10 px-1 py-0.5 text-[9px] font-mono
+                         text-gray-600 bg-white/[0.04] border border-white/[0.06] rounded
+                         leading-none pointer-events-none"
+        >
+          {isMac ? '\u2318' : 'Ctrl+'}
+          {index + 1}
+        </span>
+      )}
+
+      {/* Context menu */}
+      {contextMenu && (
+        <CardContextMenu
+          terminalId={terminalId}
+          position={contextMenu}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </motion.div>
   )
 })
