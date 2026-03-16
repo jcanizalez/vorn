@@ -456,10 +456,11 @@ export function TaskQueuePanel() {
       return async () => {
         const agentType = task.assignedAgent!
         const taskProject = project ?? config?.projects.find((p) => p.name === task.projectName)
+        if (!taskProject) return
         const session = await window.api.createTerminal({
           agentType,
           projectName: task.projectName,
-          projectPath: taskProject?.path || '',
+          projectPath: taskProject.path,
           branch: task.branch,
           useWorktree: task.useWorktree,
           resumeSessionId: task.agentSessionId

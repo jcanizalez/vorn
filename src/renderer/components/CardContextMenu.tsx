@@ -132,9 +132,10 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
 
   // Clamp position to viewport
   const menuWidth = 220
-  const menuHeight = items.length * 32 + 16
-  const left = Math.min(position.x, window.innerWidth - menuWidth - 8)
-  const top = Math.min(position.y, window.innerHeight - menuHeight - 8)
+  const separators = items.filter((i) => i.separator).length
+  const menuHeight = items.length * 32 + separators * 9 + 16
+  const left = Math.max(8, Math.min(position.x, window.innerWidth - menuWidth - 8))
+  const top = Math.max(8, Math.min(position.y, window.innerHeight - menuHeight - 8))
 
   return createPortal(
     <AnimatePresence>

@@ -87,9 +87,10 @@ export function GridView() {
     if (e.target !== e.currentTarget) return
     const state = useAppStore.getState()
     const activeProjectName = state.activeProject
+    const ws = state.activeWorkspace
     const project = activeProjectName
       ? state.config?.projects.find((p) => p.name === activeProjectName)
-      : state.config?.projects[0]
+      : state.config?.projects.find((p) => (p.workspaceId ?? 'personal') === ws)
     if (!project) {
       state.setNewAgentDialogOpen(true)
       return

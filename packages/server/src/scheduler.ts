@@ -10,27 +10,38 @@ import log from './logger'
 const LOCK_DIR = path.join(os.homedir(), '.vibegrid')
 
 /**
- * Try to acquire an execution lock for a workflow.
- * Uses a lock file with a timestamp — if another instance already ran
- * this workflow within the last 60 seconds, skip it.
+ * Try to acquire an execution lock for a workflow run.
+ * Uses exclusive file creation (wx flag) keyed by the current minute
+ * so it's atomic across processes and auto-expires for the next run.
  */
 function acquireExecutionLock(workflowId: string): boolean {
-  const lockFile = path.join(LOCK_DIR, `scheduler-${workflowId}.lock`)
-  const now = Date.now()
+  // Key by current minute so the lock naturally expires for the next scheduled run
+  const minuteKey = Math.floor(Date.now() / 60_000)
+  const lockFile = path.join(LOCK_DIR, `scheduler-${workflowId}-${minuteKey}.lock`)
   try {
-    const existing = fs.readFileSync(lockFile, 'utf-8').trim()
-    const lastRun = parseInt(existing, 10)
-    if (!isNaN(lastRun) && now - lastRun < 60_000) {
-      return false // Another instance ran this within the last minute
-    }
-  } catch {
-    // Lock file doesn't exist or can't be read — proceed
-  }
-  try {
-    fs.writeFileSync(lockFile, String(now), { flag: 'w' })
+    // wx flag: exclusive create — fails if file already exists (atomic)
+    fs.writeFileSync(lockFile, String(process.pid), { flag: 'wx' })
+    // Clean up stale lock files from previous runs
+    cleanStaleLocks(workflowId, minuteKey)
     return true
   } catch {
-    return false
+    return false // Another instance already created this lock
+  }
+}
+
+function cleanStaleLocks(workflowId: string, currentKey: number): void {
+  try {
+    const prefix = `scheduler-${workflowId}-`
+    for (const f of fs.readdirSync(LOCK_DIR)) {
+      if (f.startsWith(prefix) && f.endsWith('.lock')) {
+        const key = parseInt(f.slice(prefix.length, -5), 10)
+        if (!isNaN(key) && key < currentKey) {
+          fs.unlinkSync(path.join(LOCK_DIR, f))
+        }
+      }
+    }
+  } catch {
+    // Best-effort cleanup
   }
 }
 
