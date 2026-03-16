@@ -204,8 +204,10 @@ export function createConditionNode(config: Partial<ConditionConfig> = {}): Work
 
 /**
  * Insert a condition node between two nodes (or at the end).
- * Creates the condition + two branch edges (true/false).
- * If there's a downstream node, both branches rejoin at it.
+ * Creates the condition + placeholder branch-start nodes for true/false.
+ * If there's a downstream node, both branches rejoin at it via their placeholders.
+ * This avoids pointing both branches directly at the same target, which would
+ * cause markSkippedBranch to incorrectly skip the shared join node.
  */
 export function insertConditionBetween(
   nodes: WorkflowNode[],
@@ -219,24 +221,36 @@ export function insertConditionBetween(
   let newEdges = [...edges]
 
   if (beforeNodeId) {
+    // Create placeholder nodes for each branch so they don't share a target
+    const trueBranch = createScriptNode({ scriptContent: '# True branch\nexit 0\n' })
+    trueBranch.label = 'True Branch'
+    trueBranch.slug = slugify('True Branch')
+    const falseBranch = createScriptNode({ scriptContent: '# False branch\nexit 0\n' })
+    falseBranch.label = 'False Branch'
+    falseBranch.slug = slugify('False Branch')
+    newNodes.push(trueBranch, falseBranch)
+
     // Remove the direct edge between after → before
     newEdges = newEdges.filter((e) => !(e.source === afterNodeId && e.target === beforeNodeId))
     // after → condition
     newEdges.push({ id: crypto.randomUUID(), source: afterNodeId, target: conditionNode.id })
-    // condition → before (true branch)
+    // condition → true placeholder
     newEdges.push({
       id: crypto.randomUUID(),
       source: conditionNode.id,
-      target: beforeNodeId,
+      target: trueBranch.id,
       conditionBranch: 'true'
     })
-    // condition → before (false branch also rejoins — user can insert nodes into each branch later)
+    // condition → false placeholder
     newEdges.push({
       id: crypto.randomUUID(),
       source: conditionNode.id,
-      target: beforeNodeId,
+      target: falseBranch.id,
       conditionBranch: 'false'
     })
+    // Both placeholders rejoin at the downstream node
+    newEdges.push({ id: crypto.randomUUID(), source: trueBranch.id, target: beforeNodeId })
+    newEdges.push({ id: crypto.randomUUID(), source: falseBranch.id, target: beforeNodeId })
   } else {
     // Appending at the end — just connect after → condition
     newEdges.push({ id: crypto.randomUUID(), source: afterNodeId, target: conditionNode.id })

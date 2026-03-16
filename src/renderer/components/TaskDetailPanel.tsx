@@ -221,11 +221,41 @@ export function TaskDetailPanel() {
   }, [formTitle, formProjectName, formDescription, formBranch, formUseWorktree, formImages])
 
   // Flush pending save on unmount or task switch
+  const formRef = useRef({
+    formTitle,
+    formProjectName,
+    formDescription,
+    formBranch,
+    formUseWorktree,
+    formImages
+  })
+  formRef.current = {
+    formTitle,
+    formProjectName,
+    formDescription,
+    formBranch,
+    formUseWorktree,
+    formImages
+  }
+
   useEffect(() => {
+    const taskIdForCleanup = selectedTaskId
     return () => {
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current)
         saveTimerRef.current = null
+        // Flush the pending save immediately with latest form state
+        if (taskIdForCleanup && taskIdForCleanup !== 'new') {
+          const f = formRef.current
+          useAppStore.getState().updateTask(taskIdForCleanup, {
+            title: f.formTitle.trim(),
+            projectName: f.formProjectName,
+            description: f.formDescription.trim(),
+            branch: f.formBranch.trim() || undefined,
+            useWorktree: f.formUseWorktree || undefined,
+            images: f.formImages.length > 0 ? f.formImages : undefined
+          })
+        }
       }
     }
   }, [selectedTaskId])

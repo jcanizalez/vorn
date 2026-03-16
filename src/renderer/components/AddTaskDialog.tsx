@@ -41,6 +41,7 @@ export function AddTaskDialog() {
       setBranch(editing.branch || '')
       setUseWorktree(editing.useWorktree || false)
       setImages(editing.images || [])
+      setStatus(editing.status)
       taskIdRef.current = editing.id
       if (editing.images?.length) {
         Promise.all(
@@ -150,6 +151,7 @@ export function AddTaskDialog() {
         title: title.trim(),
         projectName,
         description: description.trim(),
+        status,
         branch: branch.trim() || undefined,
         useWorktree: useWorktree || undefined,
         images: images.length > 0 ? images : undefined

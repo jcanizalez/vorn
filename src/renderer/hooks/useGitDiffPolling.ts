@@ -8,7 +8,7 @@ export function useGitDiffPolling(): void {
 
   useEffect(() => {
     const poll = async (): Promise<void> => {
-      // Skip polling when window is hidden/unfocused to save energy
+      // Skip polling when window is hidden to save energy
       if (document.hidden) return
 
       const { terminals, updateGitDiffStat } = useAppStore.getState()
