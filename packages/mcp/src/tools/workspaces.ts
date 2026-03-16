@@ -53,23 +53,23 @@ export function registerWorkspaceTools(server: McpServer): void {
       order: z.number().int().min(0).optional().describe('Sort order')
     },
     async (args) => {
-      const updates: Partial<WorkspaceConfig> = {}
-      if (args.name !== undefined) updates.name = args.name
-      if (args.icon !== undefined) updates.icon = args.icon
-      if (args.icon_color !== undefined) updates.iconColor = args.icon_color
-      if (args.order !== undefined) updates.order = args.order
-
-      try {
-        dbUpdateWorkspace(args.id, updates)
-      } catch {
+      const existing = dbListWorkspaces()
+      if (!existing.find((w) => w.id === args.id)) {
         return {
           content: [{ type: 'text', text: `Error: workspace "${args.id}" not found` }],
           isError: true
         }
       }
 
-      const all = dbListWorkspaces()
-      const updated = all.find((w) => w.id === args.id)
+      const updates: Partial<WorkspaceConfig> = {}
+      if (args.name !== undefined) updates.name = args.name
+      if (args.icon !== undefined) updates.icon = args.icon
+      if (args.icon_color !== undefined) updates.iconColor = args.icon_color
+      if (args.order !== undefined) updates.order = args.order
+
+      dbUpdateWorkspace(args.id, updates)
+
+      const updated = dbListWorkspaces().find((w) => w.id === args.id)
       return { content: [{ type: 'text', text: JSON.stringify(updated, null, 2) }] }
     }
   )
@@ -85,15 +85,16 @@ export function registerWorkspaceTools(server: McpServer): void {
           isError: true
         }
       }
-      try {
-        dbDeleteWorkspace(args.id)
-      } catch {
+      const existing = dbListWorkspaces()
+      const workspace = existing.find((w) => w.id === args.id)
+      if (!workspace) {
         return {
           content: [{ type: 'text', text: `Error: workspace "${args.id}" not found` }],
           isError: true
         }
       }
-      return { content: [{ type: 'text', text: `Deleted workspace: ${args.id}` }] }
+      dbDeleteWorkspace(args.id)
+      return { content: [{ type: 'text', text: `Deleted workspace: ${workspace.name}` }] }
     }
   )
 }

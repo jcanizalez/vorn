@@ -74,9 +74,13 @@ export async function startServer(
 
   // Write WS port to a well-known file so MCP and other tools can discover it
   const wsPortFile = path.join(os.homedir(), '.vibegrid', 'ws-port')
-  const wsPortDir = path.dirname(wsPortFile)
-  if (!fs.existsSync(wsPortDir)) fs.mkdirSync(wsPortDir, { recursive: true })
-  fs.writeFileSync(wsPortFile, String(actualPort), 'utf-8')
+  try {
+    const wsPortDir = path.dirname(wsPortFile)
+    if (!fs.existsSync(wsPortDir)) fs.mkdirSync(wsPortDir, { recursive: true })
+    fs.writeFileSync(wsPortFile, String(actualPort), 'utf-8')
+  } catch (err) {
+    log.warn({ err }, '[server] failed to write ws-port file (MCP discovery will not work)')
+  }
 
   log.info(`[server] listening on ${host}:${actualPort}`)
 

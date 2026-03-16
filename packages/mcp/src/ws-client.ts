@@ -70,6 +70,31 @@ export async function rpcCall<T = unknown>(method: string, params?: unknown): Pr
 }
 
 /**
+ * Send a fire-and-forget JSON-RPC notification (no response expected).
+ */
+export async function rpcNotify(method: string, params?: unknown): Promise<void> {
+  const port = readPort()
+  if (!port) {
+    throw new Error('VibeGrid app is not running. Start VibeGrid to use session management tools.')
+  }
+
+  return new Promise<void>((resolve, reject) => {
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`)
+
+    ws.on('open', () => {
+      // No id = fire-and-forget notification per JSON-RPC spec
+      ws.send(JSON.stringify({ jsonrpc: '2.0', method, params }))
+      ws.close()
+      resolve()
+    })
+
+    ws.on('error', (err) => {
+      reject(new Error(`Cannot connect to VibeGrid server: ${err.message}. Is the app running?`))
+    })
+  })
+}
+
+/**
  * Check whether the VibeGrid server is reachable.
  */
 export function isServerRunning(): boolean {

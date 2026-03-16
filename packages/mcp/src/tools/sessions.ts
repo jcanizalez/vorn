@@ -9,7 +9,7 @@ import type {
   ArchivedSession
 } from '@vibegrid/shared/types'
 import { V } from '../validation'
-import { rpcCall } from '../ws-client'
+import { rpcCall, rpcNotify } from '../ws-client'
 
 const AGENT_TYPES: [AgentType, ...AgentType[]] = [
   'claude',
@@ -256,7 +256,7 @@ export function registerSessionTools(server: McpServer): void {
     },
     async (args) => {
       try {
-        await rpcCall('terminal:write', { id: args.id, data: args.data })
+        await rpcNotify('terminal:write', { id: args.id, data: args.data })
         return { content: [{ type: 'text', text: `Wrote to session: ${args.id}` }] }
       } catch (err) {
         return {
