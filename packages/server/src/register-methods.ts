@@ -40,6 +40,7 @@ export function registerAllMethods(): void {
     return ptyManager.createPty(payload)
   })
   registerMethod('terminal:kill', (id) => ptyManager.killPty(id))
+  registerMethod('terminal:listActive', () => ptyManager.getActiveSessions())
   registerMethod('shell:create', (cwd) => ptyManager.createShellPty(cwd))
 
   // Config

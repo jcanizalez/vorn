@@ -2536,12 +2536,11 @@ __metadata:
     "@vibegrid/server": "workspace:*"
     "@vibegrid/shared": "workspace:*"
     better-sqlite3: "npm:^12.8.0"
-    node-cron: "npm:^3.0.3"
-    node-pty: "npm:1.2.0-beta.12"
     pino: "npm:^9.6.0"
     tsup: "npm:^8.5.0"
     tsx: "npm:^4.19.4"
     typescript: "npm:^5.6.0"
+    ws: "npm:^8.18.0"
     zod: "npm:^4.3.6"
   bin:
     vibegrid-mcp: dist/index.js
@@ -9347,7 +9346,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ws@npm:^8.16.0, ws@npm:^8.18.2":
+"ws@npm:^8.16.0, ws@npm:^8.18.0, ws@npm:^8.18.2":
   version: 8.19.0
   resolution: "ws@npm:8.19.0"
   peerDependencies:

@@ -5,8 +5,6 @@ declare const __MCP_VERSION__: string | undefined
 import { createRequire } from 'node:module'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { configManager } from '@vibegrid/server/config-manager'
-import { ptyManager } from '@vibegrid/server/pty-manager'
-import { scheduler } from '@vibegrid/server/scheduler'
 import { createMcpServer } from './server'
 
 // Redirect all console methods to stderr (stdout is reserved for JSON-RPC)
@@ -18,27 +16,19 @@ console.warn = (...args: unknown[]) => _origError('[mcp:warn]', ...args)
 console.error = (...args: unknown[]) => _origError('[mcp:error]', ...args)
 
 async function main() {
-  // Initialize managers (same as old --mcp mode)
+  // Initialize database only (lightweight — no PTY, no scheduler)
   configManager.init()
-  const config = configManager.loadConfig()
-  if (config.agentCommands) {
-    ptyManager.setAgentCommands(config.agentCommands)
-  }
-  ptyManager.setRemoteHosts(config.remoteHosts ?? [])
-  scheduler.syncSchedules(config.workflows ?? [])
 
   const version =
     typeof __MCP_VERSION__ !== 'undefined'
       ? __MCP_VERSION__
       : (createRequire(import.meta.url)('../package.json') as { version: string }).version
-  const server = createMcpServer({ configManager, ptyManager, scheduler }, version)
+  const server = createMcpServer(version)
   const transport = new StdioServerTransport()
   await server.connect(transport)
 
   // Graceful shutdown
   transport.onclose = () => {
-    scheduler.stopAll()
-    ptyManager.killAll()
     configManager.close()
     process.exit(0)
   }

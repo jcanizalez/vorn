@@ -1,6 +1,5 @@
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import type { configManager as ConfigManagerInstance } from '@vibegrid/server/config-manager'
 import type { AgentType } from '@vibegrid/shared/types'
 import { V } from '../validation'
 import {
@@ -11,8 +10,6 @@ import {
   dbDeleteProject
 } from '@vibegrid/server/database'
 
-type ConfigManager = typeof ConfigManagerInstance
-
 const AGENT_TYPES: [AgentType, ...AgentType[]] = [
   'claude',
   'copilot',
@@ -21,16 +18,21 @@ const AGENT_TYPES: [AgentType, ...AgentType[]] = [
   'gemini'
 ]
 
-export function registerProjectTools(
-  server: McpServer,
-  deps: { configManager: ConfigManager }
-): void {
-  const { configManager } = deps
-
-  server.tool('list_projects', 'List all projects', async () => {
-    const projects = dbListProjects()
-    return { content: [{ type: 'text', text: JSON.stringify(projects, null, 2) }] }
-  })
+export function registerProjectTools(server: McpServer): void {
+  server.tool(
+    'list_projects',
+    'List all projects, optionally filtered by workspace',
+    {
+      workspace_id: V.id.optional().describe('Filter by workspace ID (e.g. "personal")')
+    },
+    async (args) => {
+      let projects = dbListProjects()
+      if (args.workspace_id) {
+        projects = projects.filter((p) => (p.workspaceId ?? 'personal') === args.workspace_id)
+      }
+      return { content: [{ type: 'text', text: JSON.stringify(projects, null, 2) }] }
+    }
+  )
 
   server.tool(
     'create_project',
@@ -59,7 +61,6 @@ export function registerProjectTools(
       }
 
       dbInsertProject(project)
-      configManager.notifyChanged()
 
       return { content: [{ type: 'text', text: JSON.stringify(project, null, 2) }] }
     }
@@ -91,7 +92,6 @@ export function registerProjectTools(
       if (args.icon_color !== undefined) updates.iconColor = args.icon_color
 
       dbUpdateProject(args.name, updates)
-      configManager.notifyChanged()
 
       const updated = dbGetProject(args.name)
       return { content: [{ type: 'text', text: JSON.stringify(updated, null, 2) }] }
@@ -111,7 +111,6 @@ export function registerProjectTools(
       }
 
       dbDeleteProject(args.name)
-      configManager.notifyChanged()
 
       return { content: [{ type: 'text', text: `Deleted project: ${args.name}` }] }
     }

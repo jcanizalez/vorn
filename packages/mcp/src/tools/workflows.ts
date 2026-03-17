@@ -1,8 +1,6 @@
 import crypto from 'node:crypto'
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import type { configManager as ConfigManagerInstance } from '@vibegrid/server/config-manager'
-import type { scheduler as SchedulerInstance } from '@vibegrid/server/scheduler'
 import { V } from '../validation'
 import type {
   WorkflowDefinition,
@@ -11,15 +9,16 @@ import type {
   TriggerConfig,
   LaunchAgentConfig
 } from '@vibegrid/shared/types'
+import type { ScheduleLogEntry } from '@vibegrid/shared/types'
 import {
   dbListWorkflows,
   dbInsertWorkflow,
   dbUpdateWorkflow,
-  dbDeleteWorkflow
+  dbDeleteWorkflow,
+  listWorkflowRuns,
+  listWorkflowRunsByTask
 } from '@vibegrid/server/database'
-
-type ConfigManager = typeof ConfigManagerInstance
-type Scheduler = typeof SchedulerInstance
+import { rpcCall } from '../ws-client'
 
 const launchAgentConfigSchema = z.object({
   agentType: z.enum(['claude', 'copilot', 'codex', 'opencode', 'gemini']),
@@ -121,16 +120,21 @@ function buildGraphFromFlat(
   return { nodes, edges }
 }
 
-export function registerWorkflowTools(
-  server: McpServer,
-  deps: { configManager: ConfigManager; scheduler: Scheduler }
-): void {
-  const { configManager, scheduler } = deps
-
-  server.tool('list_workflows', 'List all workflows', async () => {
-    const workflows = dbListWorkflows()
-    return { content: [{ type: 'text', text: JSON.stringify(workflows, null, 2) }] }
-  })
+export function registerWorkflowTools(server: McpServer): void {
+  server.tool(
+    'list_workflows',
+    'List all workflows, optionally filtered by workspace',
+    {
+      workspace_id: V.id.optional().describe('Filter by workspace ID')
+    },
+    async (args) => {
+      let workflows = dbListWorkflows()
+      if (args.workspace_id) {
+        workflows = workflows.filter((w) => (w.workspaceId ?? 'personal') === args.workspace_id)
+      }
+      return { content: [{ type: 'text', text: JSON.stringify(workflows, null, 2) }] }
+    }
+  )
 
   server.tool(
     'create_workflow',
@@ -178,8 +182,7 @@ export function registerWorkflowTools(
       }
 
       dbInsertWorkflow(workflow)
-      scheduler.syncSchedules(dbListWorkflows())
-      configManager.notifyChanged()
+      // The running VibeGrid app watches the DB and will pick up changes automatically
 
       return { content: [{ type: 'text', text: JSON.stringify(workflow, null, 2) }] }
     }
@@ -218,8 +221,6 @@ export function registerWorkflowTools(
       if (args.stagger_delay_ms !== undefined) updates.staggerDelayMs = args.stagger_delay_ms
 
       dbUpdateWorkflow(args.id, updates)
-      scheduler.syncSchedules(dbListWorkflows())
-      configManager.notifyChanged()
 
       return {
         content: [{ type: 'text', text: JSON.stringify({ ...workflow, ...updates }, null, 2) }]
@@ -242,10 +243,81 @@ export function registerWorkflowTools(
       }
 
       dbDeleteWorkflow(args.id)
-      scheduler.syncSchedules(dbListWorkflows())
-      configManager.notifyChanged()
 
       return { content: [{ type: 'text', text: `Deleted workflow: ${workflow.name}` }] }
+    }
+  )
+
+  server.tool(
+    'list_workflow_runs',
+    'List execution history for a workflow',
+    {
+      workflow_id: V.id.describe('Workflow ID'),
+      limit: z.number().int().min(1).max(100).optional().describe('Max results (default: 20)')
+    },
+    async (args) => {
+      const runs = listWorkflowRuns(args.workflow_id, args.limit ?? 20)
+      return { content: [{ type: 'text', text: JSON.stringify(runs, null, 2) }] }
+    }
+  )
+
+  server.tool(
+    'list_workflow_runs_by_task',
+    'List workflow executions triggered by a specific task',
+    {
+      task_id: V.id.describe('Task ID'),
+      limit: z.number().int().min(1).max(100).optional().describe('Max results (default: 20)')
+    },
+    async (args) => {
+      const runs = listWorkflowRunsByTask(args.task_id, args.limit ?? 20)
+      return { content: [{ type: 'text', text: JSON.stringify(runs, null, 2) }] }
+    }
+  )
+
+  server.tool(
+    'get_scheduler_log',
+    'Get scheduler execution log for a workflow. Requires the VibeGrid app to be running.',
+    {
+      workflow_id: V.id.optional().describe('Workflow ID (omit for all workflows)')
+    },
+    async (args) => {
+      try {
+        const log = await rpcCall<ScheduleLogEntry[]>('scheduler:getLog', args.workflow_id)
+        return { content: [{ type: 'text', text: JSON.stringify(log, null, 2) }] }
+      } catch (err) {
+        return {
+          content: [{ type: 'text', text: `Error: ${err instanceof Error ? err.message : err}` }],
+          isError: true
+        }
+      }
+    }
+  )
+
+  server.tool(
+    'get_next_scheduled_run',
+    'Get the next scheduled run time for a workflow. Requires the VibeGrid app to be running.',
+    {
+      workflow_id: V.id.describe('Workflow ID')
+    },
+    async (args) => {
+      try {
+        const nextRun = await rpcCall<string | null>('scheduler:getNextRun', args.workflow_id)
+        return {
+          content: [
+            {
+              type: 'text',
+              text: nextRun
+                ? JSON.stringify({ nextRun }, null, 2)
+                : 'No scheduled run (workflow may be manual or disabled)'
+            }
+          ]
+        }
+      } catch (err) {
+        return {
+          content: [{ type: 'text', text: `Error: ${err instanceof Error ? err.message : err}` }],
+          isError: true
+        }
+      }
     }
   )
 }

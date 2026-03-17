@@ -1,3 +1,4 @@
+import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import Fastify from 'fastify'
@@ -70,6 +71,17 @@ export async function startServer(
 
   // Write port to stdout for parent process (Electron) to read
   process.stdout.write(JSON.stringify({ port: actualPort }) + '\n')
+
+  // Write WS port to a well-known file so MCP and other tools can discover it
+  const wsPortFile = path.join(os.homedir(), '.vibegrid', 'ws-port')
+  try {
+    const wsPortDir = path.dirname(wsPortFile)
+    if (!fs.existsSync(wsPortDir)) fs.mkdirSync(wsPortDir, { recursive: true })
+    fs.writeFileSync(wsPortFile, String(actualPort), 'utf-8')
+  } catch (err) {
+    log.warn({ err }, '[server] failed to write ws-port file (MCP discovery will not work)')
+  }
+
   log.info(`[server] listening on ${host}:${actualPort}`)
 
   // Graceful shutdown
@@ -93,6 +105,11 @@ export async function startServer(
     headlessManager.killAll()
     ptyManager.killAll()
     configManager.close()
+    try {
+      fs.unlinkSync(wsPortFile)
+    } catch {
+      /* ignore */
+    }
     await app.close()
     process.exit(0)
   }

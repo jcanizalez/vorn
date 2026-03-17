@@ -49,6 +49,7 @@ export interface RpcNotification {
 export interface RequestMethods {
   'terminal:create': { params: CreateTerminalPayload; result: TerminalSession }
   'terminal:kill': { params: string; result: void }
+  'terminal:listActive': { params: void; result: TerminalSession[] }
   'shell:create': { params: string | undefined; result: TerminalSession }
   'config:load': { params: void; result: AppConfig }
   'config:save': { params: AppConfig; result: void }

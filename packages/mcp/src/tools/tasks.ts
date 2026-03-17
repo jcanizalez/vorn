@@ -2,7 +2,6 @@ import crypto from 'node:crypto'
 import path from 'node:path'
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import type { configManager as ConfigManagerInstance } from '@vibegrid/server/config-manager'
 import type { TaskConfig, TaskStatus, AgentType } from '@vibegrid/shared/types'
 import { V } from '../validation'
 import {
@@ -15,8 +14,7 @@ import {
   dbGetProject,
   dbListProjects
 } from '@vibegrid/server/database'
-
-type ConfigManager = typeof ConfigManagerInstance
+import type { ProjectConfig } from '@vibegrid/shared/types'
 
 const TASK_STATUSES: TaskStatus[] = ['todo', 'in_progress', 'in_review', 'done', 'cancelled']
 const AGENT_TYPES: [AgentType, ...AgentType[]] = [
@@ -27,21 +25,38 @@ const AGENT_TYPES: [AgentType, ...AgentType[]] = [
   'gemini'
 ]
 
-export function registerTaskTools(server: McpServer, deps: { configManager: ConfigManager }): void {
-  const { configManager } = deps
-
+export function registerTaskTools(server: McpServer): void {
   server.tool(
     'list_tasks',
-    'List tasks, optionally filtered by project and/or status',
+    'List tasks, optionally filtered by project, status, assigned agent, or workspace',
     {
       project_name: V.name.optional().describe('Filter by project name'),
       status: z
         .enum(TASK_STATUSES as [string, ...string[]])
         .optional()
-        .describe('Filter by status')
+        .describe('Filter by status'),
+      assigned_agent: z.enum(AGENT_TYPES).optional().describe('Filter by assigned agent type'),
+      workspace_id: V.id
+        .optional()
+        .describe('Filter by workspace ID (returns tasks from all projects in that workspace)')
     },
     async (args) => {
-      const tasks = dbListTasks(args.project_name, args.status)
+      let tasks = dbListTasks(args.project_name, args.status)
+
+      if (args.workspace_id) {
+        const projects = dbListProjects()
+        const wsProjectNames = new Set(
+          projects
+            .filter((p: ProjectConfig) => (p.workspaceId ?? 'personal') === args.workspace_id)
+            .map((p: ProjectConfig) => p.name)
+        )
+        tasks = tasks.filter((t) => wsProjectNames.has(t.projectName))
+      }
+
+      if (args.assigned_agent) {
+        tasks = tasks.filter((t) => t.assignedAgent === args.assigned_agent)
+      }
+
       return { content: [{ type: 'text', text: JSON.stringify(tasks, null, 2) }] }
     }
   )
@@ -90,7 +105,6 @@ export function registerTaskTools(server: McpServer, deps: { configManager: Conf
       }
 
       dbInsertTask(task)
-      configManager.notifyChanged()
 
       return { content: [{ type: 'text', text: JSON.stringify(task, null, 2) }] }
     }
@@ -151,7 +165,6 @@ export function registerTaskTools(server: McpServer, deps: { configManager: Conf
       }
 
       dbUpdateTask(args.id, updates)
-      configManager.notifyChanged()
 
       const updated = dbGetTask(args.id)
       return { content: [{ type: 'text', text: JSON.stringify(updated, null, 2) }] }
@@ -171,7 +184,6 @@ export function registerTaskTools(server: McpServer, deps: { configManager: Conf
         }
       }
       dbDeleteTask(args.id)
-      configManager.notifyChanged()
 
       return { content: [{ type: 'text', text: `Deleted task: ${task.title}` }] }
     }
