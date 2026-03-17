@@ -226,6 +226,8 @@ class PtyManager extends EventEmitter {
     return { id, pid: ptyProcess.pid }
   }
 
+  private static readonly BUFFER_FLUSH_MS = 8
+
   private bufferData(id: string, data: string): void {
     const existing = this.dataBuffers.get(id)
     this.dataBuffers.set(id, existing ? existing + data : data)
@@ -233,7 +235,7 @@ class PtyManager extends EventEmitter {
     if (!this.flushTimers.has(id)) {
       this.flushTimers.set(
         id,
-        setTimeout(() => this.flushBuffer(id), 50)
+        setTimeout(() => this.flushBuffer(id), PtyManager.BUFFER_FLUSH_MS)
       )
     }
   }

@@ -51,11 +51,18 @@ export function TerminalInstance({ terminalId, isFocused }: Props) {
     }
   }, [isFocused, terminalId])
 
-  // Fit on window resize
+  // Fit on window resize (debounced to avoid IPC flooding)
   useEffect(() => {
-    const onResize = (): void => fitTerminal(terminalId)
+    let timer: ReturnType<typeof setTimeout>
+    const onResize = (): void => {
+      clearTimeout(timer)
+      timer = setTimeout(() => fitTerminal(terminalId), 100)
+    }
     window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
+    return () => {
+      window.removeEventListener('resize', onResize)
+      clearTimeout(timer)
+    }
   }, [terminalId])
 
   // Re-fit when row height changes

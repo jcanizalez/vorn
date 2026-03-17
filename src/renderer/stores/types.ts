@@ -139,6 +139,7 @@ export interface UISlice {
   setDiffSidebarTerminalId: (id: string | null) => void
   setDiffReviewTaskId: (id: string | null) => void
   updateGitDiffStat: (terminalId: string, stat: GitDiffStat) => void
+  updateGitDiffStats: (stats: Map<string, GitDiffStat>) => void
   setMainViewMode: (mode: 'sessions' | 'tasks') => void
   setSelectedTaskId: (id: string | null) => void
   setTaskStatusFilter: (filter: TaskStatusFilter) => void

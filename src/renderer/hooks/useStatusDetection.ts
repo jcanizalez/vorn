@@ -3,6 +3,7 @@ import { useAppStore } from '../stores'
 import { analyzeOutput, createStatusContext, StatusContext } from '../lib/status-parser'
 import { IDLE_TIMEOUT_MS } from '../lib/constants'
 import { shouldNotifyStatus, shouldNotifyBell, sendAgentNotification } from '../lib/notifications'
+import { registerStatusHandler } from '../lib/terminal-registry'
 
 export function useStatusDetection(terminalId: string) {
   const updateStatus = useAppStore((s) => s.updateStatus)
@@ -10,9 +11,7 @@ export function useStatusDetection(terminalId: string) {
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    const removeListener = window.api.onTerminalData(({ id, data }) => {
-      if (id !== terminalId) return
-
+    const unregister = registerStatusHandler(terminalId, (data) => {
       // Skip pattern-based status detection when hooks are providing status
       const terminal = useAppStore.getState().terminals.get(terminalId)
       const useHooks = terminal?.session.statusSource === 'hooks'
@@ -64,7 +63,7 @@ export function useStatusDetection(terminalId: string) {
     })
 
     return () => {
-      removeListener()
+      unregister()
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
     }
   }, [terminalId, updateStatus])

@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense, lazy } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../stores'
 import { FolderGit2, X, Maximize2, Paperclip } from 'lucide-react'
-import { RichMarkdownEditor } from './rich-editor/RichMarkdownEditor'
+const RichMarkdownEditor = lazy(() =>
+  import('./rich-editor/RichMarkdownEditor').then((m) => ({ default: m.RichMarkdownEditor }))
+)
 import { TASK_TEMPLATE } from './MarkdownEditor'
 import { toast } from './Toast'
 import { StatusPicker } from './StatusPicker'
@@ -244,11 +246,15 @@ export function AddTaskDialog() {
 
               {/* Description */}
               <div className="px-4 pb-3 min-h-[120px]">
-                <RichMarkdownEditor
-                  value={description}
-                  onChange={setDescription}
-                  placeholder="Add description..."
-                />
+                <Suspense
+                  fallback={<div className="h-[120px] bg-white/[0.03] rounded-lg animate-pulse" />}
+                >
+                  <RichMarkdownEditor
+                    value={description}
+                    onChange={setDescription}
+                    placeholder="Add description..."
+                  />
+                </Suspense>
               </div>
 
               {/* Image previews */}

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense, lazy } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { AnimatePresence } from 'framer-motion'
 import { useAppStore } from './stores'
 import { GridView } from './components/GridView'
@@ -7,7 +8,9 @@ import { FocusedTerminal } from './components/FocusedTerminal'
 import { ProjectSidebar } from './components/ProjectSidebar'
 import { PromptLauncher } from './components/PromptLauncher'
 import { AddProjectDialog } from './components/AddProjectDialog'
-import { WorkflowEditor } from './components/workflow-editor/WorkflowEditor'
+const WorkflowEditor = lazy(() =>
+  import('./components/workflow-editor/WorkflowEditor').then((m) => ({ default: m.WorkflowEditor }))
+)
 import { executeWorkflow as runWorkflow } from './lib/workflow-execution'
 import { CommandPalette } from './components/CommandPalette'
 import { SessionRestoredBanner } from './components/SessionRestoredBanner'
@@ -19,7 +22,11 @@ import { TaskToolbar } from './components/TaskToolbar'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useGitDiffPolling } from './hooks/useGitDiffPolling'
 import { consumePendingTerminalClose } from './lib/terminal-close'
-import { setDefaultFontSize } from './lib/terminal-registry'
+import {
+  setDefaultFontSize,
+  initGlobalDataListener,
+  disposeGlobalDataListener
+} from './lib/terminal-registry'
 import { KbdHint } from './components/KbdHint'
 import { WorktreeCleanupDialog } from './components/WorktreeCleanupDialog'
 import { DiffSidebar } from './components/DiffSidebar'
@@ -87,26 +94,35 @@ function WindowControls() {
 }
 
 export function App() {
-  const focusedId = useAppStore((s) => s.focusedTerminalId)
-  const showBanner = useAppStore((s) => s.showSessionBanner)
+  const {
+    focusedId,
+    showBanner,
+    isSidebarOpen,
+    isSettingsOpen,
+    isShortcutsPanelOpen,
+    isOnboardingOpen,
+    isTerminalPanelOpen,
+    layoutMode,
+    mainViewMode,
+    selectedTaskId
+  } = useAppStore(
+    useShallow((s) => ({
+      focusedId: s.focusedTerminalId,
+      showBanner: s.showSessionBanner,
+      isSidebarOpen: s.isSidebarOpen,
+      isSettingsOpen: s.isSettingsOpen,
+      isShortcutsPanelOpen: s.isShortcutsPanelOpen,
+      isOnboardingOpen: s.isOnboardingOpen,
+      isTerminalPanelOpen: s.isTerminalPanelOpen,
+      layoutMode: s.config?.defaults?.layoutMode ?? 'grid',
+      mainViewMode: s.config?.defaults?.mainViewMode ?? 'sessions',
+      selectedTaskId: s.selectedTaskId
+    }))
+  )
   const setDialogOpen = useAppStore((s) => s.setNewAgentDialogOpen)
-  const _terminals = useAppStore((s) => s.terminals)
-  const isSidebarOpen = useAppStore((s) => s.isSidebarOpen)
   const toggleSidebar = useAppStore((s) => s.toggleSidebar)
-  const isSettingsOpen = useAppStore((s) => s.isSettingsOpen)
-  const isShortcutsPanelOpen = useAppStore((s) => s.isShortcutsPanelOpen)
-  const isOnboardingOpen = useAppStore((s) => s.isOnboardingOpen)
   const toggleTerminalPanel = useAppStore((s) => s.toggleTerminalPanel)
-  const isTerminalPanelOpen = useAppStore((s) => s.isTerminalPanelOpen)
-  const layoutMode = useAppStore((s) => s.config?.defaults?.layoutMode ?? 'grid')
-  const mainViewMode = useAppStore((s) => s.config?.defaults?.mainViewMode ?? 'sessions')
   const setMainViewMode = useAppStore((s) => s.setMainViewMode)
-  const selectedTaskId = useAppStore((s) => s.selectedTaskId)
-  const _activeProject = useAppStore((s) => s.activeProject)
-  const _taskCount = useAppStore((s) => {
-    const tasks = s.config?.tasks || []
-    return tasks.filter((t) => !s.activeProject || t.projectName === s.activeProject).length
-  })
   const [recentOpen, setRecentOpen] = useState(false)
 
   useKeyboardShortcuts()
@@ -114,9 +130,13 @@ export function App() {
 
   // Load config and previous sessions on mount
   useEffect(() => {
+    initGlobalDataListener()
     ;(async () => {
       try {
-        const config = await window.api.loadConfig()
+        const [config, prev] = await Promise.all([
+          window.api.loadConfig(),
+          window.api.getPreviousSessions()
+        ])
         useAppStore.getState().setConfig(config)
         if (config.defaults.fontSize) {
           setDefaultFontSize(config.defaults.fontSize)
@@ -130,8 +150,6 @@ export function App() {
         if (!config.defaults.hasSeenOnboarding) {
           useAppStore.getState().setOnboardingOpen(true)
         }
-
-        const prev = await window.api.getPreviousSessions()
         if (prev && prev.length > 0) {
           if (config.defaults.reopenSessions) {
             // Auto-restore sessions — prefer hook-correlated session ID (exact),
@@ -233,6 +251,7 @@ export function App() {
     })
 
     return () => {
+      disposeGlobalDataListener()
       removeExitListener()
       removeSessionCreatedListener()
       removeConfigListener()
@@ -410,7 +429,9 @@ export function App() {
 
       <PromptLauncher mode="overlay" onClose={() => setDialogOpen(false)} />
       <AddProjectDialog />
-      <WorkflowEditor />
+      <Suspense fallback={null}>
+        <WorkflowEditor />
+      </Suspense>
       <CommandPalette />
       <AddTaskDialog />
       <WorktreeCleanupDialog />

@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react'
 import { useAppStore } from '../stores'
 import { AgentType, GitDiffResult, WorkflowExecution } from '../../shared/types'
 import { buildTaskPrompt, buildFeedbackPrompt } from '../../shared/prompt-builder'
 import { TASK_TEMPLATE } from './MarkdownEditor'
-import { RichMarkdownEditor } from './rich-editor/RichMarkdownEditor'
+const RichMarkdownEditor = lazy(() =>
+  import('./rich-editor/RichMarkdownEditor').then((m) => ({ default: m.RichMarkdownEditor }))
+)
 import { AgentIcon } from './AgentIcon'
 import { DiffFileList, DiffContent } from './DiffSidebar'
 import { CommitDialog } from './CommitDialog'
@@ -667,11 +669,15 @@ export function TaskDetailPanel() {
 
         {/* Description */}
         <div className="px-4 pb-3">
-          <RichMarkdownEditor
-            value={formDescription}
-            onChange={setFormDescription}
-            placeholder="Describe the task in detail, or type / for commands..."
-          />
+          <Suspense
+            fallback={<div className="h-[120px] bg-white/[0.03] rounded-lg animate-pulse" />}
+          >
+            <RichMarkdownEditor
+              value={formDescription}
+              onChange={setFormDescription}
+              placeholder="Describe the task in detail, or type / for commands..."
+            />
+          </Suspense>
         </div>
 
         {/* Images */}

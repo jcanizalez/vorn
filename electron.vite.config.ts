@@ -25,6 +25,18 @@ export default defineConfig({
         input: {
           index: resolve(__dirname, 'src/renderer/index.html'),
           widget: resolve(__dirname, 'src/renderer/widget.html')
+        },
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom'],
+            'vendor-xterm': [
+              '@xterm/xterm',
+              '@xterm/addon-fit',
+              '@xterm/addon-webgl',
+              '@xterm/addon-canvas'
+            ],
+            'vendor-motion': ['framer-motion']
+          }
         }
       }
     },

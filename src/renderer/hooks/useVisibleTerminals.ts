@@ -1,15 +1,29 @@
 import { useMemo, useEffect } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../stores'
 
 export function useVisibleTerminals(): string[] {
-  const terminals = useAppStore((s) => s.terminals)
-  const activeProject = useAppStore((s) => s.activeProject)
-  const activeWorkspace = useAppStore((s) => s.activeWorkspace)
-  const projects = useAppStore((s) => s.config?.projects)
-  const sortMode = useAppStore((s) => s.sortMode)
-  const statusFilter = useAppStore((s) => s.statusFilter)
-  const terminalOrder = useAppStore((s) => s.terminalOrder)
-  const setVisibleTerminalIds = useAppStore((s) => s.setVisibleTerminalIds)
+  const {
+    terminals,
+    activeProject,
+    activeWorkspace,
+    projects,
+    sortMode,
+    statusFilter,
+    terminalOrder,
+    setVisibleTerminalIds
+  } = useAppStore(
+    useShallow((s) => ({
+      terminals: s.terminals,
+      activeProject: s.activeProject,
+      activeWorkspace: s.activeWorkspace,
+      projects: s.config?.projects,
+      sortMode: s.sortMode,
+      statusFilter: s.statusFilter,
+      terminalOrder: s.terminalOrder,
+      setVisibleTerminalIds: s.setVisibleTerminalIds
+    }))
+  )
 
   const workspaceProjects = useMemo(() => {
     if (!projects) return null

@@ -5,7 +5,6 @@ import '@xterm/xterm/css/xterm.css'
 interface TerminalEntry {
   term: Terminal
   fitAddon: FitAddon
-  removeDataListener: () => void
   currentContainer: HTMLDivElement | null
   _loadRenderer?: (() => void) | null
   _gpuAddon?: { dispose(): void } | null
@@ -18,6 +17,57 @@ export interface TerminalViewportState {
 
 const registry = new Map<string, TerminalEntry>()
 const readyCallbacks = new Map<string, Set<() => void>>()
+
+// --- Write batching: single global listener + requestAnimationFrame ---
+const pendingWrites = new Map<string, string>()
+let rafId: number | null = null
+
+function scheduleFlush(): void {
+  if (rafId !== null) return
+  rafId = requestAnimationFrame(flushWrites)
+}
+
+function flushWrites(): void {
+  rafId = null
+  for (const [id, data] of pendingWrites) {
+    const entry = registry.get(id)
+    if (entry) entry.term.write(data)
+    statusHandlers.get(id)?.(data)
+  }
+  pendingWrites.clear()
+}
+
+let removeGlobalDataListener: (() => void) | null = null
+
+export function initGlobalDataListener(): void {
+  if (removeGlobalDataListener) return
+  removeGlobalDataListener = window.api.onTerminalData(({ id, data }) => {
+    const existing = pendingWrites.get(id)
+    pendingWrites.set(id, existing ? existing + data : data)
+    scheduleFlush()
+  })
+}
+
+export function disposeGlobalDataListener(): void {
+  removeGlobalDataListener?.()
+  removeGlobalDataListener = null
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId)
+    rafId = null
+  }
+  pendingWrites.clear()
+}
+
+// --- Status detection handler registry ---
+type StatusHandler = (data: string) => void
+const statusHandlers = new Map<string, StatusHandler>()
+
+export function registerStatusHandler(terminalId: string, handler: StatusHandler): () => void {
+  statusHandlers.set(terminalId, handler)
+  return () => {
+    statusHandlers.delete(terminalId)
+  }
+}
 
 const TERM_OPTIONS = {
   cursorBlink: true,
@@ -45,7 +95,7 @@ const TERM_OPTIONS = {
     brightCyan: '#22d3ee',
     brightWhite: '#fafafa'
   },
-  scrollback: 10000,
+  scrollback: 5000,
   allowProposedApi: true
 }
 
@@ -118,15 +168,9 @@ function createTerminalEntry(terminalId: string): TerminalEntry {
     window.api.writeTerminal(terminalId, data)
   })
 
-  // Receive pty output
-  const removeDataListener = window.api.onTerminalData(({ id, data }) => {
-    if (id === terminalId) term.write(data)
-  })
-
   const entry: TerminalEntry = {
     term,
     fitAddon,
-    removeDataListener,
     currentContainer: null
   }
 
@@ -290,7 +334,13 @@ export function onTerminalScroll(
 export function destroyTerminal(terminalId: string): void {
   const entry = registry.get(terminalId)
   if (!entry) return
-  entry.removeDataListener()
+  // Flush any pending batched writes before destroying
+  const pending = pendingWrites.get(terminalId)
+  if (pending) {
+    entry.term.write(pending)
+    pendingWrites.delete(terminalId)
+  }
+  statusHandlers.delete(terminalId)
   // Dispose GPU addon first to avoid WebGL errors when the terminal
   // tears down the DOM element before the addon can clean up its GL context
   if (entry._gpuAddon) {

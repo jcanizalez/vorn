@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useAppStore } from '../stores'
+import type { GitDiffStat } from '../../shared/types'
 
 const POLL_INTERVAL = 30_000
 
@@ -11,17 +12,25 @@ export function useGitDiffPolling(): void {
       // Skip polling when window is hidden to save energy
       if (document.hidden) return
 
-      const { terminals, updateGitDiffStat } = useAppStore.getState()
+      const { terminals, updateGitDiffStats } = useAppStore.getState()
 
-      for (const [id, t] of terminals) {
-        if (t.session.remoteHostId) continue // skip remote sessions
-        const cwd = t.session.worktreePath || t.session.projectPath
-        try {
-          const stat = await window.api.getGitDiffStat(cwd)
-          if (stat) updateGitDiffStat(id, stat)
-        } catch {
-          // not a git repo or error — skip
-        }
+      const entries = Array.from(terminals).filter(([, t]) => !t.session.remoteHostId)
+
+      const batchStats = new Map<string, GitDiffStat>()
+      await Promise.allSettled(
+        entries.map(async ([id, t]) => {
+          const cwd = t.session.worktreePath || t.session.projectPath
+          try {
+            const stat = await window.api.getGitDiffStat(cwd)
+            if (stat) batchStats.set(id, stat)
+          } catch {
+            // not a git repo or error — skip
+          }
+        })
+      )
+
+      if (batchStats.size > 0) {
+        updateGitDiffStats(batchStats)
       }
     }
 
