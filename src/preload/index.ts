@@ -15,7 +15,8 @@ import {
   HeadlessSession,
   WorkflowExecution,
   ScriptConfig,
-  AgentType
+  AgentType,
+  RemoteHost
 } from '../shared/types'
 
 const api = {
@@ -270,6 +271,12 @@ const api = {
     sessionsLaunched: number
     source?: 'scheduler' | 'manual'
   }): Promise<void> => ipcRenderer.invoke(IPC.WORKFLOW_EXECUTION_COMPLETE, data),
+
+  // SSH
+  testSshConnection: (
+    host: RemoteHost
+  ): Promise<{ success: boolean; message: string; durationMs: number }> =>
+    ipcRenderer.invoke(IPC.SSH_TEST_CONNECTION, host),
 
   // App info
   getAppVersion: (): string => ipcRenderer.sendSync('get-app-version'),

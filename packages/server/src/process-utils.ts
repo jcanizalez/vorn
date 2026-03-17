@@ -1,4 +1,5 @@
-import { execFileSync } from 'node:child_process'
+import { execFileSync, execFile } from 'node:child_process'
+import type { RemoteHost } from '@vibegrid/shared/types'
 
 function getUserShellEnv(): Record<string, string> {
   if (process.platform === 'win32') return { ...process.env } as Record<string, string>
@@ -66,4 +67,57 @@ export function getSafeEnv(): Record<string, string> {
     env[key] = val
   }
   return env
+}
+
+export interface SshTestResult {
+  success: boolean
+  message: string
+  durationMs: number
+}
+
+export function testSshConnection(host: RemoteHost): Promise<SshTestResult> {
+  return new Promise((resolve) => {
+    const start = Date.now()
+    const args: string[] = [
+      '-o',
+      'ConnectTimeout=5',
+      '-o',
+      'BatchMode=yes',
+      '-o',
+      'StrictHostKeyChecking=yes'
+    ]
+    if (host.port !== 22) args.push('-p', String(host.port))
+    if (host.sshKeyPath) args.push('-i', host.sshKeyPath)
+    if (host.sshOptions) {
+      args.push(...host.sshOptions.split(/\s+/).filter(Boolean))
+    }
+    args.push(`${host.user}@${host.hostname}`, 'echo', '__VIBEGRID_OK__')
+
+    const safetyTimer = setTimeout(() => {
+      try {
+        child.kill()
+      } catch {
+        /* already dead */
+      }
+    }, 12000)
+
+    const child = execFile(
+      'ssh',
+      args,
+      { timeout: 10000, env: getSafeEnv() },
+      (err, stdout, stderr) => {
+        clearTimeout(safetyTimer)
+        const durationMs = Date.now() - start
+        if (!err && stdout.includes('__VIBEGRID_OK__')) {
+          resolve({ success: true, message: `Connected in ${durationMs}ms`, durationMs })
+        } else {
+          let msg = stderr?.trim() || err?.message || 'Connection failed'
+          if (msg.includes('Host key verification failed')) {
+            msg = 'Host key not in known_hosts — connect manually first to accept the key'
+          }
+          resolve({ success: false, message: msg, durationMs })
+        }
+      }
+    )
+  })
 }

@@ -119,6 +119,11 @@ export function registerIpcHandlers(): void {
   safeHandle(IPC.AGENT_DETECT_INSTALLED, () => requireBridge().request(IPC.AGENT_DETECT_INSTALLED))
   safeHandle(IPC.IDE_OPEN, (_, params) => requireBridge().request(IPC.IDE_OPEN, params))
 
+  // SSH
+  safeHandle(IPC.SSH_TEST_CONNECTION, (_, host) =>
+    requireBridge().request(IPC.SSH_TEST_CONNECTION, host)
+  )
+
   // ─── Electron-only handlers (stay local) ───────────────────────
 
   safeHandle(IPC.DIALOG_OPEN_DIRECTORY, async (event) => {

@@ -1,12 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
+const mockExecFile = vi.fn()
+
 vi.mock('node:child_process', async () => {
   const actual = await vi.importActual<typeof import('node:child_process')>('node:child_process')
   return {
     ...actual,
     execFileSync: vi.fn(() => {
       throw new Error('mock shell env')
-    })
+    }),
+    execFile: (...args: unknown[]) => mockExecFile(...args)
   }
 })
 
@@ -82,5 +85,105 @@ describe('process-utils (server package)', () => {
     const { getDefaultShell } = await import('../packages/server/src/process-utils')
     const shell = getDefaultShell()
     expect(shell).toBe('/bin/zsh') // from TEST_ENV
+  })
+
+  describe('testSshConnection', () => {
+    beforeEach(() => {
+      mockExecFile.mockReset()
+    })
+
+    const host = {
+      id: 'test-id',
+      label: 'Test Host',
+      hostname: 'example.com',
+      user: 'ubuntu',
+      port: 22
+    }
+
+    it('returns success when SSH echoes the marker', async () => {
+      mockExecFile.mockImplementation(
+        (
+          _cmd: string,
+          _args: string[],
+          _opts: unknown,
+          cb: (err: Error | null, stdout: string, stderr: string) => void
+        ) => {
+          cb(null, '__VIBEGRID_OK__\n', '')
+          return { kill: vi.fn() }
+        }
+      )
+
+      const { testSshConnection } = await import('../packages/server/src/process-utils')
+      const result = await testSshConnection(host)
+      expect(result.success).toBe(true)
+      expect(result.message).toMatch(/Connected in \d+ms/)
+
+      // Verify SSH args include BatchMode and StrictHostKeyChecking
+      const args = mockExecFile.mock.calls[0][1] as string[]
+      expect(args).toContain('BatchMode=yes')
+      expect(args).toContain('StrictHostKeyChecking=yes')
+      expect(args).toContain('ubuntu@example.com')
+    })
+
+    it('returns failure with stderr message on error', async () => {
+      mockExecFile.mockImplementation(
+        (
+          _cmd: string,
+          _args: string[],
+          _opts: unknown,
+          cb: (err: Error | null, stdout: string, stderr: string) => void
+        ) => {
+          cb(new Error('exit code 255'), '', 'Permission denied (publickey)')
+          return { kill: vi.fn() }
+        }
+      )
+
+      const { testSshConnection } = await import('../packages/server/src/process-utils')
+      const result = await testSshConnection(host)
+      expect(result.success).toBe(false)
+      expect(result.message).toBe('Permission denied (publickey)')
+    })
+
+    it('returns helpful message for host key verification failure', async () => {
+      mockExecFile.mockImplementation(
+        (
+          _cmd: string,
+          _args: string[],
+          _opts: unknown,
+          cb: (err: Error | null, stdout: string, stderr: string) => void
+        ) => {
+          cb(new Error('exit code 255'), '', 'Host key verification failed.')
+          return { kill: vi.fn() }
+        }
+      )
+
+      const { testSshConnection } = await import('../packages/server/src/process-utils')
+      const result = await testSshConnection(host)
+      expect(result.success).toBe(false)
+      expect(result.message).toContain('known_hosts')
+    })
+
+    it('includes custom port and key path in args', async () => {
+      mockExecFile.mockImplementation(
+        (
+          _cmd: string,
+          _args: string[],
+          _opts: unknown,
+          cb: (err: Error | null, stdout: string, stderr: string) => void
+        ) => {
+          cb(null, '__VIBEGRID_OK__\n', '')
+          return { kill: vi.fn() }
+        }
+      )
+
+      const { testSshConnection } = await import('../packages/server/src/process-utils')
+      await testSshConnection({ ...host, port: 2222, sshKeyPath: '/home/.ssh/id_ed25519' })
+
+      const args = mockExecFile.mock.calls[0][1] as string[]
+      expect(args).toContain('-p')
+      expect(args).toContain('2222')
+      expect(args).toContain('-i')
+      expect(args).toContain('/home/.ssh/id_ed25519')
+    })
   })
 })

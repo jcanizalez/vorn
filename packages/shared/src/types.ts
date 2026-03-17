@@ -432,7 +432,8 @@ export const IPC = {
   WORKFLOW_RUN_SAVE: 'workflowRun:save',
   WORKFLOW_RUN_LIST: 'workflowRun:list',
   WORKFLOW_RUN_LIST_BY_TASK: 'workflowRun:listByTask',
-  AGENT_DETECT_INSTALLED: 'agent:detectInstalled'
+  AGENT_DETECT_INSTALLED: 'agent:detectInstalled',
+  SSH_TEST_CONNECTION: 'ssh:testConnection'
 } as const
 
 export interface PermissionSuggestion {

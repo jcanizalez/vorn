@@ -1,5 +1,7 @@
 import { AgentIcon } from '../../AgentIcon'
 import type { LaunchAgentConfig, AgentType } from '../../../../shared/types'
+import { useAppStore } from '../../../stores'
+import { Server } from 'lucide-react'
 
 interface Props {
   label: string
@@ -19,6 +21,10 @@ const AGENT_COLORS: Record<AgentType, string> = {
 
 export function LaunchAgentNode({ label, config, selected, executionStatus, onClick }: Props) {
   const agentColor = AGENT_COLORS[config.agentType] || '#6b7280'
+  const remoteHosts = useAppStore((s) => s.config?.remoteHosts)
+  const remoteHost = config.remoteHostId
+    ? remoteHosts?.find((h) => h.id === config.remoteHostId)
+    : undefined
 
   const promptPreview = config.prompt
     ? config.prompt.length > 60
@@ -73,8 +79,14 @@ export function LaunchAgentNode({ label, config, selected, executionStatus, onCl
           <div className="text-[13px] font-medium text-white truncate">{label}</div>
           <div className="text-[11px] text-gray-500 truncate">
             {config.projectName || 'No project'}
-            {config.branch && ` · ${config.branch}`}
+            {!remoteHost && config.branch && ` · ${config.branch}`}
           </div>
+          {remoteHost && (
+            <div className="flex items-center gap-1 mt-0.5">
+              <Server size={9} className="text-blue-400" strokeWidth={1.5} />
+              <span className="text-[10px] text-blue-400 truncate">{remoteHost.label}</span>
+            </div>
+          )}
         </div>
       </div>
       {promptPreview && (

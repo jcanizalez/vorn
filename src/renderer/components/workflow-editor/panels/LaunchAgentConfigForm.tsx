@@ -8,9 +8,16 @@ import {
   ListOrdered,
   GitBranch,
   FolderGit2,
-  EyeOff
+  EyeOff,
+  Server,
+  Terminal
 } from 'lucide-react'
-import { LaunchAgentConfig, AgentType, TriggerConfig } from '../../../../shared/types'
+import {
+  LaunchAgentConfig,
+  AgentType,
+  TriggerConfig,
+  getProjectHostIds
+} from '../../../../shared/types'
 import { useAppStore } from '../../../stores'
 import { TEMPLATE_VARIABLES, StepVariableGroup } from '../../../lib/template-vars'
 import { useAgentInstallStatus } from '../../../hooks/useAgentInstallStatus'
@@ -39,15 +46,21 @@ export function LaunchAgentConfigForm({ config, onChange, triggerType, stepGroup
   const [advancedOpen, setAdvancedOpen] = useState(!!config.args?.length)
   const projects = useAppStore((s) => s.config?.projects ?? EMPTY_PROJECTS)
   const tasks = useAppStore((s) => s.config?.tasks ?? EMPTY_TASKS)
+  const remoteHosts = useAppStore((s) => s.config?.remoteHosts) || []
   const { status: installStatus } = useAgentInstallStatus()
   const projectTasks = tasks.filter(
     (t) => t.projectName === config.projectName && t.status === 'todo'
   )
 
+  const isRemote = !!config.remoteHostId
+  const filteredProjects = projects.filter((p) =>
+    getProjectHostIds(p).includes(config.remoteHostId || 'local')
+  )
+
   const promptSource = config.taskId ? 'task' : config.taskFromQueue ? 'queue' : 'inline'
   const isTaskTrigger = triggerType === 'taskCreated' || triggerType === 'taskStatusChanged'
   const hasTemplateVars = stepGroups.length > 0 || isTaskTrigger
-  const hasBranch = !!(config.branch && config.branch.trim())
+  const hasBranch = !isRemote && !!(config.branch && config.branch.trim())
   const isHeadless = !!config.headless
 
   const contextVars = isTaskTrigger
@@ -72,18 +85,77 @@ export function LaunchAgentConfigForm({ config, onChange, triggerType, stepGroup
         />
       </div>
 
-      {/* Project */}
+      {/* Host */}
+      {remoteHosts.length > 0 && (
+        <div>
+          <label className="text-[13px] text-gray-400 font-medium block mb-2">Host</label>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={() => {
+                const patch: Partial<LaunchAgentConfig> = { remoteHostId: undefined }
+                const proj = projects.find((p) => p.name === config.projectName)
+                if (proj && !getProjectHostIds(proj).includes('local')) {
+                  patch.projectName = ''
+                  patch.projectPath = ''
+                }
+                onChange({ ...config, ...patch })
+              }}
+              className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-md transition-colors
+                         ${
+                           !isRemote
+                             ? 'bg-white/[0.12] text-white border border-white/[0.15]'
+                             : 'bg-white/[0.06] text-gray-400 border border-white/[0.08] hover:bg-white/[0.1]'
+                         }`}
+            >
+              <Terminal size={12} />
+              Local
+            </button>
+            {remoteHosts.map((host) => (
+              <button
+                key={host.id}
+                onClick={() => {
+                  const patch: Partial<LaunchAgentConfig> = {
+                    remoteHostId: host.id,
+                    branch: undefined,
+                    useWorktree: undefined
+                  }
+                  const proj = projects.find((p) => p.name === config.projectName)
+                  if (proj && !getProjectHostIds(proj).includes(host.id)) {
+                    patch.projectName = ''
+                    patch.projectPath = ''
+                  }
+                  onChange({ ...config, ...patch })
+                }}
+                className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-md transition-colors
+                           ${
+                             config.remoteHostId === host.id
+                               ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                               : 'bg-white/[0.06] text-gray-400 border border-white/[0.08] hover:bg-white/[0.1]'
+                           }`}
+              >
+                <Server size={12} />
+                {host.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Project — filtered by selected host */}
       <div>
         <label className="text-[13px] text-gray-400 font-medium block mb-2">Project</label>
         <ProjectPicker
           currentProject={config.projectName}
-          projects={projects}
+          projects={filteredProjects}
           onChange={(name) => {
             const proj = projects.find((p) => p.name === name)
             if (proj) onChange({ ...config, projectName: proj.name, projectPath: proj.path })
           }}
           variant="form"
         />
+        {isRemote && filteredProjects.length === 0 && (
+          <p className="text-[11px] text-gray-600 mt-1">No projects configured for this host</p>
+        )}
       </div>
 
       {/* Prompt Source */}
@@ -165,84 +237,87 @@ export function LaunchAgentConfigForm({ config, onChange, triggerType, stepGroup
         )}
       </div>
 
-      {/* ── Git & Branch ── */}
-      <div className="border border-white/[0.06] rounded-lg p-3 space-y-3">
-        <div className="text-[13px] text-gray-400 font-medium flex items-center gap-1.5">
-          <GitBranch size={11} />
-          Git &amp; Branch
-        </div>
-
-        {/* Branch input */}
-        <div>
-          <div className="flex items-center gap-1.5 px-3 py-2 bg-white/[0.06] border border-white/[0.1] rounded-md">
-            <GitBranch size={12} strokeWidth={2} className="text-gray-500 shrink-0" />
-            <input
-              type="text"
-              value={config.branch || ''}
-              onChange={(e) => {
-                const branch = e.target.value || undefined
-                const updates: Partial<LaunchAgentConfig> = { branch }
-                // Auto-clear worktree when branch is cleared
-                if (!branch) updates.useWorktree = undefined
-                onChange({ ...config, ...updates })
-              }}
-              placeholder="feature/my-branch"
-              className="flex-1 min-w-0 bg-transparent text-[13px] text-white placeholder-gray-600
-                         focus:outline-none border-none px-0"
-            />
+      {/* ── Git & Branch — hidden for remote hosts ── */}
+      {!isRemote && (
+        <div className="border border-white/[0.06] rounded-lg p-3 space-y-3">
+          <div className="text-[13px] text-gray-400 font-medium flex items-center gap-1.5">
+            <GitBranch size={11} />
+            Git &amp; Branch
           </div>
-          <p className="text-[11px] text-gray-500 mt-1">Checks out this branch before launching</p>
-        </div>
 
-        {/* Worktree toggle — mirrors NewAgentDialog:445-483 */}
-        <button
-          role="switch"
-          aria-checked={!!config.useWorktree}
-          onClick={() => {
-            if (hasBranch) {
-              onChange({ ...config, useWorktree: config.useWorktree ? undefined : true })
-            }
-          }}
-          disabled={!hasBranch}
-          className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg border transition-all ${
-            !hasBranch
-              ? 'border-white/[0.04] bg-white/[0.01] opacity-50 cursor-not-allowed'
-              : config.useWorktree
-                ? 'border-amber-500/20 bg-amber-500/[0.06]'
-                : 'border-white/[0.04] bg-white/[0.02] hover:border-white/[0.1]'
-          }`}
-        >
-          <div
-            className={`w-7 h-[16px] rounded-full transition-colors relative shrink-0 ${
-              config.useWorktree ? 'bg-amber-500' : 'bg-white/[0.1]'
+          {/* Branch input */}
+          <div>
+            <div className="flex items-center gap-1.5 px-3 py-2 bg-white/[0.06] border border-white/[0.1] rounded-md">
+              <GitBranch size={12} strokeWidth={2} className="text-gray-500 shrink-0" />
+              <input
+                type="text"
+                value={config.branch || ''}
+                onChange={(e) => {
+                  const branch = e.target.value || undefined
+                  const updates: Partial<LaunchAgentConfig> = { branch }
+                  if (!branch) updates.useWorktree = undefined
+                  onChange({ ...config, ...updates })
+                }}
+                placeholder="feature/my-branch"
+                className="flex-1 min-w-0 bg-transparent text-[13px] text-white placeholder-gray-600
+                           focus:outline-none border-none px-0"
+              />
+            </div>
+            <p className="text-[11px] text-gray-500 mt-1">
+              Checks out this branch before launching
+            </p>
+          </div>
+
+          {/* Worktree toggle */}
+          <button
+            role="switch"
+            aria-checked={!!config.useWorktree}
+            onClick={() => {
+              if (hasBranch) {
+                onChange({ ...config, useWorktree: config.useWorktree ? undefined : true })
+              }
+            }}
+            disabled={!hasBranch}
+            className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg border transition-all ${
+              !hasBranch
+                ? 'border-white/[0.04] bg-white/[0.01] opacity-50 cursor-not-allowed'
+                : config.useWorktree
+                  ? 'border-amber-500/20 bg-amber-500/[0.06]'
+                  : 'border-white/[0.04] bg-white/[0.02] hover:border-white/[0.1]'
             }`}
           >
             <div
-              className={`absolute top-[2px] w-[12px] h-[12px] rounded-full bg-white transition-transform ${
-                config.useWorktree ? 'translate-x-[13px]' : 'translate-x-[2px]'
+              className={`w-7 h-[16px] rounded-full transition-colors relative shrink-0 ${
+                config.useWorktree ? 'bg-amber-500' : 'bg-white/[0.1]'
               }`}
-            />
-          </div>
-          <div className="text-left min-w-0">
-            <div className="flex items-center gap-1.5">
-              <FolderGit2
-                size={12}
-                className={config.useWorktree ? 'text-amber-400' : 'text-gray-500'}
+            >
+              <div
+                className={`absolute top-[2px] w-[12px] h-[12px] rounded-full bg-white transition-transform ${
+                  config.useWorktree ? 'translate-x-[13px]' : 'translate-x-[2px]'
+                }`}
               />
-              <span
-                className={`text-[12px] ${config.useWorktree ? 'text-amber-300' : 'text-gray-300'}`}
-              >
-                Worktree
-              </span>
             </div>
-            <p className="text-[11px] text-gray-500 mt-0.5">
-              {hasBranch
-                ? "Isolated directory — won't affect the main working tree"
-                : 'Set a branch name to enable'}
-            </p>
-          </div>
-        </button>
-      </div>
+            <div className="text-left min-w-0">
+              <div className="flex items-center gap-1.5">
+                <FolderGit2
+                  size={12}
+                  className={config.useWorktree ? 'text-amber-400' : 'text-gray-500'}
+                />
+                <span
+                  className={`text-[12px] ${config.useWorktree ? 'text-amber-300' : 'text-gray-300'}`}
+                >
+                  Worktree
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-500 mt-0.5">
+                {hasBranch
+                  ? "Isolated directory — won't affect the main working tree"
+                  : 'Set a branch name to enable'}
+              </p>
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* ── Execution ── */}
       <div className="border border-white/[0.06] rounded-lg p-3 space-y-3">
@@ -250,14 +325,14 @@ export function LaunchAgentConfigForm({ config, onChange, triggerType, stepGroup
           Execution
         </div>
 
-        {/* Headless toggle — matches worktree toggle pattern */}
+        {/* Headless toggle */}
         <button
           role="switch"
           aria-checked={isHeadless}
           onClick={() => onChange({ ...config, headless: isHeadless ? false : true })}
-          disabled={!!config.remoteHostId}
+          disabled={isRemote}
           className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg border transition-all ${
-            config.remoteHostId
+            isRemote
               ? 'border-white/[0.04] bg-white/[0.01] opacity-50 cursor-not-allowed'
               : isHeadless
                 ? 'border-blue-500/20 bg-blue-500/[0.06]'

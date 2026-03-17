@@ -30,6 +30,7 @@ import {
   updateWorkflowRunStatus
 } from './database'
 import { executeScript } from './script-runner'
+import { testSshConnection } from './process-utils'
 import log from './logger'
 
 const copilotInstallations = new Map<string, CopilotHookInstallation>()
@@ -115,6 +116,9 @@ export function registerAllMethods(): void {
   registerMethod('agent:detectInstalled', () => detectInstalledAgents())
   registerMethod('ide:detect', () => detectIDEs())
   registerMethod('ide:open', ({ ideId, projectPath }) => openInIDE(ideId, projectPath))
+
+  // SSH
+  registerMethod('ssh:testConnection', (host) => testSshConnection(host))
 
   // Fire-and-forget notifications
   registerNotification('terminal:write', ({ id, data }) => ptyManager.writeToPty(id, data))

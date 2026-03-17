@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAppStore } from '../../stores'
 import { RemoteHost } from '../../../shared/types'
-import { Server, Trash2, Plus, Key } from 'lucide-react'
+import { Server, Trash2, Plus, Key, Loader2, CheckCircle2, XCircle, Wifi } from 'lucide-react'
 
 export function HostSettings() {
   const config = useAppStore((s) => s.config)
@@ -10,6 +10,9 @@ export function HostSettings() {
   const updateRemoteHost = useAppStore((s) => s.updateRemoteHost)
 
   const [drafts, setDrafts] = useState<Record<string, Partial<RemoteHost>>>({})
+  const [testResults, setTestResults] = useState<
+    Record<string, { status: 'testing' | 'success' | 'error'; message?: string }>
+  >({})
 
   if (!config) return null
 
@@ -60,6 +63,33 @@ export function HostSettings() {
           return next
         })
       }
+    }
+  }
+
+  const handleTestConnection = async (hostId: string): Promise<void> => {
+    const host = hosts.find((h) => h.id === hostId)
+    if (!host) return
+    // Apply any unsaved drafts for the test
+    const effective = { ...host, ...drafts[hostId] }
+    if (!effective.hostname || !effective.user) {
+      setTestResults((prev) => ({
+        ...prev,
+        [hostId]: { status: 'error', message: 'Hostname and username are required' }
+      }))
+      return
+    }
+    setTestResults((prev) => ({ ...prev, [hostId]: { status: 'testing' } }))
+    try {
+      const result = await window.api.testSshConnection(effective)
+      setTestResults((prev) => ({
+        ...prev,
+        [hostId]: { status: result.success ? 'success' : 'error', message: result.message }
+      }))
+    } catch (err) {
+      setTestResults((prev) => ({
+        ...prev,
+        [hostId]: { status: 'error', message: String(err) }
+      }))
     }
   }
 
@@ -185,11 +215,44 @@ export function HostSettings() {
                 />
               </div>
 
-              <div className="mt-3 text-[11px] text-gray-600 font-mono">
-                ssh {h.user ? `${h.user}@` : ''}
-                {h.hostname || '...'}
-                {h.port !== 22 ? ` -p ${h.port}` : ''}
+              <div className="mt-3 flex items-center gap-3">
+                <div className="text-[11px] text-gray-600 font-mono flex-1">
+                  ssh {h.user ? `${h.user}@` : ''}
+                  {h.hostname || '...'}
+                  {h.port !== 22 ? ` -p ${h.port}` : ''}
+                </div>
+                <button
+                  onClick={() => handleTestConnection(host.id)}
+                  disabled={testResults[host.id]?.status === 'testing'}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium rounded-md
+                             bg-white/[0.04] border border-white/[0.08] text-gray-400
+                             hover:bg-white/[0.08] hover:text-white transition-colors
+                             disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                >
+                  {testResults[host.id]?.status === 'testing' ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : (
+                    <Wifi size={12} />
+                  )}
+                  Test
+                </button>
               </div>
+              {testResults[host.id] && testResults[host.id].status !== 'testing' && (
+                <div
+                  className={`mt-2 flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-md ${
+                    testResults[host.id].status === 'success'
+                      ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                      : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                  }`}
+                >
+                  {testResults[host.id].status === 'success' ? (
+                    <CheckCircle2 size={12} className="shrink-0" />
+                  ) : (
+                    <XCircle size={12} className="shrink-0" />
+                  )}
+                  <span className="truncate">{testResults[host.id].message}</span>
+                </div>
+              )}
             </div>
           )
         })}
