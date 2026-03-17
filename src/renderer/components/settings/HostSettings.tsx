@@ -104,6 +104,14 @@ export function HostSettings() {
       delete next[hostId]
       return next
     })
+    // Clear plaintext password from memory when switching away
+    if (method !== 'password') {
+      setPasswordInputs((prev) => {
+        const next = { ...prev }
+        delete next[hostId]
+        return next
+      })
+    }
   }
 
   const handlePasswordCommit = async (hostId: string): Promise<void> => {
@@ -115,6 +123,11 @@ export function HostSettings() {
       if (host) {
         updateRemoteHost(hostId, { ...host, ...drafts[hostId], encryptedPassword: encrypted })
         setDrafts((prev) => {
+          const next = { ...prev }
+          delete next[hostId]
+          return next
+        })
+        setPasswordInputs((prev) => {
           const next = { ...prev }
           delete next[hostId]
           return next

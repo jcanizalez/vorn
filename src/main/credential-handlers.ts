@@ -57,11 +57,10 @@ export function registerCredentialHandlers(bridge: ServerBridge): void {
   safeHandle(
     IPC.CREDENTIAL_IMPORT_KEY_FILE,
     async (_, params: { filePath: string; label?: string }) => {
-      const content = fs.readFileSync(params.filePath, 'utf-8')
-
       if (!safeStorage.isEncryptionAvailable()) {
         throw new Error('OS keychain encryption not available')
       }
+      const content = fs.readFileSync(params.filePath, 'utf-8')
       const encrypted = safeStorage.encryptString(content).toString('base64')
 
       const keyType = detectKeyType(content)

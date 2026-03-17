@@ -189,6 +189,10 @@ class PtyManager extends EventEmitter {
 
     if (authMethod === 'key-file' && host.sshKeyPath) {
       sshParts.push('-i', host.sshKeyPath)
+    } else if (authMethod === 'key-stored' && !payload._decryptedKeyContent) {
+      log.warn(
+        `[pty] key-stored auth selected for host ${host.label} but no decrypted key available — falling back to agent`
+      )
     } else if (authMethod === 'key-stored' && payload._decryptedKeyContent) {
       // Write decrypted key to a temp file (mode 0600)
       const tmpKeyPath = path.join(os.tmpdir(), `vibegrid-key-${crypto.randomUUID()}`)
