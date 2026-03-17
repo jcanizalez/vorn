@@ -379,10 +379,10 @@ function loadDefaults(d: Database.Database): AppConfig['defaults'] {
       mainViewMode: map.mainViewMode as AppConfig['defaults']['mainViewMode']
     }),
     ...(map.layoutMode !== undefined && {
-      layoutMode: map.layoutMode as 'grid' | 'tabs'
+      layoutMode: map.layoutMode as AppConfig['defaults']['layoutMode']
     }),
     ...(map.updateChannel !== undefined && {
-      updateChannel: map.updateChannel as 'stable' | 'beta'
+      updateChannel: map.updateChannel as AppConfig['defaults']['updateChannel']
     })
   }
 }
