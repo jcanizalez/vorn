@@ -4,6 +4,10 @@ import { render, screen, fireEvent, act } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 import { Tooltip } from '../src/renderer/components/Tooltip'
 
+function getWrapper() {
+  return screen.getByText('Hover me').parentElement!
+}
+
 describe('Tooltip', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -38,7 +42,7 @@ describe('Tooltip', () => {
       </Tooltip>
     )
 
-    fireEvent.mouseEnter(screen.getByText('Hover me'))
+    fireEvent.mouseEnter(getWrapper())
     act(() => vi.advanceTimersByTime(200))
 
     expect(screen.getByText('Help text')).toBeInTheDocument()
@@ -51,11 +55,11 @@ describe('Tooltip', () => {
       </Tooltip>
     )
 
-    fireEvent.mouseEnter(screen.getByText('Hover me'))
+    fireEvent.mouseEnter(getWrapper())
     act(() => vi.advanceTimersByTime(0))
     expect(screen.getByText('Help text')).toBeInTheDocument()
 
-    fireEvent.mouseLeave(screen.getByText('Hover me'))
+    fireEvent.mouseLeave(getWrapper())
     expect(screen.queryByText('Help text')).not.toBeInTheDocument()
   })
 
@@ -66,8 +70,8 @@ describe('Tooltip', () => {
       </Tooltip>
     )
 
-    fireEvent.mouseEnter(screen.getByText('Hover me'))
-    fireEvent.mouseLeave(screen.getByText('Hover me'))
+    fireEvent.mouseEnter(getWrapper())
+    fireEvent.mouseLeave(getWrapper())
     act(() => vi.advanceTimersByTime(500))
 
     expect(screen.queryByText('Help text')).not.toBeInTheDocument()

@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 import { StatusBadge } from '../src/renderer/components/StatusBadge'
-import type { AgentStatus } from '../packages/shared/src/types'
+import type { AgentStatus } from '../src/shared/types'
 
 describe('StatusBadge', () => {
   const statuses: AgentStatus[] = ['running', 'waiting', 'idle', 'error']
