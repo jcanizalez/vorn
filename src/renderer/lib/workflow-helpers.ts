@@ -163,6 +163,7 @@ export function createLaunchAgentNode(config: Partial<LaunchAgentConfig> = {}): 
       agentType: 'claude',
       projectName: '',
       projectPath: '',
+      headless: true,
       ...config
     } as LaunchAgentConfig,
     position: { x: 0, y: 0 }

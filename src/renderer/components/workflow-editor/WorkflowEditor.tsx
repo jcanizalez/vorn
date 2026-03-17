@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Save, Play, Trash2, History } from 'lucide-react'
+import { ToggleSwitch } from '../settings/ToggleSwitch'
 import { useAppStore } from '../../stores'
 import {
   WorkflowDefinition,
@@ -473,15 +474,10 @@ export function WorkflowEditor() {
             />
           </div>
 
-          <label className="flex items-center gap-1.5 text-[12px] text-gray-400 mr-2">
-            <input
-              type="checkbox"
-              checked={enabled}
-              onChange={(e) => setEnabled(e.target.checked)}
-              className="rounded"
-            />
-            Enabled
-          </label>
+          <div className="flex items-center gap-1.5 mr-2">
+            <span className="text-[12px] text-gray-400">Enabled</span>
+            <ToggleSwitch checked={enabled} onChange={setEnabled} />
+          </div>
 
           {editingId && (
             <button

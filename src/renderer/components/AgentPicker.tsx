@@ -1,88 +1,33 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import {
-  Check,
-  ChevronDown,
-  Folder,
-  FolderGit2,
-  Code,
-  Globe,
-  Database,
-  Server,
-  Smartphone,
-  Package,
-  FileCode,
-  Terminal,
-  Cpu,
-  Cloud,
-  Shield,
-  Zap,
-  Gamepad2,
-  Music,
-  Image,
-  BookOpen,
-  FlaskConical,
-  Rocket
-} from 'lucide-react'
-import { ProjectConfig } from '../../shared/types'
+import { Check, ChevronDown } from 'lucide-react'
+import { AgentType } from '../../shared/types'
+import { AgentIcon } from './AgentIcon'
 
-const ICON_MAP: Record<
-  string,
-  React.FC<{ size?: number; color?: string; strokeWidth?: number }>
-> = {
-  Folder,
-  FolderGit2,
-  Code,
-  Globe,
-  Database,
-  Server,
-  Smartphone,
-  Package,
-  FileCode,
-  Terminal,
-  Cpu,
-  Cloud,
-  Shield,
-  Zap,
-  Gamepad2,
-  Music,
-  Image,
-  BookOpen,
-  FlaskConical,
-  Rocket
+const AGENT_LABELS: Record<AgentType, string> = {
+  claude: 'Claude',
+  copilot: 'Copilot',
+  codex: 'Codex',
+  opencode: 'OpenCode',
+  gemini: 'Gemini'
 }
 
-export function ProjectIcon({
-  icon,
-  color,
-  size = 13
-}: {
-  icon?: string
-  color?: string
-  size?: number
-}) {
-  const Icon = icon && ICON_MAP[icon] ? ICON_MAP[icon] : Folder
-  return <Icon size={size} color={color || '#6b7280'} strokeWidth={1.5} />
-}
-
-export function ProjectPicker({
-  currentProject,
-  projects,
+export function AgentPicker({
+  currentAgent,
   onChange,
+  installStatus,
   variant = 'compact'
 }: {
-  currentProject: string
-  projects: ProjectConfig[]
-  onChange: (projectName: string) => void
+  currentAgent: AgentType
+  onChange: (agent: AgentType) => void
+  installStatus: Record<AgentType, boolean>
   variant?: 'compact' | 'form'
 }) {
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
-  const [position, setPosition] = useState({ top: 0, left: 0 })
-
-  const current = projects.find((p) => p.name === currentProject)
+  const [position, setPosition] = useState({ top: 0, left: 0, width: 0 })
 
   const handleTrigger = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -92,15 +37,16 @@ export function ProjectPicker({
     }
     const rect = triggerRef.current?.getBoundingClientRect()
     if (rect) {
-      setPosition({ top: rect.bottom + 4, left: rect.left })
+      setPosition({ top: rect.bottom + 4, left: rect.left, width: rect.width })
     }
     setOpen(true)
   }
 
-  const handleSelect = (name: string) => {
+  const handleSelect = (agent: AgentType) => {
+    if (!installStatus[agent]) return
     setOpen(false)
-    if (name !== currentProject) {
-      onChange(name)
+    if (agent !== currentAgent) {
+      onChange(agent)
     }
   }
 
@@ -122,6 +68,8 @@ export function ProjectPicker({
     }
   }, [open])
 
+  const agents = Object.keys(AGENT_LABELS) as AgentType[]
+
   return (
     <>
       <button
@@ -133,10 +81,8 @@ export function ProjectPicker({
             : 'flex items-center gap-1.5 hover:bg-white/[0.04] rounded px-1.5 py-0.5 -mx-1.5 transition-colors text-[12px] text-gray-300'
         }
       >
-        <ProjectIcon icon={current?.icon} color={current?.iconColor} />
-        <span className={`flex-1 text-left ${currentProject ? '' : 'text-gray-600'}`}>
-          {currentProject || 'Select project...'}
-        </span>
+        <AgentIcon agentType={currentAgent} size={14} />
+        <span className="flex-1 text-left">{AGENT_LABELS[currentAgent]}</span>
         <ChevronDown size={11} className="text-gray-500" />
       </button>
 
@@ -153,24 +99,35 @@ export function ProjectPicker({
               style={{
                 top: position.top,
                 left: position.left,
-                background: '#1e1e22',
-                minWidth: 180
+                minWidth: Math.max(180, position.width),
+                background: '#1e1e22'
               }}
             >
-              {projects.map((p) => (
-                <button
-                  key={p.name}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleSelect(p.name)
-                  }}
-                  className="w-full flex items-center gap-2.5 px-3 py-1.5 text-xs text-gray-300 hover:bg-white/[0.06] transition-colors"
-                >
-                  <ProjectIcon icon={p.icon} color={p.iconColor} />
-                  <span className="flex-1 text-left">{p.name}</span>
-                  {p.name === currentProject && <Check size={13} className="text-gray-400" />}
-                </button>
-              ))}
+              {agents.map((agent) => {
+                const installed = installStatus[agent]
+                const isCurrent = agent === currentAgent
+                return (
+                  <button
+                    key={agent}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleSelect(agent)
+                    }}
+                    disabled={!installed}
+                    className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-xs transition-colors ${
+                      !installed
+                        ? 'text-gray-600 cursor-not-allowed'
+                        : 'text-gray-300 hover:bg-white/[0.06] cursor-pointer'
+                    }`}
+                    title={!installed ? `${agent} is not installed` : undefined}
+                  >
+                    <AgentIcon agentType={agent} size={14} />
+                    <span className="flex-1 text-left">{AGENT_LABELS[agent]}</span>
+                    {!installed && <span className="text-[10px] text-gray-600">Not installed</span>}
+                    {isCurrent && installed && <Check size={13} className="text-gray-400" />}
+                  </button>
+                )
+              })}
             </motion.div>
           )}
         </AnimatePresence>,

@@ -1,4 +1,4 @@
-import { X, Trash2 } from 'lucide-react'
+import { X, Trash2, Zap, Play, Terminal, GitFork } from 'lucide-react'
 import {
   WorkflowNode,
   TriggerConfig,
@@ -6,6 +6,16 @@ import {
   ScriptConfig,
   ConditionConfig
 } from '../../../../shared/types'
+
+const NODE_TYPE_CONFIG: Record<
+  WorkflowNode['type'],
+  { icon: typeof Zap; label: string; color: string; bg: string }
+> = {
+  trigger: { icon: Zap, label: 'Trigger', color: 'text-blue-400', bg: 'bg-blue-500/10' },
+  launchAgent: { icon: Play, label: 'Agent', color: 'text-green-400', bg: 'bg-green-500/10' },
+  script: { icon: Terminal, label: 'Script', color: 'text-amber-400', bg: 'bg-amber-500/10' },
+  condition: { icon: GitFork, label: 'Condition', color: 'text-purple-400', bg: 'bg-purple-500/10' }
+}
 import { TriggerConfigForm } from './TriggerConfigForm'
 import { LaunchAgentConfigForm } from './LaunchAgentConfigForm'
 import { ScriptConfigForm } from './ScriptConfigForm'
@@ -32,12 +42,20 @@ export function NodeConfigPanel({
   stepGroups
 }: Props) {
   return (
-    <div className="w-[300px] border-l border-white/[0.08] bg-[#1e1e22] flex flex-col h-full overflow-hidden titlebar-no-drag">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.08]">
-        <span className="text-[13px] font-medium text-white">
-          {node.type === 'trigger' ? 'Trigger' : node.type === 'condition' ? 'Condition' : 'Action'}{' '}
-          Config
-        </span>
+    <div className="w-[420px] border-l border-white/[0.08] bg-[#1e1e22] flex flex-col h-full overflow-hidden titlebar-no-drag">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.08]">
+        {(() => {
+          const tc = NODE_TYPE_CONFIG[node.type]
+          const Icon = tc.icon
+          return (
+            <div className="flex items-center gap-2">
+              <div className={`w-6 h-6 rounded flex items-center justify-center ${tc.bg}`}>
+                <Icon size={13} className={tc.color} />
+              </div>
+              <span className="text-[13px] font-medium text-white">{tc.label} Config</span>
+            </div>
+          )
+        })()}
         <button
           onClick={onClose}
           className="text-gray-500 hover:text-white p-1 rounded-md transition-colors"
@@ -46,12 +64,10 @@ export function NodeConfigPanel({
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-5 space-y-5">
         {/* Label */}
         <div>
-          <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-1.5">
-            Label
-          </label>
+          <label className="text-[13px] text-gray-400 font-medium block mb-2">Label</label>
           <input
             type="text"
             value={node.label}
@@ -104,7 +120,7 @@ export function NodeConfigPanel({
 
       {/* Delete button (not for trigger) */}
       {node.type !== 'trigger' && (
-        <div className="px-4 py-3 border-t border-white/[0.08]">
+        <div className="px-5 py-4 border-t border-white/[0.08]">
           <button
             onClick={() => onDelete(node.id)}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 text-[12px]

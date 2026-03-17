@@ -1,3 +1,4 @@
+import { Zap, Clock, RefreshCw, ListPlus, ArrowRightLeft } from 'lucide-react'
 import { useAppStore } from '../../../stores'
 import { TriggerConfig, TaskStatus } from '../../../../shared/types'
 
@@ -15,12 +16,53 @@ const CRON_PRESETS = [
 ]
 
 const TRIGGER_TYPES = [
-  { type: 'manual' as const, label: 'Manual' },
-  { type: 'once' as const, label: 'Once' },
-  { type: 'recurring' as const, label: 'Recurring' },
-  { type: 'taskCreated' as const, label: 'Task Created' },
-  { type: 'taskStatusChanged' as const, label: 'Status Change' }
+  {
+    type: 'manual' as const,
+    label: 'Manual',
+    icon: Zap,
+    accent: 'blue' as const,
+    hint: 'Run this workflow manually from the play button'
+  },
+  {
+    type: 'once' as const,
+    label: 'Once',
+    icon: Clock,
+    accent: 'blue' as const,
+    hint: 'Runs once at the scheduled time'
+  },
+  {
+    type: 'recurring' as const,
+    label: 'Recurring',
+    icon: RefreshCw,
+    accent: 'blue' as const,
+    hint: 'Runs on a repeating schedule'
+  },
+  {
+    type: 'taskCreated' as const,
+    label: 'Task Created',
+    icon: ListPlus,
+    accent: 'purple' as const,
+    hint: 'Fires when a new task is added to a project'
+  },
+  {
+    type: 'taskStatusChanged' as const,
+    label: 'Status Change',
+    icon: ArrowRightLeft,
+    accent: 'purple' as const,
+    hint: "Fires when a task's status changes"
+  }
 ]
+
+const ACCENT_STYLES = {
+  blue: {
+    active: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
+    icon: 'text-blue-400'
+  },
+  purple: {
+    active: 'bg-purple-500/20 text-purple-400 border border-purple-500/30',
+    icon: 'text-purple-400'
+  }
+}
 
 const TASK_STATUSES: { value: TaskStatus; label: string }[] = [
   { value: 'todo', label: 'To Do' },
@@ -51,34 +93,38 @@ export function TriggerConfigForm({ config, onChange }: Props) {
   const projects = useAppStore((s) => s.config?.projects ?? EMPTY_PROJECTS)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
-        <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-1.5">
-          Trigger Type
-        </label>
+        <label className="text-[13px] text-gray-400 font-medium block mb-2">Trigger Type</label>
         <div className="flex flex-wrap gap-1.5">
-          {TRIGGER_TYPES.map(({ type, label }) => (
-            <button
-              key={type}
-              onClick={() => onChange(switchTriggerType(type))}
-              className={`px-3 py-1.5 text-[12px] rounded-md transition-colors
-                         ${
-                           config.triggerType === type
-                             ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                             : 'bg-white/[0.06] text-gray-400 border border-white/[0.08] hover:bg-white/[0.1]'
-                         }`}
-            >
-              {label}
-            </button>
-          ))}
+          {TRIGGER_TYPES.map(({ type, label, icon: Icon, accent }) => {
+            const isActive = config.triggerType === type
+            const styles = ACCENT_STYLES[accent]
+            return (
+              <button
+                key={type}
+                onClick={() => onChange(switchTriggerType(type))}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-[12px] rounded-md transition-colors
+                           ${
+                             isActive
+                               ? styles.active
+                               : 'bg-white/[0.06] text-gray-400 border border-white/[0.08] hover:bg-white/[0.1]'
+                           }`}
+              >
+                <Icon size={12} className={isActive ? '' : styles.icon} />
+                {label}
+              </button>
+            )
+          })}
         </div>
+        <p className="text-[11px] text-gray-500 mt-1.5">
+          {TRIGGER_TYPES.find((t) => t.type === config.triggerType)?.hint}
+        </p>
       </div>
 
       {config.triggerType === 'once' && (
         <div>
-          <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-1.5">
-            Run At
-          </label>
+          <label className="text-[13px] text-gray-400 font-medium block mb-2">Run At</label>
           <input
             type="datetime-local"
             value={config.runAt ? new Date(config.runAt).toISOString().slice(0, 16) : ''}
@@ -89,15 +135,16 @@ export function TriggerConfigForm({ config, onChange }: Props) {
                        text-white focus:outline-none focus:border-blue-500/50
                        [color-scheme:dark]"
           />
+          <p className="text-[11px] text-gray-500 mt-1">
+            Local time. The workflow runs once at this time.
+          </p>
         </div>
       )}
 
       {config.triggerType === 'recurring' && (
         <>
           <div>
-            <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-1.5">
-              Preset
-            </label>
+            <label className="text-[13px] text-gray-400 font-medium block mb-2">Preset</label>
             <div className="flex flex-wrap gap-1.5">
               {CRON_PRESETS.map((preset) => (
                 <button
@@ -116,7 +163,7 @@ export function TriggerConfigForm({ config, onChange }: Props) {
             </div>
           </div>
           <div>
-            <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-1.5">
+            <label className="text-[13px] text-gray-400 font-medium block mb-2">
               Cron Expression
             </label>
             <input
@@ -127,11 +174,10 @@ export function TriggerConfigForm({ config, onChange }: Props) {
               className="w-full px-3 py-2 text-[13px] bg-white/[0.06] border border-white/[0.1] rounded-md
                          text-white placeholder:text-gray-600 focus:outline-none focus:border-blue-500/50 font-mono"
             />
+            <p className="text-[11px] text-gray-500 mt-1">min hour day month weekday</p>
           </div>
           <div>
-            <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-1.5">
-              Timezone
-            </label>
+            <label className="text-[13px] text-gray-400 font-medium block mb-2">Timezone</label>
             <input
               type="text"
               value={config.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone}
@@ -139,6 +185,9 @@ export function TriggerConfigForm({ config, onChange }: Props) {
               className="w-full px-3 py-2 text-[13px] bg-white/[0.06] border border-white/[0.1] rounded-md
                          text-white focus:outline-none focus:border-blue-500/50"
             />
+            <p className="text-[11px] text-gray-500 mt-1">
+              IANA timezone — auto-detected from your system
+            </p>
           </div>
         </>
       )}
@@ -159,24 +208,24 @@ export function TriggerConfigForm({ config, onChange }: Props) {
             projects={projects}
           />
           <div>
-            <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-1.5">
-              From Status
-            </label>
+            <label className="text-[13px] text-gray-400 font-medium block mb-2">From Status</label>
             <StatusSelect
               value={config.fromStatus}
               onChange={(fromStatus) => onChange({ ...config, fromStatus })}
               placeholder="Any status"
             />
+            <p className="text-[11px] text-gray-500 mt-1">
+              Filter by previous status (blank = any)
+            </p>
           </div>
           <div>
-            <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-1.5">
-              To Status
-            </label>
+            <label className="text-[13px] text-gray-400 font-medium block mb-2">To Status</label>
             <StatusSelect
               value={config.toStatus}
               onChange={(toStatus) => onChange({ ...config, toStatus })}
               placeholder="Any status"
             />
+            <p className="text-[11px] text-gray-500 mt-1">Filter by new status (blank = any)</p>
           </div>
         </>
       )}
@@ -195,9 +244,7 @@ function ProjectFilterSelect({
 }) {
   return (
     <div>
-      <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-1.5">
-        Project Filter
-      </label>
+      <label className="text-[13px] text-gray-400 font-medium block mb-2">Project Filter</label>
       <select
         value={value || ''}
         onChange={(e) => onChange(e.target.value || undefined)}
@@ -211,6 +258,7 @@ function ProjectFilterSelect({
           </option>
         ))}
       </select>
+      <p className="text-[11px] text-gray-500 mt-1">Only trigger for tasks in this project</p>
     </div>
   )
 }

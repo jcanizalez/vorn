@@ -32,12 +32,10 @@ export function ConditionConfigForm({ config, onChange, triggerType, stepGroups 
   })
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Variable */}
       <div>
-        <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-1.5">
-          Variable
-        </label>
+        <label className="text-[13px] text-gray-400 font-medium block mb-2">Variable</label>
         <VariableAutocomplete
           value={config.variable || ''}
           onChange={(val) => onChange({ ...config, variable: val })}
@@ -47,13 +45,12 @@ export function ConditionConfigForm({ config, onChange, triggerType, stepGroups 
           contextVars={contextVars}
           mono
         />
+        <p className="text-[11px] text-gray-500 mt-1">Template variable to evaluate</p>
       </div>
 
       {/* Operator */}
       <div>
-        <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-1.5">
-          Operator
-        </label>
+        <label className="text-[13px] text-gray-400 font-medium block mb-2">Operator</label>
         <div className="grid grid-cols-2 gap-1.5">
           {OPERATORS.map((op) => (
             <button
@@ -74,9 +71,7 @@ export function ConditionConfigForm({ config, onChange, triggerType, stepGroups 
       {/* Value */}
       {!hiddenValueOperators.includes(config.operator) && (
         <div>
-          <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-1.5">
-            Value
-          </label>
+          <label className="text-[13px] text-gray-400 font-medium block mb-2">Value</label>
           <VariableAutocomplete
             value={config.value || ''}
             onChange={(val) => onChange({ ...config, value: val })}
@@ -86,13 +81,14 @@ export function ConditionConfigForm({ config, onChange, triggerType, stepGroups 
             contextVars={contextVars}
             mono
           />
+          <p className="text-[11px] text-gray-500 mt-1">The value to compare against</p>
         </div>
       )}
 
       {/* Preview */}
       {config.variable && (
         <div className="px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04]">
-          <div className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">Evaluates</div>
+          <div className="text-[11px] text-gray-500 uppercase tracking-wider mb-1">Evaluates</div>
           <div className="text-[11px] text-gray-400 font-mono truncate">
             {config.variable} {OPERATORS.find((o) => o.value === config.operator)?.label || ''}
             {!hiddenValueOperators.includes(config.operator) && config.value
