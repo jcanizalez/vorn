@@ -11,8 +11,7 @@ export default defineConfig({
       include: [
         'packages/server/src/**/*.ts',
         'packages/shared/src/**/*.ts',
-        'src/renderer/lib/**/*.ts',
-        'src/shared/**/*.ts'
+        'src/renderer/lib/**/*.ts'
       ],
       exclude: [
         'packages/server/src/index.ts',
@@ -23,7 +22,6 @@ export default defineConfig({
         'packages/server/src/hook-installer.ts',
         'packages/server/src/copilot-hook-installer.ts',
         'packages/server/src/task-images.ts',
-        'src/shared/**/*.ts',
         'src/renderer/lib/terminal-registry.ts',
         'src/renderer/lib/workflow-execution.ts',
         'src/renderer/lib/workflow-triggers.ts',

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest'
 import type {
   WorkflowDefinition,
   WorkflowNode,
@@ -6,10 +6,16 @@ import type {
   TriggerConfig
 } from '../src/shared/types'
 
-// Stub crypto.randomUUID for deterministic node IDs
+// Stub only crypto.randomUUID for deterministic node IDs, preserving the rest
+const originalCrypto = globalThis.crypto
 let uuidCounter = 0
 vi.stubGlobal('crypto', {
+  ...originalCrypto,
   randomUUID: () => `uuid-${++uuidCounter}`
+})
+
+afterAll(() => {
+  vi.unstubAllGlobals()
 })
 
 import {
