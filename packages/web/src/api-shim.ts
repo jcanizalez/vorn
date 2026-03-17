@@ -1,0 +1,291 @@
+/**
+ * WebSocket RPC shim that implements the same surface as the Electron preload `window.api`.
+ * Components and stores call window.api.* exactly as they do in Electron,
+ * but here each call is translated to a JSON-RPC 2.0 message over WebSocket.
+ */
+
+// ─── JSON-RPC Transport ─────────────────────────────────────────
+
+type PendingRequest = {
+  resolve: (result: unknown) => void
+  reject: (error: Error) => void
+}
+
+class RpcClient {
+  private ws!: WebSocket
+  private nextId = 1
+  private pending = new Map<number, PendingRequest>()
+  private listeners = new Map<string, Set<(params: unknown) => void>>()
+  private url: string
+  private _ready: Promise<void>
+  private _resolveReady!: () => void
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null
+
+  constructor(url: string) {
+    this.url = url
+    this._ready = new Promise((resolve) => {
+      this._resolveReady = resolve
+    })
+    this.connect()
+  }
+
+  private connect(): void {
+    this.ws = new WebSocket(this.url)
+
+    this.ws.onopen = () => {
+      this._resolveReady()
+      if (this.reconnectTimer) {
+        clearTimeout(this.reconnectTimer)
+        this.reconnectTimer = null
+      }
+    }
+
+    this.ws.onmessage = (event) => {
+      let msg: {
+        id?: number
+        method?: string
+        result?: unknown
+        error?: { message: string }
+        params?: unknown
+      }
+      try {
+        msg = JSON.parse(event.data as string)
+      } catch {
+        return
+      }
+
+      // Server push notification (no id)
+      if (msg.method && msg.id === undefined) {
+        const cbs = this.listeners.get(msg.method)
+        if (cbs) {
+          for (const cb of cbs) {
+            try {
+              cb(msg.params)
+            } catch {
+              /* ignore listener errors */
+            }
+          }
+        }
+        return
+      }
+
+      // Response to a pending request
+      if (msg.id !== undefined) {
+        const pending = this.pending.get(msg.id)
+        if (pending) {
+          this.pending.delete(msg.id)
+          if (msg.error) {
+            pending.reject(new Error(msg.error.message))
+          } else {
+            pending.resolve(msg.result)
+          }
+        }
+      }
+    }
+
+    this.ws.onclose = () => {
+      // Reject all pending requests
+      for (const [, p] of this.pending) {
+        p.reject(new Error('WebSocket disconnected'))
+      }
+      this.pending.clear()
+
+      // Auto-reconnect after 2s
+      this.reconnectTimer = setTimeout(() => {
+        this._ready = new Promise((resolve) => {
+          this._resolveReady = resolve
+        })
+        this.connect()
+      }, 2000)
+    }
+
+    this.ws.onerror = () => {
+      // onclose will fire after this
+    }
+  }
+
+  ready(): Promise<void> {
+    return this._ready
+  }
+
+  /** Request-response RPC call */
+  invoke(method: string, params?: unknown): Promise<unknown> {
+    return new Promise((resolve, reject) => {
+      const id = this.nextId++
+      this.pending.set(id, { resolve, reject })
+      const msg = JSON.stringify({ jsonrpc: '2.0', id, method, params })
+      if (this.ws.readyState === WebSocket.OPEN) {
+        this.ws.send(msg)
+      } else {
+        // Queue until connected
+        this._ready.then(() => {
+          if (this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(msg)
+          } else {
+            this.pending.delete(id)
+            reject(new Error('WebSocket not connected'))
+          }
+        })
+      }
+    })
+  }
+
+  /** Fire-and-forget notification (no response expected) */
+  notify(method: string, params?: unknown): void {
+    const msg = JSON.stringify({ jsonrpc: '2.0', method, params })
+    if (this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(msg)
+    }
+  }
+
+  /** Subscribe to server push notifications. Returns unsubscribe function. */
+  on(event: string, callback: (params: unknown) => void): () => void {
+    let cbs = this.listeners.get(event)
+    if (!cbs) {
+      cbs = new Set()
+      this.listeners.set(event, cbs)
+    }
+    cbs.add(callback)
+    return () => {
+      cbs!.delete(callback)
+      if (cbs!.size === 0) {
+        this.listeners.delete(event)
+      }
+    }
+  }
+}
+
+// ─── API Shim ───────────────────────────────────────────────────
+
+export function createApiShim(wsUrl: string) {
+  const rpc = new RpcClient(wsUrl)
+
+  const api = {
+    // ── Ready (web-only, not in Electron API) ──
+    __ready: () => rpc.ready(),
+
+    // ── Terminal Management ──
+    createTerminal: (payload: unknown) => rpc.invoke('terminal:create', payload),
+    writeTerminal: (id: string, data: string) => rpc.notify('terminal:write', { id, data }),
+    resizeTerminal: (payload: unknown) => rpc.notify('terminal:resize', payload),
+    killTerminal: (id: string) => rpc.invoke('terminal:kill', id),
+    createShellTerminal: (cwd?: string) => rpc.invoke('shell:create', cwd),
+
+    // ── Terminal Events ──
+    onTerminalData: (callback: (event: { id: string; data: string }) => void) =>
+      rpc.on('terminal:data', callback as (p: unknown) => void),
+    onTerminalExit: (callback: (event: { id: string; exitCode: number }) => void) =>
+      rpc.on('terminal:exit', callback as (p: unknown) => void),
+    onSessionCreated: (callback: (session: unknown) => void) =>
+      rpc.on('session:created', callback as (p: unknown) => void),
+
+    // ── Configuration ──
+    loadConfig: () => rpc.invoke('config:load'),
+    saveConfig: (config: unknown) => rpc.invoke('config:save', config),
+    onConfigChanged: (callback: (config: unknown) => void) =>
+      rpc.on('config:changed', callback as (p: unknown) => void),
+
+    // ── Menu Events (Electron-only, no-op in web) ──
+    onMenuNewAgent: (_callback: () => void) => () => {},
+
+    // ── Sessions ──
+    getPreviousSessions: () => rpc.invoke('sessions:getPrevious'),
+    clearPreviousSessions: () => rpc.invoke('sessions:clear'),
+    getRecentSessions: (projectPath?: string) => rpc.invoke('sessions:getRecent', projectPath),
+
+    // ── Dialogs (Electron-only, return null/empty in web) ──
+    openDirectoryDialog: () => Promise.resolve(null),
+    openFileDialog: () => Promise.resolve(null),
+    openImageDialog: () => Promise.resolve(null),
+
+    // ── IDE Detection & Launch ──
+    detectIDEs: () => rpc.invoke('ide:detect'),
+    detectInstalledAgents: () => rpc.invoke('agent:detectInstalled'),
+    openInIDE: (ideId: string, projectPath: string) =>
+      rpc.invoke('ide:open', { ideId, projectPath }),
+
+    // ── Git Operations ──
+    listBranches: (projectPath: string) => rpc.invoke('git:listBranches', projectPath),
+    listRemoteBranches: (projectPath: string) => rpc.invoke('git:listRemoteBranches', projectPath),
+    createWorktree: (projectPath: string, branch: string) =>
+      rpc.invoke('git:createWorktree', { projectPath, branch }),
+    removeWorktree: (projectPath: string, worktreePath: string, force?: boolean) =>
+      rpc.invoke('git:removeWorktree', { projectPath, worktreePath, force }),
+    isWorktreeDirty: (worktreePath: string) => rpc.invoke('git:worktreeDirty', worktreePath),
+    listWorktrees: (projectPath: string) => rpc.invoke('git:listWorktrees', projectPath),
+    getGitDiffStat: (cwd: string) => rpc.invoke('git:diffStat', cwd),
+    getGitDiffFull: (cwd: string) => rpc.invoke('git:diffFull', cwd),
+    gitCommit: (payload: unknown) => rpc.invoke('git:commit', payload),
+    gitPush: (cwd: string) => rpc.invoke('git:push', cwd),
+
+    // ── Task Images ──
+    saveTaskImage: (taskId: string, sourcePath: string) =>
+      rpc.invoke('task:imageSave', { taskId, sourcePath }),
+    deleteTaskImage: (taskId: string, filename: string) =>
+      rpc.invoke('task:imageDelete', { taskId, filename }),
+    getTaskImagePath: (taskId: string, filename: string) =>
+      rpc.invoke('task:imageGetPath', { taskId, filename }),
+    cleanupTaskImages: (taskId: string) => rpc.invoke('task:imageCleanup', taskId),
+
+    // ── Session Archive ──
+    archiveSession: (session: unknown) => rpc.invoke('session:archive', session),
+    unarchiveSession: (id: string) => rpc.invoke('session:unarchive', id),
+    listArchivedSessions: () => rpc.invoke('session:listArchived'),
+
+    // ── Headless Sessions ──
+    createHeadlessSession: (payload: unknown) => rpc.invoke('headless:create', payload),
+    killHeadlessSession: (id: string) => rpc.invoke('headless:kill', id),
+    onHeadlessData: (callback: (event: { id: string; data: string }) => void) =>
+      rpc.on('headless:data', callback as (p: unknown) => void),
+    onHeadlessExit: (callback: (event: { id: string; exitCode: number }) => void) =>
+      rpc.on('headless:exit', callback as (p: unknown) => void),
+
+    // ── Script Execution ──
+    executeScript: (config: unknown) => rpc.invoke('script:execute', config),
+
+    // ── Worktree Cleanup ──
+    onWorktreeCleanup: (
+      callback: (session: { id: string; projectPath: string; worktreePath: string }) => void
+    ) => rpc.on('worktree:confirmCleanup', callback as (p: unknown) => void),
+
+    // ── Scheduler ──
+    getScheduleLog: (workflowId?: string) => rpc.invoke('scheduler:getLog', workflowId),
+    getScheduleNextRun: (workflowId: string) => rpc.invoke('scheduler:getNextRun', workflowId),
+    onSchedulerExecute: (callback: (event: { workflowId: string }) => void) =>
+      rpc.on('scheduler:execute', callback as (p: unknown) => void),
+    onSchedulerMissed: (callback: (missed: unknown[]) => void) =>
+      rpc.on('scheduler:missed', callback as (p: unknown) => void),
+
+    // ── Window Controls (no-op in web) ──
+    windowMinimize: () => {},
+    windowMaximize: () => {},
+    windowClose: () => {},
+
+    // ── Widget (fire-and-forget to server) ──
+    notifyWidgetStatus: () => rpc.notify('widget:requestUpdate'),
+    setWidgetEnabled: (_enabled: boolean) => {},
+
+    // ── Widget Events (no-op in web — no separate widget window) ──
+    onWidgetSelectTerminal: (_callback: (terminalId: string) => void) => () => {},
+
+    // ── Workflow Runs ──
+    saveWorkflowRun: (execution: unknown) => rpc.invoke('workflowRun:save', execution),
+    listWorkflowRuns: (workflowId: string, limit?: number) =>
+      rpc.invoke('workflowRun:list', { workflowId, limit }),
+    listWorkflowRunsByTask: (taskId: string, limit?: number) =>
+      rpc.invoke('workflowRun:listByTask', { taskId, limit }),
+    reportWorkflowComplete: (data: unknown) => rpc.invoke('workflow:executionComplete', data),
+
+    // ── App Info (web-specific) ──
+    getAppVersion: () => 'web',
+
+    // ── Auto-Update (no-op in web) ──
+    onUpdateDownloaded: (_callback: (info: { version: string }) => void) => () => {},
+    installUpdate: () => {},
+    setUpdateChannel: (_channel: 'stable' | 'beta') => {}
+  }
+
+  return api
+}
+
+export type WebApiShim = ReturnType<typeof createApiShim>

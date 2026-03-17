@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VibGrid</title>
+    <style>
+      /* Loading state before React mounts */
+      body {
+        margin: 0;
+        background: #1a1a1e;
+        color: #9ca3af;
+      }
+      #root:empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      #root:empty::after {
+        content: 'Connecting to VibGrid...';
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

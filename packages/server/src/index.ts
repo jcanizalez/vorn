@@ -1,8 +1,10 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import Fastify from 'fastify'
 import websocket from '@fastify/websocket'
+import fastifyStatic from '@fastify/static'
 import { handleConnection, registerMethod } from './ws-handler'
 import { registerAllMethods } from './register-methods'
 import { configManager } from './config-manager'
@@ -11,6 +13,8 @@ import { headlessManager } from './headless-manager'
 import { scheduler } from './scheduler'
 import { setDataDir } from './task-images'
 import log from './logger'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export async function startServer(
   options: { host?: string; port?: number; dataDir?: string } = {}
@@ -50,6 +54,23 @@ export async function startServer(
   })
 
   app.get('/health', async () => ({ status: 'ok' }))
+
+  // Serve web app static files at /app/ if the dist directory exists
+  const webDistDir = path.resolve(__dirname, '../../web/dist')
+  if (fs.existsSync(webDistDir)) {
+    await app.register(fastifyStatic, {
+      root: webDistDir,
+      prefix: '/app/'
+    })
+    // SPA fallback: serve index.html for any /app/* route not matching a file
+    app.setNotFoundHandler((req, reply) => {
+      if (req.url.startsWith('/app')) {
+        return reply.sendFile('index.html', webDistDir)
+      }
+      reply.code(404).send({ error: 'Not found' })
+    })
+    log.info(`[server] serving web app from ${webDistDir}`)
+  }
 
   // Register all RPC methods
   registerAllMethods()
@@ -129,10 +150,13 @@ if (isDirectRun) {
   const portArg = process.argv.find((a) => a.startsWith('--port='))
   const port = portArg ? parseInt(portArg.split('=')[1], 10) : 0
 
+  const hostArg = process.argv.find((a) => a.startsWith('--host='))
+  const host = hostArg ? hostArg.split('=')[1] : undefined
+
   const dataDirArg = process.argv.find((a) => a.startsWith('--data-dir='))
   const dataDir = dataDirArg ? dataDirArg.split('=')[1] : undefined
 
-  startServer({ port, dataDir }).catch((err) => {
+  startServer({ port, host, dataDir }).catch((err) => {
     log.error({ err }, '[server] failed to start')
     const msg =
       '[server] failed to start: ' + (err instanceof Error ? err.stack || err.message : String(err))

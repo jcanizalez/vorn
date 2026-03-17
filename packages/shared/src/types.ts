@@ -278,6 +278,8 @@ export interface AppConfig {
     mainViewMode?: MainViewMode
     activeWorkspace?: string
     updateChannel?: 'stable' | 'beta'
+    webAccessEnabled?: boolean
+    mobileAccessEnabled?: boolean
   }
   projects: ProjectConfig[]
   agentCommands?: Partial<Record<AgentType, AgentCommandConfig>>
