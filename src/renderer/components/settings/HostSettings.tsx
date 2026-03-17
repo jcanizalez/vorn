@@ -1,7 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAppStore } from '../../stores'
-import { RemoteHost } from '../../../shared/types'
+import { RemoteHost, AuthMethod, SSHKeyMeta } from '../../../shared/types'
 import { Server, Trash2, Plus, Key, Loader2, CheckCircle2, XCircle, Wifi } from 'lucide-react'
+
+const AUTH_METHODS: { value: AuthMethod; label: string }[] = [
+  { value: 'agent', label: 'SSH Agent' },
+  { value: 'password', label: 'Password' },
+  { value: 'key-stored', label: 'Stored Key' },
+  { value: 'key-file', label: 'Key File' }
+]
 
 export function HostSettings() {
   const config = useAppStore((s) => s.config)
@@ -10,9 +17,24 @@ export function HostSettings() {
   const updateRemoteHost = useAppStore((s) => s.updateRemoteHost)
 
   const [drafts, setDrafts] = useState<Record<string, Partial<RemoteHost>>>({})
+  const [storedKeys, setStoredKeys] = useState<SSHKeyMeta[]>([])
+  const [passwordInputs, setPasswordInputs] = useState<Record<string, string>>({})
   const [testResults, setTestResults] = useState<
     Record<string, { status: 'testing' | 'success' | 'error'; message?: string }>
   >({})
+
+  useEffect(() => {
+    let cancelled = false
+    window.api
+      .listSSHKeys()
+      .then((keys) => {
+        if (!cancelled) setStoredKeys(keys)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   if (!config) return null
 
@@ -47,7 +69,8 @@ export function HostSettings() {
       label: 'New Host',
       hostname: '',
       user: '',
-      port: 22
+      port: 22,
+      authMethod: 'agent'
     })
   }
 
@@ -66,10 +89,83 @@ export function HostSettings() {
     }
   }
 
+  const handleAuthMethodChange = (hostId: string, method: AuthMethod): void => {
+    const host = hosts.find((h) => h.id === hostId)
+    if (!host) return
+    const updated: RemoteHost = {
+      ...host,
+      ...drafts[hostId],
+      authMethod: method
+    }
+    // Clear irrelevant fields when switching
+    if (method !== 'key-file') updated.sshKeyPath = undefined
+    if (method !== 'key-stored') updated.credentialId = undefined
+    if (method !== 'password') updated.encryptedPassword = undefined
+    updateRemoteHost(hostId, updated)
+    setDrafts((prev) => {
+      const next = { ...prev }
+      delete next[hostId]
+      return next
+    })
+    // Clear plaintext password from memory when switching away
+    if (method !== 'password') {
+      setPasswordInputs((prev) => {
+        const next = { ...prev }
+        delete next[hostId]
+        return next
+      })
+    }
+  }
+
+  const handlePasswordCommit = async (hostId: string): Promise<void> => {
+    const pw = passwordInputs[hostId]
+    if (!pw) return
+    try {
+      const encrypted = await window.api.encryptString(pw)
+      const host = hosts.find((h) => h.id === hostId)
+      if (host) {
+        updateRemoteHost(hostId, { ...host, ...drafts[hostId], encryptedPassword: encrypted })
+        setDrafts((prev) => {
+          const next = { ...prev }
+          delete next[hostId]
+          return next
+        })
+        setPasswordInputs((prev) => {
+          const next = { ...prev }
+          delete next[hostId]
+          return next
+        })
+      }
+    } catch {
+      /* encryption not available */
+    }
+  }
+
+  const handleStoredKeyChange = (hostId: string, credentialId: string): void => {
+    const host = hosts.find((h) => h.id === hostId)
+    if (!host) return
+    updateRemoteHost(hostId, { ...host, ...drafts[hostId], credentialId })
+    setDrafts((prev) => {
+      const next = { ...prev }
+      delete next[hostId]
+      return next
+    })
+  }
+
+  const getSshPreview = (h: RemoteHost): string => {
+    const parts = ['ssh']
+    if (h.user) parts.push(`${h.user}@${h.hostname || '...'}`)
+    else parts.push(h.hostname || '...')
+    if (h.port !== 22) parts.push(`-p ${h.port}`)
+    const auth = h.authMethod ?? 'agent'
+    if (auth === 'key-file' && h.sshKeyPath) parts.push(`-i ${h.sshKeyPath}`)
+    if (auth === 'password') parts.push('-o PreferredAuthentications=password')
+    return parts.join(' ')
+  }
+
   const handleTestConnection = async (hostId: string): Promise<void> => {
     const host = hosts.find((h) => h.id === hostId)
     if (!host) return
-    // Apply any unsaved drafts for the test
     const effective = { ...host, ...drafts[hostId] }
     if (!effective.hostname || !effective.user) {
       setTestResults((prev) => ({
@@ -103,6 +199,7 @@ export function HostSettings() {
       <div className="space-y-3">
         {hosts.map((host) => {
           const h = getDraft(host)
+          const authMethod = h.authMethod ?? 'agent'
 
           return (
             <div
@@ -160,24 +257,101 @@ export function HostSettings() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <div>
+              <div className="mb-3">
+                <label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1 block">
+                  Username
+                </label>
+                <input
+                  type="text"
+                  value={h.user}
+                  onChange={(e) => updateDraft(host.id, { user: e.target.value })}
+                  onBlur={() => commitDraft(host.id)}
+                  placeholder="e.g. ubuntu"
+                  className="w-full px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] rounded-md text-sm
+                             text-gray-200 font-mono placeholder-gray-600 focus:border-white/[0.15] focus:outline-none"
+                />
+              </div>
+
+              {/* Auth method selector */}
+              <div className="mb-3">
+                <label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1.5 block">
+                  Authentication
+                </label>
+                <div className="flex bg-white/[0.04] rounded-md p-0.5 gap-0.5">
+                  {AUTH_METHODS.map((m) => (
+                    <button
+                      key={m.value}
+                      onClick={() => handleAuthMethodChange(host.id, m.value)}
+                      className={`flex-1 px-2 py-1.5 rounded text-xs font-medium transition-colors ${
+                        authMethod === m.value
+                          ? 'bg-white/[0.1] text-white'
+                          : 'text-gray-500 hover:text-gray-300'
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Conditional credential fields */}
+              {authMethod === 'agent' && (
+                <p className="text-[11px] text-gray-600 mb-3">
+                  Uses your running SSH agent (ssh-agent)
+                </p>
+              )}
+
+              {authMethod === 'password' && (
+                <div className="mb-3">
                   <label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1 block">
-                    Username
+                    Password
                   </label>
                   <input
-                    type="text"
-                    value={h.user}
-                    onChange={(e) => updateDraft(host.id, { user: e.target.value })}
-                    onBlur={() => commitDraft(host.id)}
-                    placeholder="e.g. ubuntu"
+                    type="password"
+                    value={passwordInputs[host.id] ?? ''}
+                    onChange={(e) =>
+                      setPasswordInputs((prev) => ({ ...prev, [host.id]: e.target.value }))
+                    }
+                    onBlur={() => handlePasswordCommit(host.id)}
+                    placeholder={h.encryptedPassword ? '(saved)' : 'Enter password'}
                     className="w-full px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] rounded-md text-sm
-                               text-gray-200 font-mono placeholder-gray-600 focus:border-white/[0.15] focus:outline-none"
+                               text-gray-200 placeholder-gray-600 focus:border-white/[0.15] focus:outline-none"
                   />
+                  <p className="text-[10px] text-gray-600 mt-1">Encrypted with your OS keychain</p>
                 </div>
-                <div>
+              )}
+
+              {authMethod === 'key-stored' && (
+                <div className="mb-3">
                   <label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1 block">
-                    SSH Key
+                    Stored Key
+                  </label>
+                  <select
+                    value={h.credentialId || ''}
+                    onChange={(e) => handleStoredKeyChange(host.id, e.target.value)}
+                    className="w-full px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] rounded-md text-sm
+                               text-gray-200 focus:border-white/[0.15] focus:outline-none"
+                  >
+                    <option value="">Select a key...</option>
+                    {storedKeys.map((k) => (
+                      <option key={k.id} value={k.id}>
+                        {k.label}
+                        {k.keyType ? ` (${k.keyType})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {storedKeys.length === 0 && (
+                    <p className="text-[10px] text-gray-600 mt-1">
+                      No stored keys. Add keys in Settings &gt; SSH Keys.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {authMethod === 'key-file' && (
+                <div className="mb-3">
+                  <label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1 block">
+                    SSH Key Path
                   </label>
                   <div className="flex gap-1.5">
                     <input
@@ -198,7 +372,7 @@ export function HostSettings() {
                     </button>
                   </div>
                 </div>
-              </div>
+              )}
 
               <div>
                 <label className="text-[11px] text-gray-500 uppercase tracking-wider mb-1 block">
@@ -216,11 +390,7 @@ export function HostSettings() {
               </div>
 
               <div className="mt-3 flex items-center gap-3">
-                <div className="text-[11px] text-gray-600 font-mono flex-1">
-                  ssh {h.user ? `${h.user}@` : ''}
-                  {h.hostname || '...'}
-                  {h.port !== 22 ? ` -p ${h.port}` : ''}
-                </div>
+                <div className="text-[11px] text-gray-600 font-mono flex-1">{getSshPreview(h)}</div>
                 <button
                   onClick={() => handleTestConnection(host.id)}
                   disabled={testResults[host.id]?.status === 'testing'}

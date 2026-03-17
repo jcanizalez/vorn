@@ -261,6 +261,17 @@ function useCommands(
         useAppStore.getState().setSettingsCategory('hosts')
       }
     })
+    commands.push({
+      id: 'action:manage-keys',
+      label: 'Manage SSH Keys',
+      category: 'actions',
+      icon: <Server size={14} strokeWidth={1.5} />,
+      keywords: ['ssh', 'key', 'credential', 'vault', 'private', 'certificate'],
+      onExecute: () => {
+        setSettingsOpen(true)
+        useAppStore.getState().setSettingsCategory('keys')
+      }
+    })
 
     // --- Terminals ---
     for (const [id, term] of terminals) {
@@ -326,7 +337,9 @@ function useCommands(
         label: wf.name,
         category: 'workflows',
         icon: <Zap size={14} strokeWidth={1.5} />,
-        keywords: actionNodes.map((n) => (n.config as any).projectName).filter(Boolean),
+        keywords: actionNodes
+          .map((n) => (n.config as Record<string, unknown>)?.projectName as string)
+          .filter(Boolean),
         onExecute: async () => {
           await executeWorkflow(wf)
         }
@@ -532,14 +545,14 @@ export function CommandPalette() {
   // Reset state when opening/closing
   useEffect(() => {
     if (isOpen) {
-      setQuery('')
+      setQuery('') // eslint-disable-line react-hooks/set-state-in-effect -- resetting ephemeral UI state on open/close
       setActiveIndex(0)
     }
   }, [isOpen])
 
   // Reset active index when query changes
   useEffect(() => {
-    setActiveIndex(0)
+    setActiveIndex(0) // eslint-disable-line react-hooks/set-state-in-effect -- derived reset
   }, [query])
 
   // Scroll active item into view
@@ -571,11 +584,8 @@ export function CommandPalette() {
 
   // Build render list with category headers
   const renderItems = useMemo(() => {
-    const items:
-      | { type: 'header'; label: string }[]
-      | { type: 'command'; cmd: Command; flatIndex: number }[] = []
     if (hasQuery) {
-      return filtered.map((cmd, i) => ({ type: 'command' as const, cmd, flatIndex: i }))
+      return filtered.map((cmd, idx) => ({ type: 'command' as const, cmd, flatIndex: idx }))
     }
     let flatIndex = 0
     const result: (
@@ -642,7 +652,7 @@ export function CommandPalette() {
                 </div>
               )}
 
-              {renderItems.map((item, i) => {
+              {renderItems.map((item) => {
                 if (item.type === 'header') {
                   return (
                     <div

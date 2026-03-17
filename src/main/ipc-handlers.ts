@@ -3,6 +3,7 @@ import { ipcMain } from 'electron'
 import { safeHandle } from './ipc-safe-handle'
 import { IPC, ResizePayload } from '../shared/types'
 import type { ServerBridge } from './server/server-bridge'
+import { registerCredentialHandlers, enrichPayloadWithCredentials } from './credential-handlers'
 
 let bridge: ServerBridge | null = null
 
@@ -18,10 +19,11 @@ function requireBridge(): ServerBridge {
 export function registerIpcHandlers(): void {
   // ─── Delegated to server via bridge ────────────────────────────
 
-  // Terminal
-  safeHandle(IPC.TERMINAL_CREATE, (_, payload) =>
-    requireBridge().request(IPC.TERMINAL_CREATE, payload)
-  )
+  // Terminal (enriched with decrypted credentials when needed)
+  safeHandle(IPC.TERMINAL_CREATE, async (_, payload) => {
+    const enriched = await enrichPayloadWithCredentials(payload, requireBridge())
+    return requireBridge().request(IPC.TERMINAL_CREATE, enriched)
+  })
   safeHandle(IPC.TERMINAL_KILL, (_, id) => requireBridge().request(IPC.TERMINAL_KILL, id))
   safeHandle(IPC.SHELL_CREATE, (_, cwd) => requireBridge().request(IPC.SHELL_CREATE, cwd))
 
@@ -89,10 +91,11 @@ export function registerIpcHandlers(): void {
   safeHandle(IPC.SESSION_UNARCHIVE, (_, id) => requireBridge().request(IPC.SESSION_UNARCHIVE, id))
   safeHandle(IPC.SESSION_LIST_ARCHIVED, () => requireBridge().request(IPC.SESSION_LIST_ARCHIVED))
 
-  // Headless sessions
-  safeHandle(IPC.HEADLESS_CREATE, (_, payload) =>
-    requireBridge().request(IPC.HEADLESS_CREATE, payload)
-  )
+  // Headless sessions (enriched with decrypted credentials when needed)
+  safeHandle(IPC.HEADLESS_CREATE, async (_, payload) => {
+    const enriched = await enrichPayloadWithCredentials(payload, requireBridge())
+    return requireBridge().request(IPC.HEADLESS_CREATE, enriched)
+  })
   safeHandle(IPC.HEADLESS_KILL, (_, id) => requireBridge().request(IPC.HEADLESS_KILL, id))
 
   // Scripts
@@ -118,6 +121,9 @@ export function registerIpcHandlers(): void {
   safeHandle(IPC.IDE_DETECT, () => requireBridge().request(IPC.IDE_DETECT))
   safeHandle(IPC.AGENT_DETECT_INSTALLED, () => requireBridge().request(IPC.AGENT_DETECT_INSTALLED))
   safeHandle(IPC.IDE_OPEN, (_, params) => requireBridge().request(IPC.IDE_OPEN, params))
+
+  // ─── Credential vault (requires safeStorage in main process) ───
+  registerCredentialHandlers(requireBridge())
 
   // SSH
   safeHandle(IPC.SSH_TEST_CONNECTION, (_, host) =>

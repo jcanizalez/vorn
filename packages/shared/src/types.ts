@@ -40,13 +40,37 @@ export interface ArchivedSession {
   archivedAt: number
 }
 
+export type AuthMethod = 'key-file' | 'key-stored' | 'password' | 'agent'
+
+export interface SSHKey {
+  id: string
+  label: string
+  /** Base64-encoded safeStorage-encrypted private key */
+  encryptedPrivateKey: string
+  publicKey?: string
+  certificate?: string
+  keyType?: string
+  createdAt: string
+}
+
+export interface SSHKeyMeta {
+  id: string
+  label: string
+  keyType?: string
+  publicKey?: string
+  createdAt: string
+}
+
 export interface RemoteHost {
   id: string
   label: string
   hostname: string
   user: string
   port: number
+  authMethod?: AuthMethod
   sshKeyPath?: string
+  credentialId?: string
+  encryptedPassword?: string
   sshOptions?: string
 }
 
@@ -314,6 +338,10 @@ export interface CreateTerminalPayload {
   taskId?: string
   /** Per-invocation arg overrides (replaces settings-level args when set) */
   args?: string[]
+  /** Transient: decrypted private key content for stored-key auth. Never persisted. */
+  _decryptedKeyContent?: string
+  /** Transient: decrypted password for password auth. Never persisted. */
+  _decryptedPassword?: string
 }
 
 export interface HeadlessSession {
@@ -433,6 +461,13 @@ export const IPC = {
   WORKFLOW_RUN_LIST: 'workflowRun:list',
   WORKFLOW_RUN_LIST_BY_TASK: 'workflowRun:listByTask',
   AGENT_DETECT_INSTALLED: 'agent:detectInstalled',
+  CREDENTIAL_STORE_KEY: 'credential:storeKey',
+  CREDENTIAL_IMPORT_KEY_FILE: 'credential:importKeyFile',
+  CREDENTIAL_DELETE_KEY: 'credential:deleteKey',
+  CREDENTIAL_LIST_KEYS: 'credential:listKeys',
+  CREDENTIAL_GET_ENCRYPTED_KEY: 'credential:getEncryptedKey',
+  CREDENTIAL_ENCRYPT: 'credential:encrypt',
+  CREDENTIAL_SAFE_STORAGE_AVAILABLE: 'credential:safeStorageAvailable',
   SSH_TEST_CONNECTION: 'ssh:testConnection'
 } as const
 

@@ -1,6 +1,8 @@
 import * as pty from 'node-pty'
 import crypto from 'node:crypto'
 import os from 'node:os'
+import fs from 'node:fs'
+import path from 'node:path'
 import { EventEmitter } from 'node:events'
 import log from './logger'
 import {
@@ -24,6 +26,48 @@ class PtyManager extends EventEmitter {
   private remoteHosts: RemoteHost[] = []
   private dataBuffers = new Map<string, string>()
   private flushTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  private tempKeyPaths = new Map<string, string>()
+
+  constructor() {
+    super()
+    setImmediate(() => this.cleanStaleTempKeys())
+  }
+
+  /** Remove stale temp key files from previous crashes (older than 1 hour) */
+  private cleanStaleTempKeys(): void {
+    try {
+      const tmpDir = os.tmpdir()
+      const files = fs.readdirSync(tmpDir)
+      const now = Date.now()
+      for (const f of files) {
+        if (!f.startsWith('vibegrid-key-')) continue
+        const fullPath = path.join(tmpDir, f)
+        try {
+          const stat = fs.statSync(fullPath)
+          if (now - stat.mtimeMs > 3600_000) {
+            fs.unlinkSync(fullPath)
+            log.info(`[pty] cleaned stale temp key: ${f}`)
+          }
+        } catch {
+          /* ignore individual file errors */
+        }
+      }
+    } catch {
+      /* tmpdir read failed, not critical */
+    }
+  }
+
+  private deleteTempKey(sessionId: string): void {
+    const keyPath = this.tempKeyPaths.get(sessionId)
+    if (keyPath) {
+      try {
+        fs.unlinkSync(keyPath)
+      } catch {
+        /* already deleted */
+      }
+      this.tempKeyPaths.delete(sessionId)
+    }
+  }
 
   setRemoteHosts(hosts: RemoteHost[]): void {
     this.remoteHosts = hosts
@@ -137,11 +181,31 @@ class PtyManager extends EventEmitter {
       env: getSafeEnv()
     })
 
-    // Build SSH command with a ready marker for reliable prompt detection
+    // Build SSH command based on auth method, with a ready marker for reliable prompt detection
     const marker = `__VIBEGRID_READY_${id.slice(0, 8)}__`
     const sshParts: string[] = ['ssh', '-t']
     if (host.port !== 22) sshParts.push('-p', String(host.port))
-    if (host.sshKeyPath) sshParts.push('-i', host.sshKeyPath)
+
+    const authMethod = host.authMethod ?? 'agent'
+
+    if (authMethod === 'key-file' && host.sshKeyPath) {
+      sshParts.push('-i', host.sshKeyPath)
+    } else if (authMethod === 'key-stored' && !payload._decryptedKeyContent) {
+      log.warn(
+        `[pty] key-stored auth selected for host ${host.label} but no decrypted key available — falling back to agent`
+      )
+    } else if (authMethod === 'key-stored' && payload._decryptedKeyContent) {
+      // Write decrypted key to a temp file (mode 0600)
+      const tmpKeyPath = path.join(os.tmpdir(), `vibegrid-key-${crypto.randomUUID()}`)
+      fs.writeFileSync(tmpKeyPath, payload._decryptedKeyContent, { mode: 0o600 })
+      this.tempKeyPaths.set(id, tmpKeyPath)
+      sshParts.push('-i', tmpKeyPath)
+    } else if (authMethod === 'password') {
+      sshParts.push('-o', 'PreferredAuthentications=password')
+      sshParts.push('-o', 'PubkeyAuthentication=no')
+    }
+    // 'agent' auth: no extra flags, rely on ssh-agent
+
     if (host.sshOptions) {
       const opts = host.sshOptions.split(/\s+/).filter(Boolean)
       sshParts.push(...opts)
@@ -161,6 +225,24 @@ class PtyManager extends EventEmitter {
       if (this.ptys.has(id)) ptyProcess.write(sshParts.join(' ') + '\r')
     }, 300)
 
+    // Password prompt auto-detection
+    if (authMethod === 'password' && payload._decryptedPassword) {
+      let passwordSent = false
+      const pwListener = ptyProcess.onData((data: string) => {
+        if (!passwordSent && /[Pp]ass(word|phrase)[^:]*:\s*$/.test(data)) {
+          passwordSent = true
+          setTimeout(() => {
+            if (this.ptys.has(id)) ptyProcess.write(payload._decryptedPassword + '\r')
+          }, 50)
+        }
+      })
+      setTimeout(() => pwListener.dispose(), 15_000)
+    }
+
+    // Clear transient credentials from payload
+    delete payload._decryptedKeyContent
+    delete payload._decryptedPassword
+
     let connected = false
     let sshOutput = ''
 
@@ -170,6 +252,7 @@ class PtyManager extends EventEmitter {
         connected = true
         log.warn(`[pty] SSH marker not detected for ${id}, using fallback`)
         if (this.ptys.has(id)) ptyProcess.write(remoteCmd + '\r')
+        this.deleteTempKey(id)
       }
     }, 8000)
 
@@ -184,6 +267,7 @@ class PtyManager extends EventEmitter {
         // Small delay to let the login shell fully initialize
         setTimeout(() => {
           if (this.ptys.has(id)) ptyProcess.write(remoteCmd + '\r')
+          this.deleteTempKey(id)
         }, 200)
         return
       }
@@ -202,6 +286,7 @@ class PtyManager extends EventEmitter {
         if (sshOutput.includes(pattern)) {
           log.error(`[pty] SSH connection error for ${id}: ${pattern}`)
           clearTimeout(fallbackTimer)
+          this.deleteTempKey(id)
           // Don't set connected — let the PTY show the error to the user
           return
         }
@@ -301,6 +386,7 @@ class PtyManager extends EventEmitter {
         this.flushBuffer(id)
       }
       this.clearBuffer(id)
+      this.deleteTempKey(id)
 
       this.ptys.delete(id)
       const session = this.sessions.get(id)
@@ -381,6 +467,11 @@ class PtyManager extends EventEmitter {
     }
     this.dataBuffers.clear()
     this.flushTimers.clear()
+
+    // Clean up any remaining temp key files
+    for (const sessionId of this.tempKeyPaths.keys()) {
+      this.deleteTempKey(sessionId)
+    }
 
     for (const [id, p] of this.ptys) {
       p.kill()

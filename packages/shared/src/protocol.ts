@@ -13,7 +13,9 @@ import type {
   RecentSession,
   PermissionRequestInfo,
   WidgetAgentInfo,
-  WorkflowDefinition
+  WorkflowDefinition,
+  SSHKey,
+  SSHKeyMeta
 } from './types'
 
 // ─── JSON-RPC 2.0 Envelope Types ────────────────────────────────
@@ -136,6 +138,21 @@ export interface RequestMethods {
     result: void
   }
   'server:shutdown': { params: void; result: void }
+
+  // Credential vault (server-side storage)
+  'credential:storeKey': {
+    params: {
+      label: string
+      encryptedPrivateKey: string
+      publicKey?: string
+      certificate?: string
+      keyType?: string
+    }
+    result: { id: string }
+  }
+  'credential:listKeys': { params: void; result: SSHKeyMeta[] }
+  'credential:deleteKey': { params: string; result: void }
+  'credential:getEncryptedKey': { params: string; result: SSHKey | null }
 }
 
 // ─── Server Notifications (server → client, push events) ────────

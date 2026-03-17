@@ -11,6 +11,9 @@ import {
   NodeExecutionState,
   AgentCommandConfig,
   RemoteHost,
+  AuthMethod,
+  SSHKey,
+  SSHKeyMeta,
   TaskConfig,
   TerminalSession,
   ScheduleLogEntry,
@@ -168,8 +171,21 @@ function createSchema(): void {
       hostname TEXT NOT NULL,
       user TEXT NOT NULL,
       port INTEGER NOT NULL DEFAULT 22,
+      auth_method TEXT DEFAULT 'agent',
       ssh_key_path TEXT,
+      credential_id TEXT,
+      encrypted_password TEXT,
       ssh_options TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS ssh_keys (
+      id TEXT PRIMARY KEY,
+      label TEXT NOT NULL,
+      encrypted_private_key TEXT NOT NULL,
+      public_key TEXT,
+      certificate TEXT,
+      key_type TEXT,
+      created_at TEXT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS tasks (
@@ -311,6 +327,41 @@ function migrateSchema(d: Database.Database): void {
     })()
     log.info('[database] migrated schema to version 1 (workspaces)')
   }
+
+  if (version < 2) {
+    d.transaction(() => {
+      // Add new columns to remote_hosts for credential support
+      const hostCols = d.prepare('PRAGMA table_info(remote_hosts)').all() as Array<{ name: string }>
+      if (!hostCols.some((c) => c.name === 'auth_method')) {
+        d.exec('ALTER TABLE remote_hosts ADD COLUMN auth_method TEXT')
+        d.exec('ALTER TABLE remote_hosts ADD COLUMN credential_id TEXT')
+        d.exec('ALTER TABLE remote_hosts ADD COLUMN encrypted_password TEXT')
+
+        // Migrate: key-file if sshKeyPath set, otherwise agent
+        d.exec(
+          "UPDATE remote_hosts SET auth_method = CASE WHEN ssh_key_path IS NOT NULL AND ssh_key_path != '' THEN 'key-file' ELSE 'agent' END"
+        )
+      }
+
+      // Create ssh_keys table
+      d.exec(`
+        CREATE TABLE IF NOT EXISTS ssh_keys (
+          id TEXT PRIMARY KEY,
+          label TEXT NOT NULL,
+          encrypted_private_key TEXT NOT NULL,
+          public_key TEXT,
+          certificate TEXT,
+          key_type TEXT,
+          created_at TEXT NOT NULL
+        )
+      `)
+
+      d.prepare(
+        "INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('schema_version', '2')"
+      ).run()
+    })()
+    log.info('[database] migrated schema to version 2 (ssh credential vault)')
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -444,7 +495,10 @@ function loadRemoteHosts(d: Database.Database): RemoteHost[] {
     hostname: string
     user: string
     port: number
+    auth_method: string | null
     ssh_key_path: string | null
+    credential_id: string | null
+    encrypted_password: string | null
     ssh_options: string | null
   }>
   return rows.map((r) => ({
@@ -453,7 +507,10 @@ function loadRemoteHosts(d: Database.Database): RemoteHost[] {
     hostname: r.hostname,
     user: r.user,
     port: r.port,
+    ...(r.auth_method != null && { authMethod: r.auth_method as AuthMethod }),
     ...(r.ssh_key_path != null && { sshKeyPath: r.ssh_key_path }),
+    ...(r.credential_id != null && { credentialId: r.credential_id }),
+    ...(r.encrypted_password != null && { encryptedPassword: r.encrypted_password }),
     ...(r.ssh_options != null && { sshOptions: r.ssh_options })
   }))
 }
@@ -567,7 +624,7 @@ export function saveConfig(config: AppConfig): void {
     // Remote hosts
     d.prepare('DELETE FROM remote_hosts').run()
     const insertHost = d.prepare(
-      'INSERT INTO remote_hosts (id, label, hostname, user, port, ssh_key_path, ssh_options) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO remote_hosts (id, label, hostname, user, port, auth_method, ssh_key_path, credential_id, encrypted_password, ssh_options) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     )
     for (const h of config.remoteHosts ?? []) {
       insertHost.run(
@@ -576,7 +633,10 @@ export function saveConfig(config: AppConfig): void {
         h.hostname,
         h.user,
         h.port,
+        h.authMethod ?? 'agent',
         h.sshKeyPath ?? null,
+        h.credentialId ?? null,
+        h.encryptedPassword ?? null,
         h.sshOptions ?? null
       )
     }
@@ -1007,6 +1067,73 @@ export function dbDeleteWorkspace(id: string): void {
     d.prepare("UPDATE workflows SET workspace_id = 'personal' WHERE workspace_id = ?").run(id)
     d.prepare('DELETE FROM workspaces WHERE id = ?').run(id)
   })()
+}
+
+// ---------------------------------------------------------------------------
+// Targeted CRUD: SSH Keys
+// ---------------------------------------------------------------------------
+
+export function dbSaveSSHKey(key: SSHKey): void {
+  getDb()
+    .prepare(
+      'INSERT INTO ssh_keys (id, label, encrypted_private_key, public_key, certificate, key_type, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    )
+    .run(
+      key.id,
+      key.label,
+      key.encryptedPrivateKey,
+      key.publicKey ?? null,
+      key.certificate ?? null,
+      key.keyType ?? null,
+      key.createdAt
+    )
+}
+
+export function dbListSSHKeys(): SSHKeyMeta[] {
+  const rows = getDb()
+    .prepare('SELECT id, label, key_type, public_key, created_at FROM ssh_keys')
+    .all() as Array<{
+    id: string
+    label: string
+    key_type: string | null
+    public_key: string | null
+    created_at: string
+  }>
+  return rows.map((r) => ({
+    id: r.id,
+    label: r.label,
+    ...(r.key_type != null && { keyType: r.key_type }),
+    ...(r.public_key != null && { publicKey: r.public_key }),
+    createdAt: r.created_at
+  }))
+}
+
+export function dbGetSSHKey(id: string): SSHKey | null {
+  const row = getDb().prepare('SELECT * FROM ssh_keys WHERE id = ?').get(id) as
+    | {
+        id: string
+        label: string
+        encrypted_private_key: string
+        public_key: string | null
+        certificate: string | null
+        key_type: string | null
+        created_at: string
+      }
+    | undefined
+  if (!row) return null
+  return {
+    id: row.id,
+    label: row.label,
+    encryptedPrivateKey: row.encrypted_private_key,
+    ...(row.public_key != null && { publicKey: row.public_key }),
+    ...(row.certificate != null && { certificate: row.certificate }),
+    ...(row.key_type != null && { keyType: row.key_type }),
+    createdAt: row.created_at
+  }
+}
+
+export function dbDeleteSSHKey(id: string): void {
+  getDb().prepare('DELETE FROM ssh_keys WHERE id = ?').run(id)
 }
 
 // ---------------------------------------------------------------------------

@@ -69,6 +69,7 @@ export type SettingsCategory =
   | 'notifications'
   | 'agents'
   | 'hosts'
+  | 'keys'
   | 'mcp'
   | 'about'
 
