@@ -113,16 +113,16 @@ export async function startServer(
   })
 
   // Determine bind address: if networkAccessEnabled AND Tailscale is running,
-  // bind to Tailscale IP so other devices on the tailnet can reach us.
+  // bind to 0.0.0.0 so other devices on the tailnet can reach us.
   // Otherwise, localhost only.
   let host = options.host ?? '127.0.0.1'
   if (!options.host && config.defaults.networkAccessEnabled) {
     try {
       const tsStatus = await getTailscaleStatus()
       if (tsStatus.running && tsStatus.selfIP) {
-        host = '0.0.0.0' // Bind all interfaces so localhost (Electron) + Tailscale IP both work
+        host = '0.0.0.0'
         log.info(
-          `[server] network access enabled, binding to 0.0.0.0 (tailscale IP: ${tsStatus.selfIP})`
+          `[server] remote access enabled, binding to 0.0.0.0 (tailscale IP: ${tsStatus.selfIP})`
         )
       }
     } catch (err) {

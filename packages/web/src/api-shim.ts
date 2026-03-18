@@ -252,6 +252,7 @@ export function createApiShim(wsUrl: string) {
     onMenuNewAgent: (_callback: () => void) => () => {},
 
     // ── Sessions ──
+    listActiveSessions: () => rpc.invoke('terminal:listActive'),
     getPreviousSessions: () => rpc.invoke('sessions:getPrevious'),
     clearPreviousSessions: () => rpc.invoke('sessions:clear'),
     getRecentSessions: (projectPath?: string) => rpc.invoke('sessions:getRecent', projectPath),

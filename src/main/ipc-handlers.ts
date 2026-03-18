@@ -125,6 +125,9 @@ export function registerIpcHandlers(): void {
   // ─── Credential vault (requires safeStorage in main process) ───
   registerCredentialHandlers(requireBridge())
 
+  // Tailscale
+  safeHandle(IPC.TAILSCALE_STATUS, () => requireBridge().request(IPC.TAILSCALE_STATUS))
+
   // SSH
   safeHandle(IPC.SSH_TEST_CONNECTION, (_, host) =>
     requireBridge().request(IPC.SSH_TEST_CONNECTION, host)

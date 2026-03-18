@@ -379,11 +379,7 @@ export function NetworkSettings() {
   const fetchStatus = useCallback(async () => {
     setLoading(true)
     try {
-      const result = await (
-        window.api as Record<string, unknown> & {
-          getTailscaleStatus: () => Promise<TailscaleStatus>
-        }
-      ).getTailscaleStatus()
+      const result = await window.api.getTailscaleStatus()
       setStatus(result)
     } catch (err) {
       console.error('[NetworkSettings] failed to get tailscale status:', err)
@@ -422,7 +418,7 @@ export function NetworkSettings() {
   return (
     <div>
       <SettingsPageHeader
-        title="Network Access"
+        title="Remote Access"
         description="Access VibeGrid from other devices on your Tailscale network"
       />
 
@@ -454,8 +450,8 @@ export function NetworkSettings() {
       {status && status.running && (
         <div className="space-y-1">
           <SettingRow
-            label="Enable Network Access"
-            description={`Bind to ${status.selfIP || 'Tailscale IP'} so other devices on your tailnet can connect`}
+            label="Enable Remote Access"
+            description="Allow other devices on your Tailscale network to access VibeGrid"
           >
             <ToggleSwitch
               checked={enabled}
@@ -481,8 +477,8 @@ export function NetworkSettings() {
           <div className="text-xs font-medium text-gray-400 mb-2">How it works</div>
           <div className="text-xs text-gray-600 space-y-1.5">
             <p>
-              Tailscale creates an encrypted mesh network between your devices. When network access
-              is enabled, VibeGrid binds to your Tailscale IP instead of localhost.
+              Tailscale creates an encrypted mesh network between your devices. When remote access
+              is enabled, other devices on your tailnet can connect to VibeGrid.
             </p>
             <p>
               Only devices signed into your Tailscale account can reach this address. No passwords,

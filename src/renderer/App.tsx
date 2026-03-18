@@ -166,6 +166,23 @@ export function App() {
         if (!config.defaults.hasSeenOnboarding) {
           useAppStore.getState().setOnboardingOpen(true)
         }
+        // Web: hydrate already-running sessions that started before we connected
+        if (isWeb && 'listActiveSessions' in window.api) {
+          try {
+            const active = (await (
+              window.api as { listActiveSessions: () => Promise<unknown[]> }
+            ).listActiveSessions()) as import('../shared/types').TerminalSession[]
+            const state = useAppStore.getState()
+            for (const session of active) {
+              if (!state.terminals.has(session.id)) {
+                state.addTerminal(session)
+              }
+            }
+          } catch (err) {
+            console.error('[App] failed to hydrate active sessions:', err)
+          }
+        }
+
         if (prev && prev.length > 0) {
           if (config.defaults.reopenSessions) {
             // Auto-restore sessions — prefer hook-correlated session ID (exact),

@@ -149,7 +149,7 @@ const SIDEBAR_SECTIONS: SidebarSection[] = [
       },
       {
         key: 'network',
-        label: 'Network',
+        label: 'Remote Access',
         icon: (
           <svg
             width="16"
