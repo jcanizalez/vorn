@@ -11,6 +11,7 @@ import { OpenInButton } from './OpenInButton'
 import { CommitDialog } from './CommitDialog'
 import { DiffFileList, DiffContent } from './DiffSidebar'
 import { MobileFontSizeControl } from './MobileFontSizeControl'
+import { MobileTerminalKeybar } from './MobileTerminalKeybar'
 import { AGENT_DEFINITIONS } from '../lib/agent-definitions'
 import { closeTerminalSession } from '../lib/terminal-close'
 import { getDisplayName } from '../lib/terminal-display'
@@ -359,6 +360,9 @@ export function FocusedTerminal() {
             </div>
           )}
         </div>
+
+        {/* Mobile: extended terminal keyboard bar (Termux-style) */}
+        {isMobile && <MobileTerminalKeybar terminalId={focusedId} />}
       </motion.div>
 
       {/* Commit dialog */}
