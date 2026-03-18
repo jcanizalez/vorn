@@ -4,6 +4,7 @@ import { AnimatePresence } from 'framer-motion'
 import { useAppStore } from './stores'
 import { GridView } from './components/GridView'
 import { TabView } from './components/TabView'
+import { MobileSinglePane } from './components/MobileSinglePane'
 import { FocusedTerminal } from './components/FocusedTerminal'
 import { ProjectSidebar } from './components/ProjectSidebar'
 import { PromptLauncher } from './components/PromptLauncher'
@@ -455,6 +456,8 @@ export function App() {
           <div className="flex-1 min-w-0 h-full">
             {mainViewMode === 'tasks' ? (
               <TaskBoardView />
+            ) : isMobile ? (
+              <MobileSinglePane />
             ) : layoutMode === 'tabs' ? (
               <TabView />
             ) : (
