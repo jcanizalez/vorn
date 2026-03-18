@@ -1,4 +1,4 @@
-import { Zap, Clock, Calendar, ListPlus, ArrowRightLeft } from 'lucide-react'
+import { Zap, Clock, Calendar, ListPlus, ArrowRightLeft, type LucideIcon } from 'lucide-react'
 import type { TriggerConfig } from '../../../../shared/types'
 
 interface Props {
@@ -8,22 +8,14 @@ interface Props {
   onClick: () => void
 }
 
-function getIcon(triggerType: string) {
-  switch (triggerType) {
-    case 'manual':
-      return Zap
-    case 'once':
-      return Calendar
-    case 'recurring':
-      return Clock
-    case 'taskCreated':
-      return ListPlus
-    case 'taskStatusChanged':
-      return ArrowRightLeft
-    default:
-      return Zap
-  }
+const TRIGGER_ICONS: Record<string, LucideIcon> = {
+  manual: Zap,
+  once: Calendar,
+  recurring: Clock,
+  taskCreated: ListPlus,
+  taskStatusChanged: ArrowRightLeft
 }
+const DEFAULT_ICON = Zap
 
 function getSubtitle(config: TriggerConfig): string {
   switch (config.triggerType) {
@@ -47,7 +39,7 @@ function getSubtitle(config: TriggerConfig): string {
 }
 
 export function TriggerNode({ label, config, selected, onClick }: Props) {
-  const Icon = getIcon(config.triggerType)
+  const Icon = TRIGGER_ICONS[config.triggerType] || DEFAULT_ICON
 
   return (
     <div

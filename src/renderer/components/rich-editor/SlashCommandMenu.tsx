@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+/* eslint-disable react-refresh/only-export-components, @typescript-eslint/no-explicit-any */
+import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Extension } from '@tiptap/core'
 import Suggestion from '@tiptap/suggestion'
@@ -115,9 +116,11 @@ export function SlashCommandMenuPortal() {
   }, [])
 
   // Reset selection when items change
+  /* eslint-disable react-hooks/set-state-in-effect -- intentional reset on items change */
   useEffect(() => {
     setSelectedIndex(0)
   }, [state.items])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Scroll selected item into view
   useEffect(() => {
@@ -126,19 +129,20 @@ export function SlashCommandMenuPortal() {
   }, [selectedIndex])
 
   // Register key handler
+  const { items: stateItems, command: stateCommand } = state
   useEffect(() => {
     keyDownHandler = ({ event }: SuggestionKeyDownProps) => {
       if (event.key === 'ArrowUp') {
-        setSelectedIndex((prev) => (prev - 1 + state.items.length) % state.items.length)
+        setSelectedIndex((prev) => (prev - 1 + stateItems.length) % stateItems.length)
         return true
       }
       if (event.key === 'ArrowDown') {
-        setSelectedIndex((prev) => (prev + 1) % state.items.length)
+        setSelectedIndex((prev) => (prev + 1) % stateItems.length)
         return true
       }
       if (event.key === 'Enter') {
-        const item = state.items[selectedIndex]
-        if (item && state.command) state.command(item)
+        const item = stateItems[selectedIndex]
+        if (item && stateCommand) stateCommand(item)
         return true
       }
       return false
@@ -146,7 +150,7 @@ export function SlashCommandMenuPortal() {
     return () => {
       keyDownHandler = null
     }
-  }, [state.items, state.command, selectedIndex])
+  }, [stateItems, stateCommand, selectedIndex])
 
   if (!state.visible || state.items.length === 0) return null
 

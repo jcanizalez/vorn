@@ -37,6 +37,7 @@ export function NewAgentDialog() {
   const { status: installStatus } = useAgentInstallStatus()
 
   // Reset to configured default each time dialog opens
+  /* eslint-disable react-hooks/set-state-in-effect -- intentional bulk reset on open */
   useEffect(() => {
     if (isOpen) {
       setSelectedAgent(defaultAgent)
@@ -52,10 +53,12 @@ export function NewAgentDialog() {
       setSelectedHost('local')
     }
   }, [isOpen, defaultAgent])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Load branches when project changes
   const activeProjectPath =
     config?.projects.find((p) => p.name === selectedProject)?.path || customPath
+  /* eslint-disable react-hooks/set-state-in-effect -- reset branch state when project changes */
   useEffect(() => {
     if (!activeProjectPath) {
       setLocalBranches([])
@@ -73,6 +76,7 @@ export function NewAgentDialog() {
       setLoadingBranches(false)
     })
   }, [activeProjectPath])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Close dropdown on outside click
   useEffect(() => {
