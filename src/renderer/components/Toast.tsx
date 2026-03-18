@@ -96,7 +96,7 @@ export function ToastContainer() {
     <div
       className="fixed z-[200] flex flex-col gap-2 pointer-events-none"
       style={{
-        bottom: 'calc(1.25rem + var(--safe-bottom, 0px))',
+        bottom: 'calc(1.25rem + var(--safe-bottom, 0px) + var(--keyboard-height, 0px))',
         right: 'calc(1.25rem + var(--safe-right, 0px))'
       }}
     >

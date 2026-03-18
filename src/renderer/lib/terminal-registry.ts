@@ -370,3 +370,13 @@ export function setAllTerminalsFontSize(fontSize: number): void {
     fitTerminal(id)
   }
 }
+
+/**
+ * Re-fit all terminals that have a current container (i.e. are mounted).
+ * Used when the virtual keyboard changes viewport geometry.
+ */
+export function fitAllTerminals(): void {
+  for (const [id, entry] of registry) {
+    if (entry.currentContainer) fitTerminal(id)
+  }
+}

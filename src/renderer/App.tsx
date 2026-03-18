@@ -20,6 +20,7 @@ import { RecentSessionsPopover } from './components/RecentSessionsPopover'
 import { RotateCcw, Monitor, ListTodo, Plus, Menu } from 'lucide-react'
 import { TaskToolbar } from './components/TaskToolbar'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+import { useVirtualKeyboard } from './hooks/useVirtualKeyboard'
 import { useGitDiffPolling } from './hooks/useGitDiffPolling'
 import { consumePendingTerminalClose } from './lib/terminal-close'
 import {
@@ -138,6 +139,7 @@ export function App() {
   }, []) // Only on mount
 
   useKeyboardShortcuts()
+  useVirtualKeyboard()
   useGitDiffPolling()
 
   // Load config and previous sessions on mount
@@ -282,7 +284,7 @@ export function App() {
         paddingTop: 'var(--safe-top)',
         paddingLeft: 'var(--safe-left)',
         paddingRight: 'var(--safe-right)',
-        paddingBottom: 'var(--safe-bottom)'
+        paddingBottom: 'calc(var(--safe-bottom) + var(--keyboard-height, 0px))'
       }}
     >
       <ProjectSidebar />

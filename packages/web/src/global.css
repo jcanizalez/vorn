@@ -21,6 +21,8 @@ body {
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
+  /* Virtual keyboard height — set dynamically by useVirtualKeyboard hook */
+  --keyboard-height: 0px;
 }
 
 /* ── Mobile touch: kill 300ms tap delay ── */
