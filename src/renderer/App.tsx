@@ -14,7 +14,7 @@ import { SessionRestoredBanner } from './components/SessionRestoredBanner'
 import { GridToolbar } from './components/GridToolbar'
 import { SettingsPage } from './components/SettingsPage'
 import { RecentSessionsPopover } from './components/RecentSessionsPopover'
-import { RotateCcw, Monitor, ListTodo, Plus } from 'lucide-react'
+import { RotateCcw, Monitor, ListTodo, Plus, Menu } from 'lucide-react'
 import { TaskToolbar } from './components/TaskToolbar'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useGitDiffPolling } from './hooks/useGitDiffPolling'
@@ -33,7 +33,7 @@ import { UpdateBanner } from './components/UpdateBanner'
 import { ToastContainer } from './components/Toast'
 import { AddTaskDialog } from './components/AddTaskDialog'
 import { isWeb } from './lib/platform'
-
+import { useIsMobile } from './hooks/useIsMobile'
 const isMac = navigator.platform.toUpperCase().includes('MAC')
 
 function WindowControls() {
@@ -109,6 +109,15 @@ export function App() {
     return tasks.filter((t) => !s.activeProject || t.projectName === s.activeProject).length
   })
   const [recentOpen, setRecentOpen] = useState(false)
+  const isMobile = useIsMobile()
+
+  // On mobile, auto-close sidebar on initial load
+  useEffect(() => {
+    if (isMobile && isSidebarOpen) {
+      toggleSidebar()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Only on mount
 
   useKeyboardShortcuts()
   useGitDiffPolling()
@@ -251,29 +260,34 @@ export function App() {
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Top bar — single line, same height as traffic lights */}
         <div
-          className="titlebar-drag shrink-0 border-b border-white/[0.06]
-                        h-[52px] flex items-center justify-between px-4"
-          style={!isSidebarOpen && !isWeb ? { paddingLeft: '80px' } : undefined}
+          className={`titlebar-drag shrink-0 border-b border-white/[0.06]
+                        h-[52px] flex items-center justify-between ${isMobile ? 'px-2' : 'px-4'}`}
+          style={!isSidebarOpen && !isWeb && !isMobile ? { paddingLeft: '80px' } : undefined}
         >
           <div className="flex items-center gap-2.5 titlebar-no-drag">
-            {!isSidebarOpen && (
+            {/* Mobile: always show hamburger. Desktop: show sidebar toggle only when closed */}
+            {(isMobile || !isSidebarOpen) && (
               <button
                 onClick={toggleSidebar}
-                className="text-gray-400 hover:text-white p-1 rounded-md transition-colors flex items-center gap-1.5"
+                className="text-gray-400 hover:text-white p-1.5 rounded-md transition-colors flex items-center gap-1.5"
                 title="Show sidebar"
               >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
-                  <path d="M9 3v18" />
-                </svg>
-                <KbdHint shortcutId="toggle-sidebar" />
+                {isMobile ? (
+                  <Menu size={20} strokeWidth={2} />
+                ) : (
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <path d="M9 3v18" />
+                  </svg>
+                )}
+                {!isMobile && <KbdHint shortcutId="toggle-sidebar" />}
               </button>
             )}
             {/* Main view toggle: Sessions / Tasks */}
@@ -287,8 +301,8 @@ export function App() {
                 }`}
               >
                 <Monitor size={13} strokeWidth={2} />
-                Sessions
-                <KbdHint shortcutId="view-sessions" />
+                {!isMobile && 'Sessions'}
+                {!isMobile && <KbdHint shortcutId="view-sessions" />}
               </button>
               <button
                 onClick={() => setMainViewMode('tasks')}
@@ -299,89 +313,100 @@ export function App() {
                 }`}
               >
                 <ListTodo size={13} strokeWidth={2} />
-                Tasks
-                <KbdHint shortcutId="view-tasks" />
+                {!isMobile && 'Tasks'}
+                {!isMobile && <KbdHint shortcutId="view-tasks" />}
               </button>
             </div>
           </div>
-          <div className="flex items-center gap-3 titlebar-no-drag">
+          <div className={`flex items-center titlebar-no-drag ${isMobile ? 'gap-1.5' : 'gap-3'}`}>
             {mainViewMode === 'sessions' ? (
               <>
-                <GridToolbar />
-                <button
-                  onClick={toggleTerminalPanel}
-                  className={`p-1.5 rounded-md transition-colors ${
-                    isTerminalPanelOpen
-                      ? 'text-white bg-white/[0.1]'
-                      : 'text-gray-400 hover:text-white bg-white/[0.06] hover:bg-white/[0.1]'
-                  }`}
-                  title="Toggle terminal panel"
-                >
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <polyline points="4 17 10 11 4 5" />
-                    <line x1="12" y1="19" x2="20" y2="19" />
-                  </svg>
-                </button>
-                <div className="relative">
+                {!isMobile && <GridToolbar />}
+                {!isMobile && (
                   <button
-                    onClick={() => setRecentOpen(!recentOpen)}
-                    className="p-1.5 text-gray-400 hover:text-white bg-white/[0.06] hover:bg-white/[0.1]
-                               rounded-md transition-colors"
-                    title="Recent sessions"
+                    onClick={toggleTerminalPanel}
+                    className={`p-1.5 rounded-md transition-colors ${
+                      isTerminalPanelOpen
+                        ? 'text-white bg-white/[0.1]'
+                        : 'text-gray-400 hover:text-white bg-white/[0.06] hover:bg-white/[0.1]'
+                    }`}
+                    title="Toggle terminal panel"
                   >
-                    <RotateCcw size={16} strokeWidth={1.5} />
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <polyline points="4 17 10 11 4 5" />
+                      <line x1="12" y1="19" x2="20" y2="19" />
+                    </svg>
                   </button>
-                  <RecentSessionsPopover isOpen={recentOpen} onClose={() => setRecentOpen(false)} />
-                </div>
+                )}
+                {!isMobile && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setRecentOpen(!recentOpen)}
+                      className="p-1.5 text-gray-400 hover:text-white bg-white/[0.06] hover:bg-white/[0.1]
+                                 rounded-md transition-colors"
+                      title="Recent sessions"
+                    >
+                      <RotateCcw size={16} strokeWidth={1.5} />
+                    </button>
+                    <RecentSessionsPopover
+                      isOpen={recentOpen}
+                      onClose={() => setRecentOpen(false)}
+                    />
+                  </div>
+                )}
                 <button
                   onClick={() => setDialogOpen(true)}
-                  className="px-3 py-1.5 text-sm font-medium text-gray-200
-                             hover:text-white bg-white/[0.06] hover:bg-white/[0.1]
-                             rounded-md transition-colors flex items-center gap-2"
+                  className={`font-medium text-gray-200 hover:text-white bg-white/[0.06] hover:bg-white/[0.1]
+                             rounded-md transition-colors flex items-center gap-2 ${
+                               isMobile ? 'p-2 text-xs' : 'px-3 py-1.5 text-sm'
+                             }`}
                 >
-                  + New Session
-                  <KbdHint shortcutId="new-session" />
+                  {isMobile ? <Plus size={16} strokeWidth={2} /> : '+ New Session'}
+                  {!isMobile && <KbdHint shortcutId="new-session" />}
                 </button>
               </>
             ) : (
               <>
-                <TaskToolbar />
-                <button
-                  onClick={toggleTerminalPanel}
-                  className={`p-1.5 rounded-md transition-colors ${
-                    isTerminalPanelOpen
-                      ? 'text-white bg-white/[0.1]'
-                      : 'text-gray-400 hover:text-white bg-white/[0.06] hover:bg-white/[0.1]'
-                  }`}
-                  title="Toggle terminal panel"
-                >
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
+                {!isMobile && <TaskToolbar />}
+                {!isMobile && (
+                  <button
+                    onClick={toggleTerminalPanel}
+                    className={`p-1.5 rounded-md transition-colors ${
+                      isTerminalPanelOpen
+                        ? 'text-white bg-white/[0.1]'
+                        : 'text-gray-400 hover:text-white bg-white/[0.06] hover:bg-white/[0.1]'
+                    }`}
+                    title="Toggle terminal panel"
                   >
-                    <polyline points="4 17 10 11 4 5" />
-                    <line x1="12" y1="19" x2="20" y2="19" />
-                  </svg>
-                </button>
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <polyline points="4 17 10 11 4 5" />
+                      <line x1="12" y1="19" x2="20" y2="19" />
+                    </svg>
+                  </button>
+                )}
                 <button
                   onClick={() => useAppStore.getState().setTaskDialogOpen(true)}
-                  className="px-3 py-1.5 text-sm font-medium text-gray-200
-                             hover:text-white bg-white/[0.06] hover:bg-white/[0.1]
-                             rounded-md transition-colors flex items-center gap-2"
+                  className={`font-medium text-gray-200 hover:text-white bg-white/[0.06] hover:bg-white/[0.1]
+                             rounded-md transition-colors flex items-center gap-2 ${
+                               isMobile ? 'p-2 text-xs' : 'px-3 py-1.5 text-sm'
+                             }`}
                 >
                   <Plus size={14} strokeWidth={2} />
-                  Add Task
+                  {!isMobile && 'Add Task'}
                 </button>
               </>
             )}

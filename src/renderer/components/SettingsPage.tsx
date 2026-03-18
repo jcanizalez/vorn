@@ -9,6 +9,7 @@ import { NotificationSettings } from './settings/NotificationSettings'
 import { AgentSettings } from './settings/AgentSettings'
 import { HostSettings } from './settings/HostSettings'
 import { McpSettings } from './settings/McpSettings'
+import { NetworkSettings } from './settings/NetworkSettings'
 import { AboutSettings } from './settings/AboutSettings'
 
 interface SidebarSection {
@@ -128,6 +129,24 @@ const SIDEBAR_SECTIONS: SidebarSection[] = [
             <circle cx="12" cy="12" r="4" />
           </svg>
         )
+      },
+      {
+        key: 'network',
+        label: 'Network',
+        icon: (
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="2" y1="12" x2="22" y2="12" />
+            <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
+          </svg>
+        )
       }
     ]
   }
@@ -235,6 +254,7 @@ export function SettingsPage() {
           {settingsCategory === 'agents' && <AgentSettings />}
           {settingsCategory === 'hosts' && <HostSettings />}
           {settingsCategory === 'mcp' && <McpSettings />}
+          {settingsCategory === 'network' && <NetworkSettings />}
           {settingsCategory === 'about' && <AboutSettings />}
         </div>
       </div>

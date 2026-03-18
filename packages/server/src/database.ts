@@ -389,6 +389,9 @@ function loadDefaults(d: Database.Database): AppConfig['defaults'] {
     }),
     ...(map.mobileAccessEnabled !== undefined && {
       mobileAccessEnabled: map.mobileAccessEnabled as boolean
+    }),
+    ...(map.networkAccessEnabled !== undefined && {
+      networkAccessEnabled: map.networkAccessEnabled as boolean
     })
   }
 }

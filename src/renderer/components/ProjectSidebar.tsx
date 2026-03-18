@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { isElectron } from '../lib/platform'
 import { useAppStore } from '../stores'
+import { useIsMobile } from '../hooks/useIsMobile'
 import {
   WorkflowDefinition,
   ProjectConfig,
@@ -332,6 +333,7 @@ export function ProjectSidebar() {
   const worktreeCache = useAppStore((s) => s.worktreeCache)
   const loadWorktrees = useAppStore((s) => s.loadWorktrees)
   const activeWorkspace = useAppStore((s) => s.activeWorkspace)
+  const isMobile = useIsMobile()
 
   const [sidebarWidth, setSidebarWidth] = useState(256)
   const [openMenuProject, setOpenMenuProject] = useState<string | null>(null)
@@ -437,6 +439,11 @@ export function ProjectSidebar() {
     [config?.workflows, activeWorkspace]
   )
 
+  // On mobile, auto-close sidebar when navigating
+  const closeSidebarOnMobile = useCallback(() => {
+    if (isMobile && isSidebarOpen) toggleSidebar()
+  }, [isMobile, isSidebarOpen, toggleSidebar])
+
   if (!isSidebarOpen) {
     return null
   }
@@ -518,13 +525,15 @@ export function ProjectSidebar() {
     setAddProjectDialogOpen(true)
   }
 
-  return (
+  const sidebarContent = (
     <aside
       role="navigation"
       aria-label="Project sidebar"
-      className="border-r border-white/[0.06] flex flex-col h-full shrink-0 relative"
+      className={`border-r border-white/[0.06] flex flex-col h-full shrink-0 relative ${
+        isMobile ? 'w-[85vw] max-w-[320px]' : ''
+      }`}
       style={{
-        width: `${sidebarWidth}px`,
+        ...(!isMobile ? { width: `${sidebarWidth}px` } : {}),
         background: '#141416',
         transition: isResizingState ? 'none' : 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
       }}
@@ -764,7 +773,10 @@ export function ProjectSidebar() {
                             sessions.map((s) => (
                               <div key={s.id} className="group/session flex items-center">
                                 <button
-                                  onClick={() => setFocusedTerminal(s.id)}
+                                  onClick={() => {
+                                    setFocusedTerminal(s.id)
+                                    closeSidebarOnMobile()
+                                  }}
                                   className="flex-1 text-left px-2 py-1 rounded-md text-[12px] text-gray-400
                                            hover:text-white hover:bg-white/[0.04] transition-colors
                                            flex items-center gap-2 min-w-0"
@@ -1496,7 +1508,10 @@ export function ProjectSidebar() {
           {!isCollapsed && 'Welcome Guide'}
         </button>
         <button
-          onClick={() => setSettingsOpen(true)}
+          onClick={() => {
+            setSettingsOpen(true)
+            closeSidebarOnMobile()
+          }}
           className={`w-full px-2.5 py-1.5 text-[13px] text-gray-300 hover:text-white
                      hover:bg-white/[0.04] rounded-md transition-colors text-left flex items-center gap-2
                      ${isCollapsed ? 'justify-center px-0' : ''}`}
@@ -1523,16 +1538,37 @@ export function ProjectSidebar() {
         </button>
       </div>
 
-      {/* Resize handle */}
-      <div
-        onPointerDown={handleResizeStart}
-        onDoubleClick={handleResizeDoubleClick}
-        className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize
-                   hover:bg-white/[0.08] active:bg-white/[0.12] transition-colors z-10"
-        role="separator"
-        aria-orientation="vertical"
-        aria-label="Resize sidebar"
-      />
+      {/* Resize handle — hidden on mobile */}
+      {!isMobile && (
+        <div
+          onPointerDown={handleResizeStart}
+          onDoubleClick={handleResizeDoubleClick}
+          className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize
+                     hover:bg-white/[0.08] active:bg-white/[0.12] transition-colors z-10"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize sidebar"
+        />
+      )}
     </aside>
   )
+
+  // On mobile, render as a fixed overlay drawer with backdrop
+  if (isMobile) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex"
+        onClick={(e) => {
+          // Close when clicking the backdrop (not the sidebar itself)
+          if (e.target === e.currentTarget) toggleSidebar()
+        }}
+      >
+        {sidebarContent}
+        {/* Backdrop */}
+        <div className="flex-1 bg-black/60" />
+      </div>
+    )
+  }
+
+  return sidebarContent
 }

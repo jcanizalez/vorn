@@ -349,6 +349,9 @@ export function createApiShim(wsUrl: string) {
       rpc.invoke('workflowRun:listByTask', { taskId, limit }),
     reportWorkflowComplete: (data: unknown) => rpc.invoke('workflow:executionComplete', data),
 
+    // ── Tailscale Network Access ──
+    getTailscaleStatus: () => rpc.invoke('tailscale:status'),
+
     // ── App Info (web-specific) ──
     getAppVersion: () => 'web',
 

@@ -98,6 +98,7 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
       settings.reset()
       setPrompt('')
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, mode])
 
   useEffect(() => {
@@ -475,8 +476,8 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
   // --- Inline mode ---
   if (mode === 'inline') {
     return (
-      <div className="flex flex-col items-center justify-center w-full h-full">
-        <div className="w-[80%] max-w-[800px] flex flex-col items-center">
+      <div className="flex flex-col items-center justify-center w-full h-full px-4">
+        <div className="w-full max-w-[800px] flex flex-col items-center">
           <img
             src={vibegridLogo}
             alt="VibeGrid"
@@ -503,8 +504,8 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
             onClick={onClose}
           />
           <motion.div
-            className="fixed top-1/2 left-1/2 z-50 w-[80%] max-w-[800px] border border-white/[0.08]
-                       rounded-xl shadow-2xl p-6"
+            className="fixed top-1/2 left-1/2 z-50 w-[92%] sm:w-[80%] max-w-[800px] border border-white/[0.08]
+                       rounded-xl shadow-2xl p-4 sm:p-6"
             style={{ background: '#1e1e22' }}
             initial={{ opacity: 0, scale: 0.95, x: '-50%', y: '-50%' }}
             animate={{ opacity: 1, scale: 1, x: '-50%', y: '-50%' }}

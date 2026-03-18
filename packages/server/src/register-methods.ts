@@ -36,9 +36,15 @@ import {
   updateWorkflowRunStatus
 } from './database'
 import { executeScript } from './script-runner'
+import { getTailscaleStatus, clearBinaryCache } from './tailscale'
 import log from './logger'
 
 const copilotInstallations = new Map<string, CopilotHookInstallation>()
+
+let serverPort = 0
+export function setServerPort(port: number): void {
+  serverPort = port
+}
 
 export function registerAllMethods(): void {
   // Terminal
@@ -124,6 +130,12 @@ export function registerAllMethods(): void {
   registerMethod('agent:detectInstalled', () => detectInstalledAgents())
   registerMethod('ide:detect', () => detectIDEs())
   registerMethod('ide:open', ({ ideId, projectPath }) => openInIDE(ideId, projectPath))
+
+  // Tailscale network access
+  registerMethod('tailscale:status', () => {
+    clearBinaryCache() // Always re-detect in case user just installed
+    return getTailscaleStatus(serverPort)
+  })
 
   // Fire-and-forget notifications
   registerNotification('terminal:write', ({ id, data }) => ptyManager.writeToPty(id, data))

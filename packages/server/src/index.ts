@@ -6,12 +6,13 @@ import Fastify from 'fastify'
 import websocket from '@fastify/websocket'
 import fastifyStatic from '@fastify/static'
 import { handleConnection, registerMethod } from './ws-handler'
-import { registerAllMethods } from './register-methods'
+import { registerAllMethods, setServerPort } from './register-methods'
 import { configManager } from './config-manager'
 import { ptyManager } from './pty-manager'
 import { headlessManager } from './headless-manager'
 import { scheduler } from './scheduler'
 import { setDataDir, getTaskImagePath as resolveTaskImagePath } from './task-images'
+import { getTailscaleStatus } from './tailscale'
 import log from './logger'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -109,12 +110,31 @@ export async function startServer(
     }, 100)
   })
 
-  const host = options.host ?? '127.0.0.1'
+  // Determine bind address: if networkAccessEnabled AND Tailscale is running,
+  // bind to Tailscale IP so other devices on the tailnet can reach us.
+  // Otherwise, localhost only.
+  let host = options.host ?? '127.0.0.1'
+  if (!options.host && config.defaults.networkAccessEnabled) {
+    try {
+      const tsStatus = await getTailscaleStatus()
+      if (tsStatus.running && tsStatus.selfIP) {
+        host = '0.0.0.0' // Bind to all interfaces so both localhost and Tailscale IP work
+        log.info(
+          `[server] network access enabled, binding to 0.0.0.0 (tailscale IP: ${tsStatus.selfIP})`
+        )
+      }
+    } catch (err) {
+      log.warn({ err }, '[server] failed to check tailscale status, falling back to localhost')
+    }
+  }
   const port = options.port ?? 0 // 0 = OS-assigned
 
   await app.listen({ host, port })
   const address = app.server.address()
   const actualPort = typeof address === 'object' && address ? address.port : port
+
+  // Store port for RPC methods (e.g. tailscale:status needs it)
+  setServerPort(actualPort)
 
   // Write port to stdout for parent process (Electron) to read
   process.stdout.write(JSON.stringify({ port: actualPort }) + '\n')

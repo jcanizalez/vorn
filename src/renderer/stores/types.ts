@@ -70,6 +70,7 @@ export type SettingsCategory =
   | 'agents'
   | 'hosts'
   | 'mcp'
+  | 'network'
   | 'about'
 
 export interface UISlice {
