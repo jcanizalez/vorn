@@ -118,10 +118,16 @@ function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
 
   const copy = useCallback(() => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
+    navigator.clipboard.writeText(text).then(
+      () => {
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      },
+      () => {
+        // Fallback for non-HTTPS or permission denied
+        window.prompt('Copy this URL:', text)
+      }
+    )
   }, [text])
 
   return (
@@ -246,7 +252,7 @@ function DeviceList({ status }: { status: TailscaleStatus }) {
     {
       ip: status.selfIP,
       hostname: status.selfDNSName.split('.')[0] || 'This device',
-      os: 'macOS',
+      os: status.selfOS || 'unknown',
       online: true,
       isSelf: true
     },
@@ -300,6 +306,7 @@ function QRCodeDisplay({ url }: { url: string }) {
   const [dataUrl, setDataUrl] = useState<string | null>(null)
 
   useEffect(() => {
+    let mounted = true
     QRCode.toDataURL(url, {
       width: 200,
       margin: 2,
@@ -307,7 +314,14 @@ function QRCodeDisplay({ url }: { url: string }) {
         dark: '#ffffffFF',
         light: '#00000000'
       }
-    }).then(setDataUrl)
+    })
+      .then((data) => {
+        if (mounted) setDataUrl(data)
+      })
+      .catch((err) => console.warn('[QRCode] generation failed:', err))
+    return () => {
+      mounted = false
+    }
   }, [url])
 
   if (!dataUrl) return null

@@ -117,11 +117,12 @@ class RpcClient {
       if (this.ws.readyState === WebSocket.OPEN) {
         this.ws.send(msg)
       } else {
-        // Queue until connected
-        this._ready.then(() => {
+        // Capture the current ready promise to detect replacement on close
+        const readyAtCall = this._ready
+        readyAtCall.then(() => {
           if (this.ws.readyState === WebSocket.OPEN) {
             this.ws.send(msg)
-          } else {
+          } else if (this.pending.has(id)) {
             this.pending.delete(id)
             reject(new Error('WebSocket not connected'))
           }
@@ -165,16 +166,41 @@ function pickFiles(accept: string, multiple = false): Promise<File[] | null> {
     input.multiple = multiple
     input.style.display = 'none'
     document.body.appendChild(input)
+
+    let resolved = false
+    const cleanup = () => {
+      if (input.parentNode) input.parentNode.removeChild(input)
+    }
+
     input.addEventListener('change', () => {
+      resolved = true
       const files = input.files ? Array.from(input.files) : null
-      document.body.removeChild(input)
+      cleanup()
       resolve(files && files.length > 0 ? files : null)
     })
-    // Handle cancel (user closes the dialog without selecting)
+
+    // Handle cancel: 'cancel' event + focus fallback for older browsers
     input.addEventListener('cancel', () => {
-      document.body.removeChild(input)
-      resolve(null)
+      if (!resolved) {
+        resolved = true
+        cleanup()
+        resolve(null)
+      }
     })
+
+    // Fallback: detect cancel via window focus return (for Safari/older browsers)
+    const onFocus = () => {
+      setTimeout(() => {
+        if (!resolved) {
+          resolved = true
+          cleanup()
+          resolve(null)
+        }
+        window.removeEventListener('focus', onFocus)
+      }, 300)
+    }
+    window.addEventListener('focus', onFocus)
+
     input.click()
   })
 }
@@ -286,6 +312,10 @@ export function createApiShim(wsUrl: string) {
             base64,
             filename: file.name
           })) as string
+          // Remove uploaded file from pending list; clear when empty
+          const remaining = pendingFiles.filter((f) => f.name !== sourcePath)
+          ;(api as Record<string, unknown>).__pendingImageFiles =
+            remaining.length > 0 ? remaining : undefined
           return filename
         }
       }

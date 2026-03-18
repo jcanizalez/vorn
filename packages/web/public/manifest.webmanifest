@@ -1,6 +1,6 @@
 {
-  "name": "VibGrid",
-  "short_name": "VibGrid",
+  "name": "VibeGrid",
+  "short_name": "VibeGrid",
   "description": "AI Agent Terminal Manager",
   "start_url": "/app/",
   "scope": "/app/",

@@ -76,7 +76,9 @@ export async function startServer(
       }
       reply.header('Content-Type', mimeTypes[ext] || 'application/octet-stream')
       reply.header('Cache-Control', 'public, max-age=86400')
-      return reply.send(fs.readFileSync(filePath))
+      reply.header('X-Content-Type-Options', 'nosniff')
+      const stream = fs.createReadStream(filePath)
+      return reply.send(stream)
     } catch {
       return reply.code(400).send({ error: 'Invalid request' })
     }
@@ -118,7 +120,7 @@ export async function startServer(
     try {
       const tsStatus = await getTailscaleStatus()
       if (tsStatus.running && tsStatus.selfIP) {
-        host = '0.0.0.0' // Bind to all interfaces so both localhost and Tailscale IP work
+        host = '0.0.0.0' // Bind all interfaces so localhost (Electron) + Tailscale IP both work
         log.info(
           `[server] network access enabled, binding to 0.0.0.0 (tailscale IP: ${tsStatus.selfIP})`
         )

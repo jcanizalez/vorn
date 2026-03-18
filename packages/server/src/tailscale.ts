@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process'
 import { access, constants } from 'node:fs/promises'
 import type { TailscaleStatus, TailscalePeer } from '@vibegrid/shared/types'
+import { getSafeEnv } from './process-utils'
 import log from './logger'
 
 // ─── Binary Discovery ────────────────────────────────────────────
@@ -14,7 +15,7 @@ let cachedBinary: string | null | undefined
 
 function exec(cmd: string, args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
-    execFile(cmd, args, { timeout: 10_000 }, (err, stdout) => {
+    execFile(cmd, args, { timeout: 10_000, env: getSafeEnv() }, (err, stdout) => {
       if (err) reject(err)
       else resolve(stdout.trim())
     })
@@ -108,6 +109,7 @@ export async function getTailscaleStatus(appPort?: number): Promise<TailscaleSta
       backendState: status.BackendState,
       selfIP,
       selfDNSName,
+      selfOS: status.Self?.OS,
       peers,
       appUrl: running && appPort ? `http://${selfIP}:${appPort}/app/` : undefined
     }

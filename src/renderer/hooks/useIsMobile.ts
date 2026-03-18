@@ -14,8 +14,13 @@ export function useIsMobile(): boolean {
   useEffect(() => {
     const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
     const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
-    mql.addEventListener('change', handler)
-    return () => mql.removeEventListener('change', handler)
+    // Safari <14 requires addListener/removeListener
+    if (mql.addEventListener) {
+      mql.addEventListener('change', handler)
+      return () => mql.removeEventListener('change', handler)
+    }
+    mql.addListener(handler)
+    return () => mql.removeListener(handler)
   }, [])
 
   return isMobile

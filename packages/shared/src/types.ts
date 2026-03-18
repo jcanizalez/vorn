@@ -292,6 +292,7 @@ export interface TailscaleStatus {
   backendState: string
   selfIP: string
   selfDNSName: string
+  selfOS?: string
   peers: TailscalePeer[]
   appUrl?: string
 }
@@ -485,7 +486,6 @@ export const IPC = {
   WORKFLOW_RUN_LIST_BY_TASK: 'workflowRun:listByTask',
   AGENT_DETECT_INSTALLED: 'agent:detectInstalled',
   TAILSCALE_STATUS: 'tailscale:status',
-  TAILSCALE_ENABLE: 'tailscale:enable',
   CREDENTIAL_STORE_KEY: 'credential:storeKey',
   CREDENTIAL_IMPORT_KEY_FILE: 'credential:importKeyFile',
   CREDENTIAL_DELETE_KEY: 'credential:deleteKey',

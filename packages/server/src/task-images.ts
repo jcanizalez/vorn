@@ -70,6 +70,9 @@ export function getTaskImagePath(taskId: string, filename: string): string {
   return resolveSafePath(taskId, filename)
 }
 
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024 // 10 MB decoded limit
+const ALLOWED_IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'])
+
 export function saveTaskImageFromBase64(
   taskId: string,
   base64Data: string,
@@ -77,10 +80,20 @@ export function saveTaskImageFromBase64(
 ): string {
   if (!isSafeId(taskId)) throw new Error(`Invalid taskId: ${taskId}`)
 
+  const ext = path.extname(originalFilename).toLowerCase() || '.png'
+  if (!ALLOWED_IMAGE_EXTENSIONS.has(ext)) {
+    throw new Error(`Unsupported image type: ${ext}`)
+  }
+
+  // Validate decoded size before allocating buffer
+  const estimatedSize = Math.ceil(base64Data.length * 0.75)
+  if (estimatedSize > MAX_IMAGE_SIZE) {
+    throw new Error(`Image too large (${(estimatedSize / 1024 / 1024).toFixed(1)}MB). Max: 10MB`)
+  }
+
   const taskDir = resolveSafePath(taskId)
   ensureDir(taskDir)
 
-  const ext = path.extname(originalFilename) || '.png'
   const filename = `${randomUUID()}${ext}`
   const destPath = resolveSafePath(taskId, filename)
 
