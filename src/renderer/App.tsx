@@ -293,7 +293,11 @@ export function App() {
 
       <main
         className="flex-1 flex flex-col overflow-hidden"
-        style={isMobile ? { paddingBottom: 'calc(64px + var(--safe-bottom, 0px))' } : undefined}
+        style={
+          isMobile && keyboardHeight === 0
+            ? { paddingBottom: 'calc(64px + var(--safe-bottom, 0px))' }
+            : undefined
+        }
       >
         {/* Top bar — single line, same height as traffic lights */}
         <div

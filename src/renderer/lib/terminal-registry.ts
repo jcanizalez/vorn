@@ -369,7 +369,7 @@ export function destroyTerminal(terminalId: string): void {
 
 /**
  * Update font size on all terminals and re-fit them.
- * On touch devices the minimum is enforced automatically.
+ * Callers are responsible for clamping to MIN/MAX bounds.
  */
 export function setAllTerminalsFontSize(fontSize: number): void {
   const effective = getEffectiveFontSize(fontSize)
