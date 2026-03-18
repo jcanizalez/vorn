@@ -4,7 +4,7 @@ const NATIVE_MODULE_PATCH = `
 // Patch module resolution for Electron's utilityProcess.
 //
 // utilityProcess doesn't have the main process's ASAR require() patching,
-// so bare require('node-pty') fails. We intercept Module._load to redirect
+// so bare require('node-pty') and require('libsql') fail. We intercept Module._load to redirect
 // native module names to their absolute paths in app.asar.unpacked/node_modules/.
 //
 // The parent process passes VIBEGRID_NATIVE_MODULES_PATH as an env var
