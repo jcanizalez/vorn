@@ -1,5 +1,10 @@
+import { registerSW } from 'virtual:pwa-register'
 import { createApiShim } from './api-shim'
 import { getWebSocketUrl } from './env'
+
+// Register service worker for PWA installability and asset caching.
+// This runs independently of the WebSocket connection.
+registerSW({ immediate: true })
 
 // Mount the API shim on window.api BEFORE any React code loads.
 // This is critical: stores and components access window.api at import time.

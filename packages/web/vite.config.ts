@@ -1,9 +1,52 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
 import path from 'node:path'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      manifest: false, // We maintain our own manifest.webmanifest in public/
+      workbox: {
+        navigateFallback: '/app/index.html',
+        navigateFallbackAllowlist: [/^\/app/],
+        runtimeCaching: [
+          {
+            // Cache static assets (JS, CSS, images, fonts)
+            urlPattern: /\.(?:js|css|png|jpg|jpeg|svg|gif|woff2?|ttf|eot)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'vibegrid-static',
+              expiration: { maxEntries: 100, maxAgeSeconds: 30 * 24 * 60 * 60 }
+            }
+          },
+          {
+            // Network-first for API calls
+            urlPattern: /\/api\//,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'vibegrid-api',
+              networkTimeoutSeconds: 10,
+              expiration: { maxEntries: 50, maxAgeSeconds: 5 * 60 }
+            }
+          },
+          {
+            // Network-first for health check
+            urlPattern: /\/health/,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'vibegrid-health',
+              networkTimeoutSeconds: 5
+            }
+          }
+        ],
+        // Offline fallback
+        offlineGoogleAnalytics: false
+      }
+    })
+  ],
   base: '/app/',
   resolve: {
     alias: {
