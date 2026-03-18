@@ -33,10 +33,10 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
-    document.addEventListener('mousedown', handleClick)
+    document.addEventListener('pointerdown', handleClick)
     document.addEventListener('keydown', handleKey)
     return () => {
-      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('pointerdown', handleClick)
       document.removeEventListener('keydown', handleKey)
     }
   }, [onClose])
@@ -156,7 +156,8 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
                 e.stopPropagation()
                 item.onClick()
               }}
-              className="w-full flex items-center gap-2.5 px-3 py-1.5 text-xs text-gray-300 hover:bg-white/[0.06] transition-colors"
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-gray-300
+                         hover:bg-white/[0.06] active:bg-white/[0.1] transition-colors"
             >
               <item.icon size={14} className={item.className ?? 'text-gray-500'} />
               <span>{item.label}</span>

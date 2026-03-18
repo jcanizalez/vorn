@@ -290,7 +290,7 @@ export function App() {
             {(isMobile || !isSidebarOpen) && (
               <button
                 onClick={toggleSidebar}
-                className="text-gray-400 hover:text-white p-1.5 rounded-md transition-colors flex items-center gap-1.5"
+                className="text-gray-400 hover:text-white active:text-white p-2 rounded-md transition-colors flex items-center gap-1.5"
                 title="Show sidebar"
               >
                 {isMobile ? (
@@ -315,10 +315,10 @@ export function App() {
             <div className="flex bg-white/[0.04] rounded-md p-0.5 gap-0.5">
               <button
                 onClick={() => setMainViewMode('sessions')}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${
                   mainViewMode === 'sessions'
                     ? 'bg-white/[0.1] text-white'
-                    : 'text-gray-500 hover:text-gray-300'
+                    : 'text-gray-500 hover:text-gray-300 active:text-white'
                 }`}
               >
                 <Monitor size={13} strokeWidth={2} />
@@ -327,10 +327,10 @@ export function App() {
               </button>
               <button
                 onClick={() => setMainViewMode('tasks')}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${
                   mainViewMode === 'tasks'
                     ? 'bg-white/[0.1] text-white'
-                    : 'text-gray-500 hover:text-gray-300'
+                    : 'text-gray-500 hover:text-gray-300 active:text-white'
                 }`}
               >
                 <ListTodo size={13} strokeWidth={2} />
@@ -385,11 +385,11 @@ export function App() {
                 <button
                   onClick={() => setDialogOpen(true)}
                   className={`font-medium text-gray-200 hover:text-white bg-white/[0.06] hover:bg-white/[0.1]
-                             rounded-md transition-colors flex items-center gap-2 ${
-                               isMobile ? 'p-2 text-xs' : 'px-3 py-1.5 text-sm'
+                             active:bg-white/[0.15] rounded-md transition-colors flex items-center gap-2 ${
+                               isMobile ? 'p-2.5 text-xs' : 'px-3 py-1.5 text-sm'
                              }`}
                 >
-                  {isMobile ? <Plus size={16} strokeWidth={2} /> : '+ New Session'}
+                  {isMobile ? <Plus size={18} strokeWidth={2} /> : '+ New Session'}
                   {!isMobile && <KbdHint shortcutId="new-session" />}
                 </button>
               </>
@@ -422,8 +422,8 @@ export function App() {
                 <button
                   onClick={() => useAppStore.getState().setTaskDialogOpen(true)}
                   className={`font-medium text-gray-200 hover:text-white bg-white/[0.06] hover:bg-white/[0.1]
-                             rounded-md transition-colors flex items-center gap-2 ${
-                               isMobile ? 'p-2 text-xs' : 'px-3 py-1.5 text-sm'
+                             active:bg-white/[0.15] rounded-md transition-colors flex items-center gap-2 ${
+                               isMobile ? 'p-2.5 text-xs' : 'px-3 py-1.5 text-sm'
                              }`}
                 >
                   <Plus size={14} strokeWidth={2} />

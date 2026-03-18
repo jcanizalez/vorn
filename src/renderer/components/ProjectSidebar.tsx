@@ -138,8 +138,8 @@ function ProjectContextMenu({
         onClose()
       }
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    document.addEventListener('pointerdown', handleClickOutside)
+    return () => document.removeEventListener('pointerdown', handleClickOutside)
   }, [onClose])
 
   return (
@@ -154,8 +154,8 @@ function ProjectContextMenu({
           onEdit()
           onClose()
         }}
-        className="w-full px-3 py-1.5 text-left text-[13px] text-gray-300 hover:text-white
-                   hover:bg-white/[0.06] flex items-center gap-2 transition-colors"
+        className="w-full px-3 py-2.5 text-left text-[13px] text-gray-300 hover:text-white
+                   hover:bg-white/[0.06] active:bg-white/[0.1] flex items-center gap-2 transition-colors"
       >
         <Pencil size={12} strokeWidth={1.5} />
         Edit Project
@@ -167,8 +167,8 @@ function ProjectContextMenu({
             onClose()
             toast.success(`Project "${project.name}" deleted`)
           }}
-          className="w-full px-3 py-1.5 text-left text-[13px] text-red-300 bg-red-500/10
-                     hover:bg-red-500/20 flex items-center gap-2 transition-colors"
+          className="w-full px-3 py-2.5 text-left text-[13px] text-red-300 bg-red-500/10
+                     hover:bg-red-500/20 active:bg-red-500/30 flex items-center gap-2 transition-colors"
         >
           <Trash2 size={12} strokeWidth={1.5} />
           Confirm delete?
@@ -176,8 +176,8 @@ function ProjectContextMenu({
       ) : (
         <button
           onClick={() => setConfirmDelete(true)}
-          className="w-full px-3 py-1.5 text-left text-[13px] text-red-400 hover:text-red-300
-                     hover:bg-white/[0.06] flex items-center gap-2 transition-colors"
+          className="w-full px-3 py-2.5 text-left text-[13px] text-red-400 hover:text-red-300
+                     hover:bg-white/[0.06] active:bg-white/[0.1] flex items-center gap-2 transition-colors"
         >
           <Trash2 size={12} strokeWidth={1.5} />
           Delete Project
@@ -210,8 +210,8 @@ function ShortcutContextMenu({
         onClose()
       }
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    document.addEventListener('pointerdown', handleClickOutside)
+    return () => document.removeEventListener('pointerdown', handleClickOutside)
   }, [onClose])
 
   return (
@@ -226,8 +226,8 @@ function ShortcutContextMenu({
           onEdit()
           onClose()
         }}
-        className="w-full px-3 py-1.5 text-left text-[13px] text-gray-300 hover:text-white
-                   hover:bg-white/[0.06] flex items-center gap-2 transition-colors"
+        className="w-full px-3 py-2.5 text-left text-[13px] text-gray-300 hover:text-white
+                   hover:bg-white/[0.06] active:bg-white/[0.1] flex items-center gap-2 transition-colors"
       >
         <Pencil size={12} strokeWidth={1.5} />
         Edit Workflow
@@ -238,8 +238,8 @@ function ShortcutContextMenu({
             onToggleEnabled()
             onClose()
           }}
-          className="w-full px-3 py-1.5 text-left text-[13px] text-gray-300 hover:text-white
-                     hover:bg-white/[0.06] flex items-center gap-2 transition-colors"
+          className="w-full px-3 py-2.5 text-left text-[13px] text-gray-300 hover:text-white
+                     hover:bg-white/[0.06] active:bg-white/[0.1] flex items-center gap-2 transition-colors"
         >
           <Power size={12} strokeWidth={1.5} />
           {isEnabled ? 'Disable Schedule' : 'Enable Schedule'}
@@ -250,8 +250,8 @@ function ShortcutContextMenu({
           onDelete()
           onClose()
         }}
-        className="w-full px-3 py-1.5 text-left text-[13px] text-red-400 hover:text-red-300
-                   hover:bg-white/[0.06] flex items-center gap-2 transition-colors"
+        className="w-full px-3 py-2.5 text-left text-[13px] text-red-400 hover:text-red-300
+                   hover:bg-white/[0.06] active:bg-white/[0.1] flex items-center gap-2 transition-colors"
       >
         <Trash2 size={12} strokeWidth={1.5} />
         Delete Workflow

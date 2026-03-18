@@ -11,6 +11,55 @@ body {
   background: #1a1a1e !important;
 }
 
+/* ── Mobile touch: kill 300ms tap delay ── */
+button,
+a,
+input,
+textarea,
+select,
+[role='button'],
+[role='tab'],
+[role='switch'],
+[role='menuitem'],
+[role='separator'],
+.drag-handle {
+  touch-action: manipulation;
+}
+
+/* ── Mobile touch: active feedback ── */
+@media (hover: none) {
+  button:active,
+  [role='button']:active,
+  [role='tab']:active,
+  [role='menuitem']:active {
+    opacity: 0.7;
+    transition: opacity 0.05s ease;
+  }
+
+  /* Show hover-revealed actions on touch devices (no hover available) */
+  .group-hover\/rename\:opacity-100,
+  .group-hover\/session\:opacity-100,
+  .group-hover\/task\:opacity-100,
+  .group-hover\/wt\:opacity-100,
+  .group-hover\/archived\:opacity-100,
+  .group-hover\/sessions\:opacity-100,
+  .group-hover\/worktrees\:opacity-100,
+  .group-hover\:opacity-100 {
+    opacity: 1 !important;
+  }
+
+  /* Bigger traffic lights on touch devices */
+  .traffic-light-dot {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* Bigger traffic light gap on touch */
+  .traffic-light-dot + .traffic-light-dot {
+    margin-left: 2px;
+  }
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

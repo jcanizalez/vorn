@@ -8,8 +8,12 @@ interface Props {
   expanded?: boolean
 }
 
+// Always show icons on touch devices (no hover available)
+const isTouchDevice = typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches
+
 export function TrafficLights({ onClose, onMinimize, onExpand, expanded }: Props) {
   const [hovered, setHovered] = useState(false)
+  const showIcons = hovered || isTouchDevice
 
   return (
     <div
@@ -24,7 +28,7 @@ export function TrafficLights({ onClose, onMinimize, onExpand, expanded }: Props
           title="Close session"
           aria-label="Close session"
         >
-          {hovered && (
+          {showIcons && (
             <svg
               width="6"
               height="6"
@@ -53,7 +57,7 @@ export function TrafficLights({ onClose, onMinimize, onExpand, expanded }: Props
         aria-disabled={expanded}
         tabIndex={expanded ? -1 : 0}
       >
-        {hovered && !expanded && (
+        {showIcons && !expanded && (
           <svg
             width="7"
             height="2"
@@ -78,7 +82,7 @@ export function TrafficLights({ onClose, onMinimize, onExpand, expanded }: Props
         title={expanded ? 'Exit fullscreen' : 'Expand'}
         aria-label={expanded ? 'Exit fullscreen' : 'Expand'}
       >
-        {hovered && !expanded && (
+        {showIcons && !expanded && (
           <svg
             width="7"
             height="7"
@@ -92,7 +96,7 @@ export function TrafficLights({ onClose, onMinimize, onExpand, expanded }: Props
             <polyline points="9 21 3 21 3 15" />
           </svg>
         )}
-        {hovered && expanded && (
+        {showIcons && expanded && (
           <svg
             width="7"
             height="7"

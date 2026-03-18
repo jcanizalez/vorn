@@ -16,6 +16,8 @@ import { GitBranch, FolderGit2, Server, Pencil, ListTodo, Pin, Archive } from 'l
 import { toast } from './Toast'
 
 const isMac = navigator.platform.toUpperCase().includes('MAC')
+// On touch devices, always show action buttons (no hover available)
+const isTouchDevice = typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches
 
 interface Props {
   terminalId: string
@@ -96,7 +98,7 @@ export const AgentCard = memo(
         archiveSession: s.archiveSession
       }))
     )
-    const [cardHovered, setCardHovered] = useState(false)
+    const [cardHovered, setCardHovered] = useState(isTouchDevice)
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
     const { showScrollBtn, handleScrollToBottom } = useTerminalScrollButton(terminalId)
 
@@ -143,11 +145,11 @@ export const AgentCard = memo(
           ...(isIdlePinned ? { opacity: 0.55 } : {})
         }}
         transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-        onMouseDown={() => {
+        onPointerDown={() => {
           if (!isSelected && !isFocused) setSelected(terminalId)
         }}
         onMouseEnter={() => setCardHovered(true)}
-        onMouseLeave={() => setCardHovered(false)}
+        onMouseLeave={() => !isTouchDevice && setCardHovered(false)}
         onContextMenu={(e) => {
           e.preventDefault()
           e.stopPropagation()
@@ -263,7 +265,7 @@ export const AgentCard = memo(
                   e.stopPropagation()
                   togglePinned(terminalId)
                 }}
-                className={`p-1 rounded transition-colors ${
+                className={`p-2 rounded transition-colors ${
                   isPinned
                     ? 'text-amber-400 hover:text-amber-300'
                     : 'text-gray-500 hover:text-gray-300'
@@ -278,7 +280,7 @@ export const AgentCard = memo(
                     e.stopPropagation()
                     archiveSession(terminalId)
                   }}
-                  className="p-1 rounded text-gray-500 hover:text-gray-300 transition-colors"
+                  className="p-2 rounded text-gray-500 hover:text-gray-300 transition-colors"
                   title="Archive session"
                 >
                   <Archive size={12} strokeWidth={2} />
@@ -331,9 +333,9 @@ export const AgentCard = memo(
             )}
             {!isFocused && showScrollBtn && (
               <button
-                className="absolute bottom-2 right-2 w-6 h-6 flex items-center justify-center
-                           rounded bg-white/[0.08] hover:bg-white/[0.15] text-gray-400 hover:text-white
-                           transition-colors z-10"
+                className="absolute bottom-2 right-2 w-8 h-8 flex items-center justify-center
+                           rounded bg-white/[0.08] hover:bg-white/[0.15] active:bg-white/[0.2]
+                           text-gray-400 hover:text-white transition-colors z-10"
                 onClick={handleScrollToBottom}
                 title="Scroll to bottom"
               >

@@ -74,8 +74,9 @@ export function ConfirmPopover({
   useEffect(() => {
     if (!open) return
 
-    const handleClick = (e: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+    const handleClick = (e: MouseEvent | TouchEvent) => {
+      const target = e instanceof TouchEvent ? e.touches[0]?.target : e.target
+      if (popoverRef.current && target && !popoverRef.current.contains(target as Node)) {
         setOpen(false)
       }
     }
@@ -83,10 +84,10 @@ export function ConfirmPopover({
       if (e.key === 'Escape') setOpen(false)
     }
 
-    document.addEventListener('mousedown', handleClick)
+    document.addEventListener('pointerdown', handleClick)
     document.addEventListener('keydown', handleKey)
     return () => {
-      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('pointerdown', handleClick)
       document.removeEventListener('keydown', handleKey)
     }
   }, [open])
@@ -145,18 +146,19 @@ export function ConfirmPopover({
               <div className="flex justify-end gap-2">
                 <button
                   onClick={() => setOpen(false)}
-                  className="px-2.5 py-1 text-xs text-gray-400 hover:text-gray-200
-                             bg-white/[0.04] hover:bg-white/[0.08] rounded-md transition-colors"
+                  className="px-3 py-2 text-xs text-gray-400 hover:text-gray-200
+                             bg-white/[0.04] hover:bg-white/[0.08] active:bg-white/[0.12]
+                             rounded-md transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleConfirm}
                   autoFocus
-                  className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                  className={`px-3 py-2 text-xs font-medium rounded-md transition-colors ${
                     destructive
-                      ? 'text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20'
-                      : 'text-white bg-white/[0.1] hover:bg-white/[0.15]'
+                      ? 'text-red-400 bg-red-500/10 hover:bg-red-500/20 active:bg-red-500/30 border border-red-500/20'
+                      : 'text-white bg-white/[0.1] hover:bg-white/[0.15] active:bg-white/[0.2]'
                   }`}
                 >
                   {confirmLabel}
