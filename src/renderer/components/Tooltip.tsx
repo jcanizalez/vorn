@@ -9,7 +9,10 @@ interface Props {
 }
 
 // Detect touch-primary device (no fine pointer = mobile/tablet)
-const isTouchDevice = typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches
+const isTouchDevice =
+  typeof window !== 'undefined' &&
+  typeof window.matchMedia === 'function' &&
+  window.matchMedia('(hover: none)').matches
 
 function getTransform(position: 'top' | 'bottom' | 'right') {
   if (position === 'right') return 'translate(0, -50%)'
