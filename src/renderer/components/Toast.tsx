@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, X, AlertTriangle, Info } from 'lucide-react'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 /* ------------------------------------------------------------------ */
 /*  Toast store — lightweight, no Zustand dependency                  */
@@ -79,6 +80,7 @@ const TOAST_STYLES: Record<
 
 export function ToastContainer() {
   const [items, setItems] = useState<Toast[]>([])
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     listeners.push(setItems)
@@ -113,9 +115,19 @@ export function ToastContainer() {
               exit={{ opacity: 0, y: -8, scale: 0.95 }}
               transition={{ type: 'spring', stiffness: 400, damping: 28 }}
               className={`pointer-events-auto flex items-center gap-2.5 px-4 py-2.5 rounded-lg border
-                         shadow-xl backdrop-blur-sm min-w-[200px] max-w-[360px]
+                         min-w-[200px] max-w-[360px]
+                         ${isMobile ? '' : 'shadow-xl backdrop-blur-sm'}
                          ${style.bg} ${style.border}`}
-              style={{ background: 'rgba(26, 26, 30, 0.92)' }}
+              style={
+                isMobile
+                  ? {
+                      background: 'var(--glass-bg)',
+                      backdropFilter: 'var(--glass-blur)',
+                      WebkitBackdropFilter: 'var(--glass-blur)',
+                      boxShadow: 'var(--glass-shadow)'
+                    }
+                  : { background: 'rgba(26, 26, 30, 0.92)' }
+              }
             >
               <Icon size={15} strokeWidth={2.5} className={`shrink-0 ${style.text}`} />
               <span className="text-sm text-gray-200 flex-1">{t.message}</span>

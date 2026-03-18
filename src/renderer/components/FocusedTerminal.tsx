@@ -26,7 +26,8 @@ import {
   RefreshCw,
   Loader2,
   Server,
-  ArrowDown
+  ArrowDown,
+  ChevronDown
 } from 'lucide-react'
 import { GitDiffResult } from '../../shared/types'
 import { toast } from './Toast'
@@ -144,14 +145,19 @@ export function FocusedTerminal() {
 
       {/* Focused panel */}
       <motion.div
-        className="fixed z-50 rounded-xl border border-white/[0.08]
-                   shadow-2xl flex flex-col overflow-hidden"
+        className={`fixed z-50 shadow-2xl flex flex-col overflow-hidden ${
+          isMobile ? 'inset-0' : 'rounded-xl border border-white/[0.08]'
+        }`}
         style={{
           background: '#1a1a1e',
-          top: 'calc(0.75rem + var(--safe-top, 0px))',
-          right: 'calc(0.75rem + var(--safe-right, 0px))',
-          bottom: 'calc(0.75rem + var(--safe-bottom, 0px))',
-          left: 'calc(0.75rem + var(--safe-left, 0px))'
+          ...(isMobile
+            ? { paddingTop: 'var(--safe-top, 0px)' }
+            : {
+                top: 'calc(0.75rem + var(--safe-top, 0px))',
+                right: 'calc(0.75rem + var(--safe-right, 0px))',
+                bottom: 'calc(0.75rem + var(--safe-bottom, 0px))',
+                left: 'calc(0.75rem + var(--safe-left, 0px))'
+              })
         }}
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -159,13 +165,25 @@ export function FocusedTerminal() {
       >
         {/* Title bar — pl-[78px] for macOS traffic light safe zone (Electron only) */}
         <div
-          className={`flex items-center gap-3 pr-4 py-2.5 border-b border-white/[0.06] titlebar-no-drag ${isElectron ? 'pl-[78px]' : 'pl-4'}`}
+          className={`flex items-center gap-3 pr-4 py-2.5 border-b border-white/[0.06] titlebar-no-drag ${
+            isMobile ? 'pl-3' : isElectron ? 'pl-[78px]' : 'pl-4'
+          }`}
           onDoubleClick={(e) => {
             // Contract on double-click, but not if clicking on a button or interactive element
             if ((e.target as HTMLElement).closest('button, input, [role="button"]')) return
             handleContract()
           }}
         >
+          {/* Mobile: back button to return to card list */}
+          {isMobile && (
+            <button
+              onClick={handleContract}
+              className="p-1.5 -ml-1 rounded-full text-gray-400 active:text-white active:bg-white/[0.1] transition-colors"
+              title="Back to sessions"
+            >
+              <ChevronDown size={20} strokeWidth={2} />
+            </button>
+          )}
           <AgentIcon agentType={terminal.session.agentType} size={16} />
           <div className="flex-1 min-w-0">
             {isRenaming ? (
@@ -234,32 +252,36 @@ export function FocusedTerminal() {
 
           <StatusBadge status={terminal.status} />
 
-          {/* Keyboard shortcut hints */}
-          <div className="flex items-center gap-2 text-[10px] text-gray-600 mx-1">
-            <span className="flex items-center gap-0.5">
-              <kbd className="px-1 py-0.5 rounded bg-white/[0.06] text-gray-500 font-mono">
-                {MOD}W
-              </kbd>
-              close
-            </span>
-            <span className="flex items-center gap-0.5">
-              <kbd className="px-1 py-0.5 rounded bg-white/[0.06] text-gray-500 font-mono">
-                {MOD}[
-              </kbd>
-              <kbd className="px-1 py-0.5 rounded bg-white/[0.06] text-gray-500 font-mono">
-                {MOD}]
-              </kbd>
-              cycle
-            </span>
-          </div>
+          {/* Keyboard shortcut hints (desktop only) */}
+          {!isMobile && (
+            <div className="flex items-center gap-2 text-[10px] text-gray-600 mx-1">
+              <span className="flex items-center gap-0.5">
+                <kbd className="px-1 py-0.5 rounded bg-white/[0.06] text-gray-500 font-mono">
+                  {MOD}W
+                </kbd>
+                close
+              </span>
+              <span className="flex items-center gap-0.5">
+                <kbd className="px-1 py-0.5 rounded bg-white/[0.06] text-gray-500 font-mono">
+                  {MOD}[
+                </kbd>
+                <kbd className="px-1 py-0.5 rounded bg-white/[0.06] text-gray-500 font-mono">
+                  {MOD}]
+                </kbd>
+                cycle
+              </span>
+            </div>
+          )}
 
-          <OpenInButton projectPath={terminal.session.projectPath} />
-          <TrafficLights
-            onClose={handleKill}
-            onMinimize={handleContract}
-            onExpand={handleContract}
-            expanded
-          />
+          {!isMobile && <OpenInButton projectPath={terminal.session.projectPath} />}
+          {!isMobile && (
+            <TrafficLights
+              onClose={handleKill}
+              onMinimize={handleContract}
+              onExpand={handleContract}
+              expanded
+            />
+          )}
         </div>
 
         {/* Content area: terminal + optional diff panel */}

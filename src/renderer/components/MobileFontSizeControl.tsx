@@ -48,8 +48,13 @@ export function MobileFontSizeControl() {
           setIsExpanded(true)
         }}
         className="flex items-center justify-center w-8 h-8 rounded-lg
-                   bg-white/[0.1] hover:bg-white/[0.15] active:bg-white/[0.2]
                    text-gray-400 hover:text-white transition-colors"
+        style={{
+          background: 'var(--glass-bg, rgba(255,255,255,0.1))',
+          backdropFilter: 'var(--glass-blur, none)',
+          WebkitBackdropFilter: 'var(--glass-blur, none)',
+          boxShadow: 'var(--glass-shadow, none)'
+        }}
         title="Font size"
       >
         <Type size={14} strokeWidth={2} />
@@ -58,7 +63,15 @@ export function MobileFontSizeControl() {
   }
 
   return (
-    <div className="flex items-center gap-1 bg-black/60 backdrop-blur-md rounded-lg px-1 py-0.5 border border-white/[0.1]">
+    <div
+      className="flex items-center gap-1 rounded-lg px-1 py-0.5"
+      style={{
+        background: 'var(--glass-bg)',
+        backdropFilter: 'var(--glass-blur)',
+        WebkitBackdropFilter: 'var(--glass-blur)',
+        boxShadow: 'var(--glass-shadow)'
+      }}
+    >
       <button
         onClick={() => updateSize(-1)}
         disabled={fontSize <= MIN_FONT_SIZE}

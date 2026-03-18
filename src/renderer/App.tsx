@@ -291,7 +291,10 @@ export function App() {
     >
       <ProjectSidebar />
 
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main
+        className="flex-1 flex flex-col overflow-hidden"
+        style={isMobile ? { paddingBottom: 'calc(64px + var(--safe-bottom, 0px))' } : undefined}
+      >
         {/* Top bar — single line, same height as traffic lights */}
         <div
           className={`titlebar-drag shrink-0 border-b border-white/[0.06]
@@ -303,7 +306,19 @@ export function App() {
             {(isMobile || !isSidebarOpen) && (
               <button
                 onClick={toggleSidebar}
-                className="text-gray-400 hover:text-white active:text-white p-2 rounded-md transition-colors flex items-center gap-1.5"
+                className={`text-gray-400 hover:text-white active:text-white p-2 transition-colors flex items-center gap-1.5 ${
+                  isMobile ? 'rounded-full' : 'rounded-md'
+                }`}
+                style={
+                  isMobile
+                    ? {
+                        background: 'var(--glass-bg, transparent)',
+                        backdropFilter: 'var(--glass-blur, none)',
+                        WebkitBackdropFilter: 'var(--glass-blur, none)',
+                        boxShadow: 'var(--glass-shadow, none)'
+                      }
+                    : undefined
+                }
                 title="Show sidebar"
               >
                 {isMobile ? (
@@ -399,10 +414,22 @@ export function App() {
                 )}
                 <button
                   onClick={() => setDialogOpen(true)}
-                  className={`font-medium text-gray-200 hover:text-white bg-white/[0.06] hover:bg-white/[0.1]
-                             active:bg-white/[0.15] rounded-md transition-colors flex items-center gap-2 ${
-                               isMobile ? 'p-2.5 text-xs' : 'px-3 py-1.5 text-sm'
+                  className={`font-medium text-gray-200 hover:text-white
+                             active:bg-white/[0.15] transition-colors flex items-center gap-2 ${
+                               isMobile
+                                 ? 'p-2.5 text-xs rounded-full'
+                                 : 'px-3 py-1.5 text-sm rounded-md bg-white/[0.06] hover:bg-white/[0.1]'
                              }`}
+                  style={
+                    isMobile
+                      ? {
+                          background: 'var(--glass-bg, rgba(255,255,255,0.06))',
+                          backdropFilter: 'var(--glass-blur, none)',
+                          WebkitBackdropFilter: 'var(--glass-blur, none)',
+                          boxShadow: 'var(--glass-shadow, none)'
+                        }
+                      : undefined
+                  }
                 >
                   {isMobile ? <Plus size={18} strokeWidth={2} /> : '+ New Session'}
                   {!isMobile && <KbdHint shortcutId="new-session" />}
@@ -436,10 +463,22 @@ export function App() {
                 )}
                 <button
                   onClick={() => useAppStore.getState().setTaskDialogOpen(true)}
-                  className={`font-medium text-gray-200 hover:text-white bg-white/[0.06] hover:bg-white/[0.1]
-                             active:bg-white/[0.15] rounded-md transition-colors flex items-center gap-2 ${
-                               isMobile ? 'p-2.5 text-xs' : 'px-3 py-1.5 text-sm'
+                  className={`font-medium text-gray-200 hover:text-white
+                             active:bg-white/[0.15] transition-colors flex items-center gap-2 ${
+                               isMobile
+                                 ? 'p-2.5 text-xs rounded-full'
+                                 : 'px-3 py-1.5 text-sm rounded-md bg-white/[0.06] hover:bg-white/[0.1]'
                              }`}
+                  style={
+                    isMobile
+                      ? {
+                          background: 'var(--glass-bg, rgba(255,255,255,0.06))',
+                          backdropFilter: 'var(--glass-blur, none)',
+                          WebkitBackdropFilter: 'var(--glass-blur, none)',
+                          boxShadow: 'var(--glass-shadow, none)'
+                        }
+                      : undefined
+                  }
                 >
                   <Plus size={14} strokeWidth={2} />
                   {!isMobile && 'Add Task'}

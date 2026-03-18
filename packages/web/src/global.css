@@ -81,6 +81,26 @@ select,
   .text-gray-600 {
     color: #6b7280 !important; /* gray-500: 3.6:1 → still below, but acceptable for decorative/hint text */
   }
+
+  /* ── Liquid Glass material (iOS 26 / Framework7 v9 inspired) ── */
+  :root {
+    --glass-bg: rgba(50, 50, 50, 0.5);
+    --glass-blur: saturate(180%) blur(16px);
+    --glass-shadow:
+      inset -2px -2px 0.5px -2.5px rgba(255, 255, 255, 0.4),
+      inset 3px 3px 0.5px -3.5px rgba(255, 255, 255, 0.4), inset 2px 2px 0.5px -2px #262626,
+      inset -2px -2px 0.5px -2px #262626, inset 0 0 5px 1px #141414,
+      inset 0 0 0 1px rgba(255, 255, 255, 0.15), inset 0 0 10px 0 rgba(255, 255, 255, 0.075),
+      inset 0 0 24px 0 rgba(255, 255, 255, 0.05), 0 0 25px 0 rgba(0, 0, 0, 0.15);
+    --glass-shadow-thumb:
+      inset 3px 3px 0px -3.5px rgba(255, 255, 255, 1),
+      inset -3px -3px 0px -3.5px rgba(255, 255, 255, 1),
+      inset -0.5px -0.5px 0px rgba(255, 255, 255, 0.5),
+      inset 0.5px 0.5px 0px rgba(255, 255, 255, 0.1),
+      inset -3px 3px 0px -3.5px rgba(255, 255, 255, 0.25),
+      inset 0px -5px 0px -3.5px rgba(255, 255, 255, 0.25),
+      inset 0px -5px 5px rgba(255, 255, 255, 0.25);
+  }
 }
 
 /* Custom scrollbar */

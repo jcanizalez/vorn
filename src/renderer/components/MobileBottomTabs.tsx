@@ -1,4 +1,4 @@
-import { Monitor, ListTodo, Plus, Settings } from 'lucide-react'
+import { Monitor, ListTodo, Settings } from 'lucide-react'
 import { useAppStore } from '../stores'
 
 interface Props {
@@ -8,14 +8,12 @@ interface Props {
 
 /**
  * Bottom tab navigation bar for mobile viewports.
- * Provides thumb-friendly access to the main views: Sessions, Tasks, New, Settings.
+ * Provides thumb-friendly access to the main views: Sessions, Tasks, Settings.
  * Hidden when the virtual keyboard is open.
  */
 export function MobileBottomTabs({ hidden }: Props) {
   const mainViewMode = useAppStore((s) => s.config?.defaults?.mainViewMode ?? 'sessions')
   const setMainViewMode = useAppStore((s) => s.setMainViewMode)
-  const setDialogOpen = useAppStore((s) => s.setNewAgentDialogOpen)
-  const setTaskDialogOpen = useAppStore((s) => s.setTaskDialogOpen)
   const setSettingsOpen = useAppStore((s) => s.setSettingsOpen)
   const isSettingsOpen = useAppStore((s) => s.isSettingsOpen)
 
@@ -43,20 +41,6 @@ export function MobileBottomTabs({ hidden }: Props) {
       }
     },
     {
-      id: 'new' as const,
-      label: 'New',
-      icon: Plus,
-      active: false,
-      isAction: true,
-      onTap: () => {
-        if (mainViewMode === 'tasks') {
-          setTaskDialogOpen(true)
-        } else {
-          setDialogOpen(true)
-        }
-      }
-    },
-    {
       id: 'settings' as const,
       label: 'Settings',
       icon: Settings,
@@ -67,8 +51,14 @@ export function MobileBottomTabs({ hidden }: Props) {
 
   return (
     <nav
-      className="shrink-0 border-t border-white/[0.06] flex items-stretch"
-      style={{ background: '#141416' }}
+      className="fixed left-3 right-3 flex items-stretch rounded-[32px] z-50"
+      style={{
+        bottom: 'calc(12px + var(--safe-bottom, 0px))',
+        background: 'var(--glass-bg, #141416)',
+        backdropFilter: 'var(--glass-blur, none)',
+        WebkitBackdropFilter: 'var(--glass-blur, none)',
+        boxShadow: 'var(--glass-shadow, none)'
+      }}
     >
       {tabs.map((tab) => {
         const Icon = tab.icon
@@ -76,18 +66,12 @@ export function MobileBottomTabs({ hidden }: Props) {
           <button
             key={tab.id}
             onClick={tab.onTap}
-            className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-[52px]
-                       transition-colors relative
-                       ${tab.active ? 'text-white' : 'text-gray-500 active:text-gray-300'}
-                       ${tab.isAction ? '' : ''}`}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 min-h-[52px]
+                       transition-colors relative rounded-[32px]
+                       ${tab.active ? 'text-white' : 'text-gray-500 active:text-gray-300'}`}
+            style={tab.active ? { boxShadow: 'var(--glass-shadow-thumb, none)' } : undefined}
           >
-            {/* Active indicator dot */}
-            {tab.active && <div className="absolute top-1.5 w-1 h-1 rounded-full bg-cyan-400" />}
-            <Icon
-              size={tab.isAction ? 22 : 20}
-              strokeWidth={tab.active ? 2.2 : 1.8}
-              className={tab.isAction ? 'text-cyan-400' : ''}
-            />
+            <Icon size={20} strokeWidth={tab.active ? 2.2 : 1.8} />
             <span className="text-[10px] font-medium leading-none">{tab.label}</span>
           </button>
         )
