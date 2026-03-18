@@ -41,6 +41,11 @@ afterPack: scripts/afterPack.cjs
 files:
   - 'out/**/*'
   - 'node_modules/**/*'
+asarUnpack:
+  - 'node_modules/libsql/**'
+  - 'node_modules/@libsql/**'
+  - 'node_modules/@neon-rs/**'
+  - 'node_modules/detect-libc/**'
 extraResources:
   - from: 'packages/server/dist'
     to: 'server'

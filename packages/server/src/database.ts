@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3'
+import Database from 'libsql'
 import path from 'node:path'
 import os from 'node:os'
 import fs from 'node:fs'
@@ -47,7 +47,7 @@ export function initDatabase(): void {
   } catch (err) {
     log.error('[database] Failed to open database:', err)
 
-    // Detect corruption: better-sqlite3 throws on open or pragma for corrupt files
+    // Detect corruption: libsql throws on open or pragma for corrupt files
     const message = err instanceof Error ? err.message : String(err)
     const isCorrupt = /corrupt|notadb|malformed|not a database|file is not a database/i.test(
       message
