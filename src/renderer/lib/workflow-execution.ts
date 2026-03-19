@@ -247,6 +247,9 @@ async function executeNode(
 
       sessionId = headlessSession.id
 
+      // Make headless session visible in the UI immediately
+      useAppStore.getState().addHeadlessSession(headlessSession)
+
       updateNodeState(execution, node.id, {
         sessionId: headlessSession.id,
         taskId: resolvedTaskId

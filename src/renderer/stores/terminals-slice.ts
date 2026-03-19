@@ -68,5 +68,99 @@ export const createTerminalsSlice: StateCreator<AppStore, [], [], TerminalsSlice
         next.set(id, { ...term, session: { ...term.session, pinned: !term.session.pinned } })
       }
       return { terminals: next }
+    }),
+
+  // Headless agent tracking
+  headlessSessions: [],
+  headlessLastOutput: new Map(),
+  headlessDismissed: new Set(),
+
+  setHeadlessSessions: (sessions) =>
+    set((state) => {
+      // Rebuild from server list, preserving local-only fields from existing entries
+      const dismissed = state.headlessDismissed
+      const serverIds = new Set(sessions.map((s) => s.id))
+      const existing = new Map(state.headlessSessions.map((s) => [s.id, s]))
+      const next: typeof state.headlessSessions = []
+
+      for (const s of sessions) {
+        if (dismissed.has(s.id)) continue
+        const prev = existing.get(s.id)
+        if (prev) {
+          next.push({ ...prev, status: s.status, exitCode: s.exitCode, endedAt: s.endedAt })
+        } else {
+          next.push(s)
+        }
+      }
+
+      // Keep locally-added sessions not yet known to the server (just created)
+      for (const s of state.headlessSessions) {
+        if (!serverIds.has(s.id) && !dismissed.has(s.id) && s.status === 'running') {
+          next.push(s)
+        }
+      }
+
+      // Clean up output entries for sessions no longer present
+      const nextOutput = new Map(state.headlessLastOutput)
+      for (const id of nextOutput.keys()) {
+        if (!serverIds.has(id)) nextOutput.delete(id)
+      }
+
+      return { headlessSessions: next, headlessLastOutput: nextOutput }
+    }),
+
+  addHeadlessSession: (session) =>
+    set((state) => {
+      if (state.headlessSessions.some((s) => s.id === session.id)) return state
+      return { headlessSessions: [...state.headlessSessions, session] }
+    }),
+
+  updateHeadlessSession: (id, updates) =>
+    set((state) => ({
+      headlessSessions: state.headlessSessions.map((s) => (s.id === id ? { ...s, ...updates } : s))
+    })),
+
+  dismissHeadlessSession: (id) =>
+    set((state) => {
+      const dismissed = new Set(state.headlessDismissed)
+      dismissed.add(id)
+      const lastOutput = new Map(state.headlessLastOutput)
+      lastOutput.delete(id)
+      return {
+        headlessSessions: state.headlessSessions.filter((s) => s.id !== id),
+        headlessDismissed: dismissed,
+        headlessLastOutput: lastOutput
+      }
+    }),
+
+  pruneExitedHeadless: (retentionMs) =>
+    set((state) => {
+      const now = Date.now()
+      const pruned = new Set<string>()
+      const remaining = state.headlessSessions.filter((s) => {
+        const keep = s.status === 'running' || !s.endedAt || now - s.endedAt < retentionMs
+        if (!keep) pruned.add(s.id)
+        return keep
+      })
+      if (pruned.size === 0) return state
+      // Clean up lastOutput and dismissed for pruned sessions
+      const lastOutput = new Map(state.headlessLastOutput)
+      const dismissed = new Set(state.headlessDismissed)
+      for (const id of pruned) {
+        lastOutput.delete(id)
+        dismissed.delete(id)
+      }
+      return {
+        headlessSessions: remaining,
+        headlessLastOutput: lastOutput,
+        headlessDismissed: dismissed
+      }
+    }),
+
+  setHeadlessLastOutput: (id, line) =>
+    set((state) => {
+      const next = new Map(state.headlessLastOutput)
+      next.set(id, line)
+      return { headlessLastOutput: next }
     })
 })

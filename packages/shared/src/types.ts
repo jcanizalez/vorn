@@ -326,6 +326,8 @@ export interface AppConfig {
     webAccessEnabled?: boolean
     mobileAccessEnabled?: boolean
     networkAccessEnabled?: boolean
+    showHeadlessAgents?: boolean
+    headlessRetentionMinutes?: number
   }
   projects: ProjectConfig[]
   agentCommands?: Partial<Record<AgentType, AgentCommandConfig>>
@@ -478,6 +480,7 @@ export const IPC = {
   SESSION_LIST_ARCHIVED: 'session:listArchived',
   HEADLESS_CREATE: 'headless:create',
   HEADLESS_KILL: 'headless:kill',
+  HEADLESS_LIST: 'headless:list',
   HEADLESS_DATA: 'headless:data',
   HEADLESS_EXIT: 'headless:exit',
   SCRIPT_EXECUTE: 'script:execute',

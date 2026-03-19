@@ -1,12 +1,16 @@
-import { memo, useRef, useState, useCallback } from 'react'
+import { memo, useRef, useState, useCallback, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { AnimatePresence, LayoutGroup } from 'framer-motion'
 import { useAppStore } from '../stores'
 import { AgentCard } from './AgentCard'
+import { HeadlessPill } from './HeadlessPill'
 import { PromptLauncher } from './PromptLauncher'
 import { GridContextMenu } from './GridContextMenu'
 import { useVisibleTerminals } from '../hooks/useVisibleTerminals'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { HeadlessSession } from '../../shared/types'
+
+const EMPTY_HEADLESS: HeadlessSession[] = []
 
 interface DragState {
   draggingId: string
@@ -25,6 +29,31 @@ export const GridView = memo(function GridView() {
       rowHeight: s.rowHeight
     }))
   )
+  const headlessSessions = useAppStore((s) => s.headlessSessions)
+  const showHeadless = useAppStore((s) => s.config?.defaults?.showHeadlessAgents !== false)
+  const activeProject = useAppStore((s) => s.activeProject)
+  const activeWorkspace = useAppStore((s) => s.activeWorkspace)
+  const projects = useAppStore((s) => s.config?.projects)
+
+  const workspaceProjects = useMemo(() => {
+    if (!projects) return null
+    return new Set(
+      projects.filter((p) => (p.workspaceId ?? 'personal') === activeWorkspace).map((p) => p.name)
+    )
+  }, [projects, activeWorkspace])
+
+  const filteredHeadless = useMemo(() => {
+    if (!showHeadless || headlessSessions.length === 0) return EMPTY_HEADLESS
+    return headlessSessions.filter((s) => {
+      if (activeProject && s.projectName !== activeProject) return false
+      if (!activeProject && workspaceProjects && !workspaceProjects.has(s.projectName)) return false
+      if (statusFilter !== 'all') {
+        const mapped = s.status === 'running' ? 'running' : s.exitCode !== 0 ? 'error' : 'idle'
+        if (mapped !== statusFilter) return false
+      }
+      return true
+    })
+  }, [headlessSessions, showHeadless, activeProject, workspaceProjects, statusFilter])
 
   const [dragState, setDragState] = useState<DragState | null>(null)
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null)
@@ -125,7 +154,27 @@ export const GridView = memo(function GridView() {
       onDoubleClick={handleGridDoubleClick}
       onContextMenu={handleGridContextMenu}
     >
-      {orderedIds.length === 0 ? (
+      {/* Headless agents section */}
+      {filteredHeadless.length > 0 && (
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-2 px-1">
+            <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">
+              Headless Agents
+            </span>
+            <span className="text-[10px] text-gray-600">
+              {filteredHeadless.filter((s) => s.status === 'running').length} running
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {filteredHeadless.map((session) => (
+              <HeadlessPill key={session.id} session={session} />
+            ))}
+          </div>
+          {orderedIds.length > 0 && <div className="h-px bg-white/[0.06] mt-4" />}
+        </div>
+      )}
+
+      {orderedIds.length === 0 && filteredHeadless.length === 0 ? (
         isFiltered ? (
           <div className="flex flex-col items-center justify-center h-full">
             <svg
@@ -147,7 +196,7 @@ export const GridView = memo(function GridView() {
         ) : (
           <PromptLauncher mode="inline" />
         )
-      ) : (
+      ) : orderedIds.length > 0 ? (
         <LayoutGroup>
           <div
             className="grid gap-4"
@@ -172,7 +221,7 @@ export const GridView = memo(function GridView() {
             </AnimatePresence>
           </div>
         </LayoutGroup>
-      )}
+      ) : null}
       {gridContextMenu && (
         <GridContextMenu position={gridContextMenu} onClose={() => setGridContextMenu(null)} />
       )}

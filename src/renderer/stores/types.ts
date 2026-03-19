@@ -8,6 +8,7 @@ import {
   WorkspaceConfig,
   RemoteHost,
   TerminalSession,
+  HeadlessSession,
   GitDiffStat,
   TaskConfig,
   TaskStatus,
@@ -42,6 +43,17 @@ export interface TerminalsSlice {
   updateLastOutput: (id: string, timestamp: number) => void
   renameTerminal: (id: string, displayName: string) => void
   togglePinned: (id: string) => void
+
+  // Headless agent tracking
+  headlessSessions: HeadlessSession[]
+  headlessLastOutput: Map<string, string>
+  headlessDismissed: Set<string>
+  setHeadlessSessions: (sessions: HeadlessSession[]) => void
+  addHeadlessSession: (session: HeadlessSession) => void
+  updateHeadlessSession: (id: string, updates: Partial<HeadlessSession>) => void
+  dismissHeadlessSession: (id: string) => void
+  pruneExitedHeadless: (retentionMs: number) => void
+  setHeadlessLastOutput: (id: string, line: string) => void
 }
 
 export interface ProjectsSlice {

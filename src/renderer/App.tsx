@@ -266,6 +266,41 @@ export function App() {
       useAppStore.getState().setUpdateVersion(version)
     })
 
+    // Headless agent tracking
+    const removeHeadlessExitListener = window.api.onHeadlessExit(({ id, exitCode }) => {
+      useAppStore.getState().updateHeadlessSession(id, {
+        status: 'exited',
+        exitCode,
+        endedAt: Date.now()
+      })
+    })
+
+    const removeHeadlessDataListener = window.api.onHeadlessData(({ id, data }) => {
+      const lines = data.split('\n').filter((l) => l.trim())
+      if (lines.length > 0) {
+        useAppStore.getState().setHeadlessLastOutput(id, lines[lines.length - 1])
+      }
+    })
+
+    // Poll headless sessions every 5s for sync
+    const pollHeadless = async (): Promise<void> => {
+      try {
+        const sessions = await window.api.listHeadlessSessions()
+        useAppStore.getState().setHeadlessSessions(sessions)
+      } catch {
+        // ignore — server may not be ready yet
+      }
+    }
+    pollHeadless()
+    const headlessPollInterval = setInterval(pollHeadless, 5000)
+
+    // Auto-prune exited headless sessions
+    const pruneInterval = setInterval(() => {
+      const retentionMinutes =
+        useAppStore.getState().config?.defaults?.headlessRetentionMinutes ?? 5
+      useAppStore.getState().pruneExitedHeadless(retentionMinutes * 60_000)
+    }, 30_000)
+
     return () => {
       disposeGlobalDataListener()
       removeExitListener()
@@ -275,6 +310,10 @@ export function App() {
       removeSchedulerListener()
       removeWidgetSelectListener()
       removeUpdateListener()
+      removeHeadlessExitListener()
+      removeHeadlessDataListener()
+      clearInterval(headlessPollInterval)
+      clearInterval(pruneInterval)
     }
   }, [])
 

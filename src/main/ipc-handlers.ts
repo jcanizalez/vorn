@@ -97,6 +97,7 @@ export function registerIpcHandlers(): void {
     return requireBridge().request(IPC.HEADLESS_CREATE, enriched)
   })
   safeHandle(IPC.HEADLESS_KILL, (_, id) => requireBridge().request(IPC.HEADLESS_KILL, id))
+  safeHandle(IPC.HEADLESS_LIST, () => requireBridge().request(IPC.HEADLESS_LIST))
 
   // Scripts
   safeHandle(IPC.SCRIPT_EXECUTE, (_, config) => requireBridge().request(IPC.SCRIPT_EXECUTE, config))

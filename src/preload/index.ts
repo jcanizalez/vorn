@@ -166,6 +166,8 @@ const api = {
 
   killHeadlessSession: (id: string): Promise<void> => ipcRenderer.invoke(IPC.HEADLESS_KILL, id),
 
+  listHeadlessSessions: (): Promise<HeadlessSession[]> => ipcRenderer.invoke(IPC.HEADLESS_LIST),
+
   onHeadlessData: (callback: (event: { id: string; data: string }) => void) => {
     const listener = (_: Electron.IpcRendererEvent, event: { id: string; data: string }): void =>
       callback(event)

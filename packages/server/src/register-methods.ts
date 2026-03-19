@@ -121,6 +121,7 @@ export function registerAllMethods(): void {
   // Headless
   registerMethod('headless:create', (payload) => headlessManager.createHeadless(payload))
   registerMethod('headless:kill', (id) => headlessManager.killHeadless(id))
+  registerMethod('headless:list', () => headlessManager.getActiveSessions())
 
   // Scripts
   registerMethod('script:execute', (config) => executeScript(config))

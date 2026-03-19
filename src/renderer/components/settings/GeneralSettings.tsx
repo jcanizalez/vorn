@@ -99,6 +99,38 @@ export function GeneralSettings() {
           </SettingRow>
         )}
 
+        {/* Show Headless Agents */}
+        <SettingRow
+          label="Show Headless Agents"
+          description="Display background agent sessions above the session grid"
+        >
+          <ToggleSwitch
+            checked={config.defaults.showHeadlessAgents !== false}
+            onChange={(showHeadlessAgents) => updateDefaults({ showHeadlessAgents })}
+          />
+        </SettingRow>
+
+        {/* Completed Agent Retention */}
+        {config.defaults.showHeadlessAgents !== false && (
+          <SettingRow
+            label="Completed Agent Retention"
+            description="How long to show completed headless agents before auto-hiding"
+          >
+            <select
+              value={config.defaults.headlessRetentionMinutes ?? 5}
+              onChange={(e) => updateDefaults({ headlessRetentionMinutes: +e.target.value })}
+              className="w-32 px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] rounded-md text-sm
+                         text-gray-200 focus:border-white/[0.15] focus:outline-none"
+            >
+              <option value={1}>1 minute</option>
+              <option value={5}>5 minutes</option>
+              <option value={15}>15 minutes</option>
+              <option value={30}>30 minutes</option>
+              <option value={60}>1 hour</option>
+            </select>
+          </SettingRow>
+        )}
+
         {/* Update Channel — Electron only */}
         {isElectron && (
           <SettingRow

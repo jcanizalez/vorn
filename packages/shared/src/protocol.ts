@@ -109,6 +109,7 @@ export interface RequestMethods {
     result: HeadlessSession
   }
   'headless:kill': { params: string; result: void }
+  'headless:list': { params: void; result: HeadlessSession[] }
   'script:execute': { params: ScriptConfig; result: { output: string; exitCode: number } }
   'workflowRun:save': { params: WorkflowExecution; result: void }
   'workflowRun:list': {
