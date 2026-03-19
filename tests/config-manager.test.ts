@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 const mockInitDb = vi.fn()
 const mockCloseDb = vi.fn()
@@ -27,6 +27,11 @@ import fs from 'node:fs'
 beforeEach(() => {
   vi.clearAllMocks()
   vi.resetModules()
+  vi.useFakeTimers()
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 async function getConfigManager() {
@@ -88,6 +93,117 @@ describe('configManager', () => {
     const cm = await getConfigManager()
     cm.watchDb()
     expect(fs.watch).toHaveBeenCalled()
+  })
+
+  it('watchDb triggers notifyChanged for .db-signal files', async () => {
+    let watchCallback: (event: string, filename: string) => void = () => {}
+    vi.mocked(fs.watch).mockImplementation((_path: unknown, cb: unknown) => {
+      watchCallback = cb as typeof watchCallback
+      return { close: vi.fn() } as unknown as fs.FSWatcher
+    })
+
+    const config = { version: 1, defaults: { shell: '/bin/zsh' }, projects: [] }
+    mockLoadConfig.mockReturnValue(config)
+
+    const cm = await getConfigManager()
+    const callback = vi.fn()
+    cm.onConfigChanged(callback)
+    cm.watchDb()
+
+    watchCallback('change', '.db-signal')
+    await vi.advanceTimersByTimeAsync(300)
+
+    expect(callback).toHaveBeenCalledWith(config)
+  })
+
+  it('watchDb triggers notifyChanged for .db-wal files', async () => {
+    let watchCallback: (event: string, filename: string) => void = () => {}
+    vi.mocked(fs.watch).mockImplementation((_path: unknown, cb: unknown) => {
+      watchCallback = cb as typeof watchCallback
+      return { close: vi.fn() } as unknown as fs.FSWatcher
+    })
+
+    const config = { version: 1, defaults: { shell: '/bin/zsh' }, projects: [] }
+    mockLoadConfig.mockReturnValue(config)
+
+    const cm = await getConfigManager()
+    const callback = vi.fn()
+    cm.onConfigChanged(callback)
+    cm.watchDb()
+
+    watchCallback('change', 'vibegrid.db-wal')
+    await vi.advanceTimersByTimeAsync(300)
+
+    expect(callback).toHaveBeenCalledWith(config)
+  })
+
+  it('watchDb triggers notifyChanged for .db files', async () => {
+    let watchCallback: (event: string, filename: string) => void = () => {}
+    vi.mocked(fs.watch).mockImplementation((_path: unknown, cb: unknown) => {
+      watchCallback = cb as typeof watchCallback
+      return { close: vi.fn() } as unknown as fs.FSWatcher
+    })
+
+    const config = { version: 1, defaults: { shell: '/bin/zsh' }, projects: [] }
+    mockLoadConfig.mockReturnValue(config)
+
+    const cm = await getConfigManager()
+    const callback = vi.fn()
+    cm.onConfigChanged(callback)
+    cm.watchDb()
+
+    watchCallback('change', 'vibegrid.db')
+    await vi.advanceTimersByTimeAsync(300)
+
+    expect(callback).toHaveBeenCalledWith(config)
+  })
+
+  it('watchDb ignores unrelated files', async () => {
+    let watchCallback: (event: string, filename: string) => void = () => {}
+    vi.mocked(fs.watch).mockImplementation((_path: unknown, cb: unknown) => {
+      watchCallback = cb as typeof watchCallback
+      return { close: vi.fn() } as unknown as fs.FSWatcher
+    })
+
+    mockLoadConfig.mockReturnValue({ version: 1 })
+
+    const cm = await getConfigManager()
+    const callback = vi.fn()
+    cm.onConfigChanged(callback)
+    cm.watchDb()
+
+    watchCallback('change', 'something.json')
+    watchCallback('change', 'notes.txt')
+    watchCallback('change', '')
+    await vi.advanceTimersByTimeAsync(500)
+
+    expect(callback).not.toHaveBeenCalled()
+  })
+
+  it('watchDb debounces rapid events into a single notification', async () => {
+    let watchCallback: (event: string, filename: string) => void = () => {}
+    vi.mocked(fs.watch).mockImplementation((_path: unknown, cb: unknown) => {
+      watchCallback = cb as typeof watchCallback
+      return { close: vi.fn() } as unknown as fs.FSWatcher
+    })
+
+    const config = { version: 1, defaults: { shell: '/bin/zsh' }, projects: [] }
+    mockLoadConfig.mockReturnValue(config)
+
+    const cm = await getConfigManager()
+    const callback = vi.fn()
+    cm.onConfigChanged(callback)
+    cm.watchDb()
+
+    // Fire 5 rapid events — should coalesce into 1 notification
+    watchCallback('change', '.db-signal')
+    watchCallback('change', 'vibegrid.db-wal')
+    watchCallback('change', 'vibegrid.db')
+    watchCallback('change', '.db-signal')
+    watchCallback('change', '.db-signal')
+    await vi.advanceTimersByTimeAsync(300)
+
+    expect(callback).toHaveBeenCalledTimes(1)
   })
 
   it('close calls closeDatabase and stops watcher', async () => {
