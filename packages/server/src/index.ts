@@ -1,7 +1,6 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import Fastify from 'fastify'
 import websocket from '@fastify/websocket'
 import fastifyStatic from '@fastify/static'
@@ -14,8 +13,6 @@ import { scheduler } from './scheduler'
 import { setDataDir, getTaskImagePath as resolveTaskImagePath } from './task-images'
 import { getTailscaleStatus } from './tailscale'
 import log from './logger'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export async function startServer(
   options: { host?: string; port?: number; dataDir?: string } = {}
