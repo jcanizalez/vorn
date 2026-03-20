@@ -51,3 +51,7 @@ extraResources:
     to: 'server'
     filter:
       - '**/*'
+  - from: 'packages/web/dist'
+    to: 'web/dist'
+    filter:
+      - '**/*'

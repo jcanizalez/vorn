@@ -81,8 +81,12 @@ export async function startServer(
     }
   })
 
-  // Serve web app static files at /app/ if the dist directory exists
-  const webDistDir = path.resolve(__dirname, '../../web/dist')
+  // Serve web app static files at /app/ if the dist directory exists.
+  // Dev: __dirname = packages/server/src → ../../web/dist
+  // Prod: __dirname = Resources/server   → ../web/dist
+  const webDistDir = fs.existsSync(path.resolve(__dirname, '../web/dist'))
+    ? path.resolve(__dirname, '../web/dist')
+    : path.resolve(__dirname, '../../web/dist')
   if (fs.existsSync(webDistDir)) {
     await app.register(fastifyStatic, {
       root: webDistDir,
