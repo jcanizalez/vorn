@@ -1862,7 +1862,7 @@
       const REPO = 'jcanizalez/vibegrid'
       const ASSET_MATCH = {
         mac: (name) => name.endsWith('.dmg') && !name.endsWith('.blockmap'),
-        win: (name) => /Setup.*\.exe$/.test(name) && !name.endsWith('.blockmap'),
+        win: (name) => /-Setup-.*\.exe$/.test(name) && !name.endsWith('.blockmap'),
         linux: (name) => name.endsWith('.AppImage')
       }
       const osButtons = document.querySelectorAll('.os-btn')
