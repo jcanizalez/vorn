@@ -30,10 +30,34 @@ Write-Host "Downloading $Artifact..."
 Invoke-WebRequest -Uri $Url -OutFile $InstallerPath -UseBasicParsing
 
 Write-Host "Running installer..."
-Start-Process -FilePath $InstallerPath -ArgumentList "/S" -Wait
+$process = Start-Process -FilePath $InstallerPath -ArgumentList "/S" -Wait -PassThru
+
+if ($process.ExitCode -ne 0) {
+    Write-Error "Installer exited with code $($process.ExitCode)."
+    exit 1
+}
+
+# Verify installation at the default per-user location
+$InstallDir = Join-Path $env:LOCALAPPDATA "Programs\$AppName"
+$ExePath = Join-Path $InstallDir "$AppName.exe"
+
+if (-not (Test-Path $ExePath)) {
+    Write-Error "Installation could not be verified — $ExePath not found."
+    Write-Host "Try running the installer manually: $InstallerPath"
+    exit 1
+}
+
+# Add install directory to user PATH if not already present
+$UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
+if ($UserPath -notlike "*$InstallDir*") {
+    [Environment]::SetEnvironmentVariable("Path", "$UserPath;$InstallDir", "User")
+    Write-Host "Added $InstallDir to your PATH."
+}
 
 Write-Host "Cleaning up..."
 Remove-Item -Recurse -Force $TempDir
 
-Write-Host "$AppName $Version installed!"
+Write-Host ""
+Write-Host "$AppName $Version installed to $InstallDir"
+Write-Host "Launch from Start Menu, desktop shortcut, or run '$AppName' in a new terminal."
 Write-Host "Done!"
