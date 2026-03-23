@@ -1,4 +1,5 @@
 import { execFileSync, execFile } from 'node:child_process'
+import fs from 'node:fs'
 import type { RemoteHost } from '@vibegrid/shared/types'
 
 function getUserShellEnv(): Record<string, string> {
@@ -67,6 +68,20 @@ export function getSafeEnv(): Record<string, string> {
     env[key] = val
   }
   return env
+}
+
+/**
+ * Normalize a filesystem path for reliable comparison.
+ * Strips trailing slashes and resolves symlinks when the path exists.
+ */
+export function normalizePath(p: string): string {
+  let result = p.replace(/\/+$/, '')
+  try {
+    result = fs.realpathSync(result)
+  } catch {
+    // Path doesn't exist — just use the stripped version
+  }
+  return result
 }
 
 export interface SshTestResult {

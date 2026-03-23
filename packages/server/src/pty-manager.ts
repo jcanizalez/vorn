@@ -17,7 +17,7 @@ import {
 import { getGitBranch, checkoutBranch, createWorktree } from './git-utils'
 import { DEFAULT_AGENT_COMMANDS } from '@vibegrid/shared/agent-defaults'
 import { buildAgentLaunchLine as buildLaunchLine } from './agent-launch'
-import { shellEscape, getSafeEnv, getDefaultShell } from './process-utils'
+import { shellEscape, getSafeEnv, getDefaultShell, normalizePath } from './process-utils'
 
 class PtyManager extends EventEmitter {
   private ptys = new Map<string, pty.IPty>()
@@ -498,14 +498,14 @@ class PtyManager extends EventEmitter {
    * - is NOT in the excludeIds set (already claimed by another session_id)
    */
   findUnlinkedSessionByCwd(cwd: string, excludeIds: Set<string>): TerminalSession | undefined {
-    const normalizedCwd = cwd.replace(/\/+$/, '')
+    const normalizedCwd = normalizePath(cwd)
     let best: TerminalSession | undefined
     let bestTime = 0
 
     for (const session of this.sessions.values()) {
       if (session.hookSessionId) continue // already linked
       if (excludeIds.has(session.id)) continue
-      const sessionPath = (session.worktreePath || session.projectPath).replace(/\/+$/, '')
+      const sessionPath = normalizePath(session.worktreePath || session.projectPath)
       if (sessionPath === normalizedCwd && session.createdAt > bestTime) {
         best = session
         bestTime = session.createdAt

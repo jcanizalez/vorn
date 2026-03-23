@@ -226,6 +226,12 @@ export function registerAllMethods(): void {
     clientRegistry.broadcast(channel, payload)
   })
 
+  // ─── Persistent session auto-save ──────────────────────────────
+  // Save sessions on every state change so we don't rely solely on the
+  // shutdown path (which has a race with bridge.close and doesn't cover
+  // force-quit / crash).
+  sessionManager.startAutoSave(() => ptyManager.getActiveSessions())
+
   // ─── Hook server integration ──────────────────────────────────
 
   // Handle new terminal sessions: broadcast to UI + Copilot hook setup
@@ -242,6 +248,8 @@ export function registerAllMethods(): void {
       session.hookSessionId = installation.sessionId
       session.statusSource = 'hooks'
     }
+
+    sessionManager.scheduleSave()
   })
 
   // Clean up Copilot hooks on session exit
@@ -251,6 +259,8 @@ export function registerAllMethods(): void {
       uninstallCopilotHooks(inst)
       copilotInstallations.delete(session.id)
     }
+
+    sessionManager.scheduleSave()
   })
 
   // Start hook server
@@ -274,7 +284,9 @@ export function registerAllMethods(): void {
           ptyManager.updateSessionStatus(result.terminalId, result.status)
           broadcastWidgetUpdate()
 
+          // Persist after hookSessionId is set (SessionStart links the session)
           if (event.hook_event_name === 'SessionStart') {
+            sessionManager.scheduleSave()
             try {
               const config = configManager.loadConfig()
               const task = config.tasks?.find(

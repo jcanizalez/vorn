@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAppStore } from '../stores'
 import { RotateCcw, X } from 'lucide-react'
+import { resolveResumeSessionId } from '../lib/session-utils'
 
 export function SessionRestoredBanner() {
   const previousSessions = useAppStore((s) => s.previousSessions)
@@ -16,17 +17,7 @@ export function SessionRestoredBanner() {
   const handleRestore = async (): Promise<void> => {
     setRestoring(true)
     for (const prev of previousSessions) {
-      // Prefer the hook-correlated session ID (exact match); fall back to
-      // scanning the agent's history file when hooks weren't active.
-      let resumeSessionId: string | undefined
-      if (prev.hookSessionId) {
-        resumeSessionId = prev.hookSessionId
-      } else {
-        const recentSessions = await window.api.getRecentSessions(prev.projectPath)
-        const match = recentSessions.find((s) => s.agentType === prev.agentType)
-        if (match) resumeSessionId = match.sessionId
-      }
-
+      const resumeSessionId = await resolveResumeSessionId(prev)
       const session = await window.api.createTerminal({
         agentType: prev.agentType,
         projectName: prev.projectName,

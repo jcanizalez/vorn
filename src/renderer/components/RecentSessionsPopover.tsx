@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../stores'
 import { RecentSession } from '../../shared/types'
 import { AgentIcon } from './AgentIcon'
+import { resolveProjectName } from '../lib/session-utils'
 
 function timeAgo(ts: number): string {
   const sec = Math.floor((Date.now() - ts) / 1000)
@@ -41,15 +42,19 @@ export function RecentSessionsPopover({ isOpen, onClose }: Props) {
   }, [isOpen, activeProject, config])
 
   const handleResume = async (session: RecentSession): Promise<void> => {
-    const project = config?.projects.find((p) => p.path === session.projectPath)
-    const result = await window.api.createTerminal({
-      agentType: session.agentType,
-      projectName: project?.name || session.projectPath.split('/').pop() || 'untitled',
-      projectPath: session.projectPath,
-      resumeSessionId: session.sessionId
-    })
-    addTerminal(result)
-    onClose()
+    try {
+      const projectName = resolveProjectName(session, config?.projects)
+      const result = await window.api.createTerminal({
+        agentType: session.agentType,
+        projectName,
+        projectPath: session.projectPath,
+        resumeSessionId: session.sessionId
+      })
+      addTerminal(result)
+      onClose()
+    } catch (err) {
+      console.error('[RecentSessionsPopover] failed to resume session:', err)
+    }
   }
 
   return (

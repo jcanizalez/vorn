@@ -163,10 +163,9 @@ export async function startServer(
 
   const shutdown = async () => {
     log.info('[server] shutting down...')
-    const sessions = ptyManager.getActiveSessions()
-    if (sessions.length > 0) {
-      sessionManager.saveSessions(sessions)
-    }
+    // Stop the periodic timer first, then do one final synchronous save
+    sessionManager.stopAutoSave()
+    sessionManager.persistNow()
     hookServer.stop()
     uninstallHooks()
     uninstallAllCopilotHooks()

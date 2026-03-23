@@ -6,6 +6,7 @@ import { SortMode, StatusFilter } from '../stores/types'
 import { AGENT_DEFINITIONS, AGENT_LIST } from '../lib/agent-definitions'
 import { AgentIcon } from './AgentIcon'
 import { getDisplayName } from '../lib/terminal-display'
+import { resolveProjectName } from '../lib/session-utils'
 import { executeWorkflow } from '../lib/workflow-execution'
 import { useAgentInstallStatus } from '../hooks/useAgentInstallStatus'
 import {
@@ -289,8 +290,7 @@ function useCommands(
 
     // --- Recent Sessions ---
     for (const session of recentSessions) {
-      const project = config?.projects.find((p) => p.path === session.projectPath)
-      const projectName = project?.name || session.projectPath.split('/').pop() || ''
+      const projectName = resolveProjectName(session, config?.projects)
       commands.push({
         id: `recent:${session.sessionId}`,
         label: session.display || 'Untitled session',
@@ -299,13 +299,17 @@ function useCommands(
         icon: <AgentIcon agentType={session.agentType} size={14} />,
         keywords: ['resume', 'recent', 'history', projectName, session.agentType],
         onExecute: async () => {
-          const result = await window.api.createTerminal({
-            agentType: session.agentType,
-            projectName: project?.name || session.projectPath.split('/').pop() || 'untitled',
-            projectPath: session.projectPath,
-            resumeSessionId: session.sessionId
-          })
-          addTerminal(result)
+          try {
+            const result = await window.api.createTerminal({
+              agentType: session.agentType,
+              projectName,
+              projectPath: session.projectPath,
+              resumeSessionId: session.sessionId
+            })
+            addTerminal(result)
+          } catch (err) {
+            console.error('[CommandPalette] failed to resume session:', err)
+          }
         }
       })
     }
