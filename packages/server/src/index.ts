@@ -2,6 +2,11 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import Fastify from 'fastify'
+
+// CJS (prod bundle): __dirname is a global. ESM (dev/tsx): fall back to the
+// directory of the entry script. Avoids import.meta.url which tsup emits as
+// import_meta.url in the CJS bundle, crashing at runtime.
+const _dirname = typeof __dirname !== 'undefined' ? __dirname : path.dirname(process.argv[1])
 import websocket from '@fastify/websocket'
 import fastifyStatic from '@fastify/static'
 import { handleConnection, registerMethod } from './ws-handler'
@@ -82,11 +87,11 @@ export async function startServer(
   })
 
   // Serve web app static files at /app/ if the dist directory exists.
-  // Dev: __dirname = packages/server/src → ../../web/dist
-  // Prod: __dirname = Resources/server   → ../web/dist
-  const webDistDir = fs.existsSync(path.resolve(__dirname, '../web/dist'))
-    ? path.resolve(__dirname, '../web/dist')
-    : path.resolve(__dirname, '../../web/dist')
+  // Dev: _dirname = packages/server/src → ../../web/dist
+  // Prod: _dirname = Resources/server   → ../web/dist
+  const webDistDir = fs.existsSync(path.resolve(_dirname, '../web/dist'))
+    ? path.resolve(_dirname, '../web/dist')
+    : path.resolve(_dirname, '../../web/dist')
   if (fs.existsSync(webDistDir)) {
     await app.register(fastifyStatic, {
       root: webDistDir,
