@@ -5,7 +5,8 @@ vi.mock('node:fs', () => ({
     existsSync: vi.fn(() => false),
     readFileSync: vi.fn(() => ''),
     readdirSync: vi.fn(() => []),
-    statSync: vi.fn(() => ({ mtimeMs: 0 }))
+    statSync: vi.fn(() => ({ mtimeMs: 0 })),
+    realpathSync: vi.fn((p: string) => p)
   }
 }))
 vi.mock('node:child_process', () => ({
@@ -122,5 +123,57 @@ describe('aggregate', () => {
     for (let i = 1; i < sessions.length; i++) {
       expect(sessions[i - 1].timestamp).toBeGreaterThanOrEqual(sessions[i].timestamp)
     }
+  })
+})
+
+describe('Claude provider path normalization', () => {
+  it('matches when filter has trailing slash but history does not', () => {
+    vi.mocked(fs.existsSync).mockImplementation((p) => String(p).includes('.claude/history.jsonl'))
+    vi.mocked(fs.readFileSync).mockReturnValueOnce(
+      JSON.stringify({ sessionId: 's1', display: 'Fix', project: '/app', timestamp: 1000 })
+    )
+    // realpathSync returns as-is (no symlinks)
+    vi.mocked(fs.realpathSync).mockImplementation((p) => String(p))
+
+    const sessions = getRecentSessions('/app/')
+    const claude = sessions.filter((s) => s.agentType === 'claude')
+    expect(claude).toHaveLength(1)
+    expect(claude[0].sessionId).toBe('s1')
+  })
+
+  it('matches when history has trailing slash but filter does not', () => {
+    vi.mocked(fs.existsSync).mockImplementation((p) => String(p).includes('.claude/history.jsonl'))
+    vi.mocked(fs.readFileSync).mockReturnValueOnce(
+      JSON.stringify({ sessionId: 's1', display: 'Fix', project: '/app/', timestamp: 1000 })
+    )
+    vi.mocked(fs.realpathSync).mockImplementation((p) => String(p))
+
+    const sessions = getRecentSessions('/app')
+    const claude = sessions.filter((s) => s.agentType === 'claude')
+    expect(claude).toHaveLength(1)
+  })
+
+  it('matches via symlink resolution', () => {
+    vi.mocked(fs.existsSync).mockImplementation((p) => String(p).includes('.claude/history.jsonl'))
+    vi.mocked(fs.readFileSync).mockReturnValueOnce(
+      JSON.stringify({
+        sessionId: 's1',
+        display: 'Fix',
+        project: '/var/data',
+        timestamp: 1000
+      })
+    )
+    // Simulate macOS symlink: /var -> /private/var
+    vi.mocked(fs.realpathSync).mockImplementation((p) => {
+      const s = String(p)
+      if (s.startsWith('/var/')) return s.replace('/var/', '/private/var/')
+      if (s.startsWith('/private/var/')) return s
+      return s
+    })
+
+    const sessions = getRecentSessions('/private/var/data')
+    const claude = sessions.filter((s) => s.agentType === 'claude')
+    expect(claude).toHaveLength(1)
+    expect(claude[0].sessionId).toBe('s1')
   })
 })

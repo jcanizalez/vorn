@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAppStore } from '../stores'
 import { RotateCcw, X } from 'lucide-react'
+import { resolveResumeSessionId } from '../lib/session-utils'
 
 export function SessionRestoredBanner() {
   const previousSessions = useAppStore((s) => s.previousSessions)
@@ -15,18 +16,10 @@ export function SessionRestoredBanner() {
 
   const handleRestore = async (): Promise<void> => {
     setRestoring(true)
+    const claimed = new Set<string>()
     for (const prev of previousSessions) {
-      // Prefer the hook-correlated session ID (exact match); fall back to
-      // scanning the agent's history file when hooks weren't active.
-      let resumeSessionId: string | undefined
-      if (prev.hookSessionId) {
-        resumeSessionId = prev.hookSessionId
-      } else {
-        const recentSessions = await window.api.getRecentSessions(prev.projectPath)
-        const match = recentSessions.find((s) => s.agentType === prev.agentType)
-        if (match) resumeSessionId = match.sessionId
-      }
-
+      const resumeSessionId = await resolveResumeSessionId(prev, claimed)
+      if (resumeSessionId) claimed.add(resumeSessionId)
       const session = await window.api.createTerminal({
         agentType: prev.agentType,
         projectName: prev.projectName,
@@ -52,7 +45,13 @@ export function SessionRestoredBanner() {
         <RotateCcw size={16} className="text-gray-400 shrink-0" />
         <p className="text-sm text-gray-300">
           {previousSessions.length} previous session{previousSessions.length !== 1 ? 's' : ''} can
-          be restored.
+          be restored
+          <span className="text-gray-500">
+            {' · '}
+            {new Set(previousSessions.map((s) => s.projectName)).size === 1
+              ? previousSessions[0].projectName
+              : `${new Set(previousSessions.map((s) => s.projectName)).size} projects`}
+          </span>
         </p>
       </div>
       <div className="flex items-center gap-2 ml-4 shrink-0">

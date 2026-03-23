@@ -3,6 +3,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { execFileSync } from 'node:child_process'
 import { AgentType, RecentSession } from '@vibegrid/shared/types'
+import { normalizePath } from './process-utils'
 
 interface AgentHistoryProvider {
   getRecentSessions(projectPath?: string, limit?: number): RecentSession[]
@@ -48,6 +49,19 @@ const claudeProvider: AgentHistoryProvider = {
       const raw = fs.readFileSync(historyPath, 'utf-8')
       const lines = raw.trim().split('\n').filter(Boolean)
 
+      // Normalize filter once; cache per-entry results so repeated project
+      // paths (common in history) only hit realpathSync once.
+      const normalizedFilter = projectPath ? normalizePath(projectPath) : undefined
+      const normalizedCache = new Map<string, string>()
+      const normalizeEntry = (p: string): string => {
+        let cached = normalizedCache.get(p)
+        if (cached === undefined) {
+          cached = normalizePath(p)
+          normalizedCache.set(p, cached)
+        }
+        return cached
+      }
+
       const sessionMap = new Map<
         string,
         {
@@ -64,7 +78,7 @@ const claudeProvider: AgentHistoryProvider = {
           const entry: ClaudeHistoryEntry = JSON.parse(line)
           if (!entry.sessionId || !entry.project) continue
 
-          if (projectPath && entry.project !== projectPath) continue
+          if (normalizedFilter && normalizeEntry(entry.project) !== normalizedFilter) continue
 
           const existing = sessionMap.get(entry.sessionId)
           if (existing) {

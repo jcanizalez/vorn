@@ -3,6 +3,7 @@ import { useAppStore } from '../stores'
 import { RecentSession } from '../../shared/types'
 import { AgentIcon } from './AgentIcon'
 import { RotateCcw } from 'lucide-react'
+import { resolveProjectName } from '../lib/session-utils'
 
 function timeAgo(ts: number): string {
   const sec = Math.floor((Date.now() - ts) / 1000)
@@ -34,14 +35,18 @@ export function RecentSessionsCard() {
   }, [activeProject, config])
 
   const handleResume = async (session: RecentSession): Promise<void> => {
-    const project = config?.projects.find((p) => p.path === session.projectPath)
-    const result = await window.api.createTerminal({
-      agentType: session.agentType,
-      projectName: project?.name || session.projectPath.split('/').pop() || 'untitled',
-      projectPath: session.projectPath,
-      resumeSessionId: session.sessionId
-    })
-    addTerminal(result)
+    try {
+      const projectName = resolveProjectName(session, config?.projects)
+      const result = await window.api.createTerminal({
+        agentType: session.agentType,
+        projectName,
+        projectPath: session.projectPath,
+        resumeSessionId: session.sessionId
+      })
+      addTerminal(result)
+    } catch (err) {
+      console.error('[RecentSessionsCard] failed to resume session:', err)
+    }
   }
 
   return (
@@ -54,8 +59,11 @@ export function RecentSessionsCard() {
       <div className="flex items-center gap-2 px-3 py-2 border-b border-white/[0.04] shrink-0">
         <RotateCcw size={14} className="text-gray-500" strokeWidth={1.5} />
         <span className="text-[13px] font-medium text-gray-300">Recent Sessions</span>
+        <span className="text-[11px] text-gray-600 truncate">
+          {activeProject ? `· ${activeProject}` : '· All Projects'}
+        </span>
         {sessions.length > 0 && (
-          <span className="text-gray-600 text-xs ml-auto">{sessions.length}</span>
+          <span className="text-gray-600 text-xs ml-auto shrink-0">{sessions.length}</span>
         )}
       </div>
 

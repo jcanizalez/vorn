@@ -44,6 +44,7 @@ import { ToastContainer } from './components/Toast'
 import { AddTaskDialog } from './components/AddTaskDialog'
 import { isWeb } from './lib/platform'
 import { useIsMobile } from './hooks/useIsMobile'
+import { resolveResumeSessionId } from './lib/session-utils'
 const isMac = navigator.platform.toUpperCase().includes('MAC')
 
 function WindowControls() {
@@ -187,15 +188,10 @@ export function App() {
           if (config.defaults.reopenSessions) {
             // Auto-restore sessions — prefer hook-correlated session ID (exact),
             // fall back to scanning agent history when hooks weren't active.
+            const claimed = new Set<string>()
             for (const s of prev) {
-              let resumeSessionId: string | undefined
-              if (s.hookSessionId) {
-                resumeSessionId = s.hookSessionId
-              } else {
-                const recentSessions = await window.api.getRecentSessions(s.projectPath)
-                const match = recentSessions.find((r) => r.agentType === s.agentType)
-                if (match) resumeSessionId = match.sessionId
-              }
+              const resumeSessionId = await resolveResumeSessionId(s, claimed)
+              if (resumeSessionId) claimed.add(resumeSessionId)
               const session = await window.api.createTerminal({
                 agentType: s.agentType,
                 projectName: s.projectName,

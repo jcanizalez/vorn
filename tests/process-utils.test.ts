@@ -187,3 +187,47 @@ describe('process-utils (server package)', () => {
     })
   })
 })
+
+describe('normalizePath', () => {
+  const mockRealpathSync = vi.fn()
+
+  beforeEach(async () => {
+    vi.resetModules()
+    mockRealpathSync.mockReset()
+    vi.doMock('node:fs', () => ({
+      default: { realpathSync: mockRealpathSync }
+    }))
+  })
+
+  it('strips trailing slashes', async () => {
+    mockRealpathSync.mockImplementation((p: string) => p)
+    const { normalizePath } = await import('../packages/server/src/process-utils')
+    expect(normalizePath('/app/')).toBe('/app')
+  })
+
+  it('strips multiple trailing slashes', async () => {
+    mockRealpathSync.mockImplementation((p: string) => p)
+    const { normalizePath } = await import('../packages/server/src/process-utils')
+    expect(normalizePath('/app///')).toBe('/app')
+  })
+
+  it('is a no-op for paths without trailing slashes', async () => {
+    mockRealpathSync.mockImplementation((p: string) => p)
+    const { normalizePath } = await import('../packages/server/src/process-utils')
+    expect(normalizePath('/app')).toBe('/app')
+  })
+
+  it('falls back to stripped path when realpathSync throws', async () => {
+    mockRealpathSync.mockImplementation(() => {
+      throw new Error('ENOENT')
+    })
+    const { normalizePath } = await import('../packages/server/src/process-utils')
+    expect(normalizePath('/nonexistent/path/')).toBe('/nonexistent/path')
+  })
+
+  it('resolves symlinks via realpathSync', async () => {
+    mockRealpathSync.mockImplementation(() => '/private/var/data')
+    const { normalizePath } = await import('../packages/server/src/process-utils')
+    expect(normalizePath('/var/data')).toBe('/private/var/data')
+  })
+})
