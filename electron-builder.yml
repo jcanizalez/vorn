@@ -27,7 +27,17 @@ win:
     - nsis
     - portable
   icon: resources/icon.ico
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
   artifactName: '${productName}-Setup-${version}.${ext}'
+
+portable:
+  artifactName: '${productName}-Portable-${version}.${ext}'
 
 linux:
   target:
