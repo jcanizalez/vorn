@@ -76,8 +76,11 @@ export function RecentSessionsPopover({ isOpen, onClose }: Props) {
             {/* Header */}
             <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06] shrink-0">
               <span className="text-[13px] font-medium text-white">Recent Sessions</span>
+              <span className="text-[11px] text-gray-500 truncate">
+                {activeProject ? `· ${activeProject}` : '· All Projects'}
+              </span>
               {sessions.length > 0 && (
-                <span className="text-gray-600 text-xs ml-auto">{sessions.length}</span>
+                <span className="text-gray-600 text-xs ml-auto shrink-0">{sessions.length}</span>
               )}
             </div>
 

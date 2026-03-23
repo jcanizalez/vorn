@@ -43,7 +43,13 @@ export function SessionRestoredBanner() {
         <RotateCcw size={16} className="text-gray-400 shrink-0" />
         <p className="text-sm text-gray-300">
           {previousSessions.length} previous session{previousSessions.length !== 1 ? 's' : ''} can
-          be restored.
+          be restored
+          <span className="text-gray-500">
+            {' · '}
+            {new Set(previousSessions.map((s) => s.projectName)).size === 1
+              ? previousSessions[0].projectName
+              : `${new Set(previousSessions.map((s) => s.projectName)).size} projects`}
+          </span>
         </p>
       </div>
       <div className="flex items-center gap-2 ml-4 shrink-0">

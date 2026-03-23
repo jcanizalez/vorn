@@ -59,8 +59,11 @@ export function RecentSessionsCard() {
       <div className="flex items-center gap-2 px-3 py-2 border-b border-white/[0.04] shrink-0">
         <RotateCcw size={14} className="text-gray-500" strokeWidth={1.5} />
         <span className="text-[13px] font-medium text-gray-300">Recent Sessions</span>
+        <span className="text-[11px] text-gray-600 truncate">
+          {activeProject ? `· ${activeProject}` : '· All Projects'}
+        </span>
         {sessions.length > 0 && (
-          <span className="text-gray-600 text-xs ml-auto">{sessions.length}</span>
+          <span className="text-gray-600 text-xs ml-auto shrink-0">{sessions.length}</span>
         )}
       </div>
 
