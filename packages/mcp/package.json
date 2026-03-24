@@ -19,7 +19,8 @@
     "task-management"
   ],
   "bin": {
-    "vibegrid-mcp": "dist/index.js"
+    "vibegrid-mcp": "dist/index.js",
+    "mcp": "dist/index.js"
   },
   "main": "./dist/index.js",
   "files": [
