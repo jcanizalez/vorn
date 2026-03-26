@@ -6,7 +6,8 @@ import type {
   TerminalSession,
   HeadlessSession,
   RecentSession,
-  ArchivedSession
+  ArchivedSession,
+  SessionEvent
 } from '@vibegrid/shared/types'
 import { V } from '../validation'
 import { rpcCall, rpcNotify } from '../ws-client'
@@ -276,6 +277,52 @@ export function registerSessionTools(server: McpServer): void {
             {
               type: 'text',
               text: `Error writing to terminal: ${err instanceof Error ? err.message : err}`
+            }
+          ],
+          isError: true
+        }
+      }
+    }
+  )
+
+  server.tool(
+    'list_session_events',
+    'List session lifecycle events (created, exited, task_linked, renamed, archived, unarchived). Use for post-mortem analysis and multi-agent coordination.',
+    {
+      session_id: V.id.optional().describe('Filter by session ID'),
+      event_type: z
+        .enum(['created', 'exited', 'task_linked', 'renamed', 'archived', 'unarchived'])
+        .optional()
+        .describe('Filter by event type'),
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(200)
+        .optional()
+        .describe('Max events to return (default: 50)')
+    },
+    async (args) => {
+      try {
+        let events: SessionEvent[]
+        if (args.session_id) {
+          events = await rpcCall<SessionEvent[]>('sessionEvent:listBySession', {
+            sessionId: args.session_id,
+            limit: args.limit ?? 50
+          })
+        } else {
+          events = await rpcCall<SessionEvent[]>('sessionEvent:list', {
+            eventType: args.event_type,
+            limit: args.limit ?? 50
+          })
+        }
+        return { content: [{ type: 'text', text: JSON.stringify(events, null, 2) }] }
+      } catch (err) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error listing session events: ${err instanceof Error ? err.message : err}`
             }
           ],
           isError: true

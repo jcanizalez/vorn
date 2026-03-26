@@ -20,7 +20,9 @@ import {
   AgentType,
   WorkspaceConfig,
   DEFAULT_WORKSPACE,
-  SessionLog
+  SessionLog,
+  SessionEvent,
+  SessionEventType
 } from '@vibegrid/shared/types'
 import { DEFAULT_AGENT_COMMANDS } from '@vibegrid/shared/agent-defaults'
 
@@ -315,6 +317,17 @@ function createSchema(): void {
 
     CREATE INDEX IF NOT EXISTS idx_session_logs_task ON session_logs(task_id);
     CREATE INDEX IF NOT EXISTS idx_session_logs_session ON session_logs(session_id);
+
+    CREATE TABLE IF NOT EXISTS session_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      timestamp TEXT NOT NULL,
+      metadata TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_session_events_session ON session_events(session_id, timestamp DESC);
+    CREATE INDEX IF NOT EXISTS idx_session_events_type ON session_events(event_type, timestamp DESC);
   `)
 
   migrateSchema(d)
@@ -1785,4 +1798,62 @@ export function listSessionLogs(taskId: string): SessionLog[] {
     logs: (r.logs as string | null) ?? undefined,
     projectName: (r.project_name as string | null) ?? undefined
   }))
+}
+
+// ─── Session Events ───────────────────────────────────────────────
+
+const MAX_SESSION_EVENTS_PER_SESSION = 200
+
+export function insertSessionEvent(event: SessionEvent): void {
+  const d = getDb()
+  d.prepare(
+    `INSERT INTO session_events (session_id, event_type, timestamp, metadata)
+     VALUES (?, ?, ?, ?)`
+  ).run(
+    event.sessionId,
+    event.eventType,
+    event.timestamp,
+    event.metadata ? JSON.stringify(event.metadata) : null
+  )
+
+  // Prune old events — keep only the most recent N per session
+  d.prepare(
+    `DELETE FROM session_events WHERE session_id = ? AND id NOT IN (
+       SELECT id FROM session_events WHERE session_id = ? ORDER BY timestamp DESC LIMIT ?
+     )`
+  ).run(event.sessionId, event.sessionId, MAX_SESSION_EVENTS_PER_SESSION)
+}
+
+export function listSessionEvents(eventType?: SessionEventType, limit = 100): SessionEvent[] {
+  const d = getDb()
+  let rows: Array<Record<string, unknown>>
+  if (eventType) {
+    rows = d
+      .prepare('SELECT * FROM session_events WHERE event_type = ? ORDER BY timestamp DESC LIMIT ?')
+      .all(eventType, limit) as Array<Record<string, unknown>>
+  } else {
+    rows = d
+      .prepare('SELECT * FROM session_events ORDER BY timestamp DESC LIMIT ?')
+      .all(limit) as Array<Record<string, unknown>>
+  }
+  return rows.map(mapSessionEventRow)
+}
+
+export function listSessionEventsBySession(sessionId: string, limit = 100): SessionEvent[] {
+  const d = getDb()
+  const rows = d
+    .prepare('SELECT * FROM session_events WHERE session_id = ? ORDER BY timestamp DESC LIMIT ?')
+    .all(sessionId, limit) as Array<Record<string, unknown>>
+  return rows.map(mapSessionEventRow)
+}
+
+function mapSessionEventRow(r: Record<string, unknown>): SessionEvent {
+  const meta = r.metadata as string | null
+  return {
+    id: r.id as number,
+    sessionId: r.session_id as string,
+    eventType: r.event_type as SessionEvent['eventType'],
+    timestamp: r.timestamp as string,
+    ...(meta != null && { metadata: JSON.parse(meta) })
+  }
 }

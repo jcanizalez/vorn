@@ -16,7 +16,9 @@ import type {
   WorkflowDefinition,
   SSHKey,
   SSHKeyMeta,
-  SessionLog
+  SessionLog,
+  SessionEvent,
+  SessionEventType
 } from './types'
 
 // ─── JSON-RPC 2.0 Envelope Types ────────────────────────────────
@@ -131,6 +133,14 @@ export interface RequestMethods {
   'sessionLog:update': {
     params: SessionLog
     result: void
+  }
+  'sessionEvent:list': {
+    params: { eventType?: SessionEventType; limit?: number }
+    result: SessionEvent[]
+  }
+  'sessionEvent:listBySession': {
+    params: { sessionId: string; limit?: number }
+    result: SessionEvent[]
   }
   'agent:detectInstalled': {
     params: void
