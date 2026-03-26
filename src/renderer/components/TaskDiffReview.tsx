@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../stores'
-import { GitDiffResult } from '../../shared/types'
+import { GitDiffResult, supportsExactSessionResume } from '../../shared/types'
 import { DiffFileList, DiffContent } from './DiffSidebar'
 import { CommitDialog } from './CommitDialog'
 import { toast } from './Toast'
@@ -132,7 +132,12 @@ export function TaskDiffReview() {
     const feedback = formatReviewFeedback(comments)
 
     // Resume the agent session with feedback
-    if (task.agentSessionId && task.assignedAgent && project) {
+    if (
+      task.agentSessionId &&
+      task.assignedAgent &&
+      project &&
+      supportsExactSessionResume(task.assignedAgent)
+    ) {
       const session = await window.api.createTerminal({
         agentType: task.assignedAgent,
         projectName: task.projectName,
@@ -341,7 +346,7 @@ export function TaskDiffReview() {
             <CommitDialog
               cwd={cwd}
               branch={task.branch}
-              stat={stat}
+              stat={stat ?? undefined}
               onClose={() => setShowCommitDialog(false)}
               onCommitted={() => {
                 fetchDiff()

@@ -1,7 +1,12 @@
 import { useState, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../stores'
-import { TaskConfig, TaskStatus, TaskViewMode } from '../../shared/types'
+import {
+  TaskConfig,
+  TaskStatus,
+  TaskViewMode,
+  supportsExactSessionResume
+} from '../../shared/types'
 import { buildTaskPrompt } from '../../shared/prompt-builder'
 import { AgentIcon } from './AgentIcon'
 import { MarkdownPreview } from './MarkdownEditor'
@@ -451,6 +456,7 @@ export function TaskQueuePanel() {
     if (
       task.agentSessionId &&
       task.assignedAgent &&
+      supportsExactSessionResume(task.assignedAgent) &&
       (task.status === 'in_progress' || task.status === 'in_review' || task.status === 'done')
     ) {
       return async () => {

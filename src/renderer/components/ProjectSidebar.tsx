@@ -7,7 +7,8 @@ import {
   ProjectConfig,
   AgentStatus,
   AgentType,
-  TaskConfig
+  TaskConfig,
+  supportsExactSessionResume
 } from '../../shared/types'
 import type { WorktreeInfo } from '../stores/types'
 import { buildTaskPrompt } from '../../shared/prompt-builder'
@@ -1052,7 +1053,10 @@ export function ProjectSidebar() {
                                       terminals.has(task.assignedSessionId)
                                     )
                                     const canResume =
-                                      !sessionLive && !!task.agentSessionId && !!task.assignedAgent
+                                      !sessionLive &&
+                                      !!task.agentSessionId &&
+                                      !!task.assignedAgent &&
+                                      supportsExactSessionResume(task.assignedAgent)
                                     return (
                                       <div key={task.id} className="group/task flex items-center">
                                         <button
@@ -1453,26 +1457,29 @@ export function ProjectSidebar() {
                             <RotateCcw size={11} strokeWidth={2} />
                           </button>
                         </Tooltip>
-                        <Tooltip label="Resume session" position="right">
-                          <button
-                            onClick={async () => {
-                              const agentType = session.agentType
-                              const newSession = await window.api.createTerminal({
-                                agentType,
-                                projectName: session.projectName,
-                                projectPath: session.projectPath,
-                                resumeSessionId: session.agentSessionId
-                              })
-                              addTerminal(newSession)
-                              await unarchiveSession(session.id)
-                              setFocusedTerminal(newSession.id)
-                            }}
-                            className="opacity-0 group-hover/archived:opacity-100 text-gray-600 hover:text-green-400
+                        {session.agentSessionId &&
+                          supportsExactSessionResume(session.agentType) && (
+                            <Tooltip label="Resume session" position="right">
+                              <button
+                                onClick={async () => {
+                                  const agentType = session.agentType
+                                  const newSession = await window.api.createTerminal({
+                                    agentType,
+                                    projectName: session.projectName,
+                                    projectPath: session.projectPath,
+                                    resumeSessionId: session.agentSessionId
+                                  })
+                                  addTerminal(newSession)
+                                  await unarchiveSession(session.id)
+                                  setFocusedTerminal(newSession.id)
+                                }}
+                                className="opacity-0 group-hover/archived:opacity-100 text-gray-600 hover:text-green-400
                                    p-1 rounded-md hover:bg-white/[0.06] transition-all shrink-0"
-                          >
-                            <Play size={11} strokeWidth={2} />
-                          </button>
-                        </Tooltip>
+                              >
+                                <Play size={11} strokeWidth={2} />
+                              </button>
+                            </Tooltip>
+                          )}
                       </div>
                     ))}
                   </div>

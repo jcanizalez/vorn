@@ -1,4 +1,63 @@
-import type { TerminalSession, RecentSession } from '../../shared/types'
+import {
+  supportsExactSessionResume,
+  type TerminalSession,
+  type RecentSession
+} from '../../shared/types'
+
+function normalizeComparablePath(p: string): string {
+  const normalized = p.replace(/\\/g, '/').replace(/\/+$/, '')
+  if (!normalized) return '/'
+  return normalized.toLowerCase()
+}
+
+function getPathBasename(p: string): string | undefined {
+  const normalized = normalizeComparablePath(p)
+  const parts = normalized.split('/').filter(Boolean)
+  return parts.length > 0 ? parts[parts.length - 1] : undefined
+}
+
+function getDisplayPathBasename(p: string): string | undefined {
+  const normalized = p.replace(/\\/g, '/').replace(/\/+$/, '')
+  if (!normalized || normalized === '/') return undefined
+  const parts = normalized.split('/').filter(Boolean)
+  return parts.length > 0 ? parts[parts.length - 1] : undefined
+}
+
+function getManagedWorktreePrefix(projectPath: string): string | null {
+  const normalized = normalizeComparablePath(projectPath)
+  const parts = normalized.split('/').filter(Boolean)
+  if (parts.length === 0) return null
+
+  const projectName = parts[parts.length - 1]
+  if (!projectName) return null
+
+  const prefix = normalized.startsWith('/') ? '/' : ''
+  const parent = parts.slice(0, -1).join('/')
+  const parentPath = parent ? `${prefix}${parent}` : prefix || '.'
+  return `${parentPath}/.vibegrid-worktrees/${projectName}`
+}
+
+function isManagedWorktreePath(candidatePath: string, projectPath: string): boolean {
+  const prefix = getManagedWorktreePrefix(projectPath)
+  if (!prefix) return false
+  return normalizeComparablePath(candidatePath).startsWith(`${prefix}/`)
+}
+
+function pluralizeActivityLabel(label: string, count: number): string {
+  if (count === 1) return label
+  if (label.endsWith('y')) return `${label.slice(0, -1)}ies`
+  return `${label}s`
+}
+
+export function formatRecentSessionActivity(
+  session: Pick<RecentSession, 'activityCount' | 'activityLabel'>
+): string {
+  return `${session.activityCount} ${pluralizeActivityLabel(session.activityLabel, session.activityCount)}`
+}
+
+function isDefined<T>(value: T | undefined): value is T {
+  return value !== undefined
+}
 
 /**
  * Resolve the agent session ID to pass as --resume when restoring a session.
@@ -11,15 +70,30 @@ export async function resolveResumeSessionId(
   s: TerminalSession,
   claimed: Set<string> = new Set()
 ): Promise<string | undefined> {
+  if (!supportsExactSessionResume(s.agentType)) return undefined
   if (s.hookSessionId && !claimed.has(s.hookSessionId)) return s.hookSessionId
 
+  const targetPaths = [s.worktreePath, s.projectPath].filter(isDefined).map(normalizeComparablePath)
   const isAvailable = (r: RecentSession): boolean =>
-    r.agentType === s.agentType && !claimed.has(r.sessionId)
+    r.agentType === s.agentType && r.canResumeExact && !claimed.has(r.sessionId)
+  const findPreferredPathMatch = (sessions: RecentSession[]): RecentSession | undefined => {
+    for (const targetPath of targetPaths) {
+      const match = sessions.find(
+        (session) =>
+          isAvailable(session) && normalizeComparablePath(session.projectPath) === targetPath
+      )
+      if (match) return match
+    }
+    return undefined
+  }
 
   // Scoped fetch first — the global unscoped list has a default limit of 20,
   // so a project's sessions may not appear in the global results.
   try {
     const scopedRecent = await window.api.getRecentSessions(s.projectPath)
+    const scopedExact = findPreferredPathMatch(scopedRecent)
+    if (scopedExact) return scopedExact.sessionId
+
     const scopedMatch = scopedRecent.find(isAvailable)
     if (scopedMatch) return scopedMatch.sessionId
   } catch {
@@ -30,16 +104,16 @@ export async function resolveResumeSessionId(
   const allRecent = await window.api.getRecentSessions()
 
   // Exact project path match
-  const exact = allRecent.find((r) => isAvailable(r) && r.projectPath === s.projectPath)
+  const exact = findPreferredPathMatch(allRecent)
   if (exact) return exact.sessionId
 
   // Case-insensitive basename match (handles symlinks, trailing-slash diffs)
-  const basename = s.projectPath.replace(/\/+$/, '').split('/').pop()?.toLowerCase()
-  if (basename) {
+  const basenames = new Set(targetPaths.map(getPathBasename).filter(isDefined))
+  if (basenames.size > 0) {
     const fuzzy = allRecent.find((r) => {
       if (!isAvailable(r)) return false
-      const candidateBase = r.projectPath.replace(/\/+$/, '').split('/').pop()?.toLowerCase()
-      return candidateBase === basename
+      const candidateBase = getPathBasename(r.projectPath)
+      return candidateBase ? basenames.has(candidateBase) : false
     })
     if (fuzzy) return fuzzy.sessionId
   }
@@ -55,12 +129,13 @@ export function resolveProjectName(
   session: RecentSession,
   projects: { name: string; path: string }[] | undefined
 ): string {
-  const normalized = session.projectPath.replace(/\/+$/, '')
-  if (!projects) return normalized.split('/').pop() || 'untitled'
+  const normalized = normalizeComparablePath(session.projectPath)
+  const displayBasename = getDisplayPathBasename(session.projectPath)
+  if (!projects) return displayBasename || 'untitled'
 
   const project = projects.find((p) => {
-    if (p.path === session.projectPath) return true
-    return p.path.replace(/\/+$/, '') === normalized
+    const projectPath = normalizeComparablePath(p.path)
+    return projectPath === normalized || isManagedWorktreePath(session.projectPath, p.path)
   })
-  return project?.name || normalized.split('/').pop() || 'untitled'
+  return project?.name || displayBasename || 'untitled'
 }

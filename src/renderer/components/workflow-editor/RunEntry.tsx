@@ -13,10 +13,11 @@ import {
   WorkflowNode,
   NodeExecutionState,
   TaskConfig,
-  AgentType
+  AgentType,
+  supportsExactSessionResume
 } from '../../../shared/types'
 
-export function formatRunTime(iso: string): string {
+function formatRunTime(iso: string): string {
   const d = new Date(iso)
   return d.toLocaleString(undefined, {
     month: 'short',
@@ -27,7 +28,7 @@ export function formatRunTime(iso: string): string {
   })
 }
 
-export function formatDuration(start: string, end?: string): string {
+function formatDuration(start: string, end?: string): string {
   if (!end) return 'running...'
   const ms = new Date(end).getTime() - new Date(start).getTime()
   if (ms < 1000) return `${ms}ms`
@@ -211,7 +212,40 @@ export function RunEntry({
                           View Full Output
                         </button>
                       )}
-                      {ns.agentSessionId && onResumeSession && nodeConfig && (
+                      {ns.agentSessionId &&
+                        onResumeSession &&
+                        nodeConfig &&
+                        supportsExactSessionResume(nodeConfig.agentType || 'claude') && (
+                          <button
+                            onClick={() =>
+                              onResumeSession(
+                                ns.agentSessionId!,
+                                nodeConfig.agentType || 'claude',
+                                nodeConfig.projectName || '',
+                                nodeConfig.projectPath || '',
+                                nodeConfig.branch,
+                                nodeConfig.useWorktree
+                              )
+                            }
+                            className="flex items-center gap-1 text-[11px] text-amber-400 hover:text-amber-300 transition-colors"
+                          >
+                            <Play size={11} strokeWidth={2} />
+                            Resume Session
+                          </button>
+                        )}
+                    </div>
+                    {ns.error && <p className="text-[11px] text-red-400 mt-1">{ns.error}</p>}
+                  </div>
+                )}
+
+                {/* Error without logs */}
+                {expandedNodeId === ns.nodeId && !ns.logs && ns.error && (
+                  <div className="px-4 pb-2">
+                    <p className="text-[11px] text-red-400">{ns.error}</p>
+                    {ns.agentSessionId &&
+                      onResumeSession &&
+                      nodeConfig &&
+                      supportsExactSessionResume(nodeConfig.agentType || 'claude') && (
                         <button
                           onClick={() =>
                             onResumeSession(
@@ -223,39 +257,12 @@ export function RunEntry({
                               nodeConfig.useWorktree
                             )
                           }
-                          className="flex items-center gap-1 text-[11px] text-amber-400 hover:text-amber-300 transition-colors"
+                          className="flex items-center gap-1 mt-1.5 text-[11px] text-amber-400 hover:text-amber-300 transition-colors"
                         >
                           <Play size={11} strokeWidth={2} />
                           Resume Session
                         </button>
                       )}
-                    </div>
-                    {ns.error && <p className="text-[11px] text-red-400 mt-1">{ns.error}</p>}
-                  </div>
-                )}
-
-                {/* Error without logs */}
-                {expandedNodeId === ns.nodeId && !ns.logs && ns.error && (
-                  <div className="px-4 pb-2">
-                    <p className="text-[11px] text-red-400">{ns.error}</p>
-                    {ns.agentSessionId && onResumeSession && nodeConfig && (
-                      <button
-                        onClick={() =>
-                          onResumeSession(
-                            ns.agentSessionId!,
-                            nodeConfig.agentType || 'claude',
-                            nodeConfig.projectName || '',
-                            nodeConfig.projectPath || '',
-                            nodeConfig.branch,
-                            nodeConfig.useWorktree
-                          )
-                        }
-                        className="flex items-center gap-1 mt-1.5 text-[11px] text-amber-400 hover:text-amber-300 transition-colors"
-                      >
-                        <Play size={11} strokeWidth={2} />
-                        Resume Session
-                      </button>
-                    )}
                   </div>
                 )}
               </div>

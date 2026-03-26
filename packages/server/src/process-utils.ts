@@ -71,21 +71,28 @@ export function getSafeEnv(): Record<string, string> {
   return env
 }
 
+function isWindowsStylePath(p: string): boolean {
+  return /^[a-zA-Z]:[\\/]/.test(p) || p.startsWith('\\\\')
+}
+
 /**
  * Normalize a filesystem path for reliable comparison.
  * Strips trailing slashes and resolves symlinks when the path exists.
  */
 export function normalizePath(p: string): string {
-  // path.normalize handles redundant separators and both / and \ on Windows
-  let result = path.normalize(p)
-  // Strip trailing separator (normalize keeps a single one on root, e.g. '/')
-  if (result.length > 1 && (result.endsWith('/') || result.endsWith('\\'))) {
-    result = result.slice(0, -1)
+  const pathImpl = isWindowsStylePath(p) ? path.win32 : path
+  let result = pathImpl.normalize(p)
+  const root = pathImpl.parse(result).root
+  if (result !== root) {
+    result = result.replace(/[\\/]+$/, '')
   }
   try {
     result = fs.realpathSync(result)
   } catch {
     // Path doesn't exist — use the normalized version
+  }
+  if (isWindowsStylePath(result) || isWindowsStylePath(p) || process.platform === 'win32') {
+    result = result.toLowerCase()
   }
   return result
 }
