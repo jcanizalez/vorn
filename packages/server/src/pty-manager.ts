@@ -19,6 +19,12 @@ import { DEFAULT_AGENT_COMMANDS } from '@vibegrid/shared/agent-defaults'
 import { buildAgentLaunchLine as buildLaunchLine } from './agent-launch'
 import { shellEscape, getSafeEnv, getDefaultShell, normalizePath } from './process-utils'
 
+const MAX_OUTPUT_LINES = 1000
+
+// Strip ANSI escape sequences so stored output is plain text
+// eslint-disable-next-line no-control-regex
+const ANSI_RE = /\x1b\[[0-9;]*[A-Za-z]|\x1b\].*?(?:\x07|\x1b\\)|\x1b[()][0-2B]|\x1b[=>]/g
+
 class PtyManager extends EventEmitter {
   private ptys = new Map<string, pty.IPty>()
   private sessions = new Map<string, TerminalSession>()
@@ -28,6 +34,9 @@ class PtyManager extends EventEmitter {
   private dataBuffers = new Map<string, string>()
   private flushTimers = new Map<string, ReturnType<typeof setTimeout>>()
   private tempKeyPaths = new Map<string, string>()
+  private outputLines = new Map<string, string[]>()
+  private outputPartials = new Map<string, string>()
+  private sessionOrder: string[] = []
 
   constructor() {
     super()
@@ -376,9 +385,35 @@ class PtyManager extends EventEmitter {
     this.dataBuffers.delete(id)
   }
 
+  private appendOutput(id: string, data: string): void {
+    if (!this.sessions.has(id)) return // skip shell-only PTYs
+
+    let buf = this.outputLines.get(id)
+    if (!buf) {
+      buf = []
+      this.outputLines.set(id, buf)
+    }
+
+    const clean = data.replace(ANSI_RE, '').replace(/\r/g, '')
+    const partial = this.outputPartials.get(id) ?? ''
+    const combined = partial + clean
+    const segments = combined.split('\n')
+
+    // Last segment is incomplete (no trailing \n) — save for next chunk
+    this.outputPartials.set(id, segments.pop()!)
+
+    for (const line of segments) {
+      buf.push(line)
+    }
+    if (buf.length > MAX_OUTPUT_LINES) {
+      buf.splice(0, buf.length - MAX_OUTPUT_LINES)
+    }
+  }
+
   private setupPtyEvents(id: string, ptyProcess: pty.IPty): void {
     ptyProcess.onData((data: string) => {
       this.bufferData(id, data)
+      this.appendOutput(id, data)
     })
 
     ptyProcess.onExit(({ exitCode }) => {
@@ -390,6 +425,9 @@ class PtyManager extends EventEmitter {
       }
       this.clearBuffer(id)
       this.deleteTempKey(id)
+      this.outputLines.delete(id)
+      this.outputPartials.delete(id)
+      this.sessionOrder = this.sessionOrder.filter((sid) => sid !== id)
 
       this.ptys.delete(id)
       const session = this.sessions.get(id)
@@ -433,6 +471,9 @@ class PtyManager extends EventEmitter {
     const session = this.sessions.get(id)
     this.sessions.delete(id)
     this.normalizedPaths.delete(id)
+    this.outputLines.delete(id)
+    this.outputPartials.delete(id)
+    this.sessionOrder = this.sessionOrder.filter((sid) => sid !== id)
     this.ptys.delete(id)
 
     if (session) {
@@ -482,10 +523,28 @@ class PtyManager extends EventEmitter {
       this.ptys.delete(id)
     }
     this.sessions.clear()
+    this.outputLines.clear()
+    this.outputPartials.clear()
+    this.sessionOrder = []
   }
 
   getActiveSessions(): TerminalSession[] {
-    return Array.from(this.sessions.values())
+    if (this.sessionOrder.length === 0) {
+      return Array.from(this.sessions.values())
+    }
+    const ordered: TerminalSession[] = []
+    const seen = new Set<string>()
+    for (const id of this.sessionOrder) {
+      const s = this.sessions.get(id)
+      if (s) {
+        ordered.push(s)
+        seen.add(id)
+      }
+    }
+    for (const s of this.sessions.values()) {
+      if (!seen.has(s.id)) ordered.push(s)
+    }
+    return ordered
   }
 
   updateSessionStatus(id: string, status: AgentStatus): void {
@@ -494,6 +553,31 @@ class PtyManager extends EventEmitter {
       session.status = status
       this.emit('client-message', IPC.TERMINAL_DATA, { id, data: '' }) // trigger widget update
     }
+  }
+
+  renameSession(id: string, displayName: string): void {
+    const session = this.sessions.get(id)
+    if (!session) throw new Error(`Session not found: ${id}`)
+    session.displayName = displayName
+    this.emit('client-message', IPC.SESSION_UPDATED, session)
+  }
+
+  reorderSessions(ids: string[]): void {
+    if (new Set(ids).size !== ids.length) throw new Error('Duplicate session IDs')
+    for (const id of ids) {
+      if (!this.sessions.has(id)) throw new Error(`Session not found: ${id}`)
+    }
+    this.sessionOrder = ids
+    this.emit('client-message', IPC.SESSION_REORDERED, ids)
+  }
+
+  getOutput(id: string, lines?: number): string[] {
+    if (!this.sessions.has(id)) throw new Error(`Session not found: ${id}`)
+    const buf = this.outputLines.get(id) ?? []
+    if (lines && lines < buf.length) {
+      return buf.slice(-lines)
+    }
+    return [...buf]
   }
 
   /**

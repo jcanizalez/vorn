@@ -52,6 +52,9 @@ export interface RequestMethods {
   'terminal:create': { params: CreateTerminalPayload; result: TerminalSession }
   'terminal:kill': { params: string; result: void }
   'terminal:listActive': { params: void; result: TerminalSession[] }
+  'terminal:rename': { params: { id: string; displayName: string }; result: void }
+  'terminal:reorder': { params: string[]; result: void }
+  'terminal:readOutput': { params: { id: string; lines?: number }; result: string[] }
   'shell:create': { params: string | undefined; result: TerminalSession }
   'config:load': { params: void; result: AppConfig }
   'config:save': { params: AppConfig; result: void }
@@ -162,6 +165,8 @@ export interface ServerNotifications {
   'terminal:data': { id: string; data: string }
   'terminal:exit': { id: string; exitCode: number }
   'session:created': TerminalSession
+  'session:updated': TerminalSession
+  'session:reordered': string[]
   'headless:data': { id: string; data: string }
   'headless:exit': { id: string; exitCode: number }
   'config:changed': AppConfig

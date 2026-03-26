@@ -156,6 +156,103 @@ export function registerSessionTools(server: McpServer): void {
   )
 
   server.tool(
+    'rename_session',
+    'Rename a terminal session. Changes the display name shown in the UI.',
+    {
+      id: V.id.describe('Session ID'),
+      display_name: V.shortText.describe('New display name')
+    },
+    async (args) => {
+      try {
+        await rpcCall('terminal:rename', { id: args.id, displayName: args.display_name })
+        return {
+          content: [{ type: 'text', text: `Renamed session ${args.id} to "${args.display_name}"` }]
+        }
+      } catch (err) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error renaming session: ${err instanceof Error ? err.message : err}`
+            }
+          ],
+          isError: true
+        }
+      }
+    }
+  )
+
+  server.tool(
+    'reorder_sessions',
+    'Reorder terminal sessions in the grid. Provide session IDs in the desired display order.',
+    {
+      session_ids: z
+        .array(V.id)
+        .min(1, 'At least one session ID is required')
+        .describe('Session IDs in desired order')
+    },
+    async (args) => {
+      try {
+        await rpcCall('terminal:reorder', args.session_ids)
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Reordered ${args.session_ids.length} sessions`
+            }
+          ]
+        }
+      } catch (err) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error reordering sessions: ${err instanceof Error ? err.message : err}`
+            }
+          ],
+          isError: true
+        }
+      }
+    }
+  )
+
+  server.tool(
+    'read_session_output',
+    'Read terminal output from a running session. Output is stored in a rolling 1000-line buffer with ANSI codes stripped.',
+    {
+      id: V.id.describe('Session ID'),
+      lines: z
+        .number()
+        .int()
+        .min(1)
+        .max(1000)
+        .optional()
+        .describe('Number of lines to read from the end (default: all)')
+    },
+    async (args) => {
+      try {
+        const output = await rpcCall<string[]>('terminal:readOutput', {
+          id: args.id,
+          lines: args.lines
+        })
+        return {
+          content: [{ type: 'text', text: output.join('\n') }]
+        }
+      } catch (err) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error reading session output: ${err instanceof Error ? err.message : err}`
+            }
+          ],
+          isError: true
+        }
+      }
+    }
+  )
+
+  server.tool(
     'write_to_terminal',
     'Send input to a running terminal session. Requires the VibeGrid app to be running.',
     {
