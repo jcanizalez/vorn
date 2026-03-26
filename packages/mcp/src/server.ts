@@ -3,14 +3,12 @@ import { registerTaskTools } from './tools/tasks'
 import { registerProjectTools } from './tools/projects'
 import { registerSessionTools } from './tools/sessions'
 import { registerWorkflowTools } from './tools/workflows'
-import { registerGitTools } from './tools/git'
 import { registerConfigTools } from './tools/config'
 import { registerWorkspaceTools } from './tools/workspaces'
 
 export function createMcpServer(version: string): McpServer {
   const server = new McpServer({ name: 'vibegrid', version }, { capabilities: { tools: {} } })
 
-  registerGitTools(server)
   registerConfigTools(server)
   registerProjectTools(server)
   registerTaskTools(server)

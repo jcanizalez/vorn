@@ -253,67 +253,67 @@ export function registerWorkflowTools(server: McpServer): void {
 
   server.tool(
     'list_workflow_runs',
-    'List execution history for a workflow',
+    'List workflow execution history. Filter by workflow_id or task_id.',
     {
-      workflow_id: V.id.describe('Workflow ID'),
+      workflow_id: V.id.optional().describe('Filter by workflow ID'),
+      task_id: V.id.optional().describe('Filter by task ID (runs triggered by this task)'),
       limit: z.number().int().min(1).max(100).optional().describe('Max results (default: 20)')
     },
     async (args) => {
-      const runs = listWorkflowRuns(args.workflow_id, args.limit ?? 20)
-      return { content: [{ type: 'text', text: JSON.stringify(runs, null, 2) }] }
-    }
-  )
-
-  server.tool(
-    'list_workflow_runs_by_task',
-    'List workflow executions triggered by a specific task',
-    {
-      task_id: V.id.describe('Task ID'),
-      limit: z.number().int().min(1).max(100).optional().describe('Max results (default: 20)')
-    },
-    async (args) => {
-      const runs = listWorkflowRunsByTask(args.task_id, args.limit ?? 20)
-      return { content: [{ type: 'text', text: JSON.stringify(runs, null, 2) }] }
-    }
-  )
-
-  server.tool(
-    'get_scheduler_log',
-    'Get scheduler execution log for a workflow. Requires the VibeGrid app to be running.',
-    {
-      workflow_id: V.id.optional().describe('Workflow ID (omit for all workflows)')
-    },
-    async (args) => {
-      try {
-        const log = await rpcCall<ScheduleLogEntry[]>('scheduler:getLog', args.workflow_id)
-        return { content: [{ type: 'text', text: JSON.stringify(log, null, 2) }] }
-      } catch (err) {
+      if (args.workflow_id && args.task_id) {
         return {
-          content: [{ type: 'text', text: `Error: ${err instanceof Error ? err.message : err}` }],
+          content: [{ type: 'text', text: 'Error: provide workflow_id or task_id, not both' }],
           isError: true
         }
+      }
+      if (args.task_id) {
+        const runs = listWorkflowRunsByTask(args.task_id, args.limit ?? 20)
+        return { content: [{ type: 'text', text: JSON.stringify(runs, null, 2) }] }
+      }
+      if (args.workflow_id) {
+        const runs = listWorkflowRuns(args.workflow_id, args.limit ?? 20)
+        return { content: [{ type: 'text', text: JSON.stringify(runs, null, 2) }] }
+      }
+      return {
+        content: [{ type: 'text', text: 'Error: provide either workflow_id or task_id' }],
+        isError: true
       }
     }
   )
 
   server.tool(
-    'get_next_scheduled_run',
-    'Get the next scheduled run time for a workflow. Requires the VibeGrid app to be running.',
+    'get_workflow_schedule',
+    'Get scheduler info for a workflow: execution log or next scheduled run. Requires the VibeGrid app to be running.',
     {
-      workflow_id: V.id.describe('Workflow ID')
+      workflow_id: V.id
+        .optional()
+        .describe('Workflow ID (required for next_run, optional for log)'),
+      info: z.enum(['log', 'next_run']).optional().describe('What to retrieve (default: log)')
     },
     async (args) => {
+      const info = args.info ?? 'log'
       try {
-        const nextRun = await rpcCall<string | null>('scheduler:getNextRun', args.workflow_id)
-        return {
-          content: [
-            {
-              type: 'text',
-              text: nextRun
-                ? JSON.stringify({ nextRun }, null, 2)
-                : 'No scheduled run (workflow may be manual or disabled)'
+        if (info === 'next_run') {
+          if (!args.workflow_id) {
+            return {
+              content: [{ type: 'text', text: 'Error: workflow_id is required for next_run' }],
+              isError: true
             }
-          ]
+          }
+          const nextRun = await rpcCall<string | null>('scheduler:getNextRun', args.workflow_id)
+          return {
+            content: [
+              {
+                type: 'text',
+                text: nextRun
+                  ? JSON.stringify({ nextRun }, null, 2)
+                  : 'No scheduled run (workflow may be manual or disabled)'
+              }
+            ]
+          }
+        } else {
+          const log = await rpcCall<ScheduleLogEntry[]>('scheduler:getLog', args.workflow_id)
+          return { content: [{ type: 'text', text: JSON.stringify(log, null, 2) }] }
         }
       } catch (err) {
         return {
