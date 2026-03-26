@@ -90,6 +90,7 @@ export function registerAllMethods(): void {
   )
   registerMethod('git:worktreeDirty', (worktreePath) => gitUtils.isWorktreeDirty(worktreePath))
   registerMethod('git:listWorktrees', (projectPath) => gitUtils.listWorktrees(projectPath))
+  registerMethod('git:getBranch', (cwd) => gitUtils.getGitBranch(cwd))
   registerMethod('git:diffStat', (cwd) => gitUtils.getGitDiffStat(cwd))
   registerMethod('git:diffFull', (cwd) => gitUtils.getGitDiffFull(cwd))
   registerMethod('git:commit', ({ cwd, message, includeUnstaged }) =>

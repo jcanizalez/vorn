@@ -57,6 +57,7 @@ export function registerIpcHandlers(): void {
   safeHandle(IPC.GIT_LIST_WORKTREES, (_, projectPath) =>
     requireBridge().request(IPC.GIT_LIST_WORKTREES, projectPath)
   )
+  safeHandle(IPC.GIT_GET_BRANCH, (_, cwd) => requireBridge().request(IPC.GIT_GET_BRANCH, cwd))
   safeHandle(IPC.GIT_DIFF_STAT, (_, cwd) => requireBridge().request(IPC.GIT_DIFF_STAT, cwd))
   safeHandle(IPC.GIT_DIFF_FULL, (_, cwd) => requireBridge().request(IPC.GIT_DIFF_FULL, cwd))
   safeHandle(IPC.GIT_COMMIT, (_, params) => requireBridge().request(IPC.GIT_COMMIT, params))

@@ -12,7 +12,7 @@ export function useGitDiffPolling(): void {
       // Skip polling when window is hidden to save energy
       if (document.hidden) return
 
-      const { terminals, updateGitDiffStats } = useAppStore.getState()
+      const { terminals, updateGitDiffStats, updateSessionBranch } = useAppStore.getState()
 
       const entries = Array.from(terminals).filter(([, t]) => !t.session.remoteHostId)
 
@@ -21,8 +21,14 @@ export function useGitDiffPolling(): void {
         entries.map(async ([id, t]) => {
           const cwd = t.session.worktreePath || t.session.projectPath
           try {
-            const stat = await window.api.getGitDiffStat(cwd)
+            const [stat, branch] = await Promise.all([
+              window.api.getGitDiffStat(cwd),
+              window.api.getGitBranch(cwd)
+            ])
             if (stat) batchStats.set(id, stat)
+            if (branch && branch !== t.session.branch) {
+              updateSessionBranch(id, branch)
+            }
           } catch {
             // not a git repo or error — skip
           }

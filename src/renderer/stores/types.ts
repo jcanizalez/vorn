@@ -42,6 +42,7 @@ export interface TerminalsSlice {
   updateStatus: (id: string, status: AgentStatus) => void
   updateLastOutput: (id: string, timestamp: number) => void
   renameTerminal: (id: string, displayName: string) => void
+  updateSessionBranch: (id: string, branch: string) => void
   togglePinned: (id: string) => void
 
   // Headless agent tracking

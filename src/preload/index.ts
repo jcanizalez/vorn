@@ -126,6 +126,9 @@ const api = {
   ): Promise<{ path: string; branch: string; isMain: boolean }[]> =>
     ipcRenderer.invoke(IPC.GIT_LIST_WORKTREES, projectPath),
 
+  getGitBranch: (cwd: string): Promise<string | null> =>
+    ipcRenderer.invoke(IPC.GIT_GET_BRANCH, cwd),
+
   getGitDiffStat: (cwd: string): Promise<GitDiffStat | null> =>
     ipcRenderer.invoke(IPC.GIT_DIFF_STAT, cwd),
 

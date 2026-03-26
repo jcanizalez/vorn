@@ -444,6 +444,7 @@ export const IPC = {
   GIT_WORKTREE_DIRTY: 'git:worktreeDirty',
   GIT_LIST_WORKTREES: 'git:listWorktrees',
   WORKTREE_CONFIRM_CLEANUP: 'worktree:confirmCleanup',
+  GIT_GET_BRANCH: 'git:getBranch',
   GIT_DIFF_STAT: 'git:diffStat',
   GIT_DIFF_FULL: 'git:diffFull',
   GIT_COMMIT: 'git:commit',
