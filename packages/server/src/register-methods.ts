@@ -59,6 +59,11 @@ export function registerAllMethods(): void {
   })
   registerMethod('terminal:kill', (id) => ptyManager.killPty(id))
   registerMethod('terminal:listActive', () => ptyManager.getActiveSessions())
+  registerMethod('terminal:rename', ({ id, displayName }) =>
+    ptyManager.renameSession(id, displayName)
+  )
+  registerMethod('terminal:reorder', (ids) => ptyManager.reorderSessions(ids))
+  registerMethod('terminal:readOutput', ({ id, lines }) => ptyManager.getOutput(id, lines))
   registerMethod('shell:create', (cwd) => ptyManager.createShellPty(cwd))
 
   // Config
