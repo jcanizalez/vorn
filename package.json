@@ -37,7 +37,7 @@
     "*.{json,css,md,html}": "prettier --write"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.27.1",
+    "@modelcontextprotocol/sdk": "^1.28.0",
     "@tiptap/core": "3.20.4",
     "@tiptap/extension-code-block": "^3.20.1",
     "@tiptap/extension-code-block-lowlight": "^3.20.1",

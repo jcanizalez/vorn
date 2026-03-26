@@ -19,7 +19,7 @@
   "dependencies": {
     "@fastify/static": "^9.0.0",
     "@fastify/websocket": "^11.0.2",
-    "@modelcontextprotocol/sdk": "^1.27.1",
+    "@modelcontextprotocol/sdk": "^1.28.0",
     "@vibegrid/shared": "workspace:*",
     "fastify": "^5.3.3",
     "libsql": "^0.5.22",
