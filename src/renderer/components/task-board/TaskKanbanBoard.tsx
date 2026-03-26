@@ -100,7 +100,7 @@ export function TaskKanbanBoard({
         return (
           <div
             key={col.status}
-            className={`group/col flex-1 min-w-0 flex flex-col rounded-lg transition-all duration-200 ${
+            className={`group/col flex-1 min-w-0 min-h-0 flex flex-col rounded-lg transition-all duration-200 ${
               isDragOver ? 'bg-white/[0.04] ring-1 ring-inset ring-white/[0.1]' : 'bg-white/[0.02]'
             }`}
             onDragOver={handleDragOver}
