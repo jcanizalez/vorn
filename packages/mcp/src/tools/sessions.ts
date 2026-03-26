@@ -167,8 +167,10 @@ export function registerSessionTools(server: McpServer): void {
     },
     async (args) => {
       try {
-        // Append carriage return so the terminal submits the input
-        const data = args.data.endsWith('\r') ? args.data : args.data + '\r'
+        // Append carriage return so the terminal submits the input.
+        // Treat both \r and \n as already terminated to avoid double-submission.
+        const trimmed = args.data.replace(/[\r\n]+$/, '')
+        const data = trimmed + '\r'
         await rpcNotify('terminal:write', { id: args.id, data })
         return { content: [{ type: 'text', text: `Wrote to session: ${args.id}` }] }
       } catch (err) {

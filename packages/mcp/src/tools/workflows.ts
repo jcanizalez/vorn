@@ -260,6 +260,12 @@ export function registerWorkflowTools(server: McpServer): void {
       limit: z.number().int().min(1).max(100).optional().describe('Max results (default: 20)')
     },
     async (args) => {
+      if (args.workflow_id && args.task_id) {
+        return {
+          content: [{ type: 'text', text: 'Error: provide workflow_id or task_id, not both' }],
+          isError: true
+        }
+      }
       if (args.task_id) {
         const runs = listWorkflowRunsByTask(args.task_id, args.limit ?? 20)
         return { content: [{ type: 'text', text: JSON.stringify(runs, null, 2) }] }
