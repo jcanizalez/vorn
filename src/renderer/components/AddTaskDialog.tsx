@@ -10,7 +10,9 @@ import { toast } from './Toast'
 import { isWeb } from '../lib/platform'
 import { StatusPicker } from './StatusPicker'
 import { ProjectPicker } from './ProjectPicker'
-import type { TaskStatus } from '../../shared/types'
+import { AgentPicker } from './AgentPicker'
+import { useAgentInstallStatus } from '../hooks/useAgentInstallStatus'
+import type { AgentType, TaskStatus } from '../../shared/types'
 
 export function AddTaskDialog() {
   const isOpen = useAppStore((s) => s.isTaskDialogOpen)
@@ -30,9 +32,11 @@ export function AddTaskDialog() {
   const [description, setDescription] = useState('')
   const [branch, setBranch] = useState('')
   const [useWorktree, setUseWorktree] = useState(false)
+  const [assignedAgent, setAssignedAgent] = useState<AgentType | null>(null)
   const [images, setImages] = useState<string[]>([])
   const [imagePaths, setImagePaths] = useState<Map<string, string>>(new Map())
   const taskIdRef = useRef<string>(crypto.randomUUID())
+  const { status: agentInstallStatus } = useAgentInstallStatus()
 
   const isEditMode = !!editingTask
 
@@ -43,6 +47,7 @@ export function AddTaskDialog() {
       setDescription(editing.description)
       setBranch(editing.branch || '')
       setUseWorktree(editing.useWorktree || false)
+      setAssignedAgent(editing.assignedAgent || null)
       setImages(editing.images || [])
       setStatus(editing.status)
       taskIdRef.current = editing.id
@@ -74,6 +79,7 @@ export function AddTaskDialog() {
     setDescription(TASK_TEMPLATE)
     setBranch('')
     setUseWorktree(false)
+    setAssignedAgent(null)
     setImages([])
     setImagePaths(new Map())
     setStatus('todo')
@@ -157,6 +163,7 @@ export function AddTaskDialog() {
         status,
         branch: branch.trim() || undefined,
         useWorktree: useWorktree || undefined,
+        assignedAgent: assignedAgent || undefined,
         images: images.length > 0 ? images : undefined
       })
       toast.success('Task updated')
@@ -173,6 +180,7 @@ export function AddTaskDialog() {
         order: existingTasks.length,
         branch: branch.trim() || undefined,
         useWorktree: useWorktree || undefined,
+        assignedAgent: assignedAgent || undefined,
         images: images.length > 0 ? images : undefined,
         createdAt: now,
         updatedAt: now
@@ -299,6 +307,14 @@ export function AddTaskDialog() {
                 currentProject={projectName}
                 projects={config?.projects || []}
                 onChange={setProjectName}
+              />
+
+              {/* Agent picker */}
+              <AgentPicker
+                currentAgent={assignedAgent}
+                onChange={setAssignedAgent}
+                installStatus={agentInstallStatus}
+                allowNone
               />
 
               {/* Branch pill */}

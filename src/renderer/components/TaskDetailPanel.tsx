@@ -6,7 +6,8 @@ import { TASK_TEMPLATE } from './MarkdownEditor'
 const RichMarkdownEditor = lazy(() =>
   import('./rich-editor/RichMarkdownEditor').then((m) => ({ default: m.RichMarkdownEditor }))
 )
-import { AgentIcon } from './AgentIcon'
+import { AgentPicker } from './AgentPicker'
+import { useAgentInstallStatus } from '../hooks/useAgentInstallStatus'
 import { DiffFileList, DiffContent } from './DiffSidebar'
 import { CommitDialog } from './CommitDialog'
 import { StatusPicker } from './StatusPicker'
@@ -109,8 +110,10 @@ export function TaskDetailPanel() {
   const [formDescription, setFormDescription] = useState('')
   const [formBranch, setFormBranch] = useState('')
   const [formUseWorktree, setFormUseWorktree] = useState(false)
+  const [formAssignedAgent, setFormAssignedAgent] = useState<AgentType | null>(null)
   const [formImages, setFormImages] = useState<string[]>([])
   const [formImagePaths, setFormImagePaths] = useState<Map<string, string>>(new Map())
+  const { status: agentInstallStatus } = useAgentInstallStatus()
   const newTaskIdRef = useRef<string>(crypto.randomUUID())
   const initializedRef = useRef(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -164,6 +167,7 @@ export function TaskDetailPanel() {
       setFormDescription(task.description)
       setFormBranch(task.branch || '')
       setFormUseWorktree(task.useWorktree || false)
+      setFormAssignedAgent(task.assignedAgent || null)
       setFormImages(task.images || [])
       if (task.images?.length) {
         Promise.all(
@@ -193,6 +197,7 @@ export function TaskDetailPanel() {
       setFormDescription(TASK_TEMPLATE)
       setFormBranch('')
       setFormUseWorktree(false)
+      setFormAssignedAgent(null)
       setFormImages([])
       setFormImagePaths(new Map())
       requestAnimationFrame(() => {
@@ -213,6 +218,7 @@ export function TaskDetailPanel() {
         description: formDescription.trim(),
         branch: formBranch.trim() || undefined,
         useWorktree: formUseWorktree || undefined,
+        assignedAgent: formAssignedAgent || undefined,
         images: formImages.length > 0 ? formImages : undefined
       })
     }, 500)
@@ -221,7 +227,15 @@ export function TaskDetailPanel() {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formTitle, formProjectName, formDescription, formBranch, formUseWorktree, formImages])
+  }, [
+    formTitle,
+    formProjectName,
+    formDescription,
+    formBranch,
+    formUseWorktree,
+    formAssignedAgent,
+    formImages
+  ])
 
   // Flush pending save on unmount or task switch
   const formRef = useRef({
@@ -230,6 +244,7 @@ export function TaskDetailPanel() {
     formDescription,
     formBranch,
     formUseWorktree,
+    formAssignedAgent,
     formImages
   })
   formRef.current = {
@@ -238,6 +253,7 @@ export function TaskDetailPanel() {
     formDescription,
     formBranch,
     formUseWorktree,
+    formAssignedAgent,
     formImages
   }
 
@@ -256,6 +272,7 @@ export function TaskDetailPanel() {
             description: f.formDescription.trim(),
             branch: f.formBranch.trim() || undefined,
             useWorktree: f.formUseWorktree || undefined,
+            assignedAgent: f.formAssignedAgent || undefined,
             images: f.formImages.length > 0 ? f.formImages : undefined
           })
         }
@@ -483,6 +500,7 @@ export function TaskDetailPanel() {
       order: existingTasks.length,
       branch: formBranch.trim() || undefined,
       useWorktree: formUseWorktree || undefined,
+      assignedAgent: formAssignedAgent || undefined,
       images: formImages.length > 0 ? formImages : undefined,
       createdAt: now,
       updatedAt: now
@@ -621,15 +639,15 @@ export function TaskDetailPanel() {
           </div>
 
           {/* Agent */}
-          {!isCreateMode && task?.assignedAgent && (
-            <div className="flex items-center gap-2 text-[12px]">
-              <span className="text-gray-600 w-20 shrink-0">Agent</span>
-              <span className="flex items-center gap-1.5 text-gray-400">
-                <AgentIcon agentType={task.assignedAgent} size={12} />
-                {task.assignedAgent}
-              </span>
-            </div>
-          )}
+          <div className="flex items-center gap-2 text-[12px]">
+            <span className="text-gray-600 w-20 shrink-0">Agent</span>
+            <AgentPicker
+              currentAgent={formAssignedAgent}
+              onChange={setFormAssignedAgent}
+              installStatus={agentInstallStatus}
+              allowNone
+            />
+          </div>
 
           {/* Created */}
           {!isCreateMode && task && (

@@ -12,12 +12,7 @@ import {
   Server,
   Terminal
 } from 'lucide-react'
-import {
-  LaunchAgentConfig,
-  AgentType,
-  TriggerConfig,
-  getProjectHostIds
-} from '../../../../shared/types'
+import { LaunchAgentConfig, TriggerConfig, getProjectHostIds } from '../../../../shared/types'
 import { useAppStore } from '../../../stores'
 import { TEMPLATE_VARIABLES, StepVariableGroup } from '../../../lib/template-vars'
 import { useAgentInstallStatus } from '../../../hooks/useAgentInstallStatus'
@@ -79,7 +74,7 @@ export function LaunchAgentConfigForm({ config, onChange, triggerType, stepGroup
         <label className="text-[13px] text-gray-400 font-medium block mb-2">Agent</label>
         <AgentPicker
           currentAgent={config.agentType}
-          onChange={(agent: AgentType) => onChange({ ...config, agentType: agent })}
+          onChange={(agent) => agent && onChange({ ...config, agentType: agent })}
           installStatus={installStatus}
           variant="form"
         />

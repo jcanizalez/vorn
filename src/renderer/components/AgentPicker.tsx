@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, ChevronDown } from 'lucide-react'
+import { Check, ChevronDown, Bot } from 'lucide-react'
 import { AgentType } from '../../shared/types'
 import { AgentIcon } from './AgentIcon'
 
@@ -17,12 +17,14 @@ export function AgentPicker({
   currentAgent,
   onChange,
   installStatus,
-  variant = 'compact'
+  variant = 'compact',
+  allowNone = false
 }: {
-  currentAgent: AgentType
-  onChange: (agent: AgentType) => void
+  currentAgent: AgentType | null
+  onChange: (agent: AgentType | null) => void
   installStatus: Record<AgentType, boolean>
   variant?: 'compact' | 'form'
+  allowNone?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -42,8 +44,8 @@ export function AgentPicker({
     setOpen(true)
   }
 
-  const handleSelect = (agent: AgentType) => {
-    if (!installStatus[agent]) return
+  const handleSelect = (agent: AgentType | null) => {
+    if (agent && !installStatus[agent]) return
     setOpen(false)
     if (agent !== currentAgent) {
       onChange(agent)
@@ -81,8 +83,14 @@ export function AgentPicker({
             : 'flex items-center gap-1.5 hover:bg-white/[0.04] rounded px-1.5 py-0.5 -mx-1.5 transition-colors text-[12px] text-gray-300'
         }
       >
-        <AgentIcon agentType={currentAgent} size={14} />
-        <span className="flex-1 text-left">{AGENT_LABELS[currentAgent]}</span>
+        {currentAgent ? (
+          <AgentIcon agentType={currentAgent} size={14} />
+        ) : (
+          <Bot size={14} className="text-gray-500" />
+        )}
+        <span className={`flex-1 text-left ${currentAgent ? '' : 'text-gray-600'}`}>
+          {currentAgent ? AGENT_LABELS[currentAgent] : 'Unassigned'}
+        </span>
         <ChevronDown size={11} className="text-gray-500" />
       </button>
 
@@ -103,6 +111,19 @@ export function AgentPicker({
                 background: '#1e1e22'
               }}
             >
+              {allowNone && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleSelect(null)
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-1.5 text-xs text-gray-500 hover:bg-white/[0.06] transition-colors"
+                >
+                  <Bot size={14} className="text-gray-600" />
+                  <span className="flex-1 text-left italic">None</span>
+                  {!currentAgent && <Check size={13} className="text-gray-400" />}
+                </button>
+              )}
               {agents.map((agent) => {
                 const installed = installStatus[agent]
                 const isCurrent = agent === currentAgent
