@@ -19,11 +19,9 @@ import { DEFAULT_AGENT_COMMANDS } from '@vibegrid/shared/agent-defaults'
 import { buildAgentLaunchLine as buildLaunchLine } from './agent-launch'
 import { shellEscape, getSafeEnv, getDefaultShell, normalizePath } from './process-utils'
 
-const MAX_OUTPUT_LINES = 1000
+import { stripAnsi } from './ansi-strip'
 
-// Strip ANSI escape sequences so stored output is plain text
-// eslint-disable-next-line no-control-regex
-const ANSI_RE = /\x1b\[[0-9;]*[A-Za-z]|\x1b\].*?(?:\x07|\x1b\\)|\x1b[()][0-2B]|\x1b[=>]/g
+const MAX_OUTPUT_LINES = 1000
 
 class PtyManager extends EventEmitter {
   private ptys = new Map<string, pty.IPty>()
@@ -394,7 +392,7 @@ class PtyManager extends EventEmitter {
       this.outputLines.set(id, buf)
     }
 
-    const clean = data.replace(ANSI_RE, '').replace(/\r/g, '')
+    const clean = stripAnsi(data)
     const partial = this.outputPartials.get(id) ?? ''
     const combined = partial + clean
     const segments = combined.split('\n')

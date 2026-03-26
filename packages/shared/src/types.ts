@@ -149,6 +149,23 @@ export interface TaskConfig {
   completedAt?: string
 }
 
+// Session event types (lifecycle activity log)
+export type SessionEventType =
+  | 'created'
+  | 'exited'
+  | 'task_linked'
+  | 'renamed'
+  | 'archived'
+  | 'unarchived'
+
+export interface SessionEvent {
+  id?: number
+  sessionId: string
+  eventType: SessionEventType
+  timestamp: string
+  metadata?: Record<string, unknown>
+}
+
 // Session activity log types
 export type SessionLogStatus = 'running' | 'success' | 'error'
 
@@ -530,6 +547,8 @@ export const IPC = {
   WORKFLOW_RUN_LIST_BY_TASK: 'workflowRun:listByTask',
   SESSION_LOG_LIST: 'sessionLog:list',
   SESSION_LOG_UPDATE: 'sessionLog:update',
+  SESSION_EVENT_LIST: 'sessionEvent:list',
+  SESSION_EVENT_LIST_BY_SESSION: 'sessionEvent:listBySession',
   AGENT_DETECT_INSTALLED: 'agent:detectInstalled',
   TAILSCALE_STATUS: 'tailscale:status',
   CREDENTIAL_STORE_KEY: 'credential:storeKey',

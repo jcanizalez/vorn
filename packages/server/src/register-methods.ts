@@ -18,7 +18,12 @@ import {
   uninstallCopilotHooks,
   CopilotHookInstallation
 } from './copilot-hook-installer'
-import { IPC, WidgetAgentInfo, PermissionRequestInfo } from '@vibegrid/shared/types'
+import {
+  IPC,
+  WidgetAgentInfo,
+  PermissionRequestInfo,
+  SessionEventType
+} from '@vibegrid/shared/types'
 import * as gitUtils from './git-utils'
 import {
   saveTaskImage,
@@ -42,8 +47,12 @@ import {
   createSessionLog,
   updateSessionLog,
   appendSessionOutput,
-  listSessionLogs
+  listSessionLogs,
+  insertSessionEvent,
+  listSessionEvents,
+  listSessionEventsBySession
 } from './database'
+import { stripAnsi } from './ansi-strip'
 import { executeScript } from './script-runner'
 import { getTailscaleStatus, clearBinaryCache } from './tailscale'
 import { checkAndRebind } from './server-rebind'
@@ -82,7 +91,24 @@ function stopOutputFlushIfIdle(): void {
 
 function bufferSessionOutput(sessionId: string, data: string): void {
   const chunks = outputBuffers.get(sessionId)
-  if (chunks) chunks.push(data)
+  if (chunks) chunks.push(stripAnsi(data))
+}
+
+function logSessionEvent(
+  sessionId: string,
+  eventType: SessionEventType,
+  metadata?: Record<string, unknown>
+): void {
+  try {
+    insertSessionEvent({
+      sessionId,
+      eventType,
+      timestamp: new Date().toISOString(),
+      ...(metadata ? { metadata } : {})
+    })
+  } catch (err) {
+    log.error('[session-events] failed to log event:', err)
+  }
 }
 
 function linkSessionToTask(
@@ -102,6 +128,7 @@ function linkSessionToTask(
   taskLinkedSessions.set(sessionId, taskId)
   outputBuffers.set(sessionId, [])
   startOutputFlush()
+  logSessionEvent(sessionId, 'task_linked', { taskId })
   log.info(`[session-logs] linked task "${taskId}" to session ${sessionId}`)
 }
 
@@ -131,9 +158,10 @@ export function registerAllMethods(): void {
   })
   registerMethod('terminal:kill', (id) => ptyManager.killPty(id))
   registerMethod('terminal:listActive', () => ptyManager.getActiveSessions())
-  registerMethod('terminal:rename', ({ id, displayName }) =>
+  registerMethod('terminal:rename', ({ id, displayName }) => {
     ptyManager.renameSession(id, displayName)
-  )
+    logSessionEvent(id, 'renamed', { displayName })
+  })
   registerMethod('terminal:reorder', (ids) => ptyManager.reorderSessions(ids))
   registerMethod('terminal:readOutput', ({ id, lines }) => ptyManager.getOutput(id, lines))
   registerMethod('shell:create', (cwd) => ptyManager.createShellPty(cwd))
@@ -192,13 +220,25 @@ export function registerAllMethods(): void {
   )
 
   // Session archive
-  registerMethod('session:archive', (session) => archiveSession(session))
-  registerMethod('session:unarchive', (id) => unarchiveSession(id))
+  registerMethod('session:archive', (session) => {
+    archiveSession(session)
+    logSessionEvent(session.id, 'archived')
+  })
+  registerMethod('session:unarchive', (id) => {
+    unarchiveSession(id)
+    logSessionEvent(id, 'unarchived')
+  })
   registerMethod('session:listArchived', () => listArchivedSessions())
 
   // Headless
   registerMethod('headless:create', (payload) => {
     const session = headlessManager.createHeadless(payload)
+    logSessionEvent(session.id, 'created', {
+      agentType: payload.agentType,
+      projectName: payload.projectName,
+      projectPath: payload.projectPath,
+      headless: true
+    })
     if (payload.taskId) {
       try {
         linkSessionToTask(session.id, payload.taskId, session)
@@ -224,6 +264,12 @@ export function registerAllMethods(): void {
   // Session logs
   registerMethod('sessionLog:list', ({ taskId }) => listSessionLogs(taskId))
   registerMethod('sessionLog:update', (entry) => updateSessionLog(entry.sessionId, entry))
+
+  // Session events
+  registerMethod('sessionEvent:list', ({ eventType, limit }) => listSessionEvents(eventType, limit))
+  registerMethod('sessionEvent:listBySession', ({ sessionId, limit }) =>
+    listSessionEventsBySession(sessionId, limit)
+  )
 
   // Agent/IDE detection
   registerMethod('agent:detectInstalled', () => detectInstalledAgents())
@@ -318,6 +364,7 @@ export function registerAllMethods(): void {
     }
     if (channel === IPC.TERMINAL_EXIT) {
       const p = payload as { id: string; exitCode: number }
+      logSessionEvent(p.id, 'exited', { exitCode: p.exitCode })
       if (taskLinkedSessions.has(p.id)) {
         flushAndCleanup(p.id)
         try {
@@ -341,6 +388,7 @@ export function registerAllMethods(): void {
     }
     if (channel === IPC.HEADLESS_EXIT) {
       const p = payload as { id: string; exitCode: number }
+      logSessionEvent(p.id, 'exited', { exitCode: p.exitCode })
       if (taskLinkedSessions.has(p.id)) {
         flushAndCleanup(p.id)
         try {
@@ -371,6 +419,12 @@ export function registerAllMethods(): void {
   // Handle new terminal sessions: broadcast to UI + Copilot hook setup
   ptyManager.on('session-created', (session, payload) => {
     clientRegistry.broadcast(IPC.SESSION_CREATED, session)
+    logSessionEvent(session.id, 'created', {
+      agentType: session.agentType,
+      projectName: session.projectName,
+      projectPath: session.projectPath,
+      ...(session.branch && { branch: session.branch })
+    })
 
     if (payload.taskId) {
       try {
