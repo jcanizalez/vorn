@@ -215,4 +215,18 @@ describe('SessionActivityLog', () => {
     )
     expect(queryByText('Resume Session')).not.toBeInTheDocument()
   })
+
+  it('shows Resume Session for errored sessions when agentSessionId provided', () => {
+    const onResume = vi.fn()
+    const { getByText } = render(
+      <SessionActivityLog
+        logs={[makeLog({ status: 'error', exitCode: 1, logs: 'Error: failed' })]}
+        onViewFullOutput={onViewFullOutput}
+        onResumeSession={onResume}
+        agentSessionId="agent-123"
+        projectPath="/test"
+      />
+    )
+    expect(getByText('Resume Session')).toBeInTheDocument()
+  })
 })

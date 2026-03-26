@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 const mockCreateSessionLog = vi.fn()
 const mockUpdateSessionLog = vi.fn()
@@ -186,6 +186,15 @@ vi.mock('../packages/server/src/ws-handler', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.useFakeTimers()
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+  ptyEmitter.removeAllListeners()
+  headlessEmitter.removeAllListeners()
+  schedulerEmitter.removeAllListeners()
+  vi.resetModules()
 })
 
 describe('session output capture', () => {

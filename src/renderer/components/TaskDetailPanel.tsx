@@ -186,6 +186,8 @@ export function TaskDetailPanel() {
             if (
               prev[i].sessionId !== next[i].sessionId ||
               prev[i].status !== next[i].status ||
+              prev[i].completedAt !== next[i].completedAt ||
+              prev[i].exitCode !== next[i].exitCode ||
               (prev[i].logs?.length ?? 0) !== (next[i].logs?.length ?? 0)
             )
               return next

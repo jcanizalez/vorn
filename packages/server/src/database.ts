@@ -1689,7 +1689,7 @@ export function listWorkflowRunsByTask(
 // ─── Session Logs ─────────────────────────────────────────────────
 
 const MAX_SESSION_LOGS_PER_TASK = 10
-const MAX_SESSION_OUTPUT_BYTES = 100_000
+const MAX_SESSION_OUTPUT_CHARS = 100_000
 
 export function createSessionLog(entry: SessionLog): void {
   const d = getDb()
@@ -1758,9 +1758,9 @@ export function appendSessionOutput(sessionId: string, data: string): void {
      WHERE session_id = ?`
   ).run(
     data,
-    MAX_SESSION_OUTPUT_BYTES,
+    MAX_SESSION_OUTPUT_CHARS,
     data,
-    Math.floor(MAX_SESSION_OUTPUT_BYTES * 0.8),
+    Math.floor(MAX_SESSION_OUTPUT_CHARS * 0.8),
     data,
     sessionId
   )

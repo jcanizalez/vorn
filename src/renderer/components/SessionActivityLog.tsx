@@ -130,11 +130,7 @@ export function SessionActivityLog({
           entry.logs && entry.logs.length > MAX_TRUNCATED_LENGTH
             ? entry.logs.slice(0, MAX_TRUNCATED_LENGTH) + '\n...'
             : entry.logs
-        const canResume =
-          entry.status !== 'running' &&
-          entry.status !== 'error' &&
-          agentSessionId &&
-          onResumeSession
+        const canResume = entry.status !== 'running' && agentSessionId && onResumeSession
 
         return (
           <div
