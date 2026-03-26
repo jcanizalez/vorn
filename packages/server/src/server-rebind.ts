@@ -6,6 +6,7 @@ import log from './logger'
 let httpServer: Server | null = null
 let currentHost = '127.0.0.1'
 let boundPort = 0
+let rebindInFlight: Promise<void> | null = null
 
 export function initRebind(server: Server, host: string, port: number): void {
   httpServer = server
@@ -22,6 +23,21 @@ export function getCurrentHost(): string {
  * Binds to 0.0.0.0 when networkAccessEnabled AND Tailscale is running, else 127.0.0.1.
  */
 export async function checkAndRebind(): Promise<void> {
+  // Serialize: if a rebind is already running, just wait for it
+  if (rebindInFlight) {
+    await rebindInFlight
+    return
+  }
+
+  rebindInFlight = doRebind()
+  try {
+    await rebindInFlight
+  } finally {
+    rebindInFlight = null
+  }
+}
+
+async function doRebind(): Promise<void> {
   if (!httpServer) return
 
   const config = configManager.loadConfig()
@@ -49,8 +65,16 @@ export async function checkAndRebind(): Promise<void> {
     }
     await new Promise<void>((resolve) => server.close(() => resolve()))
     await new Promise<void>((resolve, reject) => {
-      server.listen(boundPort, desiredHost, () => resolve())
-      server.once('error', reject)
+      const onError = (err: unknown) => {
+        server.removeListener('listening', onListening)
+        reject(err)
+      }
+      const onListening = () => {
+        server.removeListener('error', onError)
+        resolve()
+      }
+      server.once('error', onError)
+      server.listen(boundPort, desiredHost, onListening)
     })
     currentHost = desiredHost
     log.info(`[server] rebound successfully to ${desiredHost}:${boundPort}`)
