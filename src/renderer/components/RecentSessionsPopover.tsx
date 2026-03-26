@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../stores'
-import { RecentSession } from '../../shared/types'
+import type { RecentSession } from '../../shared/types'
 import { AgentIcon } from './AgentIcon'
-import { resolveProjectName } from '../lib/session-utils'
+import { formatRecentSessionActivity, resolveProjectName } from '../lib/session-utils'
 
 function timeAgo(ts: number): string {
   const sec = Math.floor((Date.now() - ts) / 1000)
@@ -42,6 +42,8 @@ export function RecentSessionsPopover({ isOpen, onClose }: Props) {
   }, [isOpen, activeProject, config])
 
   const handleResume = async (session: RecentSession): Promise<void> => {
+    if (!session.canResumeExact) return
+
     try {
       const projectName = resolveProjectName(session, config?.projects)
       const result = await window.api.createTerminal({
@@ -93,13 +95,17 @@ export function RecentSessionsPopover({ isOpen, onClose }: Props) {
               ) : (
                 <div className="p-1.5 space-y-0.5">
                   {sessions.map((session) => {
-                    const project = config?.projects.find((p) => p.path === session.projectPath)
+                    const projectName = resolveProjectName(session, config?.projects)
                     return (
                       <button
                         key={session.sessionId}
                         onClick={() => handleResume(session)}
-                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/[0.06]
-                                   transition-colors group flex items-start gap-2.5"
+                        disabled={!session.canResumeExact}
+                        className={`w-full text-left px-3 py-2 rounded-lg transition-colors group flex items-start gap-2.5 ${
+                          session.canResumeExact
+                            ? 'hover:bg-white/[0.06]'
+                            : 'cursor-default opacity-75'
+                        }`}
                       >
                         <div className="shrink-0 mt-0.5">
                           <AgentIcon agentType={session.agentType} size={14} />
@@ -109,28 +115,29 @@ export function RecentSessionsPopover({ isOpen, onClose }: Props) {
                             {session.display || 'Untitled session'}
                           </div>
                           <div className="flex items-center gap-1.5 mt-0.5">
-                            {!activeProject && project && (
-                              <>
-                                <span className="text-[10px] text-gray-600 truncate">
-                                  {project.name}
-                                </span>
-                                <span className="text-[10px] text-gray-700">·</span>
-                              </>
+                            {!activeProject && (
+                              <span className="text-[10px] text-gray-600 truncate">
+                                {projectName}
+                              </span>
                             )}
+                            {!activeProject && <span className="text-[10px] text-gray-700">·</span>}
                             <span className="text-[10px] text-gray-600 shrink-0">
                               {timeAgo(session.timestamp)}
                             </span>
                             <span className="text-[10px] text-gray-700">·</span>
                             <span className="text-[10px] text-gray-600 shrink-0">
-                              {session.messageCount} msg{session.messageCount !== 1 ? 's' : ''}
+                              {formatRecentSessionActivity(session)}
                             </span>
                           </div>
                         </div>
                         <span
-                          className="text-[10px] text-gray-700 opacity-0 group-hover:opacity-100
-                                         transition-opacity shrink-0 mt-0.5"
+                          className={`text-[10px] shrink-0 mt-0.5 ${
+                            session.canResumeExact
+                              ? 'text-gray-700 opacity-0 group-hover:opacity-100 transition-opacity'
+                              : 'text-gray-600'
+                          }`}
                         >
-                          resume
+                          {session.canResumeExact ? 'resume' : 'history only'}
                         </span>
                       </button>
                     )

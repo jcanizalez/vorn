@@ -1,5 +1,10 @@
 import { execFileSync } from 'node:child_process'
-import { AgentType, AgentCommandConfig, CreateTerminalPayload } from '@vibegrid/shared/types'
+import {
+  AgentType,
+  AgentCommandConfig,
+  CreateTerminalPayload,
+  supportsExactSessionResume
+} from '@vibegrid/shared/types'
 import { DEFAULT_AGENT_COMMANDS } from '@vibegrid/shared/agent-defaults'
 import { shellEscape } from './process-utils'
 
@@ -54,7 +59,7 @@ export function buildAgentLaunchLine(
   const effectiveArgs = payload.args !== undefined ? payload.args : cmd.args
   let launchLine = [cmd.command, ...effectiveArgs.map((a) => shellEscape(a))].join(' ')
 
-  if (payload.resumeSessionId) {
+  if (payload.resumeSessionId && supportsExactSessionResume(payload.agentType)) {
     switch (payload.agentType) {
       case 'claude':
         launchLine += ` --resume ${payload.resumeSessionId}`
@@ -69,7 +74,6 @@ export function buildAgentLaunchLine(
         launchLine += ` --session ${payload.resumeSessionId}`
         break
       case 'gemini':
-        launchLine += ` --resume latest`
         break
     }
   }

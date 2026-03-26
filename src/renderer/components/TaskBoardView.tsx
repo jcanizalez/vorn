@@ -1,5 +1,5 @@
 import { useAppStore } from '../stores'
-import { TaskConfig, TaskStatus } from '../../shared/types'
+import { TaskConfig, TaskStatus, supportsExactSessionResume } from '../../shared/types'
 import { buildTaskPrompt } from '../../shared/prompt-builder'
 import { TaskKanbanBoard } from './task-board/TaskKanbanBoard'
 import { TaskListView } from './task-board/TaskListView'
@@ -69,6 +69,7 @@ export function TaskBoardView() {
     if (
       task.agentSessionId &&
       task.assignedAgent &&
+      supportsExactSessionResume(task.assignedAgent) &&
       (task.status === 'in_progress' || task.status === 'in_review' || task.status === 'done')
     ) {
       return async () => {

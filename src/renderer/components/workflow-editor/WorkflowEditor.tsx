@@ -8,7 +8,8 @@ import {
   WorkflowNode,
   WorkflowEdge,
   TriggerConfig,
-  AgentType
+  AgentType,
+  supportsExactSessionResume
 } from '../../../shared/types'
 import { WorkflowCanvas } from './WorkflowCanvas'
 import { NodePalette } from './panels/NodePalette'
@@ -405,6 +406,8 @@ export function WorkflowEditor() {
       branch?: string,
       useWorktree?: boolean
     ) => {
+      if (!supportsExactSessionResume(agentType)) return
+
       const session = await window.api.createTerminal({
         agentType,
         projectName,

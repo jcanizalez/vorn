@@ -32,7 +32,9 @@ function makeRecent(overrides: Partial<RecentSession> = {}): RecentSession {
     display: 'Fix bug',
     projectPath: '/home/user/my-app',
     timestamp: Date.now(),
-    messageCount: 5,
+    activityCount: 5,
+    activityLabel: 'message',
+    canResumeExact: true,
     ...overrides
   }
 }
@@ -57,6 +59,23 @@ describe('resolveResumeSessionId', () => {
     const session = makeSession({ projectPath: '/home/user/my-app' })
     const result = await resolveResumeSessionId(session)
     expect(result).toBe('sess-match')
+  })
+
+  it('prefers worktree path matches over project root matches', async () => {
+    mockGetRecentSessions.mockResolvedValue([
+      makeRecent({ sessionId: 'sess-root', projectPath: '/home/user/my-app' }),
+      makeRecent({
+        sessionId: 'sess-worktree',
+        projectPath: '/home/user/.vibegrid-worktrees/my-app/feature-a'
+      })
+    ])
+    const session = makeSession({
+      projectPath: '/home/user/my-app',
+      worktreePath: '/home/user/.vibegrid-worktrees/my-app/feature-a'
+    })
+
+    const result = await resolveResumeSessionId(session)
+    expect(result).toBe('sess-worktree')
   })
 
   it('falls back to basename match when exact path differs', async () => {
@@ -144,6 +163,16 @@ describe('resolveResumeSessionId', () => {
     const result = await resolveResumeSessionId(session, claimed)
     expect(result).toBe('sess-fallback')
   })
+
+  it('does not attempt exact resume for gemini sessions', async () => {
+    const session = makeSession({
+      agentType: 'gemini' as AgentType,
+      hookSessionId: 'gemini-hook'
+    })
+    const result = await resolveResumeSessionId(session)
+    expect(result).toBeUndefined()
+    expect(mockGetRecentSessions).not.toHaveBeenCalled()
+  })
 })
 
 describe('resolveProjectName', () => {
@@ -170,6 +199,13 @@ describe('resolveProjectName', () => {
   it('returns basename when no project matches', () => {
     const session = makeRecent({ projectPath: '/home/user/unknown' })
     expect(resolveProjectName(session, projects)).toBe('unknown')
+  })
+
+  it('returns project name for managed worktree paths', () => {
+    const session = makeRecent({
+      projectPath: '/home/user/.vibegrid-worktrees/my-app/feature-a'
+    })
+    expect(resolveProjectName(session, projects)).toBe('My App')
   })
 
   it('returns untitled for root path', () => {

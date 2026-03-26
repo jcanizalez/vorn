@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react'
 import { useAppStore } from '../stores'
-import { AgentType, GitDiffResult, WorkflowExecution } from '../../shared/types'
+import {
+  AgentType,
+  GitDiffResult,
+  WorkflowExecution,
+  supportsExactSessionResume
+} from '../../shared/types'
 import { buildTaskPrompt, buildFeedbackPrompt } from '../../shared/prompt-builder'
 import { TASK_TEMPLATE } from './MarkdownEditor'
 const RichMarkdownEditor = lazy(() =>
@@ -125,7 +130,11 @@ export function TaskDetailPanel() {
   const showDiff =
     !isCreateMode && task && (task.status === 'in_review' || task.status === 'in_progress')
   const sessionIsLive = !!(task?.assignedSessionId && terminals.has(task.assignedSessionId))
-  const canResume = !sessionIsLive && !!task?.agentSessionId && !!task?.assignedAgent
+  const canResume =
+    !sessionIsLive &&
+    !!task?.agentSessionId &&
+    !!task?.assignedAgent &&
+    supportsExactSessionResume(task.assignedAgent)
 
   // Load workflow runs related to this task from the database
   const [relatedRuns, setRelatedRuns] = useState<(WorkflowExecution & { workflowName?: string })[]>(
@@ -347,6 +356,8 @@ export function TaskDetailPanel() {
 
   const handleResumeSession = async () => {
     if (!task?.agentSessionId || !task?.assignedAgent || !project) return
+    if (!supportsExactSessionResume(task.assignedAgent)) return
+
     const session = await window.api.createTerminal({
       agentType: task.assignedAgent,
       projectName: task.projectName,
@@ -370,6 +381,8 @@ export function TaskDetailPanel() {
     branch?: string,
     useWorktree?: boolean
   ) => {
+    if (!supportsExactSessionResume(agentType)) return
+
     const session = await window.api.createTerminal({
       agentType,
       projectName,
@@ -408,7 +421,12 @@ export function TaskDetailPanel() {
     if (comments.length === 0 || !task) return
     const feedback = formatReviewFeedback(comments)
 
-    if (task.agentSessionId && task.assignedAgent && project) {
+    if (
+      task.agentSessionId &&
+      task.assignedAgent &&
+      project &&
+      supportsExactSessionResume(task.assignedAgent)
+    ) {
       const session = await window.api.createTerminal({
         agentType: task.assignedAgent,
         projectName: task.projectName,

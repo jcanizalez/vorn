@@ -2,6 +2,25 @@ export type AgentType = 'claude' | 'copilot' | 'codex' | 'opencode' | 'gemini'
 
 export type AgentStatus = 'running' | 'waiting' | 'idle' | 'error'
 
+export function supportsExactSessionResume(agentType: AgentType): boolean {
+  return agentType !== 'gemini'
+}
+
+export function getRecentSessionActivityLabel(agentType: AgentType): string {
+  switch (agentType) {
+    case 'claude':
+      return 'entry'
+    case 'codex':
+      return 'entry'
+    case 'copilot':
+      return 'turn'
+    case 'gemini':
+      return 'prompt'
+    case 'opencode':
+      return 'message'
+  }
+}
+
 export interface AgentCommandConfig {
   command: string
   args: string[]
@@ -343,7 +362,9 @@ export interface RecentSession {
   display: string
   projectPath: string
   timestamp: number
-  messageCount: number
+  activityCount: number
+  activityLabel: string
+  canResumeExact: boolean
 }
 
 export interface CreateTerminalPayload {

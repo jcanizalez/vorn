@@ -70,13 +70,13 @@ describe('buildAgentLaunchLine', () => {
     expect(result).toContain('--session sess-1')
   })
 
-  it('uses --resume latest for gemini', () => {
+  it('does not inject a fake exact-resume flag for gemini', () => {
     const result = buildAgentLaunchLine(
       makePayload({ agentType: 'gemini', resumeSessionId: 'any-id' }),
       cmds,
       env
     )
-    expect(result).toContain('--resume latest')
+    expect(result).toBe('gemini')
   })
 
   it('uses per-step args over settings-level args', () => {

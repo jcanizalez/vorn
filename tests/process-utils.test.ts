@@ -230,4 +230,16 @@ describe('normalizePath', () => {
     const { normalizePath } = await import('../packages/server/src/process-utils')
     expect(normalizePath('/var/data')).toBe('/private/var/data')
   })
+
+  it('normalizes Windows-style paths case-insensitively', async () => {
+    mockRealpathSync.mockImplementation((p: string) => p)
+    const { normalizePath } = await import('../packages/server/src/process-utils')
+    expect(normalizePath('C:/Users/Javier/Repo/')).toBe('c:\\users\\javier\\repo')
+  })
+
+  it('preserves Windows drive roots', async () => {
+    mockRealpathSync.mockImplementation((p: string) => p)
+    const { normalizePath } = await import('../packages/server/src/process-utils')
+    expect(normalizePath('C:\\')).toBe('c:\\')
+  })
 })

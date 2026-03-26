@@ -1,12 +1,12 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../stores'
-import { RecentSession, getProjectHostIds } from '../../shared/types'
+import { getProjectHostIds, type RecentSession } from '../../shared/types'
 import { SortMode, StatusFilter } from '../stores/types'
 import { AGENT_DEFINITIONS, AGENT_LIST } from '../lib/agent-definitions'
 import { AgentIcon } from './AgentIcon'
 import { getDisplayName } from '../lib/terminal-display'
-import { resolveProjectName } from '../lib/session-utils'
+import { formatRecentSessionActivity, resolveProjectName } from '../lib/session-utils'
 import { executeWorkflow } from '../lib/workflow-execution'
 import { useAgentInstallStatus } from '../hooks/useAgentInstallStatus'
 import {
@@ -290,11 +290,13 @@ function useCommands(
 
     // --- Recent Sessions ---
     for (const session of recentSessions) {
+      if (!session.canResumeExact) continue
+
       const projectName = resolveProjectName(session, config?.projects)
       commands.push({
         id: `recent:${session.sessionId}`,
         label: session.display || 'Untitled session',
-        sublabel: `${projectName} · ${timeAgo(session.timestamp)} · ${session.messageCount} msg${session.messageCount !== 1 ? 's' : ''}`,
+        sublabel: `${projectName} · ${timeAgo(session.timestamp)} · ${formatRecentSessionActivity(session)}`,
         category: 'recent',
         icon: <AgentIcon agentType={session.agentType} size={14} />,
         keywords: ['resume', 'recent', 'history', projectName, session.agentType],
