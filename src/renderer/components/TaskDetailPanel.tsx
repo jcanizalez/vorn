@@ -371,7 +371,7 @@ export function TaskDetailPanel() {
 
   const handleStartTask = async () => {
     if (!project || !task) return
-    const agentType = config?.defaults.defaultAgent || 'claude'
+    const agentType = formAssignedAgent ?? config?.defaults.defaultAgent ?? 'claude'
     const siblingTasks = (config?.tasks || []).filter((t) => t.projectName === task.projectName)
     const session = await window.api.createTerminal({
       agentType,

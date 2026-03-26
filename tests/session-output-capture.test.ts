@@ -238,6 +238,11 @@ describe('session output capture', () => {
         status: 'running'
       })
     )
+
+    // Emit exit to clean up the flush interval started by session-created with taskId
+    const { IPC } = await import('../packages/shared/src/types')
+    ptyEmitter.emit('session-exit', session)
+    ptyEmitter.emit('client-message', IPC.TERMINAL_EXIT, { id: 'sess-1', exitCode: 0 })
   })
 
   it('session-created without taskId does not call createSessionLog', async () => {
@@ -352,5 +357,12 @@ describe('session output capture', () => {
         status: 'running'
       })
     )
+
+    // Emit exit to clean up the flush interval started by headless:create with taskId
+    const { IPC } = await import('../packages/shared/src/types')
+    headlessEmitter.emit('client-message', IPC.HEADLESS_EXIT, {
+      id: 'headless-1',
+      exitCode: 0
+    })
   })
 })

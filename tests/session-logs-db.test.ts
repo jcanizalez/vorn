@@ -1,47 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 
-const mockPrepare = vi.fn()
-const mockRun = vi.fn()
-const mockGet = vi.fn()
-const mockAll = vi.fn()
+// These tests validate the SessionLog shape and IPC/protocol wiring.
+// DB interaction and SQL behavior are covered in session-output-capture.test.ts.
 
-const stmtMock = { run: mockRun, get: mockGet, all: mockAll }
-
-vi.mock('../packages/server/src/logger', () => ({
-  default: { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
-}))
-
-// Mock libsql — the database module calls getDb() which returns a Database instance
-vi.mock('libsql', () => {
-  return {
-    default: class {
-      prepare() {
-        return mockPrepare()
-      }
-    }
-  }
-})
-
-// We'll mock getDb indirectly by mocking the database module's internal state
-// Instead, we test the functions by mocking at the prepare level
-vi.mock('../packages/server/src/database', async () => {
-  const actual = await vi.importActual<typeof import('../packages/server/src/database')>(
-    '../packages/server/src/database'
-  )
-  return actual
-})
-
-// Since the database functions require a real DB, we'll mock the getDb() by
-// providing a minimal mock. The actual pattern in this codebase mocks at the
-// module boundary. Let's test the logic via integration-style mocking.
-
-describe('session log functions (unit logic)', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    mockPrepare.mockReturnValue(stmtMock)
-    mockAll.mockReturnValue([])
-  })
-
+describe('session log types and IPC wiring', () => {
   it('SessionLog type has required fields', () => {
     const log = {
       taskId: 'task-1',
