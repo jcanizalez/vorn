@@ -15,7 +15,8 @@ import type {
   WidgetAgentInfo,
   WorkflowDefinition,
   SSHKey,
-  SSHKeyMeta
+  SSHKeyMeta,
+  SessionLog
 } from './types'
 
 // ─── JSON-RPC 2.0 Envelope Types ────────────────────────────────
@@ -122,6 +123,14 @@ export interface RequestMethods {
   'workflowRun:listByTask': {
     params: { taskId: string; limit?: number }
     result: WorkflowExecution[]
+  }
+  'sessionLog:list': {
+    params: { taskId: string }
+    result: SessionLog[]
+  }
+  'sessionLog:update': {
+    params: SessionLog
+    result: void
   }
   'agent:detectInstalled': {
     params: void

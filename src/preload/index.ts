@@ -18,7 +18,8 @@ import {
   AgentType,
   SSHKeyMeta,
   RemoteHost,
-  TailscaleStatus
+  TailscaleStatus,
+  SessionLog
 } from '../shared/types'
 
 const api = {
@@ -269,6 +270,9 @@ const api = {
     limit?: number
   ): Promise<(WorkflowExecution & { workflowName?: string })[]> =>
     ipcRenderer.invoke(IPC.WORKFLOW_RUN_LIST_BY_TASK, taskId, limit),
+
+  listSessionLogs: (taskId: string): Promise<SessionLog[]> =>
+    ipcRenderer.invoke(IPC.SESSION_LOG_LIST, taskId),
 
   reportWorkflowComplete: (data: {
     workflowId: string

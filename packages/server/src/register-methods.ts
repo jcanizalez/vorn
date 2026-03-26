@@ -38,7 +38,11 @@ import {
   dbSaveSSHKey,
   dbListSSHKeys,
   dbGetSSHKey,
-  dbDeleteSSHKey
+  dbDeleteSSHKey,
+  createSessionLog,
+  updateSessionLog,
+  appendSessionOutput,
+  listSessionLogs
 } from './database'
 import { executeScript } from './script-runner'
 import { getTailscaleStatus, clearBinaryCache } from './tailscale'
@@ -47,6 +51,73 @@ import { testSshConnection } from './process-utils'
 import log from './logger'
 
 const copilotInstallations = new Map<string, CopilotHookInstallation>()
+
+const taskLinkedSessions = new Map<string, string>() // sessionId → taskId
+const outputBuffers = new Map<string, string[]>() // sessionId → buffered chunks
+const OUTPUT_FLUSH_INTERVAL = 5_000
+let outputFlushTimer: ReturnType<typeof setInterval> | null = null
+
+function startOutputFlush(): void {
+  if (outputFlushTimer) return
+  outputFlushTimer = setInterval(() => {
+    for (const [sessionId, chunks] of outputBuffers) {
+      if (chunks.length > 0) {
+        try {
+          appendSessionOutput(sessionId, chunks.join(''))
+        } catch (err) {
+          log.error('[session-logs] failed to flush output:', err)
+        }
+        outputBuffers.set(sessionId, [])
+      }
+    }
+  }, OUTPUT_FLUSH_INTERVAL)
+}
+
+function stopOutputFlushIfIdle(): void {
+  if (taskLinkedSessions.size === 0 && outputFlushTimer) {
+    clearInterval(outputFlushTimer)
+    outputFlushTimer = null
+  }
+}
+
+function bufferSessionOutput(sessionId: string, data: string): void {
+  const chunks = outputBuffers.get(sessionId)
+  if (chunks) chunks.push(data)
+}
+
+function linkSessionToTask(
+  sessionId: string,
+  taskId: string,
+  session: { agentType?: string; branch?: string; projectName?: string }
+): void {
+  createSessionLog({
+    taskId,
+    sessionId,
+    agentType: session.agentType,
+    branch: session.branch,
+    status: 'running',
+    startedAt: new Date().toISOString(),
+    projectName: session.projectName
+  })
+  taskLinkedSessions.set(sessionId, taskId)
+  outputBuffers.set(sessionId, [])
+  startOutputFlush()
+  log.info(`[session-logs] linked task "${taskId}" to session ${sessionId}`)
+}
+
+function flushAndCleanup(sessionId: string): void {
+  const chunks = outputBuffers.get(sessionId)
+  if (chunks && chunks.length > 0) {
+    try {
+      appendSessionOutput(sessionId, chunks.join(''))
+    } catch (err) {
+      log.error('[session-logs] failed to flush output on exit:', err)
+    }
+  }
+  outputBuffers.delete(sessionId)
+  taskLinkedSessions.delete(sessionId)
+  stopOutputFlushIfIdle()
+}
 
 let serverPort = 0
 export function setServerPort(port: number): void {
@@ -126,7 +197,17 @@ export function registerAllMethods(): void {
   registerMethod('session:listArchived', () => listArchivedSessions())
 
   // Headless
-  registerMethod('headless:create', (payload) => headlessManager.createHeadless(payload))
+  registerMethod('headless:create', (payload) => {
+    const session = headlessManager.createHeadless(payload)
+    if (payload.taskId) {
+      try {
+        linkSessionToTask(session.id, payload.taskId, session)
+      } catch (err) {
+        log.error('[session-logs] failed to create headless session log:', err)
+      }
+    }
+    return session
+  })
   registerMethod('headless:kill', (id) => headlessManager.killHeadless(id))
   registerMethod('headless:list', () => headlessManager.getActiveSessions())
 
@@ -139,6 +220,10 @@ export function registerAllMethods(): void {
   registerMethod('workflowRun:listByTask', ({ taskId, limit }) =>
     listWorkflowRunsByTask(taskId, limit)
   )
+
+  // Session logs
+  registerMethod('sessionLog:list', ({ taskId }) => listSessionLogs(taskId))
+  registerMethod('sessionLog:update', (entry) => updateSessionLog(entry.sessionId, entry))
 
   // Agent/IDE detection
   registerMethod('agent:detectInstalled', () => detectInstalledAgents())
@@ -226,9 +311,49 @@ export function registerAllMethods(): void {
   // Wire manager events → broadcast to WS clients
   ptyManager.on('client-message', (channel: string, payload: unknown) => {
     clientRegistry.broadcast(channel, payload)
+    // Capture terminal output for task-linked sessions
+    if (channel === IPC.TERMINAL_DATA) {
+      const p = payload as { id: string; data: string }
+      if (p.data) bufferSessionOutput(p.id, p.data)
+    }
+    if (channel === IPC.TERMINAL_EXIT) {
+      const p = payload as { id: string; exitCode: number }
+      if (taskLinkedSessions.has(p.id)) {
+        flushAndCleanup(p.id)
+        try {
+          updateSessionLog(p.id, {
+            status: p.exitCode === 0 ? 'success' : 'error',
+            completedAt: new Date().toISOString(),
+            exitCode: p.exitCode
+          })
+        } catch (err) {
+          log.error('[session-logs] failed to update exit status:', err)
+        }
+      }
+    }
   })
   headlessManager.on('client-message', (channel: string, payload: unknown) => {
     clientRegistry.broadcast(channel, payload)
+    // Capture headless output for task-linked sessions
+    if (channel === IPC.HEADLESS_DATA) {
+      const p = payload as { id: string; data: string }
+      if (p.data) bufferSessionOutput(p.id, p.data)
+    }
+    if (channel === IPC.HEADLESS_EXIT) {
+      const p = payload as { id: string; exitCode: number }
+      if (taskLinkedSessions.has(p.id)) {
+        flushAndCleanup(p.id)
+        try {
+          updateSessionLog(p.id, {
+            status: p.exitCode === 0 ? 'success' : 'error',
+            completedAt: new Date().toISOString(),
+            exitCode: p.exitCode
+          })
+        } catch (err) {
+          log.error('[session-logs] failed to update headless exit:', err)
+        }
+      }
+    }
   })
   scheduler.on('client-message', (channel: string, payload: unknown) => {
     clientRegistry.broadcast(channel, payload)
@@ -246,6 +371,14 @@ export function registerAllMethods(): void {
   // Handle new terminal sessions: broadcast to UI + Copilot hook setup
   ptyManager.on('session-created', (session, payload) => {
     clientRegistry.broadcast(IPC.SESSION_CREATED, session)
+
+    if (payload.taskId) {
+      try {
+        linkSessionToTask(session.id, payload.taskId, session)
+      } catch (err) {
+        log.error('[session-logs] failed to create session log:', err)
+      }
+    }
 
     if (payload.agentType === 'copilot') {
       const port = hookServer.getPort()

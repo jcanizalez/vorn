@@ -4,6 +4,7 @@ import {
   AgentType,
   GitDiffResult,
   WorkflowExecution,
+  SessionLog,
   supportsExactSessionResume
 } from '../../shared/types'
 import { buildTaskPrompt, buildFeedbackPrompt } from '../../shared/prompt-builder'
@@ -38,10 +39,12 @@ import {
   ChevronRight,
   FolderGit2,
   Save,
-  Workflow
+  Workflow,
+  Activity
 } from 'lucide-react'
 import { RunEntry } from './workflow-editor/RunEntry'
 import { LogReplayModal } from './LogReplayModal'
+import { SessionActivityLog } from './SessionActivityLog'
 import { ConfirmPopover } from './ConfirmPopover'
 
 interface DiffComment {
@@ -107,6 +110,8 @@ export function TaskDetailPanel() {
   } | null>(null)
   const [showDiffSection, setShowDiffSection] = useState(true)
   const [showWorkflowRuns, setShowWorkflowRuns] = useState(true)
+  const [showSessionActivity, setShowSessionActivity] = useState(true)
+  const [sessionLogs, setSessionLogs] = useState<SessionLog[]>([])
   const [fullOutputLogs, setFullOutputLogs] = useState<string | null>(null)
 
   // Form state (always active for existing tasks + create mode)
@@ -166,6 +171,37 @@ export function TaskDetailPanel() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task?.id, workflowExecutions])
+
+  // Load session logs for this task + poll while in_progress
+  useEffect(() => {
+    if (!task || isCreateMode) {
+      setSessionLogs([])
+      return
+    }
+    const fetchLogs = () =>
+      window.api.listSessionLogs(task.id).then((next) => {
+        setSessionLogs((prev) => {
+          if (prev.length !== next.length) return next
+          for (let i = 0; i < next.length; i++) {
+            if (
+              prev[i].sessionId !== next[i].sessionId ||
+              prev[i].status !== next[i].status ||
+              prev[i].completedAt !== next[i].completedAt ||
+              prev[i].exitCode !== next[i].exitCode ||
+              (prev[i].logs?.length ?? 0) !== (next[i].logs?.length ?? 0)
+            )
+              return next
+          }
+          return prev
+        })
+      })
+    fetchLogs()
+    if (task.status === 'in_progress') {
+      const interval = setInterval(fetchLogs, 5_000)
+      return () => clearInterval(interval)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task?.id, task?.status, isCreateMode])
 
   // Initialize form from task when switching tasks
   useEffect(() => {
@@ -335,7 +371,7 @@ export function TaskDetailPanel() {
 
   const handleStartTask = async () => {
     if (!project || !task) return
-    const agentType = config?.defaults.defaultAgent || 'claude'
+    const agentType = formAssignedAgent ?? config?.defaults.defaultAgent ?? 'claude'
     const siblingTasks = (config?.tasks || []).filter((t) => t.projectName === task.projectName)
     const session = await window.api.createTerminal({
       agentType,
@@ -790,6 +826,33 @@ export function TaskDetailPanel() {
                 <Play size={12} strokeWidth={2} />
                 Resume Session
               </button>
+            )}
+          </div>
+        )}
+
+        {/* Session Activity section */}
+        {!isCreateMode && sessionLogs.length > 0 && (
+          <div className="border-t border-white/[0.06]">
+            <button
+              onClick={() => setShowSessionActivity(!showSessionActivity)}
+              className="w-full px-4 py-2.5 flex items-center gap-2 text-[11px] font-medium text-gray-500
+                         uppercase tracking-wider hover:text-gray-300 transition-colors"
+            >
+              {showSessionActivity ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+              <Activity size={12} strokeWidth={2} />
+              Session Activity ({sessionLogs.length})
+            </button>
+
+            {showSessionActivity && (
+              <div className="px-3 pb-3">
+                <SessionActivityLog
+                  logs={sessionLogs}
+                  onViewFullOutput={setFullOutputLogs}
+                  onResumeSession={handleRunResumeSession}
+                  agentSessionId={task?.agentSessionId}
+                  projectPath={project?.path}
+                />
+              </div>
             )}
           </div>
         )}

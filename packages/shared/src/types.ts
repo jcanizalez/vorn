@@ -149,6 +149,23 @@ export interface TaskConfig {
   completedAt?: string
 }
 
+// Session activity log types
+export type SessionLogStatus = 'running' | 'success' | 'error'
+
+export interface SessionLog {
+  id?: number
+  taskId: string
+  sessionId: string
+  agentType?: AgentType
+  branch?: string
+  status: SessionLogStatus
+  startedAt: string
+  completedAt?: string
+  exitCode?: number
+  logs?: string
+  projectName?: string
+}
+
 // --- Workflow engine types (Logic Apps-style) ---
 
 // Execution context passed from triggers to the execution engine
@@ -511,6 +528,8 @@ export const IPC = {
   WORKFLOW_RUN_SAVE: 'workflowRun:save',
   WORKFLOW_RUN_LIST: 'workflowRun:list',
   WORKFLOW_RUN_LIST_BY_TASK: 'workflowRun:listByTask',
+  SESSION_LOG_LIST: 'sessionLog:list',
+  SESSION_LOG_UPDATE: 'sessionLog:update',
   AGENT_DETECT_INSTALLED: 'agent:detectInstalled',
   TAILSCALE_STATUS: 'tailscale:status',
   CREDENTIAL_STORE_KEY: 'credential:storeKey',
