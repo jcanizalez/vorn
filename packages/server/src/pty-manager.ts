@@ -21,6 +21,10 @@ import { shellEscape, getSafeEnv, getDefaultShell, normalizePath } from './proce
 
 const MAX_OUTPUT_LINES = 1000
 
+// Strip ANSI escape sequences so stored output is plain text
+// eslint-disable-next-line no-control-regex
+const ANSI_RE = /\x1b\[[0-9;]*[A-Za-z]|\x1b\].*?(?:\x07|\x1b\\)|\x1b[()][0-2B]|\x1b[=>]/g
+
 class PtyManager extends EventEmitter {
   private ptys = new Map<string, pty.IPty>()
   private sessions = new Map<string, TerminalSession>()
@@ -31,6 +35,7 @@ class PtyManager extends EventEmitter {
   private flushTimers = new Map<string, ReturnType<typeof setTimeout>>()
   private tempKeyPaths = new Map<string, string>()
   private outputLines = new Map<string, string[]>()
+  private outputPartials = new Map<string, string>()
   private sessionOrder: string[] = []
 
   constructor() {
@@ -381,13 +386,25 @@ class PtyManager extends EventEmitter {
   }
 
   private appendOutput(id: string, data: string): void {
+    if (!this.sessions.has(id)) return // skip shell-only PTYs
+
     let buf = this.outputLines.get(id)
     if (!buf) {
       buf = []
       this.outputLines.set(id, buf)
     }
-    const lines = data.split('\n')
-    buf.push(...lines)
+
+    const clean = data.replace(ANSI_RE, '').replace(/\r/g, '')
+    const partial = this.outputPartials.get(id) ?? ''
+    const combined = partial + clean
+    const segments = combined.split('\n')
+
+    // Last segment is incomplete (no trailing \n) — save for next chunk
+    this.outputPartials.set(id, segments.pop()!)
+
+    for (const line of segments) {
+      buf.push(line)
+    }
     if (buf.length > MAX_OUTPUT_LINES) {
       buf.splice(0, buf.length - MAX_OUTPUT_LINES)
     }
@@ -409,6 +426,8 @@ class PtyManager extends EventEmitter {
       this.clearBuffer(id)
       this.deleteTempKey(id)
       this.outputLines.delete(id)
+      this.outputPartials.delete(id)
+      this.sessionOrder = this.sessionOrder.filter((sid) => sid !== id)
 
       this.ptys.delete(id)
       const session = this.sessions.get(id)
@@ -453,6 +472,8 @@ class PtyManager extends EventEmitter {
     this.sessions.delete(id)
     this.normalizedPaths.delete(id)
     this.outputLines.delete(id)
+    this.outputPartials.delete(id)
+    this.sessionOrder = this.sessionOrder.filter((sid) => sid !== id)
     this.ptys.delete(id)
 
     if (session) {
@@ -503,6 +524,7 @@ class PtyManager extends EventEmitter {
     }
     this.sessions.clear()
     this.outputLines.clear()
+    this.outputPartials.clear()
     this.sessionOrder = []
   }
 
@@ -511,13 +533,16 @@ class PtyManager extends EventEmitter {
       return Array.from(this.sessions.values())
     }
     const ordered: TerminalSession[] = []
+    const seen = new Set<string>()
     for (const id of this.sessionOrder) {
       const s = this.sessions.get(id)
-      if (s) ordered.push(s)
+      if (s) {
+        ordered.push(s)
+        seen.add(id)
+      }
     }
-    // Append any sessions not in the order list (newly created)
     for (const s of this.sessions.values()) {
-      if (!this.sessionOrder.includes(s.id)) ordered.push(s)
+      if (!seen.has(s.id)) ordered.push(s)
     }
     return ordered
   }
@@ -538,7 +563,7 @@ class PtyManager extends EventEmitter {
   }
 
   reorderSessions(ids: string[]): void {
-    // Validate that all IDs are active sessions
+    if (new Set(ids).size !== ids.length) throw new Error('Duplicate session IDs')
     for (const id of ids) {
       if (!this.sessions.has(id)) throw new Error(`Session not found: ${id}`)
     }
@@ -547,6 +572,7 @@ class PtyManager extends EventEmitter {
   }
 
   getOutput(id: string, lines?: number): string[] {
+    if (!this.sessions.has(id)) throw new Error(`Session not found: ${id}`)
     const buf = this.outputLines.get(id) ?? []
     if (lines && lines < buf.length) {
       return buf.slice(-lines)

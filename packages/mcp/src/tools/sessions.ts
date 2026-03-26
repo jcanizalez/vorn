@@ -218,7 +218,7 @@ export function registerSessionTools(server: McpServer): void {
 
   server.tool(
     'read_session_output',
-    'Read terminal output from a running session. Returns the last N lines (default: all, max 1000).',
+    'Read terminal output from a running session. Output is stored in a rolling 1000-line buffer with ANSI codes stripped.',
     {
       id: V.id.describe('Session ID'),
       lines: z
