@@ -140,7 +140,7 @@ export function registerWorkflowTools(server: McpServer): void {
   server.tool(
     'create_workflow',
     'Create a new workflow. Accepts either full nodes/edges or a convenience flat format (trigger + actions array).',
-    z.object({
+    {
       name: V.title.describe('Workflow name'),
       trigger: triggerConfigSchema
         .optional()
@@ -155,7 +155,7 @@ export function registerWorkflowTools(server: McpServer): void {
       icon_color: V.hexColor.optional().describe('Hex color (default: #6366f1)'),
       enabled: z.boolean().optional().describe('Whether workflow is enabled (default: true)'),
       stagger_delay_ms: z.number().optional().describe('Delay in ms between actions')
-    }),
+    },
     async (args) => {
       let nodes: WorkflowNode[]
       let edges: WorkflowEdge[]
@@ -192,7 +192,7 @@ export function registerWorkflowTools(server: McpServer): void {
   server.tool(
     'update_workflow',
     "Update a workflow's properties",
-    z.object({
+    {
       id: V.id.describe('Workflow ID'),
       name: V.title.optional(),
       nodes: z.array(nodeSchema).optional(),
@@ -201,7 +201,7 @@ export function registerWorkflowTools(server: McpServer): void {
       icon_color: V.hexColor.optional(),
       enabled: z.boolean().optional(),
       stagger_delay_ms: z.number().optional()
-    }),
+    },
     async (args) => {
       const workflows = dbListWorkflows()
       const workflow = workflows.find((w) => w.id === args.id)
