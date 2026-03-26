@@ -152,7 +152,9 @@ export function TaskBoardView() {
   return (
     <div className="flex-1 flex flex-col min-h-0 min-w-0">
       {/* Content */}
-      <div className="flex-1 overflow-auto p-4">
+      <div
+        className={`flex-1 p-4 ${viewMode === 'kanban' ? 'flex flex-col min-h-0 overflow-hidden' : 'overflow-auto'}`}
+      >
         {totalTasks === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <ListTodo size={40} strokeWidth={1} className="text-gray-700 mb-3" />
