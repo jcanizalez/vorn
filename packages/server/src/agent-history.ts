@@ -45,7 +45,7 @@ function escapeSqlString(value: string): string {
 
 function buildPathWhereClause(column: string, scope: ProjectScope): string {
   const clauses = scope.rawPaths.map((projectPath) => {
-    const normalized = normalizePath(projectPath).replace(/\\/g, '/')
+    const normalized = normalizePath(projectPath).replace(/\\/g, '/').toLowerCase()
     return `lower(rtrim(replace(${column}, char(92), '/'), '/')) = '${escapeSqlString(normalized)}'`
   })
   return clauses.length === 1 ? clauses[0] : `(${clauses.join(' OR ')})`

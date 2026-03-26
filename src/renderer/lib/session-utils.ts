@@ -16,6 +16,13 @@ function getPathBasename(p: string): string | undefined {
   return parts.length > 0 ? parts[parts.length - 1] : undefined
 }
 
+function getDisplayPathBasename(p: string): string | undefined {
+  const normalized = p.replace(/\\/g, '/').replace(/\/+$/, '')
+  if (!normalized || normalized === '/') return undefined
+  const parts = normalized.split('/').filter(Boolean)
+  return parts.length > 0 ? parts[parts.length - 1] : undefined
+}
+
 function getManagedWorktreePrefix(projectPath: string): string | null {
   const normalized = normalizeComparablePath(projectPath)
   const parts = normalized.split('/').filter(Boolean)
@@ -123,11 +130,12 @@ export function resolveProjectName(
   projects: { name: string; path: string }[] | undefined
 ): string {
   const normalized = normalizeComparablePath(session.projectPath)
-  if (!projects) return getPathBasename(normalized) || 'untitled'
+  const displayBasename = getDisplayPathBasename(session.projectPath)
+  if (!projects) return displayBasename || 'untitled'
 
   const project = projects.find((p) => {
     const projectPath = normalizeComparablePath(p.path)
     return projectPath === normalized || isManagedWorktreePath(session.projectPath, p.path)
   })
-  return project?.name || getPathBasename(normalized) || 'untitled'
+  return project?.name || displayBasename || 'untitled'
 }

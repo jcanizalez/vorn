@@ -73,8 +73,6 @@ export function buildAgentLaunchLine(
       case 'opencode':
         launchLine += ` --session ${payload.resumeSessionId}`
         break
-      case 'gemini':
-        break
     }
   }
 

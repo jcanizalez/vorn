@@ -196,9 +196,19 @@ describe('resolveProjectName', () => {
     expect(resolveProjectName(session, undefined)).toBe('my-app')
   })
 
+  it('preserves basename casing when no projects are configured', () => {
+    const session = makeRecent({ projectPath: '/Users/Alice/MyApp' })
+    expect(resolveProjectName(session, undefined)).toBe('MyApp')
+  })
+
   it('returns basename when no project matches', () => {
     const session = makeRecent({ projectPath: '/home/user/unknown' })
     expect(resolveProjectName(session, projects)).toBe('unknown')
+  })
+
+  it('preserves basename casing when no configured project matches', () => {
+    const session = makeRecent({ projectPath: '/Users/Alice/MyApp' })
+    expect(resolveProjectName(session, projects)).toBe('MyApp')
   })
 
   it('returns project name for managed worktree paths', () => {

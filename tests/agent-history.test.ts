@@ -179,6 +179,26 @@ describe('Codex provider', () => {
     expect(String(sql)).toContain('/app')
     expect(String(sql)).toContain('/worktrees/my-app/feature-a')
   })
+
+  it('lowercases scoped SQL path literals for uppercase POSIX paths', () => {
+    vi.mocked(fs.existsSync).mockImplementation((p) => String(p).includes('.codex/state_5.sqlite'))
+    vi.mocked(execFileSync).mockReturnValueOnce(
+      JSON.stringify([
+        {
+          id: 'c1',
+          cwd: '/Users/Javier/App',
+          title: 'Matching',
+          updated_at: 1700000001,
+          first_user_message: ''
+        }
+      ])
+    )
+
+    getRecentSessions('/Users/Javier/App')
+
+    const sql = vi.mocked(execFileSync).mock.calls[0]?.[1]?.[3]
+    expect(String(sql)).toContain('/users/javier/app')
+  })
 })
 
 describe('Copilot provider', () => {
