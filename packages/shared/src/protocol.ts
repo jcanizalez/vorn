@@ -161,6 +161,21 @@ export interface RequestMethods {
     result: void
   }
   'server:shutdown': { params: void; result: void }
+  'server:info': {
+    params: void
+    result: {
+      serverId: string
+      label: string
+      version: string
+      uptime: number
+      host?: string
+      port?: number
+    }
+  }
+  'server:regenerateToken': {
+    params: void
+    result: { token: string }
+  }
 
   // Credential vault (server-side storage)
   'credential:storeKey': {

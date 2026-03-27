@@ -559,7 +559,9 @@ export const IPC = {
   CREDENTIAL_ENCRYPT: 'credential:encrypt',
   CREDENTIAL_SAFE_STORAGE_AVAILABLE: 'credential:safeStorageAvailable',
   SSH_TEST_CONNECTION: 'ssh:testConnection',
-  OPEN_EXTERNAL: 'shell:openExternal'
+  OPEN_EXTERNAL: 'shell:openExternal',
+  SERVER_INFO: 'server:info',
+  SERVER_REGENERATE_TOKEN: 'server:regenerateToken'
 } as const
 
 export interface PermissionSuggestion {

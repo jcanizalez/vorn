@@ -32,7 +32,7 @@ const NATIVE_MODULE_PATCH = `
 `
 
 export default defineConfig({
-  entry: ['src/index.ts'],
+  entry: ['src/index.ts', 'src/cli.ts'],
   format: ['cjs'],
   target: 'node22',
   clean: true,

@@ -57,6 +57,8 @@ import { executeScript } from './script-runner'
 import { getTailscaleStatus, clearBinaryCache } from './tailscale'
 import { checkAndRebind } from './server-rebind'
 import { testSshConnection } from './process-utils'
+import { regenerateToken } from './auth'
+import { getServerInfo } from './server-identity'
 import log from './logger'
 
 const copilotInstallations = new Map<string, CopilotHookInstallation>()
@@ -303,6 +305,15 @@ export function registerAllMethods(): void {
 
   // SSH
   registerMethod('ssh:testConnection', (host) => testSshConnection(host))
+
+  // Server identity
+  registerMethod('server:info', () => getServerInfo())
+
+  // Server token regeneration
+  registerMethod('server:regenerateToken', () => {
+    const newToken = regenerateToken()
+    return { token: newToken }
+  })
 
   // Fire-and-forget notifications
   registerNotification('terminal:write', ({ id, data }) => ptyManager.writeToPty(id, data))

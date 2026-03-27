@@ -1,9 +1,16 @@
 {
   "name": "@vibegrid/server",
   "version": "0.0.1",
-  "private": true,
+  "private": false,
   "type": "module",
   "main": "./src/index.ts",
+  "bin": {
+    "vibegrid-server": "./dist/cli.cjs"
+  },
+  "files": [
+    "dist",
+    "web-dist"
+  ],
   "exports": {
     ".": "./src/index.ts",
     "./config-manager": "./src/config-manager.ts",

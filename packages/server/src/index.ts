@@ -18,6 +18,8 @@ import { scheduler } from './scheduler'
 import { setDataDir, getTaskImagePath as resolveTaskImagePath } from './task-images'
 import { getTailscaleStatus } from './tailscale'
 import { initRebind, checkAndRebind } from './server-rebind'
+import { getOrCreateToken, validateToken } from './auth'
+import { getServerInfo } from './server-identity'
 import log from './logger'
 
 export async function startServer(
@@ -51,15 +53,47 @@ export async function startServer(
     checkAndRebind().catch((err) => log.warn({ err }, '[server] rebind check failed'))
   })
 
+  // Auth state — computed after host is determined, but closures capture by reference
+  let authEnabled = false
+  let serverToken: string | null = null
+
   // Set up Fastify + WebSocket
   const app = Fastify({ logger: false })
   await app.register(websocket)
 
-  app.get('/ws', { websocket: true }, (socket) => {
+  app.get('/ws', { websocket: true }, (socket, req) => {
+    if (authEnabled && serverToken) {
+      const url = new URL(req.url || '', `http://${req.headers.host}`)
+      const token = url.searchParams.get('token')
+      if (!token || !validateToken(token, serverToken)) {
+        socket.close(4001, 'Unauthorized')
+        return
+      }
+    }
     handleConnection(socket)
   })
 
-  app.get('/health', async () => ({ status: 'ok' }))
+  const getServerIdentity = () => getServerInfo(dataDir)
+  app.get('/health', async () => {
+    const identity = getServerIdentity()
+    return { status: 'ok', ...identity }
+  })
+
+  // Auth middleware for HTTP routes when non-localhost
+  // Uses closure over authEnabled/serverToken which are set after host determination
+  app.addHook('onRequest', async (req, reply) => {
+    if (!authEnabled || !serverToken) return
+    // Skip auth for health endpoint (used for connection testing)
+    if (req.url === '/health') return
+    // Skip auth for WebSocket (handled at connection level)
+    if (req.headers.upgrade === 'websocket') return
+
+    const url = new URL(req.url || '', `http://${req.headers.host}`)
+    const token = url.searchParams.get('token') || req.headers.authorization?.replace('Bearer ', '')
+    if (!token || !validateToken(token, serverToken)) {
+      reply.code(401).send({ error: 'Unauthorized' })
+    }
+  })
 
   // Serve task images via HTTP (used by web app instead of file:// protocol)
   app.get('/api/task-images/:taskId/:filename', async (req, reply) => {
@@ -90,11 +124,15 @@ export async function startServer(
   })
 
   // Serve web app static files at /app/ if the dist directory exists.
-  // Dev: _dirname = packages/server/src → ../../web/dist
-  // Prod: _dirname = Resources/server   → ../web/dist
-  const webDistDir = fs.existsSync(path.resolve(_dirname, '../web/dist'))
-    ? path.resolve(_dirname, '../web/dist')
-    : path.resolve(_dirname, '../../web/dist')
+  // Dev:        _dirname = packages/server/src → ../../web/dist
+  // Prod:       _dirname = Resources/server    → ../web/dist
+  // Standalone: _dirname = packages/server/dist → ../web-dist
+  const webDistCandidates = [
+    path.resolve(_dirname, '../web/dist'),
+    path.resolve(_dirname, '../../web/dist'),
+    path.resolve(_dirname, '../web-dist')
+  ]
+  const webDistDir = webDistCandidates.find((d) => fs.existsSync(d))
   if (fs.existsSync(webDistDir)) {
     await app.register(fastifyStatic, {
       root: webDistDir,
@@ -138,6 +176,14 @@ export async function startServer(
       log.warn({ err }, '[server] failed to check tailscale status, falling back to localhost')
     }
   }
+
+  // Enable auth when binding to non-localhost (remote access)
+  authEnabled = host !== '127.0.0.1'
+  serverToken = authEnabled ? getOrCreateToken(dataDir) : null
+  if (authEnabled) {
+    log.info('[server] authentication enabled for non-localhost binding')
+  }
+
   const port = options.port ?? 0 // 0 = OS-assigned
 
   await app.listen({ host, port })
@@ -197,7 +243,7 @@ export async function startServer(
   process.on('SIGTERM', shutdown)
   process.on('SIGINT', shutdown)
 
-  return { app, port: actualPort }
+  return { app, port: actualPort, token: serverToken }
 }
 
 // Run directly
