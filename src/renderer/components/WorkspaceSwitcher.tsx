@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useAppStore } from '../stores'
-import { WorkspaceConfig, DEFAULT_WORKSPACE } from '../../shared/types'
+import { WorkspaceConfig, DEFAULT_WORKSPACE, RemoteServerConfig } from '../../shared/types'
 import { ICON_COLOR_PALETTE } from '../lib/project-icons'
 import { toast } from './Toast'
 import {
@@ -396,6 +396,15 @@ export function WorkspaceSwitcher() {
             })}
           </div>
 
+          {/* Divider + Remote Servers */}
+          <div className="border-t border-white/[0.06] my-1" />
+          <RemoteServersSection
+            onClose={() => {
+              setIsOpen(false)
+              resetForm()
+            }}
+          />
+
           {/* Divider */}
           <div className="border-t border-white/[0.06] my-1" />
 
@@ -488,6 +497,209 @@ export function WorkspaceSwitcher() {
               Create Workspace
             </button>
           )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Remote Servers Section ──────────────────────────────────────
+
+function RemoteServersSection({ onClose }: { onClose: () => void }) {
+  const [servers, setServers] = useState<RemoteServerConfig[]>([])
+  const [isAdding, setIsAdding] = useState(false)
+  const [addUrl, setAddUrl] = useState('')
+  const [addToken, setAddToken] = useState('')
+  const [addLabel, setAddLabel] = useState('')
+  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle')
+  const [testError, setTestError] = useState('')
+  const addInputRef = useRef<HTMLInputElement>(null)
+
+  const [loadKey, setLoadKey] = useState(0)
+  const loadServers = useCallback(() => setLoadKey((k) => k + 1), [])
+
+  useEffect(() => {
+    let cancelled = false
+    window.api
+      .listRemoteServers()
+      .then((list) => {
+        if (!cancelled) setServers(list as RemoteServerConfig[])
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [loadKey])
+
+  useEffect(() => {
+    if (isAdding && addInputRef.current) addInputRef.current.focus()
+  }, [isAdding])
+
+  const handleTest = async () => {
+    if (!addUrl.trim() || !addToken.trim()) return
+    setTestStatus('testing')
+    try {
+      const result = (await window.api.testRemoteServer({
+        url: addUrl.trim(),
+        token: addToken.trim()
+      })) as { ok: boolean; label?: string; error?: string }
+      if (result.ok) {
+        setTestStatus('success')
+        if (result.label && !addLabel.trim()) setAddLabel(result.label)
+      } else {
+        setTestStatus('error')
+        setTestError(result.error || 'Connection failed')
+      }
+    } catch (err) {
+      setTestStatus('error')
+      setTestError(err instanceof Error ? err.message : 'Connection failed')
+    }
+  }
+
+  const handleAdd = async () => {
+    if (!addUrl.trim() || !addToken.trim()) return
+    try {
+      await window.api.addRemoteServer({
+        label: addLabel.trim() || new URL(addUrl.trim().replace(/^ws/, 'http')).hostname,
+        url: addUrl.trim(),
+        token: addToken.trim()
+      })
+      setIsAdding(false)
+      setAddUrl('')
+      setAddToken('')
+      setAddLabel('')
+      setTestStatus('idle')
+      loadServers()
+    } catch {
+      // ignore
+    }
+  }
+
+  const handleRemove = async (id: string) => {
+    try {
+      await window.api.removeRemoteServer(id)
+      loadServers()
+    } catch {
+      // ignore
+    }
+  }
+
+  const openRemote = (server: RemoteServerConfig) => {
+    // Build the remote server's web UI URL with token in hash
+    const httpUrl = server.url.replace(/^ws(s?):/, 'http$1:').replace(/\/ws$/, '')
+    window.open(`${httpUrl}/app/#token=${encodeURIComponent(server.token)}`, '_blank')
+    onClose()
+  }
+
+  return (
+    <div>
+      <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-gray-600 flex items-center justify-between">
+        <span>Remote Servers</span>
+        {!isAdding && (
+          <button
+            onClick={() => setIsAdding(true)}
+            className="text-gray-500 hover:text-gray-300 transition-colors"
+            title="Add remote server"
+          >
+            <Plus size={12} strokeWidth={2} />
+          </button>
+        )}
+      </div>
+
+      {servers.length === 0 && !isAdding && (
+        <div className="px-3 py-1.5 text-[11px] text-gray-600">No remote servers</div>
+      )}
+
+      {servers.map((s) => (
+        <div
+          key={s.id}
+          className="group flex items-center gap-2 px-2.5 py-2 cursor-pointer text-gray-300 hover:bg-white/[0.04] transition-colors"
+        >
+          <button className="flex-1 flex items-center gap-2 min-w-0" onClick={() => openRemote(s)}>
+            <Globe size={14} color="#22c55e" strokeWidth={1.5} />
+            <span className="truncate text-[13px]">{s.label}</span>
+          </button>
+          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                handleRemove(s.id)
+              }}
+              className="p-0.5 text-gray-500 hover:text-red-400 rounded"
+              title="Remove"
+            >
+              <Trash2 size={11} strokeWidth={1.5} />
+            </button>
+          </div>
+        </div>
+      ))}
+
+      {isAdding && (
+        <div className="px-2.5 py-2 space-y-1.5">
+          <input
+            ref={addInputRef}
+            type="text"
+            value={addUrl}
+            onChange={(e) => {
+              setAddUrl(e.target.value)
+              setTestStatus('idle')
+            }}
+            placeholder="wss://host:port/ws"
+            className="w-full bg-white/[0.06] border border-white/[0.1] rounded px-2 py-1
+                       text-[12px] text-gray-200 placeholder-gray-600 focus:outline-none focus:border-white/[0.2] font-mono"
+          />
+          <input
+            type="text"
+            value={addToken}
+            onChange={(e) => {
+              setAddToken(e.target.value)
+              setTestStatus('idle')
+            }}
+            placeholder="vg_tk_..."
+            className="w-full bg-white/[0.06] border border-white/[0.1] rounded px-2 py-1
+                       text-[12px] text-gray-200 placeholder-gray-600 focus:outline-none focus:border-white/[0.2] font-mono"
+          />
+          <input
+            type="text"
+            value={addLabel}
+            onChange={(e) => setAddLabel(e.target.value)}
+            placeholder="Label (optional)"
+            className="w-full bg-white/[0.06] border border-white/[0.1] rounded px-2 py-1
+                       text-[12px] text-gray-200 placeholder-gray-600 focus:outline-none focus:border-white/[0.2]"
+          />
+          {testStatus === 'error' && (
+            <div className="text-[10px] text-red-400 px-0.5">{testError}</div>
+          )}
+          {testStatus === 'success' && (
+            <div className="text-[10px] text-green-400 px-0.5">Connected!</div>
+          )}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={handleTest}
+              disabled={!addUrl.trim() || !addToken.trim() || testStatus === 'testing'}
+              className="flex-1 text-[11px] py-1 rounded border border-white/[0.1] text-gray-300
+                         hover:bg-white/[0.04] disabled:opacity-30 transition-colors"
+            >
+              {testStatus === 'testing' ? 'Testing...' : 'Test'}
+            </button>
+            <button
+              onClick={handleAdd}
+              disabled={testStatus !== 'success'}
+              className="flex-1 text-[11px] py-1 rounded bg-violet-600 text-white
+                         hover:bg-violet-500 disabled:opacity-30 transition-colors"
+            >
+              Add
+            </button>
+            <button
+              onClick={() => {
+                setIsAdding(false)
+                setTestStatus('idle')
+              }}
+              className="p-1 text-gray-500 hover:text-gray-300"
+            >
+              <X size={14} strokeWidth={2} />
+            </button>
+          </div>
         </div>
       )}
     </div>

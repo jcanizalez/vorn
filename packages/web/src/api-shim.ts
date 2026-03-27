@@ -389,7 +389,18 @@ export function createApiShim(wsUrl: string) {
     // ── Auto-Update (no-op in web) ──
     onUpdateDownloaded: (_callback: (info: { version: string }) => void) => () => {},
     installUpdate: () => {},
-    setUpdateChannel: (_channel: 'stable' | 'beta') => {}
+    setUpdateChannel: (_channel: 'stable' | 'beta') => {},
+
+    // ── Remote Servers ──
+    addRemoteServer: (params: { label: string; url: string; token: string }) =>
+      rpc.invoke('remoteServer:add', params),
+    listRemoteServers: () => rpc.invoke('remoteServer:list'),
+    removeRemoteServer: (id: string) => rpc.invoke('remoteServer:remove', id),
+    testRemoteServer: (params: { url: string; token: string }) =>
+      rpc.invoke('remoteServer:test', params),
+
+    // ── Server Identity ──
+    getServerInfo: () => rpc.invoke('server:info')
   }
 
   return api

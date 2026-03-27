@@ -313,6 +313,16 @@ const api = {
   ): Promise<{ success: boolean; message: string; durationMs: number }> =>
     ipcRenderer.invoke(IPC.SSH_TEST_CONNECTION, host),
 
+  // Remote servers
+  addRemoteServer: (params: { label: string; url: string; token: string }): Promise<unknown> =>
+    ipcRenderer.invoke(IPC.REMOTE_SERVER_ADD, params),
+  listRemoteServers: (): Promise<unknown> => ipcRenderer.invoke(IPC.REMOTE_SERVER_LIST),
+  removeRemoteServer: (id: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.REMOTE_SERVER_REMOVE, id),
+  testRemoteServer: (params: { url: string; token: string }): Promise<unknown> =>
+    ipcRenderer.invoke(IPC.REMOTE_SERVER_TEST, params),
+  getServerInfo: (): Promise<unknown> => ipcRenderer.invoke(IPC.SERVER_INFO),
+
   // Shell
   openExternal: (url: string): Promise<void> => ipcRenderer.invoke(IPC.OPEN_EXTERNAL, url),
 

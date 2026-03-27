@@ -143,6 +143,19 @@ export function registerIpcHandlers(): void {
     requireBridge().request(IPC.SSH_TEST_CONNECTION, host)
   )
 
+  // Remote servers
+  safeHandle(IPC.REMOTE_SERVER_ADD, (_, params) =>
+    requireBridge().request(IPC.REMOTE_SERVER_ADD, params)
+  )
+  safeHandle(IPC.REMOTE_SERVER_LIST, () => requireBridge().request(IPC.REMOTE_SERVER_LIST))
+  safeHandle(IPC.REMOTE_SERVER_REMOVE, (_, id) =>
+    requireBridge().request(IPC.REMOTE_SERVER_REMOVE, id)
+  )
+  safeHandle(IPC.REMOTE_SERVER_TEST, (_, params) =>
+    requireBridge().request(IPC.REMOTE_SERVER_TEST, params)
+  )
+  safeHandle(IPC.SERVER_INFO, () => requireBridge().request(IPC.SERVER_INFO))
+
   // ─── Electron-only handlers (stay local) ───────────────────────
 
   safeHandle(IPC.DIALOG_OPEN_DIRECTORY, async (event) => {
