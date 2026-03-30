@@ -135,6 +135,11 @@ const api = {
   ): Promise<{ path: string; branch: string; isMain: boolean }[]> =>
     ipcRenderer.invoke(IPC.GIT_LIST_WORKTREES, projectPath),
 
+  getWorktreeActiveSessions: (
+    worktreePath: string
+  ): Promise<{ count: number; sessionIds: string[] }> =>
+    ipcRenderer.invoke(IPC.WORKTREE_ACTIVE_SESSIONS, worktreePath),
+
   getGitBranch: (cwd: string): Promise<string | null> =>
     ipcRenderer.invoke(IPC.GIT_GET_BRANCH, cwd),
 
@@ -205,6 +210,15 @@ const api = {
     config: ScriptConfig
   ): Promise<{ success: boolean; output: string; error?: string; exitCode?: number }> =>
     ipcRenderer.invoke(IPC.SCRIPT_EXECUTE, config),
+
+  onSessionUpdated: (callback: (session: TerminalSession) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, session: TerminalSession): void =>
+      callback(session)
+    ipcRenderer.on(IPC.SESSION_UPDATED, listener)
+    return () => {
+      ipcRenderer.removeListener(IPC.SESSION_UPDATED, listener)
+    }
+  },
 
   onWorktreeCleanup: (
     callback: (session: { id: string; projectPath: string; worktreePath: string }) => void

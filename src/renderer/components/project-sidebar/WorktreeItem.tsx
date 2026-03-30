@@ -3,6 +3,7 @@ import { FolderGit2, Plus, Pencil, Trash2, Check, X } from 'lucide-react'
 import { useAppStore } from '../../stores'
 import { Tooltip } from '../Tooltip'
 import { toast } from '../Toast'
+import { requestWorktreeDelete } from '../WorktreeCleanupDialog'
 import type { WorktreeInfo } from '../../stores/types'
 
 export function WorktreeItem({
@@ -133,18 +134,21 @@ export function WorktreeItem({
               type="button"
               onClick={async (e) => {
                 e.stopPropagation()
-                if (wt.isDirty) {
-                  const ok = confirm(
-                    'This worktree has uncommitted changes that will be permanently lost. Remove anyway?'
-                  )
-                  if (!ok) return
-                }
-                const removed = await window.api.removeWorktree(projectPath, wt.path, wt.isDirty)
-                if (removed) {
-                  toast.success('Worktree removed')
-                  onWorktreesChanged()
+                const { count, sessionIds } = await window.api.getWorktreeActiveSessions(wt.path)
+                if (count > 0 || wt.isDirty) {
+                  requestWorktreeDelete({
+                    projectPath,
+                    worktreePath: wt.path,
+                    sessionIds
+                  })
                 } else {
-                  toast.error('Failed to remove worktree')
+                  const removed = await window.api.removeWorktree(projectPath, wt.path, false)
+                  if (removed) {
+                    toast.success('Worktree removed')
+                    onWorktreesChanged()
+                  } else {
+                    toast.error('Failed to remove worktree')
+                  }
                 }
               }}
               className="text-gray-500 hover:text-red-400 p-0.5 rounded hover:bg-white/[0.08] transition-colors"

@@ -241,6 +241,9 @@ export interface LaunchAgentConfig {
   displayName?: string
   branch?: string
   useWorktree?: boolean
+  worktreeMode?: 'none' | 'new' | 'fromStep' | 'existing'
+  worktreeFromStepSlug?: string
+  existingWorktreePath?: string
   remoteHostId?: string
   prompt?: string
   promptDelayMs?: number
@@ -304,6 +307,7 @@ export interface NodeExecutionState {
   output?: string
   taskId?: string
   agentSessionId?: string
+  worktreePath?: string
 }
 
 export interface WorkflowDefinition {
@@ -318,6 +322,7 @@ export interface WorkflowDefinition {
   lastRunStatus?: 'success' | 'error'
   staggerDelayMs?: number
   workspaceId?: string // defaults to 'personal' if absent
+  autoCleanupWorktrees?: boolean
 }
 
 export interface WorkflowExecution {
@@ -433,6 +438,8 @@ export interface HeadlessSession {
   projectPath: string
   displayName?: string
   branch?: string
+  worktreePath?: string
+  isWorktree?: boolean
   status: 'running' | 'exited'
   exitCode?: number
   startedAt: number
@@ -504,6 +511,7 @@ export const IPC = {
   GIT_WORKTREE_DIRTY: 'git:worktreeDirty',
   GIT_LIST_WORKTREES: 'git:listWorktrees',
   WORKTREE_CONFIRM_CLEANUP: 'worktree:confirmCleanup',
+  WORKTREE_ACTIVE_SESSIONS: 'worktree:activeSessions',
   GIT_GET_BRANCH: 'git:getBranch',
   GIT_DIFF_STAT: 'git:diffStat',
   GIT_DIFF_FULL: 'git:diffFull',

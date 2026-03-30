@@ -52,12 +52,11 @@ export const createTerminalsSlice: StateCreator<AppStore, [], [], TerminalsSlice
 
   renameTerminal: (id, displayName) =>
     set((state) => {
+      const term = state.terminals.get(id)
+      if (!term || term.session.displayName === displayName) return state
       const next = new Map(state.terminals)
-      const term = next.get(id)
-      if (term) {
-        next.set(id, { ...term, session: { ...term.session, displayName } })
-        window.api.renameSession(id, displayName)
-      }
+      next.set(id, { ...term, session: { ...term.session, displayName } })
+      window.api.renameSession(id, displayName)
       return { terminals: next }
     }),
 

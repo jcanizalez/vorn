@@ -53,7 +53,8 @@ vi.mock('../packages/server/src/pty-manager', () => ({
     resizePty: vi.fn(),
     closePty: vi.fn(),
     killPty: vi.fn(),
-    updateSessionStatus: vi.fn()
+    updateSessionStatus: vi.fn(),
+    setHeadlessWorktreeCounter: vi.fn()
   })
 }))
 
