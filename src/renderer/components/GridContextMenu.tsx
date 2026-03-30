@@ -91,18 +91,18 @@ export function GridContextMenu({ position, onClose }: Props) {
   const items: MenuItem[] = []
 
   if (project) {
-    const quickLabel =
-      activeWorktreePath && activeWorktreeBranch
+    const quickLabel = activeWorktreePath
+      ? activeWorktreeBranch
         ? `New session in ${project.name} on ${activeWorktreeBranch}`
-        : `New session in ${project.name}`
+        : `New session in ${project.name} (worktree)`
+      : `New session in ${project.name}`
 
     items.push({
-      iconElement:
-        activeWorktreePath && activeWorktreeBranch ? (
-          <FolderGit2 size={14} className="text-amber-400" />
-        ) : (
-          <ProjectIcon icon={project.icon} color={project.iconColor} size={14} />
-        ),
+      iconElement: activeWorktreePath ? (
+        <FolderGit2 size={14} className="text-amber-400" />
+      ) : (
+        <ProjectIcon icon={project.icon} color={project.iconColor} size={14} />
+      ),
       label: quickLabel,
       className: 'text-green-400',
       onClick: async () => {
@@ -242,6 +242,8 @@ export function GridContextMenu({ position, onClose }: Props) {
   const left = Math.max(8, Math.min(position.x, window.innerWidth - menuWidth - 8))
   const top = Math.max(8, Math.min(position.y, window.innerHeight - menuHeight - 8))
 
+  const activeSubmenu = hoveredSubmenu !== null ? items[hoveredSubmenu]?.submenu : null
+
   let submenuLeft = left + menuWidth + 4
   let submenuTop = top
   const submenuWidth = 220
@@ -253,10 +255,12 @@ export function GridContextMenu({ position, onClose }: Props) {
     if (submenuLeft + submenuWidth > window.innerWidth - 8) {
       submenuLeft = left - submenuWidth - 4
     }
-    submenuTop = Math.max(8, Math.min(submenuTop, window.innerHeight - 200))
+    if (activeSubmenu) {
+      const subSeps = activeSubmenu.filter((s) => s.separator).length
+      const subHeight = activeSubmenu.length * 32 + subSeps * 9 + 16
+      submenuTop = Math.max(8, Math.min(submenuTop, window.innerHeight - subHeight - 8))
+    }
   }
-
-  const activeSubmenu = hoveredSubmenu !== null ? items[hoveredSubmenu]?.submenu : null
 
   return createPortal(
     <AnimatePresence>
@@ -279,7 +283,13 @@ export function GridContextMenu({ position, onClose }: Props) {
               }}
               onClick={(e) => {
                 e.stopPropagation()
-                item.onClick?.()
+                if (item.submenu) {
+                  clearHideTimeout()
+                  setHoveredSubmenu(hoveredSubmenu === i ? null : i)
+                  item.onSubmenuEnter?.()
+                } else {
+                  item.onClick?.()
+                }
               }}
               onMouseEnter={() => {
                 if (item.submenu) {
@@ -293,6 +303,8 @@ export function GridContextMenu({ position, onClose }: Props) {
               onMouseLeave={() => {
                 if (item.submenu) scheduleHide()
               }}
+              aria-haspopup={item.submenu ? 'menu' : undefined}
+              aria-expanded={item.submenu ? hoveredSubmenu === i : undefined}
               className="w-full flex items-center gap-2.5 px-3 py-1.5 text-xs text-gray-300 hover:bg-white/[0.06] transition-colors"
             >
               {item.iconElement ??
@@ -316,6 +328,7 @@ export function GridContextMenu({ position, onClose }: Props) {
           animate={{ opacity: 1, x: 0, scale: 1 }}
           exit={{ opacity: 0, x: -4, scale: 0.96 }}
           transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+          role="menu"
           className="fixed z-[151] rounded-lg border border-white/[0.1] shadow-2xl py-1"
           style={{
             top: submenuTop,
@@ -330,6 +343,7 @@ export function GridContextMenu({ position, onClose }: Props) {
             <div key={j}>
               {sub.separator && <div className="border-t border-white/[0.06] my-1" />}
               <button
+                role="menuitem"
                 onClick={(e) => {
                   e.stopPropagation()
                   sub.onClick()
