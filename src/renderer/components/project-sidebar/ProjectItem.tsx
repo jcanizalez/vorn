@@ -6,7 +6,7 @@ import { ProjectIcon } from './ProjectIcon'
 import { ProjectContextMenu } from './ProjectContextMenu'
 import { WorktreeItem } from './WorktreeItem'
 import { generateWorktreeName } from '../../lib/worktree-names'
-import { ChevronRight, Plus, MoreHorizontal, GitBranch } from 'lucide-react'
+import { ChevronRight, Plus, MoreHorizontal, GitBranch, FolderGit2 } from 'lucide-react'
 import type { ProjectConfig } from '../../../shared/types'
 import { MAIN_WORKTREE_SENTINEL } from '../../stores/types'
 import type { WorktreeInfo } from '../../stores/types'
@@ -124,7 +124,7 @@ export function ProjectItem({
                     }}
                     className="text-gray-500 hover:text-white p-0.5 rounded hover:bg-white/[0.08] transition-colors"
                   >
-                    <Plus size={14} strokeWidth={2} />
+                    <FolderGit2 size={14} strokeWidth={1.5} className="text-amber-400/70" />
                   </button>
                 </Tooltip>
                 <Tooltip label="More" position="right">
