@@ -35,6 +35,8 @@ export function ProjectItem({
   const setActiveWorktreePath = useAppStore((s) => s.setActiveWorktreePath)
   const worktreeCache = useAppStore((s) => s.worktreeCache)
   const loadWorktrees = useAppStore((s) => s.loadWorktrees)
+  const addTerminal = useAppStore((s) => s.addTerminal)
+  const config = useAppStore((s) => s.config)
   const setEditingProject = useAppStore((s) => s.setEditingProject)
   const setAddProjectDialogOpen = useAppStore((s) => s.setAddProjectDialogOpen)
   const removeProject = useAppStore((s) => s.removeProject)
@@ -156,25 +158,48 @@ export function ProjectItem({
       {!isCollapsed && isExpanded && (
         <div className="ml-4 mt-0.5 mb-1 space-y-0.5">
           {mainWt && (
-            <button
-              onClick={() => {
-                setActiveProject(project.name)
-                setActiveWorktreePath(isMainActive ? null : MAIN_WORKTREE_SENTINEL)
-              }}
-              className={`w-full text-left px-2 py-1.5 rounded-md text-[13px] flex items-center gap-2 min-w-0 transition-colors ${
-                isMainActive
-                  ? 'bg-white/[0.08] text-white'
-                  : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'
-              }`}
-            >
-              <GitBranch size={14} className="text-gray-500 shrink-0" strokeWidth={1.5} />
-              <span className="truncate">{mainWt.branch}</span>
-              {mainRepoSessionCount > 0 && (
-                <span className="text-gray-600 text-xs ml-auto shrink-0">
-                  {mainRepoSessionCount}
-                </span>
-              )}
-            </button>
+            <div className="group/main flex items-center">
+              <button
+                onClick={() => {
+                  setActiveProject(project.name)
+                  setActiveWorktreePath(isMainActive ? null : MAIN_WORKTREE_SENTINEL)
+                }}
+                className={`flex-1 text-left px-2 py-1.5 rounded-md text-[13px] flex items-center gap-2 min-w-0 transition-colors ${
+                  isMainActive
+                    ? 'bg-white/[0.08] text-white'
+                    : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'
+                }`}
+              >
+                <GitBranch size={14} className="text-gray-500 shrink-0" strokeWidth={1.5} />
+                <span className="truncate">{mainWt.branch}</span>
+                {mainRepoSessionCount > 0 && (
+                  <span className="text-gray-600 text-xs ml-auto group-hover/main:hidden shrink-0">
+                    {mainRepoSessionCount}
+                  </span>
+                )}
+                <div className="hidden group-hover/main:flex items-center gap-0.5 ml-auto">
+                  <Tooltip label="New session" position="right">
+                    <button
+                      type="button"
+                      onClick={async (e) => {
+                        e.stopPropagation()
+                        const agentType = config?.defaults.defaultAgent || 'claude'
+                        const session = await window.api.createTerminal({
+                          agentType,
+                          projectName: project.name,
+                          projectPath: project.path,
+                          branch: mainWt.branch
+                        })
+                        addTerminal(session)
+                      }}
+                      className="text-gray-500 hover:text-white p-0.5 rounded hover:bg-white/[0.08] transition-colors"
+                    >
+                      <Plus size={14} strokeWidth={2} />
+                    </button>
+                  </Tooltip>
+                </div>
+              </button>
+            </div>
           )}
           {allWorktrees.map((wt) =>
             wt.isMain ? null : (
