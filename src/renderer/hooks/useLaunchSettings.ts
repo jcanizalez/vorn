@@ -1,6 +1,16 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useAppStore } from '../stores'
 import { AgentType, getProjectHostIds } from '../../shared/types'
+import { useShallow } from 'zustand/react/shallow'
+
+export type WorktreeMode = 'none' | 'new' | 'existing'
+
+export interface WorktreeOption {
+  path: string
+  branch: string
+  isMain: boolean
+  activeSessionCount: number
+}
 
 const STORAGE_KEY = 'vibegrid:lastLaunchSettings'
 
@@ -28,7 +38,7 @@ export function useLaunchSettings() {
   const activeProject = useAppStore((s) => s.activeProject)
   const defaultAgent = config?.defaults.defaultAgent || 'claude'
 
-  const saved = loadSaved()
+  const [saved] = useState(loadSaved)
   const [selectedAgent, setSelectedAgent] = useState<AgentType>(saved.agent || defaultAgent)
   const [selectedProject, setSelectedProject] = useState(saved.project || '')
   const [selectedHost, setSelectedHost] = useState(saved.host || 'local')
@@ -40,9 +50,15 @@ export function useLaunchSettings() {
   const [showBranchDropdown, setShowBranchDropdown] = useState(false)
   const [loadingBranches, setLoadingBranches] = useState(false)
   const [loadingRemotes, setLoadingRemotes] = useState(false)
-  const [useWorktree, setUseWorktree] = useState(false)
+  const [worktreeMode, setWorktreeMode] = useState<WorktreeMode>('none')
+  const [selectedWorktreePath, setSelectedWorktreePath] = useState<string | null>(null)
+  const [existingWorktrees, setExistingWorktrees] = useState<
+    { path: string; branch: string; isMain: boolean }[]
+  >([])
   const branchInputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+
+  const useWorktree = worktreeMode === 'new'
 
   const remoteHosts = config?.remoteHosts || []
 
@@ -87,6 +103,37 @@ export function useLaunchSettings() {
     })
   }, [activeProjectPath])
 
+  useEffect(() => {
+    if (!activeProjectPath) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: reset when project deselected
+      setExistingWorktrees([])
+      return
+    }
+    window.api
+      .listWorktrees(activeProjectPath)
+      .then((wts) => setExistingWorktrees(wts.filter((w) => !w.isMain)))
+      .catch(() => setExistingWorktrees([]))
+  }, [activeProjectPath])
+
+  // Narrow subscription: only re-render when worktree path counts change
+  const worktreePathCounts = useAppStore(
+    useShallow((s) => {
+      const counts: Record<string, number> = {}
+      for (const t of s.terminals.values()) {
+        const wp = t.session.worktreePath
+        if (wp) counts[wp] = (counts[wp] || 0) + 1
+      }
+      return counts
+    })
+  )
+
+  const worktreeOptions: WorktreeOption[] = useMemo(() => {
+    return existingWorktrees.map((wt) => ({
+      ...wt,
+      activeSessionCount: worktreePathCounts[wt.path] || 0
+    }))
+  }, [existingWorktrees, worktreePathCounts])
+
   // Close branch dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent): void => {
@@ -107,14 +154,21 @@ export function useLaunchSettings() {
     setLoadingRemotes(false)
   }, [activeProjectPath, loadingRemotes, localBranches])
 
-  const allBranches = [
-    ...localBranches.map((b) => ({ name: b, isRemote: false })),
-    ...remoteBranches.map((b) => ({ name: b, isRemote: true }))
-  ]
+  const allBranches = useMemo(
+    () => [
+      ...localBranches.map((b) => ({ name: b, isRemote: false })),
+      ...remoteBranches.map((b) => ({ name: b, isRemote: true }))
+    ],
+    [localBranches, remoteBranches]
+  )
 
-  const filteredBranches = branchFilter
-    ? allBranches.filter((b) => b.name.toLowerCase().includes(branchFilter.toLowerCase()))
-    : allBranches
+  const filteredBranches = useMemo(
+    () =>
+      branchFilter
+        ? allBranches.filter((b) => b.name.toLowerCase().includes(branchFilter.toLowerCase()))
+        : allBranches,
+    [allBranches, branchFilter]
+  )
 
   // Filtered projects by host
   const filteredProjects = (config?.projects ?? []).filter((p) =>
@@ -152,7 +206,8 @@ export function useLaunchSettings() {
     setCurrentBranch(null)
     setSelectedBranch('')
     setBranchFilter('')
-    setUseWorktree(false)
+    setWorktreeMode('none')
+    setSelectedWorktreePath(null)
   }, [defaultAgent, activeProject, firstProject])
 
   return {
@@ -171,7 +226,11 @@ export function useLaunchSettings() {
     loadingBranches,
     loadingRemotes,
     useWorktree,
-    setUseWorktree,
+    worktreeMode,
+    setWorktreeMode,
+    selectedWorktreePath,
+    setSelectedWorktreePath,
+    worktreeOptions,
     localBranches,
     remoteBranches,
     currentBranch,

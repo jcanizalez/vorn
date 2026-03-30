@@ -152,6 +152,11 @@ export function setServerPort(port: number): void {
 }
 
 export function registerAllMethods(): void {
+  // Wire headless worktree counter into pty-manager for cleanup gating
+  ptyManager.setHeadlessWorktreeCounter((worktreePath, excludeId) =>
+    headlessManager.getActiveSessionsForWorktree(worktreePath, excludeId)
+  )
+
   // Terminal
   registerMethod('terminal:create', (payload) => {
     return ptyManager.createPty(payload)
@@ -196,11 +201,26 @@ export function registerAllMethods(): void {
   registerMethod('git:removeWorktree', ({ projectPath, worktreePath, force }) =>
     gitUtils.removeWorktree(projectPath, worktreePath, force)
   )
-  registerMethod('git:renameWorktreeBranch', ({ worktreePath, newBranch }) =>
-    gitUtils.renameWorktreeBranch(worktreePath, newBranch)
-  )
+  registerMethod('git:renameWorktreeBranch', ({ worktreePath, newBranch }) => {
+    const result = gitUtils.renameWorktreeBranch(worktreePath, newBranch)
+    if (result) {
+      // Propagate the new branch name to all sessions using this worktree
+      ptyManager.updateSessionsForWorktree(worktreePath, { branch: newBranch })
+      headlessManager.updateSessionsForWorktree(worktreePath, { branch: newBranch })
+    }
+    return result
+  })
   registerMethod('git:worktreeDirty', (worktreePath) => gitUtils.isWorktreeDirty(worktreePath))
   registerMethod('git:listWorktrees', (projectPath) => gitUtils.listWorktrees(projectPath))
+
+  registerMethod('worktree:activeSessions', (worktreePath: string) => {
+    const pty = ptyManager.getActiveSessionsForWorktree(worktreePath)
+    const headless = headlessManager.getActiveSessionsForWorktree(worktreePath)
+    return {
+      count: pty.count + headless.count,
+      sessionIds: [...pty.sessionIds, ...headless.sessionIds]
+    }
+  })
   registerMethod('git:getBranch', (cwd) => gitUtils.getGitBranch(cwd))
   registerMethod('git:diffStat', (cwd) => gitUtils.getGitDiffStat(cwd))
   registerMethod('git:diffFull', (cwd) => gitUtils.getGitDiffFull(cwd))

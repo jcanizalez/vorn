@@ -24,6 +24,7 @@ import type { StepVariableGroup } from '../../../lib/template-vars'
 
 interface Props {
   node: WorkflowNode
+  allNodes?: WorkflowNode[]
   onChange: (nodeId: string, config: WorkflowNode['config']) => void
   onLabelChange: (nodeId: string, label: string) => void
   onDelete: (nodeId: string) => void
@@ -34,6 +35,7 @@ interface Props {
 
 export function NodeConfigPanel({
   node,
+  allNodes,
   onChange,
   onLabelChange,
   onDelete,
@@ -96,6 +98,8 @@ export function NodeConfigPanel({
             onChange={(config) => onChange(node.id, config)}
             triggerType={triggerType}
             stepGroups={stepGroups}
+            currentNodeId={node.id}
+            allNodes={allNodes}
           />
         )}
 

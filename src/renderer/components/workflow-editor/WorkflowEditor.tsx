@@ -61,6 +61,7 @@ export function WorkflowEditor() {
   const [edges, setEdges] = useState<WorkflowEdge[]>([])
   const [enabled, setEnabled] = useState(true)
   const [staggerDelayMs, setStaggerDelayMs] = useState<number | undefined>(undefined)
+  const [autoCleanupWorktrees, setAutoCleanupWorktrees] = useState(false)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [showRunHistory, setShowRunHistory] = useState(false)
   const [executionHistory, setExecutionHistory] = useState<
@@ -128,6 +129,7 @@ export function WorkflowEditor() {
       setEdges(existingWorkflow.edges)
       setEnabled(existingWorkflow.enabled)
       setStaggerDelayMs(existingWorkflow.staggerDelayMs)
+      setAutoCleanupWorktrees(existingWorkflow.autoCleanupWorktrees ?? false)
     } else if (!editingId) {
       // New workflow — start with a manual trigger
       const trigger = createTriggerNode({ triggerType: 'manual' })
@@ -162,6 +164,7 @@ export function WorkflowEditor() {
       edges,
       enabled,
       ...(staggerDelayMs && { staggerDelayMs }),
+      ...(autoCleanupWorktrees && { autoCleanupWorktrees }),
       ...(existingWorkflow?.lastRunAt && { lastRunAt: existingWorkflow.lastRunAt }),
       ...(existingWorkflow?.lastRunStatus && { lastRunStatus: existingWorkflow.lastRunStatus }),
       workspaceId: existingWorkflow?.workspaceId ?? activeWorkspace
@@ -182,6 +185,7 @@ export function WorkflowEditor() {
     edges,
     enabled,
     staggerDelayMs,
+    autoCleanupWorktrees,
     existingWorkflow,
     updateWorkflow,
     addWorkflow,
@@ -200,6 +204,7 @@ export function WorkflowEditor() {
       edges,
       enabled,
       ...(staggerDelayMs && { staggerDelayMs }),
+      ...(autoCleanupWorktrees && { autoCleanupWorktrees }),
       workspaceId: existingWorkflow?.workspaceId ?? activeWorkspace
     }
     if (editingId) {
@@ -218,6 +223,7 @@ export function WorkflowEditor() {
     edges,
     enabled,
     staggerDelayMs,
+    autoCleanupWorktrees,
     existingWorkflow,
     updateWorkflow,
     addWorkflow,
@@ -484,6 +490,16 @@ export function WorkflowEditor() {
           </div>
 
           <div className="flex items-center gap-1.5 mr-2">
+            <span
+              className="text-[11px] text-gray-500"
+              title="Auto-remove worktrees created during this run (skips dirty)"
+            >
+              Cleanup worktrees
+            </span>
+            <ToggleSwitch checked={autoCleanupWorktrees} onChange={setAutoCleanupWorktrees} />
+          </div>
+
+          <div className="flex items-center gap-1.5 mr-2">
             <span className="text-[12px] text-gray-400">Enabled</span>
             <ToggleSwitch checked={enabled} onChange={setEnabled} />
           </div>
@@ -572,6 +588,7 @@ export function WorkflowEditor() {
         {selectedNode && !showRunHistory && (
           <NodeConfigPanel
             node={selectedNode}
+            allNodes={nodes}
             onChange={handleNodeConfigChange}
             onLabelChange={handleNodeLabelChange}
             onDelete={handleDeleteNode}

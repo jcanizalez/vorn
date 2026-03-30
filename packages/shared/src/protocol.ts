@@ -146,6 +146,10 @@ export interface RequestMethods {
     params: { sessionId: string; limit?: number }
     result: SessionEvent[]
   }
+  'worktree:activeSessions': {
+    params: string
+    result: { count: number; sessionIds: string[] }
+  }
   'agent:detectInstalled': {
     params: void
     result: Record<string, boolean>

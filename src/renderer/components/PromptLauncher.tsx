@@ -82,9 +82,11 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
   const [launching, setLaunching] = useState(false)
   const [showAgentPicker, setShowAgentPicker] = useState(false)
   const [showProjectPicker, setShowProjectPicker] = useState(false)
+  const [showWorktreePicker, setShowWorktreePicker] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const agentPickerRef = useRef<HTMLDivElement>(null)
   const projectPickerRef = useRef<HTMLDivElement>(null)
+  const worktreePickerRef = useRef<HTMLDivElement>(null)
 
   const settings = useLaunchSettings()
   const selectedProjectConfig = config?.projects.find((p) => p.name === settings.selectedProject)
@@ -116,6 +118,9 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
       if (projectPickerRef.current && !projectPickerRef.current.contains(e.target as Node)) {
         setShowProjectPicker(false)
       }
+      if (worktreePickerRef.current && !worktreePickerRef.current.contains(e.target as Node)) {
+        setShowWorktreePicker(false)
+      }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -129,22 +134,28 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
 
     try {
       const isRemote = settings.selectedHost !== 'local'
+      const isExistingWorktree =
+        settings.worktreeMode === 'existing' && settings.selectedWorktreePath
+      const isNewWorktree = settings.worktreeMode === 'new'
       const branchChanged =
         settings.selectedBranch && settings.selectedBranch !== settings.currentBranch
       const branchToUse = isRemote
         ? undefined
-        : settings.useWorktree
-          ? settings.selectedBranch || undefined
-          : branchChanged
-            ? settings.selectedBranch
-            : undefined
+        : isExistingWorktree
+          ? undefined // branch determined by existing worktree
+          : isNewWorktree
+            ? settings.selectedBranch || undefined
+            : branchChanged
+              ? settings.selectedBranch
+              : undefined
 
       const session = await window.api.createTerminal({
         agentType: settings.selectedAgent,
         projectName: project.name,
         projectPath: project.path,
         branch: branchToUse,
-        useWorktree: branchToUse && settings.useWorktree ? true : undefined,
+        useWorktree: isNewWorktree && branchToUse ? true : undefined,
+        existingWorktreePath: isExistingWorktree ? settings.selectedWorktreePath! : undefined,
         remoteHostId: isRemote ? settings.selectedHost : undefined,
         initialPrompt: prompt.trim() || undefined
       })
@@ -359,22 +370,116 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
           </div>
         )}
 
-      {/* Worktree toggle */}
-      {settings.selectedHost === 'local' &&
-        settings.activeProjectPath &&
-        settings.localBranches.length > 0 && (
+      {/* Worktree picker */}
+      {settings.selectedHost === 'local' && settings.activeProjectPath && (
+        <div className="relative" ref={worktreePickerRef}>
           <button
-            onClick={() => settings.setUseWorktree(!settings.useWorktree)}
-            className={`p-1.5 rounded-md transition-all ${
-              settings.useWorktree
+            onClick={() => setShowWorktreePicker(!showWorktreePicker)}
+            className={`flex items-center gap-0.5 p-1.5 rounded-md transition-all ${
+              settings.worktreeMode !== 'none'
                 ? 'bg-amber-500/10 text-amber-400'
                 : 'text-gray-600 hover:text-gray-400 hover:bg-white/[0.04]'
             }`}
-            title={settings.useWorktree ? 'Worktree enabled' : 'Create worktree'}
+            title={
+              settings.worktreeMode === 'new'
+                ? 'New worktree'
+                : settings.worktreeMode === 'existing'
+                  ? 'Using existing worktree'
+                  : 'Worktree'
+            }
           >
             <FolderGit2 size={13} strokeWidth={1.5} />
+            {settings.worktreeMode !== 'none' && <ChevronDown size={8} />}
           </button>
-        )}
+          {showWorktreePicker && (
+            <div
+              className="absolute bottom-full left-0 mb-1 border border-white/[0.08]
+                            rounded-lg shadow-xl z-20 min-w-[240px] max-h-[280px] overflow-y-auto py-1"
+              style={{ background: '#1e1e22' }}
+            >
+              {/* No worktree */}
+              <button
+                onClick={() => {
+                  settings.setWorktreeMode('none')
+                  settings.setSelectedWorktreePath(null)
+                  setShowWorktreePicker(false)
+                }}
+                className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2
+                           hover:bg-white/[0.06] transition-colors ${
+                             settings.worktreeMode === 'none'
+                               ? 'text-white bg-white/[0.04]'
+                               : 'text-gray-400'
+                           }`}
+              >
+                No worktree
+              </button>
+
+              {/* New worktree */}
+              <button
+                onClick={() => {
+                  settings.setWorktreeMode('new')
+                  settings.setSelectedWorktreePath(null)
+                  setShowWorktreePicker(false)
+                }}
+                disabled={!settings.selectedBranch}
+                className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2
+                           hover:bg-white/[0.06] transition-colors
+                           disabled:opacity-40 disabled:cursor-not-allowed ${
+                             settings.worktreeMode === 'new'
+                               ? 'text-white bg-white/[0.04]'
+                               : 'text-gray-400'
+                           }`}
+              >
+                <FolderGit2 size={11} className="text-amber-400/70" />
+                New worktree
+                {!settings.selectedBranch && (
+                  <span className="text-[9px] text-gray-600 ml-auto">select branch</span>
+                )}
+              </button>
+
+              {/* Existing worktrees */}
+              {settings.worktreeOptions.length > 0 && (
+                <>
+                  <div className="border-t border-white/[0.06] my-1" />
+                  {settings.worktreeOptions.map((wt) => (
+                    <button
+                      key={wt.path}
+                      onClick={() => {
+                        settings.setWorktreeMode('existing')
+                        settings.setSelectedWorktreePath(wt.path)
+                        settings.setSelectedBranch(wt.branch)
+                        setShowWorktreePicker(false)
+                      }}
+                      className={`w-full text-left px-3 py-2 hover:bg-white/[0.06] transition-colors ${
+                        settings.worktreeMode === 'existing' &&
+                        settings.selectedWorktreePath === wt.path
+                          ? 'text-white bg-white/[0.04]'
+                          : 'text-gray-400'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <FolderGit2 size={11} className="text-amber-400/70 shrink-0" />
+                        <span className="text-xs font-mono truncate">{wt.branch}</span>
+                      </div>
+                      <div className="ml-5 mt-0.5">
+                        <span
+                          className={`text-[10px] ${
+                            wt.activeSessionCount > 0 ? 'text-green-400/70' : 'text-gray-600'
+                          }`}
+                        >
+                          {wt.activeSessionCount > 0
+                            ? `${wt.activeSessionCount} session${wt.activeSessionCount > 1 ? 's' : ''} active`
+                            : 'idle'}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Host selector — only if remote hosts exist */}
       {settings.remoteHosts.length > 0 && (

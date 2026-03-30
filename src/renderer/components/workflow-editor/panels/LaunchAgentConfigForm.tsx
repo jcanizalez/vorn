@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ChevronRight,
@@ -8,11 +8,17 @@ import {
   ListOrdered,
   GitBranch,
   FolderGit2,
+  Folder,
   EyeOff,
   Server,
   Terminal
 } from 'lucide-react'
-import { LaunchAgentConfig, TriggerConfig, getProjectHostIds } from '../../../../shared/types'
+import {
+  LaunchAgentConfig,
+  TriggerConfig,
+  WorkflowNode,
+  getProjectHostIds
+} from '../../../../shared/types'
 import { useAppStore } from '../../../stores'
 import { TEMPLATE_VARIABLES, StepVariableGroup } from '../../../lib/template-vars'
 import { useAgentInstallStatus } from '../../../hooks/useAgentInstallStatus'
@@ -26,6 +32,8 @@ interface Props {
   onChange: (config: LaunchAgentConfig) => void
   triggerType?: TriggerConfig['triggerType']
   stepGroups?: StepVariableGroup[]
+  currentNodeId?: string
+  allNodes?: WorkflowNode[]
 }
 
 const EMPTY_PROJECTS: import('../../../../shared/types').ProjectConfig[] = []
@@ -37,7 +45,14 @@ const PROMPT_SOURCES = [
   { key: 'queue' as const, label: 'Queue', icon: ListOrdered }
 ]
 
-export function LaunchAgentConfigForm({ config, onChange, triggerType, stepGroups = [] }: Props) {
+export function LaunchAgentConfigForm({
+  config,
+  onChange,
+  triggerType,
+  stepGroups = [],
+  currentNodeId,
+  allNodes
+}: Props) {
   const [advancedOpen, setAdvancedOpen] = useState(!!config.args?.length)
   const projects = useAppStore((s) => s.config?.projects ?? EMPTY_PROJECTS)
   const tasks = useAppStore((s) => s.config?.tasks ?? EMPTY_TASKS)
@@ -47,10 +62,40 @@ export function LaunchAgentConfigForm({ config, onChange, triggerType, stepGroup
     (t) => t.projectName === config.projectName && t.status === 'todo'
   )
 
+  const [existingWorktrees, setExistingWorktrees] = useState<
+    { path: string; branch: string; isMain: boolean }[]
+  >([])
+
   const isRemote = !!config.remoteHostId
   const filteredProjects = projects.filter((p) =>
     getProjectHostIds(p).includes(config.remoteHostId || 'local')
   )
+
+  // Fetch existing worktrees when project changes
+  useEffect(() => {
+    if (!config.projectPath || isRemote) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: reset when project/host changes
+      setExistingWorktrees([])
+      return
+    }
+    window.api
+      .listWorktrees(config.projectPath)
+      .then((wts) => setExistingWorktrees(wts.filter((w) => !w.isMain)))
+      .catch(() => setExistingWorktrees([]))
+  }, [config.projectPath, isRemote])
+
+  const priorWorktreeSteps = useMemo(
+    () =>
+      (allNodes ?? []).filter((n) => {
+        if (n.id === currentNodeId) return false
+        if (n.type !== 'launchAgent') return false
+        const c = n.config as LaunchAgentConfig
+        return c.worktreeMode === 'new' || c.worktreeMode === 'fromStep'
+      }),
+    [allNodes, currentNodeId]
+  )
+
+  const worktreeMode = config.worktreeMode ?? (config.useWorktree ? 'new' : 'none')
 
   const promptSource = config.taskId ? 'task' : config.taskFromQueue ? 'queue' : 'inline'
   const isTaskTrigger = triggerType === 'taskCreated' || triggerType === 'taskStatusChanged'
@@ -263,54 +308,96 @@ export function LaunchAgentConfigForm({ config, onChange, triggerType, stepGroup
             </p>
           </div>
 
-          {/* Worktree toggle */}
-          <button
-            role="switch"
-            aria-checked={!!config.useWorktree}
-            onClick={() => {
-              if (hasBranch) {
-                onChange({ ...config, useWorktree: config.useWorktree ? undefined : true })
+          {/* Worktree mode selector */}
+          <div>
+            <div className="text-[11px] text-gray-500 mb-1.5">Worktree</div>
+            <div className="flex flex-wrap gap-1.5">
+              {(
+                [
+                  { key: 'none', label: 'None', icon: null },
+                  { key: 'new', label: 'New', icon: FolderGit2 },
+                  { key: 'fromStep', label: 'From step', icon: GitBranch },
+                  { key: 'existing', label: 'Existing', icon: Folder }
+                ] as const
+              ).map(({ key, label, icon: Icon }) => {
+                const disabled =
+                  (key === 'new' && !hasBranch) ||
+                  (key === 'fromStep' && priorWorktreeSteps.length === 0)
+                return (
+                  <button
+                    key={key}
+                    onClick={() => {
+                      const updates: Partial<LaunchAgentConfig> = {
+                        worktreeMode: key,
+                        useWorktree: key === 'new' ? true : undefined,
+                        worktreeFromStepSlug: undefined,
+                        existingWorktreePath: undefined
+                      }
+                      if (key === 'none') {
+                        updates.branch = undefined
+                        updates.useWorktree = undefined
+                      }
+                      onChange({ ...config, ...updates })
+                    }}
+                    disabled={disabled}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-md transition-colors
+                               disabled:opacity-40 disabled:cursor-not-allowed ${
+                                 worktreeMode === key
+                                   ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                   : 'bg-white/[0.06] text-gray-400 border border-white/[0.08] hover:bg-white/[0.1]'
+                               }`}
+                  >
+                    {Icon && <Icon size={12} />}
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="text-[11px] text-gray-500 mt-1.5">
+              {worktreeMode === 'none' && 'Agent runs in the project directory'}
+              {worktreeMode === 'new' && "Isolated directory — won't affect the main working tree"}
+              {worktreeMode === 'fromStep' && 'Reuses the worktree created by a previous step'}
+              {worktreeMode === 'existing' && 'Launches into an existing worktree on disk'}
+            </p>
+          </div>
+
+          {/* From step sub-selector */}
+          {worktreeMode === 'fromStep' && (
+            <select
+              value={config.worktreeFromStepSlug || ''}
+              onChange={(e) =>
+                onChange({ ...config, worktreeFromStepSlug: e.target.value || undefined })
               }
-            }}
-            disabled={!hasBranch}
-            className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg border transition-all ${
-              !hasBranch
-                ? 'border-white/[0.04] bg-white/[0.01] opacity-50 cursor-not-allowed'
-                : config.useWorktree
-                  ? 'border-amber-500/20 bg-amber-500/[0.06]'
-                  : 'border-white/[0.04] bg-white/[0.02] hover:border-white/[0.1]'
-            }`}
-          >
-            <div
-              className={`w-7 h-[16px] rounded-full transition-colors relative shrink-0 ${
-                config.useWorktree ? 'bg-amber-500' : 'bg-white/[0.1]'
-              }`}
+              className="w-full px-3 py-2 text-[13px] bg-white/[0.06] border border-white/[0.1] rounded-md
+                         text-white focus:outline-none focus:border-blue-500/50 appearance-none"
             >
-              <div
-                className={`absolute top-[2px] w-[12px] h-[12px] rounded-full bg-white transition-transform ${
-                  config.useWorktree ? 'translate-x-[13px]' : 'translate-x-[2px]'
-                }`}
-              />
-            </div>
-            <div className="text-left min-w-0">
-              <div className="flex items-center gap-1.5">
-                <FolderGit2
-                  size={12}
-                  className={config.useWorktree ? 'text-amber-400' : 'text-gray-500'}
-                />
-                <span
-                  className={`text-[12px] ${config.useWorktree ? 'text-amber-300' : 'text-gray-300'}`}
-                >
-                  Worktree
-                </span>
-              </div>
-              <p className="text-[11px] text-gray-500 mt-0.5">
-                {hasBranch
-                  ? "Isolated directory — won't affect the main working tree"
-                  : 'Set a branch name to enable'}
-              </p>
-            </div>
-          </button>
+              <option value="">Select step...</option>
+              {priorWorktreeSteps.map((step) => (
+                <option key={step.id} value={step.slug || step.id}>
+                  {step.label || step.slug || step.id}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {/* Existing worktree sub-selector */}
+          {worktreeMode === 'existing' && (
+            <select
+              value={config.existingWorktreePath || ''}
+              onChange={(e) =>
+                onChange({ ...config, existingWorktreePath: e.target.value || undefined })
+              }
+              className="w-full px-3 py-2 text-[13px] bg-white/[0.06] border border-white/[0.1] rounded-md
+                         text-white focus:outline-none focus:border-blue-500/50 appearance-none"
+            >
+              <option value="">Select worktree...</option>
+              {existingWorktrees.map((wt) => (
+                <option key={wt.path} value={wt.path}>
+                  {wt.branch}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       )}
 

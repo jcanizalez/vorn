@@ -298,6 +298,8 @@ export function createApiShim(wsUrl: string) {
       rpc.invoke('git:renameWorktreeBranch', { worktreePath, newBranch }),
     isWorktreeDirty: (worktreePath: string) => rpc.invoke('git:worktreeDirty', worktreePath),
     listWorktrees: (projectPath: string) => rpc.invoke('git:listWorktrees', projectPath),
+    getWorktreeActiveSessions: (worktreePath: string) =>
+      rpc.invoke('worktree:activeSessions', worktreePath),
     getGitDiffStat: (cwd: string) => rpc.invoke('git:diffStat', cwd),
     getGitDiffFull: (cwd: string) => rpc.invoke('git:diffFull', cwd),
     gitCommit: (payload: unknown) => rpc.invoke('git:commit', payload),
@@ -353,6 +355,8 @@ export function createApiShim(wsUrl: string) {
     executeScript: (config: unknown) => rpc.invoke('script:execute', config),
 
     // ── Worktree Cleanup ──
+    onSessionUpdated: (callback: (session: unknown) => void) =>
+      rpc.on('session:updated', callback as (p: unknown) => void),
     onWorktreeCleanup: (
       callback: (session: { id: string; projectPath: string; worktreePath: string }) => void
     ) => rpc.on('worktree:confirmCleanup', callback as (p: unknown) => void),

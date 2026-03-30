@@ -23,6 +23,11 @@ import { stripAnsi } from './ansi-strip'
 
 const MAX_OUTPUT_LINES = 1000
 
+type WorktreeSessionCounter = (
+  worktreePath: string,
+  excludeId?: string
+) => { count: number; sessionIds: string[] }
+
 class PtyManager extends EventEmitter {
   private ptys = new Map<string, pty.IPty>()
   private sessions = new Map<string, TerminalSession>()
@@ -35,6 +40,19 @@ class PtyManager extends EventEmitter {
   private outputLines = new Map<string, string[]>()
   private outputPartials = new Map<string, string>()
   private sessionOrder: string[] = []
+  private headlessWorktreeCounter?: WorktreeSessionCounter
+
+  /** Provide headless session counter to avoid circular imports */
+  setHeadlessWorktreeCounter(counter: WorktreeSessionCounter): void {
+    this.headlessWorktreeCounter = counter
+  }
+
+  /** Count all sessions (pty + headless) using a worktree, excluding one ID */
+  private countWorktreeSessions(worktreePath: string, excludeId?: string): number {
+    const pty = this.getActiveSessionsForWorktree(worktreePath, excludeId)
+    const headless = this.headlessWorktreeCounter?.(worktreePath, excludeId) ?? { count: 0 }
+    return pty.count + headless.count
+  }
 
   constructor() {
     super()
@@ -437,11 +455,15 @@ class PtyManager extends EventEmitter {
         this.emit('session-exit', session)
         session.status = 'idle'
         if (session.worktreePath) {
-          this.emit('client-message', IPC.WORKTREE_CONFIRM_CLEANUP, {
-            id: session.id,
-            projectPath: session.projectPath,
-            worktreePath: session.worktreePath
-          })
+          // Only prompt cleanup when this is the last session using the worktree
+          const remaining = this.countWorktreeSessions(session.worktreePath, session.id)
+          if (remaining === 0) {
+            this.emit('client-message', IPC.WORKTREE_CONFIRM_CLEANUP, {
+              id: session.id,
+              projectPath: session.projectPath,
+              worktreePath: session.worktreePath
+            })
+          }
         }
       }
       this.emit('client-message', IPC.TERMINAL_EXIT, { id, exitCode })
@@ -481,11 +503,15 @@ class PtyManager extends EventEmitter {
     if (session) {
       this.emit('session-exit', session)
       if (session.worktreePath) {
-        this.emit('client-message', IPC.WORKTREE_CONFIRM_CLEANUP, {
-          id: session.id,
-          projectPath: session.projectPath,
-          worktreePath: session.worktreePath
-        })
+        // Session already removed from map — count remaining sessions
+        const remaining = this.countWorktreeSessions(session.worktreePath)
+        if (remaining === 0) {
+          this.emit('client-message', IPC.WORKTREE_CONFIRM_CLEANUP, {
+            id: session.id,
+            projectPath: session.projectPath,
+            worktreePath: session.worktreePath
+          })
+        }
       }
     }
     if (p) {
@@ -580,6 +606,28 @@ class PtyManager extends EventEmitter {
       return buf.slice(-lines)
     }
     return [...buf]
+  }
+
+  getActiveSessionsForWorktree(
+    worktreePath: string,
+    excludeId?: string
+  ): { count: number; sessionIds: string[] } {
+    const sessionIds: string[] = []
+    for (const s of this.sessions.values()) {
+      if (s.worktreePath === worktreePath && s.status !== 'idle' && s.id !== excludeId) {
+        sessionIds.push(s.id)
+      }
+    }
+    return { count: sessionIds.length, sessionIds }
+  }
+
+  updateSessionsForWorktree(worktreePath: string, updates: { branch?: string }): void {
+    for (const s of this.sessions.values()) {
+      if (s.worktreePath === worktreePath) {
+        if (updates.branch !== undefined) s.branch = updates.branch
+        this.emit('client-message', IPC.SESSION_UPDATED, s)
+      }
+    }
   }
 
   /**

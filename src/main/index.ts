@@ -199,6 +199,8 @@ function wireServerNotifications(bridge: ServerBridge): void {
       case IPC.HEADLESS_DATA:
       case IPC.HEADLESS_EXIT:
       case IPC.WORKTREE_CONFIRM_CLEANUP:
+      case IPC.SESSION_UPDATED:
+      case IPC.SESSION_REORDERED:
       case IPC.CONFIG_CHANGED:
       case IPC.SCHEDULER_EXECUTE:
       case IPC.SCHEDULER_MISSED:

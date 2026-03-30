@@ -168,7 +168,25 @@ async function executeNode(
   let resolvedTaskId: string | undefined
   let branch = config.branch
   let useWorktree = config.useWorktree
+  let existingWorktreePath: string | undefined
   const currentState = useAppStore.getState()
+
+  // Resolve worktreeMode for cross-step worktree passing
+  const worktreeMode = config.worktreeMode ?? (useWorktree ? 'new' : 'none')
+  if (worktreeMode === 'fromStep' && config.worktreeFromStepSlug) {
+    const nodeMap = new Map(workflow.nodes.map((n) => [n.slug || n.id, n]))
+    const sourceNode = nodeMap.get(config.worktreeFromStepSlug)
+    if (sourceNode) {
+      const sourceState = execution.nodeStates.find((s) => s.nodeId === sourceNode.id)
+      if (sourceState?.worktreePath) {
+        existingWorktreePath = sourceState.worktreePath
+        useWorktree = undefined // don't create new — reuse existing
+      }
+    }
+  } else if (worktreeMode === 'existing' && config.existingWorktreePath) {
+    existingWorktreePath = config.existingWorktreePath
+    useWorktree = undefined
+  }
 
   if (config.taskId) {
     const task = (currentState.config?.tasks || []).find(
@@ -238,6 +256,7 @@ async function executeNode(
         displayName: config.displayName,
         branch,
         useWorktree,
+        existingWorktreePath,
         initialPrompt,
         promptDelayMs: config.promptDelayMs,
         headless: true,
@@ -252,7 +271,8 @@ async function executeNode(
 
       updateNodeState(execution, node.id, {
         sessionId: headlessSession.id,
-        taskId: resolvedTaskId
+        taskId: resolvedTaskId,
+        worktreePath: headlessSession.worktreePath
       })
       persistExecution(workflow.id, execution)
 
@@ -286,6 +306,7 @@ async function executeNode(
       displayName: config.displayName,
       branch,
       useWorktree,
+      existingWorktreePath,
       initialPrompt,
       promptDelayMs: config.promptDelayMs,
       taskId: resolvedTaskId,
@@ -302,7 +323,8 @@ async function executeNode(
       completedAt: new Date().toISOString(),
       sessionId: session.id,
       logs: `Terminal session created: ${session.id}`,
-      taskId: resolvedTaskId
+      taskId: resolvedTaskId,
+      worktreePath: session.worktreePath
     })
     persistExecution(workflow.id, execution)
   }
@@ -497,6 +519,36 @@ export async function executeWorkflow(
   }
 
   persistExecution(workflow.id, execution)
+
+  if (workflow.autoCleanupWorktrees) {
+    // Build worktreePath → projectPath map in one pass
+    const worktreeMap = new Map<string, string>()
+    for (const ns of execution.nodeStates) {
+      if (!ns.worktreePath || worktreeMap.has(ns.worktreePath)) continue
+      const node = workflow.nodes.find((n) => n.id === ns.nodeId)
+      if (node) {
+        worktreeMap.set(ns.worktreePath, (node.config as LaunchAgentConfig).projectPath)
+      }
+    }
+
+    await Promise.allSettled(
+      Array.from(worktreeMap.entries()).map(async ([wtPath, projectPath]) => {
+        if (!projectPath) return
+        const { count } = await window.api.getWorktreeActiveSessions(wtPath)
+        if (count > 0) {
+          console.log(`[workflow] skipping worktree cleanup (${count} active sessions): ${wtPath}`)
+          return
+        }
+        const dirty = await window.api.isWorktreeDirty(wtPath)
+        if (dirty) {
+          console.log(`[workflow] skipping dirty worktree cleanup: ${wtPath}`)
+          return
+        }
+        await window.api.removeWorktree(projectPath, wtPath, false)
+        console.log(`[workflow] auto-cleaned worktree: ${wtPath}`)
+      })
+    )
+  }
 
   // Report completion to main process for schedule log + workflow status update
   await window.api.reportWorkflowComplete({

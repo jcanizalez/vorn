@@ -38,8 +38,12 @@ class HeadlessManager extends EventEmitter {
     let effectivePath = payload.projectPath
     let effectiveBranch: string | undefined
 
+    if (payload.existingWorktreePath) {
+      effectivePath = payload.existingWorktreePath
+      effectiveBranch = payload.branch
+    }
     // Handle worktree creation
-    if (payload.useWorktree && payload.branch) {
+    else if (payload.useWorktree && payload.branch) {
       const result = createWorktree(payload.projectPath, payload.branch)
       effectivePath = result.worktreePath
       effectiveBranch = result.branch
@@ -70,6 +74,9 @@ class HeadlessManager extends EventEmitter {
     this.outputBuffers.set(id, [])
 
     const branch = effectiveBranch || getGitBranch(effectivePath)
+    const worktreePath =
+      payload.existingWorktreePath ||
+      (payload.useWorktree && payload.branch ? effectivePath : undefined)
     const session: HeadlessSession = {
       id,
       pid: child.pid || 0,
@@ -78,6 +85,8 @@ class HeadlessManager extends EventEmitter {
       projectPath: payload.projectPath,
       displayName: payload.displayName,
       branch,
+      worktreePath,
+      isWorktree: !!worktreePath,
       status: 'running',
       startedAt: Date.now()
     }
@@ -145,6 +154,28 @@ class HeadlessManager extends EventEmitter {
 
   getActiveSessions(): HeadlessSession[] {
     return Array.from(this.sessions.values())
+  }
+
+  getActiveSessionsForWorktree(
+    worktreePath: string,
+    excludeId?: string
+  ): { count: number; sessionIds: string[] } {
+    const sessionIds: string[] = []
+    for (const s of this.sessions.values()) {
+      if (s.worktreePath === worktreePath && s.status === 'running' && s.id !== excludeId) {
+        sessionIds.push(s.id)
+      }
+    }
+    return { count: sessionIds.length, sessionIds }
+  }
+
+  updateSessionsForWorktree(worktreePath: string, updates: { branch?: string }): void {
+    for (const s of this.sessions.values()) {
+      if (s.worktreePath === worktreePath) {
+        if (updates.branch !== undefined) s.branch = updates.branch
+        this.emit('client-message', IPC.SESSION_UPDATED, s)
+      }
+    }
   }
 
   killAll(): void {
