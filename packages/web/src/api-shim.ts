@@ -256,6 +256,9 @@ export function createApiShim(wsUrl: string) {
     getPreviousSessions: () => rpc.invoke('sessions:getPrevious'),
     clearPreviousSessions: () => rpc.invoke('sessions:clear'),
     getRecentSessions: (projectPath?: string) => rpc.invoke('sessions:getRecent', projectPath),
+    renameSession: (id: string, displayName: string) =>
+      rpc.invoke('terminal:rename', { id, displayName }),
+    reorderSessions: (ids: string[]) => rpc.invoke('terminal:reorder', ids),
 
     // ── Dialogs (web: use HTML5 file inputs) ──
     openDirectoryDialog: async (): Promise<string | null> => {

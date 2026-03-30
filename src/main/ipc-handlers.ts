@@ -37,6 +37,8 @@ export function registerIpcHandlers(): void {
   safeHandle(IPC.SESSIONS_GET_RECENT, (_, projectPath) =>
     requireBridge().request(IPC.SESSIONS_GET_RECENT, projectPath)
   )
+  safeHandle(IPC.TERMINAL_RENAME, (_, params) => requireBridge().request('terminal:rename', params))
+  safeHandle(IPC.TERMINAL_REORDER, (_, ids) => requireBridge().request('terminal:reorder', ids))
 
   // Git
   safeHandle(IPC.GIT_LIST_BRANCHES, (_, projectPath) =>

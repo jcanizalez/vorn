@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAppStore } from '../stores'
 import { RotateCcw, X } from 'lucide-react'
-import { resolveResumeSessionId } from '../lib/session-utils'
+import { resolveResumeSessionId, buildRestorePayload } from '../lib/session-utils'
 
 export function SessionRestoredBanner() {
   const previousSessions = useAppStore((s) => s.previousSessions)
@@ -20,15 +20,7 @@ export function SessionRestoredBanner() {
     for (const prev of previousSessions) {
       const resumeSessionId = await resolveResumeSessionId(prev, claimed)
       if (resumeSessionId) claimed.add(resumeSessionId)
-      const session = await window.api.createTerminal({
-        agentType: prev.agentType,
-        projectName: prev.projectName,
-        projectPath: prev.projectPath,
-        branch: prev.isWorktree ? prev.branch : undefined,
-        useWorktree: prev.isWorktree || undefined,
-        remoteHostId: prev.remoteHostId,
-        resumeSessionId
-      })
+      const session = await window.api.createTerminal(buildRestorePayload(prev, resumeSessionId))
       addTerminal(session)
     }
     setSessionBanner(false)

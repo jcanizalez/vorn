@@ -237,7 +237,8 @@ function createSchema(): void {
       remote_host_label TEXT,
       hook_session_id TEXT,
       status_source TEXT,
-      saved_at INTEGER
+      saved_at INTEGER,
+      sort_order INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS schedule_log (
@@ -405,6 +406,20 @@ function migrateSchema(d: Database.Database): void {
       ).run()
     })()
     log.info('[database] migrated schema to version 2 (ssh credential vault)')
+  }
+
+  if (version < 3) {
+    d.transaction(() => {
+      const sessionCols = d.prepare('PRAGMA table_info(sessions)').all() as Array<{ name: string }>
+      if (!sessionCols.some((c) => c.name === 'sort_order')) {
+        d.exec('ALTER TABLE sessions ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0')
+      }
+
+      d.prepare(
+        "INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('schema_version', '3')"
+      ).run()
+    })()
+    log.info('[database] migrated schema to version 3 (session sort order)')
   }
 }
 
@@ -1316,10 +1331,11 @@ export function saveSessions(sessions: TerminalSession[]): void {
   const run = d.transaction(() => {
     d.prepare('DELETE FROM sessions').run()
     const insert = d.prepare(
-      `INSERT INTO sessions (id, agent_type, project_name, project_path, status, created_at, pid, display_name, branch, worktree_path, is_worktree, remote_host_id, remote_host_label, hook_session_id, status_source, saved_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO sessions (id, agent_type, project_name, project_path, status, created_at, pid, display_name, branch, worktree_path, is_worktree, remote_host_id, remote_host_label, hook_session_id, status_source, saved_at, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
-    for (const s of sessions) {
+    for (let i = 0; i < sessions.length; i++) {
+      const s = sessions[i]
       insert.run(
         s.id,
         s.agentType,
@@ -1336,7 +1352,8 @@ export function saveSessions(sessions: TerminalSession[]): void {
         s.remoteHostLabel ?? null,
         s.hookSessionId ?? null,
         s.statusSource ?? null,
-        savedAt
+        savedAt,
+        i
       )
     }
   })
@@ -1345,7 +1362,7 @@ export function saveSessions(sessions: TerminalSession[]): void {
 }
 
 export function getPreviousSessions(): TerminalSession[] {
-  const rows = getDb().prepare('SELECT * FROM sessions').all() as Array<{
+  const rows = getDb().prepare('SELECT * FROM sessions ORDER BY sort_order ASC').all() as Array<{
     id: string
     agent_type: string
     project_name: string

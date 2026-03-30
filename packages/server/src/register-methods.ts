@@ -162,7 +162,10 @@ export function registerAllMethods(): void {
     ptyManager.renameSession(id, displayName)
     logSessionEvent(id, 'renamed', { displayName })
   })
-  registerMethod('terminal:reorder', (ids) => ptyManager.reorderSessions(ids))
+  registerMethod('terminal:reorder', (ids) => {
+    ptyManager.reorderSessions(ids)
+    sessionManager.scheduleSave()
+  })
   registerMethod('terminal:readOutput', ({ id, lines }) => ptyManager.getOutput(id, lines))
   registerMethod('shell:create', (cwd) => ptyManager.createShellPty(cwd))
 

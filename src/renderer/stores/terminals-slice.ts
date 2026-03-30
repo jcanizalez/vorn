@@ -56,6 +56,7 @@ export const createTerminalsSlice: StateCreator<AppStore, [], [], TerminalsSlice
       const term = next.get(id)
       if (term) {
         next.set(id, { ...term, session: { ...term.session, displayName } })
+        window.api.renameSession(id, displayName)
       }
       return { terminals: next }
     }),

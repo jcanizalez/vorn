@@ -142,6 +142,7 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
       const order = [...state.terminalOrder]
       const [moved] = order.splice(fromIndex, 1)
       order.splice(toIndex, 0, moved)
+      window.api.reorderSessions(order)
       return { terminalOrder: order }
     }),
 

@@ -44,7 +44,7 @@ import { ToastContainer } from './components/Toast'
 import { AddTaskDialog } from './components/AddTaskDialog'
 import { isWeb } from './lib/platform'
 import { useIsMobile } from './hooks/useIsMobile'
-import { resolveResumeSessionId } from './lib/session-utils'
+import { resolveResumeSessionId, buildRestorePayload } from './lib/session-utils'
 const isMac = navigator.platform.toUpperCase().includes('MAC')
 
 function WindowControls() {
@@ -192,15 +192,9 @@ export function App() {
             for (const s of prev) {
               const resumeSessionId = await resolveResumeSessionId(s, claimed)
               if (resumeSessionId) claimed.add(resumeSessionId)
-              const session = await window.api.createTerminal({
-                agentType: s.agentType,
-                projectName: s.projectName,
-                projectPath: s.projectPath,
-                branch: s.isWorktree ? s.branch : undefined,
-                useWorktree: s.isWorktree || undefined,
-                remoteHostId: s.remoteHostId,
-                resumeSessionId
-              })
+              const session = await window.api.createTerminal(
+                buildRestorePayload(s, resumeSessionId)
+              )
               useAppStore.getState().addTerminal(session)
             }
             window.api.clearPreviousSessions()

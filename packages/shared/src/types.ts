@@ -485,6 +485,8 @@ export const IPC = {
   SESSION_CREATED: 'session:created',
   SESSION_UPDATED: 'session:updated',
   SESSION_REORDERED: 'session:reordered',
+  TERMINAL_RENAME: 'terminal:rename-session',
+  TERMINAL_REORDER: 'terminal:reorder-sessions',
   CONFIG_LOAD: 'config:load',
   CONFIG_SAVE: 'config:save',
   CONFIG_CHANGED: 'config:changed',

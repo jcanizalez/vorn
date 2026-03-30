@@ -10,7 +10,11 @@ Object.defineProperty(window, 'api', {
   writable: true
 })
 
-import { resolveResumeSessionId, resolveProjectName } from '../src/renderer/lib/session-utils'
+import {
+  resolveResumeSessionId,
+  resolveProjectName,
+  buildRestorePayload
+} from '../src/renderer/lib/session-utils'
 
 function makeSession(overrides: Partial<TerminalSession> = {}): TerminalSession {
   return {
@@ -78,8 +82,7 @@ describe('resolveResumeSessionId', () => {
     expect(result).toBe('sess-worktree')
   })
 
-  it('falls back to basename match when exact path differs', async () => {
-    // Scoped call returns nothing; unscoped returns a session with different path but same basename
+  it('does not fall back to basename match (prevents cross-project confusion)', async () => {
     mockGetRecentSessions.mockImplementation((projectPath?: string) => {
       if (projectPath) return Promise.resolve([])
       return Promise.resolve([
@@ -87,25 +90,6 @@ describe('resolveResumeSessionId', () => {
       ])
     })
     const session = makeSession({ projectPath: '/var/folders/my-app' })
-    const result = await resolveResumeSessionId(session)
-    expect(result).toBe('sess-fuzzy')
-  })
-
-  it('does not match basename across different agent types', async () => {
-    mockGetRecentSessions.mockImplementation((projectPath?: string) => {
-      if (projectPath) return Promise.resolve([])
-      return Promise.resolve([
-        makeRecent({
-          sessionId: 'sess-other',
-          agentType: 'copilot' as AgentType,
-          projectPath: '/other/path/my-app'
-        })
-      ])
-    })
-    const session = makeSession({
-      agentType: 'claude' as AgentType,
-      projectPath: '/home/user/my-app'
-    })
     const result = await resolveResumeSessionId(session)
     expect(result).toBeUndefined()
   })
@@ -221,5 +205,61 @@ describe('resolveProjectName', () => {
   it('returns untitled for root path', () => {
     const session = makeRecent({ projectPath: '/' })
     expect(resolveProjectName(session, projects)).toBe('untitled')
+  })
+})
+
+describe('buildRestorePayload', () => {
+  it('builds basic payload for non-worktree session', () => {
+    const session = makeSession({
+      projectPath: '/home/user/my-app',
+      displayName: 'My Session'
+    })
+    const payload = buildRestorePayload(session, 'resume-123')
+    expect(payload).toEqual({
+      agentType: 'claude',
+      projectName: 'my-app',
+      projectPath: '/home/user/my-app',
+      displayName: 'My Session',
+      branch: undefined,
+      existingWorktreePath: undefined,
+      useWorktree: undefined,
+      remoteHostId: undefined,
+      resumeSessionId: 'resume-123'
+    })
+  })
+
+  it('passes existingWorktreePath for worktree sessions', () => {
+    const session = makeSession({
+      isWorktree: true,
+      worktreePath: '/home/user/.vibegrid-worktrees/my-app/main-abc123',
+      branch: 'main-worktree-abc123'
+    })
+    const payload = buildRestorePayload(session)
+    expect(payload.existingWorktreePath).toBe('/home/user/.vibegrid-worktrees/my-app/main-abc123')
+    expect(payload.branch).toBe('main-worktree-abc123')
+    expect(payload.useWorktree).toBeUndefined()
+  })
+
+  it('falls back to useWorktree when worktreePath is missing', () => {
+    const session = makeSession({
+      isWorktree: true,
+      branch: 'feature-x'
+    })
+    const payload = buildRestorePayload(session)
+    expect(payload.existingWorktreePath).toBeUndefined()
+    expect(payload.useWorktree).toBe(true)
+    expect(payload.branch).toBe('feature-x')
+  })
+
+  it('preserves displayName (undefined when not set)', () => {
+    const session = makeSession()
+    const payload = buildRestorePayload(session)
+    expect(payload.displayName).toBeUndefined()
+  })
+
+  it('passes remoteHostId when present', () => {
+    const session = makeSession({ remoteHostId: 'host-1' })
+    const payload = buildRestorePayload(session)
+    expect(payload.remoteHostId).toBe('host-1')
   })
 })

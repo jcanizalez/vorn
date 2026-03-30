@@ -91,6 +91,11 @@ const api = {
   getRecentSessions: (projectPath?: string): Promise<RecentSession[]> =>
     ipcRenderer.invoke(IPC.SESSIONS_GET_RECENT, projectPath),
 
+  renameSession: (id: string, displayName: string) =>
+    ipcRenderer.invoke(IPC.TERMINAL_RENAME, { id, displayName }),
+
+  reorderSessions: (ids: string[]) => ipcRenderer.invoke(IPC.TERMINAL_REORDER, ids),
+
   openDirectoryDialog: (): Promise<string | null> => ipcRenderer.invoke(IPC.DIALOG_OPEN_DIRECTORY),
 
   openFileDialog: (): Promise<string | null> => ipcRenderer.invoke(IPC.DIALOG_OPEN_FILE),

@@ -122,14 +122,16 @@ class PtyManager extends EventEmitter {
     let worktreePath: string | undefined
     let effectiveBranch: string | undefined
 
-    // Reuse existing worktree
-    if (payload.existingWorktreePath) {
+    if (payload.existingWorktreePath && fs.existsSync(payload.existingWorktreePath)) {
       effectivePath = payload.existingWorktreePath
       worktreePath = payload.existingWorktreePath
       effectiveBranch = payload.branch
-    }
-    // Handle worktree creation
-    else if (payload.useWorktree && payload.branch) {
+    } else if ((payload.useWorktree || payload.existingWorktreePath) && payload.branch) {
+      if (payload.existingWorktreePath) {
+        log.warn(
+          `[pty] worktree path no longer exists, creating new: ${payload.existingWorktreePath}`
+        )
+      }
       const result = createWorktree(payload.projectPath, payload.branch)
       effectivePath = result.worktreePath
       worktreePath = result.worktreePath
@@ -172,6 +174,7 @@ class PtyManager extends EventEmitter {
       ...(worktreePath ? { worktreePath, isWorktree: true } : {})
     }
     this.sessions.set(id, session)
+    this.sessionOrder.push(id)
     this.normalizedPaths.set(id, normalizePath(worktreePath || payload.projectPath))
     return session
   }
@@ -334,6 +337,7 @@ class PtyManager extends EventEmitter {
       ...(payload.displayName ? { displayName: payload.displayName } : {})
     }
     this.sessions.set(id, session)
+    this.sessionOrder.push(id)
     this.normalizedPaths.set(id, normalizePath(payload.projectPath))
     return session
   }

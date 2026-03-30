@@ -1,19 +1,14 @@
 import {
   supportsExactSessionResume,
   type TerminalSession,
-  type RecentSession
+  type RecentSession,
+  type CreateTerminalPayload
 } from '../../shared/types'
 
 function normalizeComparablePath(p: string): string {
   const normalized = p.replace(/\\/g, '/').replace(/\/+$/, '')
   if (!normalized) return '/'
   return normalized.toLowerCase()
-}
-
-function getPathBasename(p: string): string | undefined {
-  const normalized = normalizeComparablePath(p)
-  const parts = normalized.split('/').filter(Boolean)
-  return parts.length > 0 ? parts[parts.length - 1] : undefined
 }
 
 function getDisplayPathBasename(p: string): string | undefined {
@@ -107,17 +102,6 @@ export async function resolveResumeSessionId(
   const exact = findPreferredPathMatch(allRecent)
   if (exact) return exact.sessionId
 
-  // Case-insensitive basename match (handles symlinks, trailing-slash diffs)
-  const basenames = new Set(targetPaths.map(getPathBasename).filter(isDefined))
-  if (basenames.size > 0) {
-    const fuzzy = allRecent.find((r) => {
-      if (!isAvailable(r)) return false
-      const candidateBase = getPathBasename(r.projectPath)
-      return candidateBase ? basenames.has(candidateBase) : false
-    })
-    if (fuzzy) return fuzzy.sessionId
-  }
-
   return undefined
 }
 
@@ -138,4 +122,21 @@ export function resolveProjectName(
     return projectPath === normalized || isManagedWorktreePath(session.projectPath, p.path)
   })
   return project?.name || displayBasename || 'untitled'
+}
+
+export function buildRestorePayload(
+  s: TerminalSession,
+  resumeSessionId?: string
+): CreateTerminalPayload {
+  return {
+    agentType: s.agentType,
+    projectName: s.projectName,
+    projectPath: s.projectPath,
+    displayName: s.displayName,
+    branch: s.isWorktree ? s.branch : undefined,
+    existingWorktreePath: s.isWorktree ? s.worktreePath : undefined,
+    useWorktree: (s.isWorktree && !s.worktreePath) || undefined,
+    remoteHostId: s.remoteHostId,
+    resumeSessionId
+  }
 }
