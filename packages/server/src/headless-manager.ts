@@ -174,10 +174,15 @@ class HeadlessManager extends EventEmitter {
     return { count: sessionIds.length, sessionIds }
   }
 
-  updateSessionsForWorktree(worktreePath: string, updates: { branch?: string }): void {
+  updateSessionsForWorktree(
+    worktreePath: string,
+    updates: { branch?: string; worktreePath?: string; worktreeName?: string }
+  ): void {
     for (const s of this.sessions.values()) {
       if (s.worktreePath === worktreePath) {
         if (updates.branch !== undefined) s.branch = updates.branch
+        if (updates.worktreeName !== undefined) s.worktreeName = updates.worktreeName
+        if (updates.worktreePath !== undefined) s.worktreePath = updates.worktreePath
         this.emit('client-message', IPC.SESSION_UPDATED, s)
       }
     }

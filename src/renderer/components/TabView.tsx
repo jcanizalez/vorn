@@ -9,7 +9,7 @@ import { PromptLauncher } from './PromptLauncher'
 import { InlineRename } from './InlineRename'
 import { CardContextMenu } from './CardContextMenu'
 import { TabStatusBar } from './TabStatusBar'
-import { getDisplayName } from '../lib/terminal-display'
+import { getDisplayName, getBranchLabel } from '../lib/terminal-display'
 import { closeTerminalSession } from '../lib/terminal-close'
 import { resolveActiveProject } from '../lib/session-utils'
 import { AgentStatus } from '../../shared/types'
@@ -417,7 +417,7 @@ export function TabView() {
           const tooltip = buildTooltip(
             displayName,
             terminal.status,
-            terminal.session.branch,
+            getBranchLabel(terminal.session),
             terminal.session.isWorktree,
             terminal.session.remoteHostLabel,
             tooltipTaskTitle

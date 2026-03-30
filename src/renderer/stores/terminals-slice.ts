@@ -78,6 +78,20 @@ export const createTerminalsSlice: StateCreator<AppStore, [], [], TerminalsSlice
       return { terminals: next }
     }),
 
+  updateSessionWorktree: (id, updates) =>
+    set((state) => {
+      const term = state.terminals.get(id)
+      if (!term) return state
+      const s = term.session
+      const changed =
+        (updates.worktreePath !== undefined && updates.worktreePath !== s.worktreePath) ||
+        (updates.worktreeName !== undefined && updates.worktreeName !== s.worktreeName)
+      if (!changed) return state
+      const next = new Map(state.terminals)
+      next.set(id, { ...term, session: { ...s, ...updates } })
+      return { terminals: next }
+    }),
+
   togglePinned: (id) =>
     set((state) => {
       const next = new Map(state.terminals)
