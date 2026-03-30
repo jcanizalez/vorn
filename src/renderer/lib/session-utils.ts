@@ -4,6 +4,7 @@ import {
   type RecentSession,
   type CreateTerminalPayload
 } from '../../shared/types'
+import { useAppStore } from '../stores'
 
 function normalizeComparablePath(p: string): string {
   const normalized = p.replace(/\\/g, '/').replace(/\/+$/, '')
@@ -139,4 +140,18 @@ export function buildRestorePayload(
     remoteHostId: s.remoteHostId,
     resumeSessionId
   }
+}
+
+/**
+ * Resolve the currently active project from the store.
+ * Falls back to the first project in the active workspace.
+ */
+export function resolveActiveProject() {
+  const state = useAppStore.getState()
+  const activeProjectName = state.activeProject
+  if (activeProjectName) {
+    return state.config?.projects.find((p) => p.name === activeProjectName)
+  }
+  const ws = state.activeWorkspace
+  return state.config?.projects.find((p) => (p.workspaceId ?? 'personal') === ws)
 }

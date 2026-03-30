@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Play, GitFork, Plus } from 'lucide-react'
 import { useAppStore } from '../stores'
+import { resolveActiveProject } from '../lib/session-utils'
 
 interface Props {
   position: { x: number; y: number }
@@ -35,16 +36,6 @@ export function GridContextMenu({ position, onClose }: Props) {
     }
   }, [onClose])
 
-  const resolveProject = () => {
-    const state = useAppStore.getState()
-    const activeProjectName = state.activeProject
-    if (activeProjectName) {
-      return state.config?.projects.find((p) => p.name === activeProjectName)
-    }
-    const ws = state.activeWorkspace
-    return state.config?.projects.find((p) => (p.workspaceId ?? 'personal') === ws)
-  }
-
   const items: MenuItem[] = [
     {
       icon: Play,
@@ -52,7 +43,7 @@ export function GridContextMenu({ position, onClose }: Props) {
       onClick: async () => {
         onClose()
         const state = useAppStore.getState()
-        const project = resolveProject()
+        const project = resolveActiveProject()
         if (!project) {
           state.setNewAgentDialogOpen(true)
           return
@@ -73,7 +64,7 @@ export function GridContextMenu({ position, onClose }: Props) {
       onClick: async () => {
         onClose()
         const state = useAppStore.getState()
-        const project = resolveProject()
+        const project = resolveActiveProject()
         if (!project) {
           state.setNewAgentDialogOpen(true)
           return

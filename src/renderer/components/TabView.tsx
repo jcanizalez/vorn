@@ -1,14 +1,29 @@
-import { useEffect } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../stores'
 import { useVisibleTerminals } from '../hooks/useVisibleTerminals'
 import { AgentIcon } from './AgentIcon'
 import { TerminalInstance } from './TerminalInstance'
 import { PromptLauncher } from './PromptLauncher'
+import { InlineRename } from './InlineRename'
+import { CardContextMenu } from './CardContextMenu'
 import { getDisplayName } from '../lib/terminal-display'
 import { closeTerminalSession } from '../lib/terminal-close'
+import { resolveActiveProject } from '../lib/session-utils'
 import { AgentStatus } from '../../shared/types'
 import { ConfirmPopover } from './ConfirmPopover'
 import { toast } from './Toast'
+import {
+  Pin,
+  GitBranch,
+  FolderGit2,
+  ListTodo,
+  Play,
+  GitFork,
+  Plus,
+  ChevronDown
+} from 'lucide-react'
 
 const STATUS_DOT: Record<AgentStatus, string> = {
   running: 'bg-green-500',
@@ -16,6 +31,189 @@ const STATUS_DOT: Record<AgentStatus, string> = {
   idle: 'bg-gray-500',
   error: 'bg-red-500'
 }
+
+const STATUS_LABEL: Record<AgentStatus, string> = {
+  running: 'Running',
+  waiting: 'Waiting',
+  idle: 'Idle',
+  error: 'Error'
+}
+
+const DRAG_THRESHOLD = 5
+
+interface DragState {
+  draggingId: string
+  startX: number
+  isDragging: boolean
+}
+
+function getHorizontalDropIndex(
+  pointerX: number,
+  orderedIds: string[],
+  refs: Map<string, HTMLButtonElement>
+): number | null {
+  let closestIndex: number | null = null
+  let closestDist = Infinity
+
+  for (let i = 0; i < orderedIds.length; i++) {
+    const el = refs.get(orderedIds[i])
+    if (!el) continue
+    const rect = el.getBoundingClientRect()
+    const cx = rect.left + rect.width / 2
+    const dist = Math.abs(pointerX - cx)
+    if (dist < closestDist) {
+      closestDist = dist
+      closestIndex = i
+    }
+  }
+
+  return closestIndex
+}
+
+function buildTooltip(
+  displayName: string,
+  status: AgentStatus,
+  branch?: string,
+  isWorktree?: boolean,
+  remoteHostLabel?: string,
+  taskTitle?: string
+): string {
+  const lines = [`${displayName} \u2014 ${STATUS_LABEL[status]}`]
+  if (branch) {
+    lines.push(`Branch: ${branch}${isWorktree ? ' (worktree)' : ''}`)
+  }
+  if (remoteHostLabel) {
+    lines.push(`Remote: ${remoteHostLabel}`)
+  }
+  if (taskTitle) {
+    lines.push(`Task: ${taskTitle}`)
+  }
+  return lines.join('\n')
+}
+
+/* ── Plus-button dropdown ────────────────────────────────────── */
+
+function PlusDropdown({
+  position,
+  onClose
+}: {
+  position: { top: number; left: number }
+  onClose: () => void
+}) {
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose()
+    }
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('pointerdown', handleClick)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('pointerdown', handleClick)
+      document.removeEventListener('keydown', handleKey)
+    }
+  }, [onClose])
+
+  const items: {
+    icon: React.FC<{ size?: number; className?: string }>
+    label: string
+    className?: string
+    separator?: boolean
+    onClick: () => void
+  }[] = [
+    {
+      icon: Play,
+      label: 'New session',
+      className: 'text-green-400',
+      onClick: async () => {
+        onClose()
+        const state = useAppStore.getState()
+        const project = resolveActiveProject()
+        if (!project) {
+          state.setNewAgentDialogOpen(true)
+          return
+        }
+        const agentType = state.config?.defaults.defaultAgent || 'claude'
+        const session = await window.api.createTerminal({
+          agentType,
+          projectName: project.name,
+          projectPath: project.path
+        })
+        state.addTerminal(session)
+      }
+    },
+    {
+      icon: GitFork,
+      label: 'New session in worktree',
+      className: 'text-amber-400',
+      onClick: async () => {
+        onClose()
+        const state = useAppStore.getState()
+        const project = resolveActiveProject()
+        if (!project) {
+          state.setNewAgentDialogOpen(true)
+          return
+        }
+        const agentType = state.config?.defaults.defaultAgent || 'claude'
+        const branchResult = await window.api.listBranches(project.path)
+        const branch = branchResult.current || 'main'
+        const session = await window.api.createTerminal({
+          agentType,
+          projectName: project.name,
+          projectPath: project.path,
+          branch,
+          useWorktree: true
+        })
+        state.addTerminal(session)
+      }
+    },
+    {
+      icon: Plus,
+      label: 'New session...',
+      separator: true,
+      onClick: () => {
+        onClose()
+        useAppStore.getState().setNewAgentDialogOpen(true)
+      }
+    }
+  ]
+
+  return createPortal(
+    <AnimatePresence>
+      <motion.div
+        ref={menuRef}
+        initial={{ opacity: 0, y: -4, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -4, scale: 0.96 }}
+        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+        className="fixed z-[150] rounded-lg border border-white/[0.1] shadow-2xl py-1"
+        style={{ top: position.top, left: position.left, background: '#1e1e22', minWidth: 220 }}
+      >
+        {items.map((item, i) => (
+          <div key={i}>
+            {item.separator && <div className="border-t border-white/[0.06] my-1" />}
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                item.onClick()
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-1.5 text-xs text-gray-300 hover:bg-white/[0.06] transition-colors"
+            >
+              <item.icon size={14} className={item.className ?? 'text-gray-500'} />
+              <span>{item.label}</span>
+            </button>
+          </div>
+        ))}
+      </motion.div>
+    </AnimatePresence>,
+    document.body
+  )
+}
+
+/* ── TabView ─────────────────────────────────────────────────── */
 
 export function TabView() {
   const orderedIds = useVisibleTerminals()
@@ -26,10 +224,25 @@ export function TabView() {
   const setFocused = useAppStore((s) => s.setFocusedTerminal)
   const focusedId = useAppStore((s) => s.focusedTerminalId)
   const statusFilter = useAppStore((s) => s.statusFilter)
+  const renamingTerminalId = useAppStore((s) => s.renamingTerminalId)
+  const setRenamingTerminalId = useAppStore((s) => s.setRenamingTerminalId)
+  const renameTerminal = useAppStore((s) => s.renameTerminal)
+  const sortMode = useAppStore((s) => s.sortMode)
+  const reorderTerminals = useAppStore((s) => s.reorderTerminals)
+  const tasks = useAppStore((s) => s.config?.tasks)
 
-  const setDialogOpen = useAppStore((s) => s.setNewAgentDialogOpen)
+  const [contextMenu, setContextMenu] = useState<{
+    terminalId: string
+    x: number
+    y: number
+  } | null>(null)
+  const [dragState, setDragState] = useState<DragState | null>(null)
+  const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null)
+  const [plusDropdownPos, setPlusDropdownPos] = useState<{ top: number; left: number } | null>(null)
+  const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
 
   const isFiltered = statusFilter !== 'all'
+  const isManualSort = sortMode === 'manual'
 
   // Auto-select first tab if activeTabId is null or not in orderedIds
   useEffect(() => {
@@ -68,6 +281,66 @@ export function TabView() {
     toast.success(`Session "${name}" closed`)
   }
 
+  /* ── Drag handlers ─────────────────────────────────────────── */
+
+  const handleDragStart = useCallback(
+    (terminalId: string, e: React.PointerEvent) => {
+      if (!isManualSort) return
+      if (e.button !== 0) return
+      setDragState({ draggingId: terminalId, startX: e.clientX, isDragging: false })
+    },
+    [isManualSort]
+  )
+
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!dragState) return
+      const dx = e.clientX - dragState.startX
+      if (!dragState.isDragging && Math.abs(dx) < DRAG_THRESHOLD) return
+      if (!dragState.isDragging) {
+        setDragState({ ...dragState, isDragging: true })
+      }
+      const targetIndex = getHorizontalDropIndex(e.clientX, orderedIds, tabRefs.current)
+      setDropTargetIndex(targetIndex)
+    },
+    [dragState, orderedIds]
+  )
+
+  const handlePointerUp = useCallback(() => {
+    if (dragState?.isDragging && dropTargetIndex !== null) {
+      const fromIndex = orderedIds.indexOf(dragState.draggingId)
+      if (
+        fromIndex !== -1 &&
+        fromIndex !== dropTargetIndex &&
+        orderedIds.includes(dragState.draggingId)
+      ) {
+        reorderTerminals(fromIndex, dropTargetIndex)
+      }
+    }
+    setDragState(null)
+    setDropTargetIndex(null)
+  }, [dragState, dropTargetIndex, orderedIds, reorderTerminals])
+
+  /* ── Quick launch ──────────────────────────────────────────── */
+
+  const handleQuickLaunch = async (): Promise<void> => {
+    const state = useAppStore.getState()
+    const project = resolveActiveProject()
+    if (!project) {
+      state.setNewAgentDialogOpen(true)
+      return
+    }
+    const agentType = state.config?.defaults.defaultAgent || 'claude'
+    const session = await window.api.createTerminal({
+      agentType,
+      projectName: project.name,
+      projectPath: project.path
+    })
+    state.addTerminal(session)
+  }
+
+  /* ── Empty state ───────────────────────────────────────────── */
+
   if (orderedIds.length === 0) {
     return (
       <div className="h-full overflow-auto p-4">
@@ -104,44 +377,110 @@ export function TabView() {
       <div
         className="shrink-0 flex items-center gap-0.5 px-2 py-1.5 border-b border-white/[0.06] overflow-x-auto"
         style={{ minHeight: 36 }}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerUp}
       >
-        {orderedIds.map((id) => {
+        {orderedIds.map((id, index) => {
           const terminal = terminals.get(id)
           if (!terminal) return null
           const isActive = id === activeTabId
-          const assignedTask = useAppStore
-            .getState()
-            .config?.tasks?.find((t) => t.assignedSessionId === id && t.status === 'in_progress')
+          const isPinned = terminal.session.pinned === true
+          const isIdlePinned = terminal.status === 'idle' && isPinned
+          const isRenaming = renamingTerminalId === id
+          const isDragTarget = dragState?.isDragging === true && dropTargetIndex === index
+          const isDragging = dragState?.isDragging === true && dragState.draggingId === id
+
+          const assignedTask = tasks?.find(
+            (t) => t.assignedSessionId === id && t.status === 'in_progress'
+          )
           const displayName = terminal.session.displayName?.trim()
             ? getDisplayName(terminal.session)
             : assignedTask
               ? assignedTask.title
               : getDisplayName(terminal.session)
 
+          const tooltip = buildTooltip(
+            displayName,
+            terminal.status,
+            terminal.session.branch,
+            terminal.session.isWorktree,
+            terminal.session.remoteHostLabel,
+            assignedTask?.title
+          )
+
           return (
             <button
               key={id}
+              ref={(el) => {
+                if (el) tabRefs.current.set(id, el)
+                else tabRefs.current.delete(id)
+              }}
               onClick={() => handleSelectTab(id)}
               onDoubleClick={() => handleDoubleClick(id)}
+              onPointerDown={(e) => handleDragStart(id, e)}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setContextMenu({ terminalId: id, x: e.clientX, y: e.clientY })
+              }}
+              title={tooltip}
               className={`group flex items-center gap-1.5 px-2.5 h-[28px] rounded-md text-xs
-                         transition-colors shrink-0 max-w-[200px] ${
+                         transition-colors shrink-0 max-w-[220px]
+                         ${isManualSort ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : ''}
+                         ${isDragTarget ? 'ring-1 ring-blue-500/50' : ''}
+                         ${isDragging ? 'opacity-50' : ''}
+                         ${
                            isActive
                              ? 'bg-white/[0.1] text-white'
                              : 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.04]'
                          }`}
+              style={isIdlePinned ? { opacity: 0.55 } : undefined}
             >
+              {isPinned && (
+                <Pin size={10} strokeWidth={2} className="text-amber-400 fill-current shrink-0" />
+              )}
+
               <span
                 className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[terminal.status]}`}
               />
+
               <AgentIcon agentType={terminal.session.agentType} size={12} />
-              <span className="truncate">{displayName}</span>
+
+              {isRenaming ? (
+                <InlineRename
+                  value={getDisplayName(terminal.session)}
+                  onCommit={(name) => {
+                    renameTerminal(id, name)
+                    setRenamingTerminalId(null)
+                    toast.success(`Renamed to "${name}"`)
+                  }}
+                  onCancel={() => setRenamingTerminalId(null)}
+                  className="text-xs w-[100px]"
+                />
+              ) : (
+                <span className="truncate">{displayName}</span>
+              )}
+
+              {terminal.session.branch &&
+                !isRenaming &&
+                (terminal.session.isWorktree ? (
+                  <FolderGit2 size={10} className="text-amber-500 shrink-0" strokeWidth={1.5} />
+                ) : (
+                  <GitBranch size={10} className="text-gray-600 shrink-0" strokeWidth={1.5} />
+                ))}
+
+              {assignedTask && !isRenaming && (
+                <ListTodo size={10} className="text-violet-400 shrink-0" strokeWidth={2} />
+              )}
+
               <ConfirmPopover
                 message="Close this session?"
                 confirmLabel="Close"
                 onConfirm={() => handleCloseTab(id)}
               >
                 <span
-                  className="ml-1 shrink-0 w-4 h-4 flex items-center justify-center rounded
+                  className="ml-0.5 shrink-0 w-4 h-4 flex items-center justify-center rounded
                              transition-colors opacity-0 group-hover:opacity-100 text-gray-500 hover:text-gray-200 hover:bg-white/[0.1]"
                   title="Close session"
                 >
@@ -161,24 +500,53 @@ export function TabView() {
           )
         })}
 
-        {/* New session button */}
-        <button
-          onClick={() => setDialogOpen(true)}
-          className="shrink-0 w-[28px] h-[28px] flex items-center justify-center rounded-md
-                     text-gray-500 hover:text-gray-200 hover:bg-white/[0.06] transition-colors"
-          title="New session"
-        >
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 12 12"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
+        {/* Split "+" button: quick launch + dropdown */}
+        <div className="shrink-0 flex items-center">
+          <button
+            onClick={handleQuickLaunch}
+            className="h-[28px] w-[24px] flex items-center justify-center rounded-l-md
+                       text-gray-500 hover:text-gray-200 hover:bg-white/[0.06] transition-colors"
+            title="New session"
           >
-            <path d="M6 1v10M1 6h10" />
-          </svg>
-        </button>
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            >
+              <path d="M6 1v10M1 6h10" />
+            </svg>
+          </button>
+          <button
+            onClick={(e) => {
+              if (plusDropdownPos) {
+                setPlusDropdownPos(null)
+              } else {
+                const rect = e.currentTarget.getBoundingClientRect()
+                const menuWidth = 220
+                setPlusDropdownPos({
+                  left: Math.max(
+                    8,
+                    Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8)
+                  ),
+                  top: rect.bottom + 4
+                })
+              }
+            }}
+            className="h-[28px] w-[16px] flex items-center justify-center rounded-r-md
+                       text-gray-500 hover:text-gray-200 hover:bg-white/[0.06] transition-colors
+                       border-l border-white/[0.06]"
+            title="More launch options"
+          >
+            <ChevronDown size={10} strokeWidth={2} />
+          </button>
+        </div>
+
+        {plusDropdownPos && (
+          <PlusDropdown position={plusDropdownPos} onClose={() => setPlusDropdownPos(null)} />
+        )}
       </div>
 
       {/* Terminal content */}
@@ -215,6 +583,15 @@ export function TabView() {
             </div>
           )}
       </div>
+
+      {/* Context menu */}
+      {contextMenu && (
+        <CardContextMenu
+          terminalId={contextMenu.terminalId}
+          position={{ x: contextMenu.x, y: contextMenu.y }}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   )
 }

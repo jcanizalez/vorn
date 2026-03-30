@@ -8,6 +8,7 @@ import { PromptLauncher } from './PromptLauncher'
 import { GridContextMenu } from './GridContextMenu'
 import { useVisibleTerminals } from '../hooks/useVisibleTerminals'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { resolveActiveProject } from '../lib/session-utils'
 import { HeadlessSession } from '../../shared/types'
 
 const EMPTY_HEADLESS: HeadlessSession[] = []
@@ -124,11 +125,7 @@ export const GridView = memo(function GridView() {
   const handleGridDoubleClick = useCallback((e: React.MouseEvent) => {
     if (e.target !== e.currentTarget) return
     const state = useAppStore.getState()
-    const activeProjectName = state.activeProject
-    const ws = state.activeWorkspace
-    const project = activeProjectName
-      ? state.config?.projects.find((p) => p.name === activeProjectName)
-      : state.config?.projects.find((p) => (p.workspaceId ?? 'personal') === ws)
+    const project = resolveActiveProject()
     if (!project) {
       state.setNewAgentDialogOpen(true)
       return
