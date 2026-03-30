@@ -69,9 +69,28 @@ export async function resolveResumeSessionId(
   if (!supportsExactSessionResume(s.agentType)) return undefined
   if (s.hookSessionId && !claimed.has(s.hookSessionId)) return s.hookSessionId
 
-  const targetPaths = [s.worktreePath, s.projectPath].filter(isDefined).map(normalizeComparablePath)
   const isAvailable = (r: RecentSession): boolean =>
     r.agentType === s.agentType && r.canResumeExact && !claimed.has(r.sessionId)
+
+  // Worktree sessions: only match sessions created in the same worktree CWD.
+  // Claude scopes sessions by CWD, so a session from the base project
+  // won't be found when --resume runs in the worktree directory.
+  if (s.isWorktree && s.worktreePath) {
+    const worktreeNorm = normalizeComparablePath(s.worktreePath)
+    try {
+      const recent = await window.api.getRecentSessions(s.worktreePath)
+      const match = recent.find(
+        (r) => isAvailable(r) && normalizeComparablePath(r.projectPath) === worktreeNorm
+      )
+      if (match) return match.sessionId
+    } catch {
+      /* no history for this worktree */
+    }
+    return undefined
+  }
+
+  // Non-worktree sessions: progressively looser matching
+  const targetPaths = [s.worktreePath, s.projectPath].filter(isDefined).map(normalizeComparablePath)
   const findPreferredPathMatch = (sessions: RecentSession[]): RecentSession | undefined => {
     for (const targetPath of targetPaths) {
       const match = sessions.find(
