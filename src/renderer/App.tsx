@@ -32,7 +32,7 @@ import {
   disposeGlobalDataListener
 } from './lib/terminal-registry'
 import { WorktreeCleanupDialog } from './components/WorktreeCleanupDialog'
-import { DiffSidebar } from './components/DiffSidebar'
+import { RightPanel } from './components/RightPanel'
 import { TaskBoardView } from './components/TaskBoardView'
 import { TaskDetailPanel } from './components/TaskDetailPanel'
 import { KeyboardShortcutsPanel } from './components/KeyboardShortcutsPanel'
@@ -123,7 +123,8 @@ export function App() {
       isWorkflowEditorOpen: s.isWorkflowEditorOpen,
       layoutMode: s.config?.defaults?.layoutMode ?? 'grid',
       mainViewMode: s.config?.defaults?.mainViewMode ?? 'sessions',
-      selectedTaskId: s.selectedTaskId
+      selectedTaskId: s.selectedTaskId,
+      diffSidebarTerminalId: s.diffSidebarTerminalId
     }))
   )
   const setDialogOpen = useAppStore((s) => s.setNewAgentDialogOpen)
@@ -585,6 +586,7 @@ export function App() {
             )}
           </div>
           {mainViewMode === 'tasks' && selectedTaskId && <TaskDetailPanel />}
+          {mainViewMode === 'sessions' && diffSidebarTerminalId && <RightPanel />}
         </div>
         <TerminalPanel />
         {isMobile && <MobileBottomTabs hidden={keyboardHeight > 0} />}
@@ -604,8 +606,6 @@ export function App() {
       <AddTaskDialog />
       <WorktreeCleanupDialog />
       <MissedScheduleDialog />
-      <DiffSidebar />
-
       <AnimatePresence>{isShortcutsPanelOpen && <KeyboardShortcutsPanel />}</AnimatePresence>
 
       <AnimatePresence>{isSettingsOpen && <SettingsPage />}</AnimatePresence>

@@ -51,6 +51,10 @@ export function useKeyboardShortcuts() {
           state.setSettingsOpen(false)
           return
         }
+        if (state.diffSidebarTerminalId) {
+          state.setDiffSidebarTerminalId(null)
+          return
+        }
         if (state.renamingTerminalId) {
           state.setRenamingTerminalId(null)
           return

@@ -27,6 +27,7 @@ export interface WorktreeInfo {
 export type SortMode = 'manual' | 'created' | 'recent'
 export type StatusFilter = AgentStatus | 'all'
 export type TaskStatusFilter = 'all' | 'todo' | 'in_progress' | 'in_review' | 'done' | 'cancelled'
+export type PanelTab = 'changes' | 'all-files' | 'checks'
 
 export interface TerminalState {
   id: string
@@ -117,6 +118,9 @@ export interface UISlice {
   diffSidebarTerminalId: string | null
   diffReviewTaskId: string | null
   gitDiffStats: Map<string, GitDiffStat>
+  rightPanelTab: PanelTab
+  isDiffPanelMaximized: boolean
+  diffPanelWidth: number
   mainViewMode: 'sessions' | 'tasks'
   selectedTaskId: string | null
   taskStatusFilter: TaskStatusFilter
@@ -157,6 +161,9 @@ export interface UISlice {
   setDiffReviewTaskId: (id: string | null) => void
   updateGitDiffStat: (terminalId: string, stat: GitDiffStat) => void
   updateGitDiffStats: (stats: Map<string, GitDiffStat>) => void
+  setRightPanelTab: (tab: PanelTab) => void
+  setDiffPanelMaximized: (maximized: boolean) => void
+  setDiffPanelWidth: (width: number) => void
   setMainViewMode: (mode: 'sessions' | 'tasks') => void
   setSelectedTaskId: (id: string | null) => void
   setTaskStatusFilter: (filter: TaskStatusFilter) => void

@@ -54,6 +54,9 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   diffSidebarTerminalId: null,
   diffReviewTaskId: null,
   gitDiffStats: new Map(),
+  rightPanelTab: 'changes',
+  isDiffPanelMaximized: false,
+  diffPanelWidth: 480,
   mainViewMode: 'sessions' as const,
   selectedTaskId: null,
   taskStatusFilter: 'all' as const,
@@ -157,8 +160,12 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
     }),
 
   setOnboardingOpen: (open) => set({ isOnboardingOpen: open }),
-  setDiffSidebarTerminalId: (id) => set({ diffSidebarTerminalId: id }),
+  setDiffSidebarTerminalId: (id) =>
+    set({ diffSidebarTerminalId: id, rightPanelTab: 'changes', isDiffPanelMaximized: false }),
   setDiffReviewTaskId: (id) => set({ diffReviewTaskId: id }),
+  setRightPanelTab: (tab) => set({ rightPanelTab: tab }),
+  setDiffPanelMaximized: (maximized) => set({ isDiffPanelMaximized: maximized }),
+  setDiffPanelWidth: (width) => set({ diffPanelWidth: width }),
 
   updateGitDiffStat: (terminalId, stat) =>
     set((state) => {
@@ -178,12 +185,13 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
 
   setMainViewMode: (mode) => {
     const config = get().config
+    const extra = mode !== 'sessions' ? { diffSidebarTerminalId: null } : {}
     if (config) {
       const updated = { ...config, defaults: { ...config.defaults, mainViewMode: mode } }
       window.api.saveConfig(updated)
-      set({ mainViewMode: mode, config: updated })
+      set({ mainViewMode: mode, config: updated, ...extra })
     } else {
-      set({ mainViewMode: mode })
+      set({ mainViewMode: mode, ...extra })
     }
   },
   setSelectedTaskId: (id) => set({ selectedTaskId: id }),

@@ -30,7 +30,14 @@ export const createTerminalsSlice: StateCreator<AppStore, [], [], TerminalsSlice
       const gitDiffStats = new Map(state.gitDiffStats)
       gitDiffStats.delete(id)
       window.api.notifyWidgetStatus()
-      return { terminals: next, terminalOrder: order, minimizedTerminals: minimized, gitDiffStats }
+      const extra = state.diffSidebarTerminalId === id ? { diffSidebarTerminalId: null } : {}
+      return {
+        terminals: next,
+        terminalOrder: order,
+        minimizedTerminals: minimized,
+        gitDiffStats,
+        ...extra
+      }
     }),
 
   updateStatus: (id, status) =>
