@@ -130,6 +130,16 @@ export function closeDatabase(): void {
   }
 }
 
+/** Initialize an in-memory database for tests. Returns teardown function. */
+export function initTestDatabase(): () => void {
+  db = new Database(':memory:')
+  createSchema()
+  return () => {
+    db?.close()
+    db = null
+  }
+}
+
 function createSchema(): void {
   const d = getDb()
 
@@ -238,7 +248,8 @@ function createSchema(): void {
       hook_session_id TEXT,
       status_source TEXT,
       saved_at INTEGER,
-      sort_order INTEGER NOT NULL DEFAULT 0
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      worktree_name TEXT
     );
 
     CREATE TABLE IF NOT EXISTS schedule_log (
@@ -422,6 +433,20 @@ function migrateSchema(d: Database.Database): void {
     })()
     log.info('[database] migrated schema to version 3 (session sort order)')
   }
+
+  if (version < 4) {
+    d.transaction(() => {
+      const sessionCols = d.prepare('PRAGMA table_info(sessions)').all() as Array<{ name: string }>
+      if (!sessionCols.some((c) => c.name === 'worktree_name')) {
+        d.exec('ALTER TABLE sessions ADD COLUMN worktree_name TEXT')
+      }
+
+      d.prepare(
+        "INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('schema_version', '4')"
+      ).run()
+    })()
+    log.info('[database] migrated schema to version 4 (worktree name)')
+  }
 }
 
 /**
@@ -457,7 +482,8 @@ function verifySchema(d: Database.Database): void {
       {
         column: 'sort_order',
         ddl: 'ALTER TABLE sessions ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0'
-      }
+      },
+      { column: 'worktree_name', ddl: 'ALTER TABLE sessions ADD COLUMN worktree_name TEXT' }
     ]
   }
 
@@ -1385,8 +1411,8 @@ export function saveSessions(sessions: TerminalSession[]): void {
   const run = d.transaction(() => {
     d.prepare('DELETE FROM sessions').run()
     const insert = d.prepare(
-      `INSERT INTO sessions (id, agent_type, project_name, project_path, status, created_at, pid, display_name, branch, worktree_path, is_worktree, remote_host_id, remote_host_label, hook_session_id, status_source, saved_at, sort_order)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO sessions (id, agent_type, project_name, project_path, status, created_at, pid, display_name, branch, worktree_path, is_worktree, remote_host_id, remote_host_label, hook_session_id, status_source, saved_at, sort_order, worktree_name)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     for (let i = 0; i < sessions.length; i++) {
       const s = sessions[i]
@@ -1407,7 +1433,8 @@ export function saveSessions(sessions: TerminalSession[]): void {
         s.hookSessionId ?? null,
         s.statusSource ?? null,
         savedAt,
-        i
+        i,
+        s.worktreeName ?? null
       )
     }
   })
@@ -1433,6 +1460,7 @@ export function getPreviousSessions(): TerminalSession[] {
     hook_session_id: string | null
     status_source: string | null
     saved_at: number | null
+    worktree_name: string | null
   }>
   return rows.map((r) => ({
     id: r.id,
@@ -1451,7 +1479,8 @@ export function getPreviousSessions(): TerminalSession[] {
     ...(r.hook_session_id != null && { hookSessionId: r.hook_session_id }),
     ...(r.status_source != null && {
       statusSource: r.status_source as TerminalSession['statusSource']
-    })
+    }),
+    ...(r.worktree_name != null && { worktreeName: r.worktree_name })
   }))
 }
 

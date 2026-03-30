@@ -83,6 +83,30 @@ describe('buildAgentLaunchLine', () => {
     const result = buildAgentLaunchLine(makePayload({ args: ['--verbose'] }), cmds, env)
     expect(result).toContain('--verbose')
   })
+
+  it('adds --session-id for fresh Claude session', () => {
+    const result = buildAgentLaunchLine(makePayload({ sessionId: 'uuid-123' }), cmds, env)
+    expect(result).toBe('claude --session-id uuid-123')
+  })
+
+  it('does not add --session-id when resumeSessionId is present', () => {
+    const result = buildAgentLaunchLine(
+      makePayload({ resumeSessionId: 'sess-1', sessionId: 'uuid-123' }),
+      cmds,
+      env
+    )
+    expect(result).toBe('claude --resume sess-1')
+    expect(result).not.toContain('--session-id')
+  })
+
+  it('does not add --session-id for non-Claude agents', () => {
+    const result = buildAgentLaunchLine(
+      makePayload({ agentType: 'copilot', sessionId: 'uuid-123' }),
+      cmds,
+      env
+    )
+    expect(result).not.toContain('--session-id')
+  })
 })
 
 describe('buildHeadlessLaunchLine', () => {

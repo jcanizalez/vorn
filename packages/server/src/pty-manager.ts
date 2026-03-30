@@ -178,9 +178,12 @@ class PtyManager extends EventEmitter {
       env: getSafeEnv()
     })
 
-    // For Claude: control the session ID so we can reliably resume later.
-    // On fresh launch, generate a UUID and pass --session-id.
-    // On resume, the resumeSessionId IS the session ID.
+    // Per-agent hookSessionId strategy:
+    //   Claude:       generate UUID → pass --session-id → stored as hookSessionId immediately
+    //   Copilot:      UUID injected into hooks.json by copilot-hook-installer; forceLink sets hookSessionId
+    //   Codex/OpenCode: no CLI support for session ID pinning; hookSessionId stays undefined,
+    //                   restore relies on history-based fallback in resolveResumeSessionId
+    //   Gemini:       no resume support (supportsExactSessionResume returns false)
     let hookSessionId: string | undefined
     if (payload.agentType === 'claude') {
       if (payload.resumeSessionId) {
