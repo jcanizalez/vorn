@@ -9,7 +9,6 @@ const EMPTY_WORKTREES: WorktreeInfo[] = []
 export function ToolbarBreadcrumb() {
   const activeProject = useAppStore((s) => s.activeProject)
   const activeWorktreePath = useAppStore((s) => s.activeWorktreePath)
-  const setActiveProject = useAppStore((s) => s.setActiveProject)
   const setActiveWorktreePath = useAppStore((s) => s.setActiveWorktreePath)
   const worktreeCache = useAppStore((s) => s.worktreeCache)
   const loadWorktrees = useAppStore((s) => s.loadWorktrees)
@@ -34,46 +33,35 @@ export function ToolbarBreadcrumb() {
     if (projectPath) loadWorktrees(projectPath)
   }, [loadWorktrees, projectPath])
 
+  if (!activeProject) return null
+
   return (
     <div className="flex items-center gap-0.5 text-[13px] min-w-0 max-w-[400px]">
-      {!activeProject ? (
-        <span className="text-gray-500 truncate">All Projects</span>
+      {!activeWorktreePath ? (
+        <span className="text-white truncate">{activeProject}</span>
       ) : (
         <>
           <button
-            onClick={() => setActiveProject(null)}
-            className="text-gray-500 hover:text-gray-300 transition-colors shrink-0"
+            onClick={() => setActiveWorktreePath(null)}
+            className="text-gray-500 hover:text-gray-300 transition-colors truncate"
           >
-            All Projects
+            {activeProject}
           </button>
-          <ChevronRight size={10} className="text-gray-600 shrink-0 mx-0.5" />
-          {!activeWorktreePath ? (
-            <span className="text-white truncate">{activeProject}</span>
-          ) : (
+          {worktreeName && (
             <>
-              <button
-                onClick={() => setActiveWorktreePath(null)}
-                className="text-gray-500 hover:text-gray-300 transition-colors truncate"
-              >
-                {activeProject}
-              </button>
-              {worktreeName && (
-                <>
-                  <ChevronRight size={10} className="text-gray-600 shrink-0 mx-0.5" />
-                  <span className="text-gray-400 truncate">{worktreeName}</span>
-                </>
-              )}
-              {branchName && branchCwd && projectPath && (
-                <>
-                  <ChevronRight size={10} className="text-gray-600 shrink-0 mx-0.5" />
-                  <BranchDropdown
-                    currentBranch={branchName}
-                    cwd={branchCwd}
-                    projectPath={projectPath}
-                    onBranchChanged={handleBranchChanged}
-                  />
-                </>
-              )}
+              <ChevronRight size={10} className="text-gray-600 shrink-0 mx-0.5" />
+              <span className="text-gray-400 truncate">{worktreeName}</span>
+            </>
+          )}
+          {branchName && branchCwd && projectPath && (
+            <>
+              <ChevronRight size={10} className="text-gray-600 shrink-0 mx-0.5" />
+              <BranchDropdown
+                currentBranch={branchName}
+                cwd={branchCwd}
+                projectPath={projectPath}
+                onBranchChanged={handleBranchChanged}
+              />
             </>
           )}
         </>
@@ -99,6 +87,7 @@ function BranchDropdown({
   const [isSwitching, setIsSwitching] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const switchingRef = useRef(false)
+  const openRef = useRef(false)
 
   useEffect(() => {
     if (!open) return
@@ -109,22 +98,25 @@ function BranchDropdown({
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
+  useEffect(() => {
+    openRef.current = open
+  }, [open])
+
   const handleOpen = useCallback(async () => {
-    setOpen((prev) => {
-      if (prev) return false
-      ;(async () => {
-        setIsLoading(true)
-        try {
-          const result = await window.api.listBranches(projectPath)
-          setBranches(result.local)
-        } catch {
-          setBranches([])
-        } finally {
-          setIsLoading(false)
-        }
-      })()
-      return true
-    })
+    if (openRef.current) {
+      setOpen(false)
+      return
+    }
+    setOpen(true)
+    setIsLoading(true)
+    try {
+      const result = await window.api.listBranches(projectPath)
+      setBranches(result.local)
+    } catch {
+      setBranches([])
+    } finally {
+      setIsLoading(false)
+    }
   }, [projectPath])
 
   const handleSwitch = useCallback(
