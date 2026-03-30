@@ -296,7 +296,7 @@ export function App() {
           store.updateSessionWorktree(session.id, wtUpdates)
         }
       } else {
-        const updates: Partial<typeof session> = {}
+        const updates: { branch?: string; worktreePath?: string; worktreeName?: string } = {}
         if (session.branch) updates.branch = session.branch
         if (session.worktreePath) updates.worktreePath = session.worktreePath
         if (session.worktreeName) updates.worktreeName = session.worktreeName
