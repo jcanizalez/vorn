@@ -171,8 +171,8 @@ describe('listWorktrees', () => {
     )
     const result = listWorktrees('/path/to/project')
     expect(result).toEqual([
-      { path: '/path/to/project', branch: 'main', isMain: true },
-      { path: '/path/to/worktree', branch: 'feature', isMain: false }
+      { path: '/path/to/project', branch: 'main', isMain: true, name: 'project' },
+      { path: '/path/to/worktree', branch: 'feature', isMain: false, name: 'worktree' }
     ])
   })
 
