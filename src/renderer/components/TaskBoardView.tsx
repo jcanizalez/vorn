@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useAppStore } from '../stores'
 import { TaskConfig, TaskStatus, supportsExactSessionResume } from '../../shared/types'
 import { buildTaskPrompt } from '../../shared/prompt-builder'
@@ -5,6 +6,7 @@ import { TaskKanbanBoard } from './task-board/TaskKanbanBoard'
 import { TaskListView } from './task-board/TaskListView'
 import { ListTodo } from 'lucide-react'
 import { toast } from './Toast'
+import { useWorkspaceProjects } from '../hooks/useWorkspaceProjects'
 
 export function TaskBoardView() {
   const activeProject = useAppStore((s) => s.activeProject)
@@ -24,8 +26,14 @@ export function TaskBoardView() {
 
   const viewMode = config?.defaults?.taskViewMode ?? 'list'
 
-  const projectTasks = (config?.tasks || []).filter(
-    (t) => !activeProject || t.projectName === activeProject
+  const workspaceProjects = useWorkspaceProjects()
+  const workspaceProjectNames = useMemo(
+    () => new Set(workspaceProjects.map((p) => p.name)),
+    [workspaceProjects]
+  )
+
+  const projectTasks = (config?.tasks || []).filter((t) =>
+    activeProject ? t.projectName === activeProject : workspaceProjectNames.has(t.projectName)
   )
 
   // Apply status filter

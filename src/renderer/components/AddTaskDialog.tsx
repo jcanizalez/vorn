@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, Suspense, lazy } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../stores'
+import { useWorkspaceProjects } from '../hooks/useWorkspaceProjects'
 import { FolderGit2, X, Maximize2, Paperclip } from 'lucide-react'
 const RichMarkdownEditor = lazy(() =>
   import('./rich-editor/RichMarkdownEditor').then((m) => ({ default: m.RichMarkdownEditor }))
@@ -38,6 +39,8 @@ export function AddTaskDialog() {
   const taskIdRef = useRef<string>(crypto.randomUUID())
   const { status: agentInstallStatus } = useAgentInstallStatus()
 
+  const workspaceProjects = useWorkspaceProjects()
+
   const isEditMode = !!editingTask
 
   const initForm = (editing: typeof editingTask) => {
@@ -60,7 +63,7 @@ export function AddTaskDialog() {
         ).then((pairs) => setImagePaths(new Map(pairs)))
       }
     } else {
-      setProjectName(activeProject || config?.projects[0]?.name || '')
+      setProjectName(activeProject || workspaceProjects[0]?.name || '')
       setDescription(TASK_TEMPLATE)
       taskIdRef.current = crypto.randomUUID()
     }
@@ -75,7 +78,7 @@ export function AddTaskDialog() {
 
   const resetForm = () => {
     setTitle('')
-    setProjectName(activeProject || config?.projects[0]?.name || '')
+    setProjectName(activeProject || workspaceProjects[0]?.name || '')
     setDescription(TASK_TEMPLATE)
     setBranch('')
     setUseWorktree(false)
@@ -308,7 +311,7 @@ export function AddTaskDialog() {
               {/* Project picker */}
               <ProjectPicker
                 currentProject={projectName}
-                projects={config?.projects || []}
+                projects={workspaceProjects}
                 onChange={setProjectName}
               />
 
