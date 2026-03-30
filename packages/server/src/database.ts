@@ -132,12 +132,12 @@ export function closeDatabase(): void {
 
 /** Initialize an in-memory database for tests. Returns teardown function. */
 export function initTestDatabase(): () => void {
+  if (db) closeDatabase()
   db = new Database(':memory:')
+  db.pragma('journal_mode = WAL')
+  db.pragma('foreign_keys = ON')
   createSchema()
-  return () => {
-    db?.close()
-    db = null
-  }
+  return () => closeDatabase()
 }
 
 function createSchema(): void {
