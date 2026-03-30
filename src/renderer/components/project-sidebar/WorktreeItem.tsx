@@ -38,9 +38,9 @@ export function WorktreeItem({
           onSubmit={async (e) => {
             e.preventDefault()
             const trimmed = renameValue.trim()
-            if (trimmed && trimmed !== wt.branch) {
-              const ok = await window.api.renameWorktreeBranch(wt.path, trimmed)
-              if (ok) {
+            if (trimmed && trimmed !== wt.name) {
+              const result = await window.api.renameWorktree(wt.path, trimmed)
+              if (result) {
                 toast.success('Worktree renamed')
                 onWorktreesChanged()
               } else {
@@ -128,7 +128,7 @@ export function WorktreeItem({
               onClick={(e) => {
                 e.stopPropagation()
                 setRenaming(true)
-                setRenameValue(wt.branch)
+                setRenameValue(wt.name)
               }}
               className="text-gray-500 hover:text-white p-0.5 rounded hover:bg-white/[0.08] transition-colors"
             >

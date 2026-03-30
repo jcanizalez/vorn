@@ -220,6 +220,20 @@ export function registerAllMethods(): void {
     }
     return result
   })
+  registerMethod('git:renameWorktree', ({ worktreePath, newName }) => {
+    const result = gitUtils.renameWorktree(worktreePath, newName)
+    if (result) {
+      ptyManager.updateSessionsForWorktree(worktreePath, {
+        worktreePath: result.newPath,
+        worktreeName: result.name
+      })
+      headlessManager.updateSessionsForWorktree(worktreePath, {
+        worktreePath: result.newPath,
+        worktreeName: result.name
+      })
+    }
+    return result
+  })
   registerMethod('git:worktreeDirty', (worktreePath) => gitUtils.isWorktreeDirty(worktreePath))
   registerMethod('git:listWorktrees', (projectPath) => gitUtils.listWorktrees(projectPath))
 

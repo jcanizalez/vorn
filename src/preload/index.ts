@@ -128,6 +128,12 @@ const api = {
   renameWorktreeBranch: (worktreePath: string, newBranch: string): Promise<boolean> =>
     ipcRenderer.invoke(IPC.GIT_RENAME_WORKTREE_BRANCH, { worktreePath, newBranch }),
 
+  renameWorktree: (
+    worktreePath: string,
+    newName: string
+  ): Promise<{ newPath: string; name: string } | null> =>
+    ipcRenderer.invoke(IPC.GIT_RENAME_WORKTREE, { worktreePath, newName }),
+
   isWorktreeDirty: (worktreePath: string): Promise<boolean> =>
     ipcRenderer.invoke(IPC.GIT_WORKTREE_DIRTY, worktreePath),
 

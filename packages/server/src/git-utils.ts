@@ -178,8 +178,8 @@ export function createWorktree(
         timeout: 30000
       })
     } catch {
-      // If branch is already checked out, create a new branch from it
-      const newBranch = `${branch}-worktree-${shortId}`
+      // If branch is already checked out, create a new branch named after the friendly name
+      const newBranch = localBranches.includes(name) ? `${name}-${shortId}` : name
       execFileSync('git', ['worktree', 'add', '-b', newBranch, worktreeDir, branch], {
         cwd: projectPath,
         ...EXEC_OPTS,
@@ -235,6 +235,40 @@ export function renameWorktreeBranch(worktreePath: string, newBranch: string): b
     return true
   } catch {
     return false
+  }
+}
+
+export function renameWorktree(
+  worktreePath: string,
+  newName: string
+): { newPath: string; name: string } | null {
+  const trimmed = newName
+    .trim()
+    .replace(/[^a-zA-Z0-9-]/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^-|-$/g, '')
+  if (!trimmed) return null
+
+  const dir = path.dirname(worktreePath)
+  const basename = path.basename(worktreePath)
+  // Preserve the short-id suffix (last 8 hex chars)
+  const idMatch = basename.match(/-([0-9a-f]{8})$/)
+  if (!idMatch) return null
+  const shortId = idMatch[1]
+  const newDir = path.join(dir, `${trimmed}-${shortId}`)
+
+  if (newDir === worktreePath) return null
+  if (fs.existsSync(newDir)) return null
+
+  try {
+    execFileSync('git', ['worktree', 'move', worktreePath, newDir], {
+      cwd: worktreePath,
+      ...EXEC_OPTS,
+      timeout: 10000
+    })
+    return { newPath: newDir, name: trimmed }
+  } catch {
+    return null
   }
 }
 

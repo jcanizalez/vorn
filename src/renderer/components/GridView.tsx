@@ -11,7 +11,7 @@ import { AgentIcon } from './AgentIcon'
 import { useVisibleTerminals } from '../hooks/useVisibleTerminals'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { resolveActiveProject } from '../lib/session-utils'
-import { getDisplayName } from '../lib/terminal-display'
+import { getDisplayName, getBranchLabel } from '../lib/terminal-display'
 import { HeadlessSession } from '../../shared/types'
 import type { TerminalState } from '../stores/types'
 import { GitBranch, FolderGit2 } from 'lucide-react'
@@ -300,7 +300,7 @@ function GridDragGhost({
               <span
                 className={`text-[10px] font-mono truncate ${session.isWorktree ? 'text-amber-400' : 'text-gray-500'}`}
               >
-                {session.branch}
+                {getBranchLabel(session)}
               </span>
             </div>
           )}

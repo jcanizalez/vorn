@@ -24,8 +24,13 @@ import {
   getGitDiffStat,
   gitCommit,
   listWorktrees,
-  renameWorktreeBranch
+  renameWorktreeBranch,
+  renameWorktree,
+  createWorktree
 } from '../packages/server/src/git-utils'
+import fs from 'node:fs'
+
+const mockFs = vi.mocked(fs)
 
 const mockExecFileSync = vi.mocked(execFileSync)
 
@@ -244,5 +249,99 @@ describe('renameWorktreeBranch', () => {
       throw new Error('branch already exists')
     })
     expect(renameWorktreeBranch('/worktree', 'existing')).toBe(false)
+  })
+})
+
+describe('renameWorktree', () => {
+  it('renames worktree directory via git worktree move', () => {
+    mockFs.existsSync.mockReturnValue(false)
+    mockExecFileSync.mockReturnValue('')
+    const result = renameWorktree('/base/old-name-abcd1234', 'new-name')
+    expect(result).toEqual({ newPath: '/base/new-name-abcd1234', name: 'new-name' })
+    expect(mockExecFileSync).toHaveBeenCalledWith(
+      'git',
+      ['worktree', 'move', '/base/old-name-abcd1234', '/base/new-name-abcd1234'],
+      expect.objectContaining({ cwd: '/base/old-name-abcd1234' })
+    )
+  })
+
+  it('sanitizes special characters in name', () => {
+    mockFs.existsSync.mockReturnValue(false)
+    mockExecFileSync.mockReturnValue('')
+    const result = renameWorktree('/base/old-name-abcd1234', 'my cool name!')
+    expect(result).toEqual({ newPath: '/base/my-cool-name-abcd1234', name: 'my-cool-name' })
+  })
+
+  it('returns null for empty name', () => {
+    expect(renameWorktree('/base/old-abcd1234', '')).toBeNull()
+    expect(renameWorktree('/base/old-abcd1234', '  ')).toBeNull()
+  })
+
+  it('returns null if path has no short-id suffix', () => {
+    expect(renameWorktree('/base/no-suffix', 'new-name')).toBeNull()
+  })
+
+  it('returns null if target already exists', () => {
+    mockFs.existsSync.mockReturnValue(true)
+    expect(renameWorktree('/base/old-abcd1234', 'new')).toBeNull()
+  })
+
+  it('returns null if same path after rename', () => {
+    expect(renameWorktree('/base/same-abcd1234', 'same')).toBeNull()
+  })
+
+  it('returns null on git error', () => {
+    mockFs.existsSync.mockReturnValue(false)
+    mockExecFileSync.mockImplementation(() => {
+      throw new Error('git worktree move failed')
+    })
+    expect(renameWorktree('/base/old-abcd1234', 'new')).toBeNull()
+  })
+})
+
+describe('createWorktree', () => {
+  it('uses friendly name as branch when source branch is already checked out', () => {
+    // listBranches returns 'main'
+    mockExecFileSync.mockReturnValueOnce('main\n')
+    // git worktree add (first attempt fails — branch checked out)
+    mockExecFileSync.mockImplementationOnce(() => {
+      throw new Error('already checked out')
+    })
+    // git worktree add -b <friendlyName> (succeeds)
+    mockExecFileSync.mockReturnValueOnce('')
+
+    const result = createWorktree('/project', 'main', 'vivid-nova')
+    expect(result.branch).toBe('vivid-nova')
+    expect(result.name).toBe('vivid-nova')
+    expect(mockExecFileSync).toHaveBeenCalledWith(
+      'git',
+      ['worktree', 'add', '-b', 'vivid-nova', expect.stringContaining('vivid-nova'), 'main'],
+      expect.any(Object)
+    )
+  })
+
+  it('appends shortId to branch name if friendly name already exists as branch', () => {
+    // listBranches returns both 'main' and 'vivid-nova'
+    mockExecFileSync.mockReturnValueOnce('main\nvivid-nova\n')
+    // git worktree add (first attempt fails)
+    mockExecFileSync.mockImplementationOnce(() => {
+      throw new Error('already checked out')
+    })
+    // git worktree add -b (succeeds)
+    mockExecFileSync.mockReturnValueOnce('')
+
+    const result = createWorktree('/project', 'main', 'vivid-nova')
+    // Should fall back to name-shortId since 'vivid-nova' branch exists
+    expect(result.branch).toBe('vivid-nova-aaaaaaaa')
+    expect(result.name).toBe('vivid-nova')
+  })
+
+  it('creates new branch from HEAD when branch does not exist locally', () => {
+    mockExecFileSync.mockReturnValueOnce('main\n') // listBranches
+    mockExecFileSync.mockReturnValueOnce('') // git worktree add -b
+
+    const result = createWorktree('/project', 'feature/new', 'cosmic-flare')
+    expect(result.branch).toBe('feature/new')
+    expect(result.name).toBe('cosmic-flare')
   })
 })

@@ -9,7 +9,7 @@ import { TrafficLights } from './TrafficLights'
 import { InlineRename } from './InlineRename'
 import { GitChangesIndicator } from './GitChangesIndicator'
 import { closeTerminalSession } from '../lib/terminal-close'
-import { getDisplayName } from '../lib/terminal-display'
+import { getDisplayName, getBranchLabel } from '../lib/terminal-display'
 import { CardContextMenu } from './CardContextMenu'
 import { useTerminalScrollButton } from '../hooks/useTerminalScrollButton'
 import { GitBranch, FolderGit2, Server, Pencil, ListTodo, Pin, Archive } from 'lucide-react'
@@ -220,7 +220,7 @@ export const AgentCard = memo(
                   <span
                     className={`text-[10px] font-mono truncate ${terminal.session.isWorktree ? 'text-amber-400' : 'text-gray-500'}`}
                   >
-                    {terminal.session.branch}
+                    {getBranchLabel(terminal.session)}
                   </span>
                   {terminal.session.isWorktree && (
                     <span className="text-[9px] text-amber-500/60">worktree</span>
