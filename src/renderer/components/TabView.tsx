@@ -310,9 +310,13 @@ export function TabView() {
       const dx = e.clientX - dragState.startX
       if (!dragState.isDragging && Math.abs(dx) < DRAG_THRESHOLD) return
       if (!dragState.isDragging) {
-        setDragState({ ...dragState, isDragging: true, pointerX: e.clientX, pointerY: e.clientY })
+        setDragState((prev) =>
+          prev ? { ...prev, isDragging: true, pointerX: e.clientX, pointerY: e.clientY } : prev
+        )
       } else {
-        setDragState({ ...dragState, pointerX: e.clientX, pointerY: e.clientY })
+        setDragState((prev) =>
+          prev ? { ...prev, pointerX: e.clientX, pointerY: e.clientY } : prev
+        )
       }
       const targetIndex = getHorizontalDropIndex(e.clientX, orderedIds, tabRefs.current)
       setDropTargetIndex(targetIndex)
@@ -394,6 +398,7 @@ export function TabView() {
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
+        onPointerCancel={handlePointerUp}
       >
         {orderedIds.map((id, index) => {
           const terminal = terminals.get(id)

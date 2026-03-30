@@ -12,7 +12,8 @@ import { useVisibleTerminals } from '../hooks/useVisibleTerminals'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { resolveActiveProject } from '../lib/session-utils'
 import { getDisplayName } from '../lib/terminal-display'
-import { HeadlessSession, TerminalSession, AgentStatus } from '../../shared/types'
+import { HeadlessSession } from '../../shared/types'
+import type { TerminalState } from '../stores/types'
 import { GitBranch, FolderGit2 } from 'lucide-react'
 
 const EMPTY_HEADLESS: HeadlessSession[] = []
@@ -27,7 +28,6 @@ interface DragState {
   pointerX: number
   pointerY: number
   width: number
-  height: number
 }
 
 export const GridView = memo(function GridView() {
@@ -104,8 +104,7 @@ export const GridView = memo(function GridView() {
         isDragging: false,
         pointerX: e.clientX,
         pointerY: e.clientY,
-        width: rect?.width ?? 320,
-        height: Math.min(rect?.height ?? 80, 80)
+        width: rect?.width ?? 320
       })
     },
     [sortMode]
@@ -121,9 +120,13 @@ export const GridView = memo(function GridView() {
       if (!dragState.isDragging && Math.abs(dx) + Math.abs(dy) < DRAG_THRESHOLD) return
 
       if (!dragState.isDragging) {
-        setDragState({ ...dragState, isDragging: true, pointerX: e.clientX, pointerY: e.clientY })
+        setDragState((prev) =>
+          prev ? { ...prev, isDragging: true, pointerX: e.clientX, pointerY: e.clientY } : prev
+        )
       } else {
-        setDragState({ ...dragState, pointerX: e.clientX, pointerY: e.clientY })
+        setDragState((prev) =>
+          prev ? { ...prev, pointerX: e.clientX, pointerY: e.clientY } : prev
+        )
       }
 
       const targetIndex = getDropIndex(e.clientX, e.clientY, orderedIds, cardRefs.current)
@@ -169,6 +172,7 @@ export const GridView = memo(function GridView() {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
+      onPointerCancel={handlePointerUp}
       onDoubleClick={handleGridDoubleClick}
       onContextMenu={handleGridContextMenu}
     >
@@ -253,7 +257,7 @@ function GridDragGhost({
   terminals
 }: {
   dragState: DragState
-  terminals: Map<string, { session: TerminalSession; status: AgentStatus }>
+  terminals: Map<string, TerminalState>
 }) {
   const terminal = terminals.get(dragState.draggingId)
   if (!terminal) return null
