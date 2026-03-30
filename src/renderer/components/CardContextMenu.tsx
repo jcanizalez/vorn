@@ -26,6 +26,7 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
   const menuRef = useRef<HTMLDivElement>(null)
   const terminal = useAppStore((s) => s.terminals.get(terminalId))
   const focusedId = useAppStore((s) => s.focusedTerminalId)
+  const layoutMode = useAppStore((s) => s.config?.defaults?.layoutMode ?? 'grid')
   const isMobile = useIsMobile()
 
   useEffect(() => {
@@ -50,7 +51,7 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
 
   const items: MenuItem[] = []
 
-  if (!isFocused) {
+  if (!isFocused && layoutMode !== 'tabs') {
     items.push({
       icon: Maximize2,
       label: 'Expand',

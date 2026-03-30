@@ -219,9 +219,11 @@ export function useKeyboardShortcuts() {
         return
       }
 
-      // Cmd+O — expand selected terminal
+      // Cmd+O — expand selected terminal (grid mode only)
       if (modKey(e) && e.key === 'o' && !state.focusedTerminalId && state.selectedTerminalId) {
         e.preventDefault()
+        const layoutMode = state.config?.defaults?.layoutMode ?? 'grid'
+        if (layoutMode === 'tabs') return
         state.setFocusedTerminal(state.selectedTerminalId)
         return
       }
