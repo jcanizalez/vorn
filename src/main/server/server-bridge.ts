@@ -134,7 +134,7 @@ export class ServerBridge extends EventEmitter {
   }
 
   private rejectAllPending(reason: string): void {
-    for (const [id, pending] of this.pending) {
+    for (const [id, pending] of Array.from(this.pending)) {
       clearTimeout(pending.timeout)
       pending.reject(new Error(`${reason} (method=${pending.method}, id=${id})`))
     }

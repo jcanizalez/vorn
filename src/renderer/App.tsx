@@ -110,7 +110,8 @@ export function App() {
     isWorkflowEditorOpen,
     layoutMode,
     mainViewMode,
-    selectedTaskId
+    selectedTaskId,
+    diffSidebarTerminalId
   } = useAppStore(
     useShallow((s) => ({
       focusedId: s.focusedTerminalId,

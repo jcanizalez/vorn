@@ -72,7 +72,7 @@ function createWindow(): void {
   // Set dock icon on macOS (needed in dev mode since there's no app bundle)
   if (process.platform === 'darwin') {
     const iconPath = path.join(__dirname, '../../resources/icon.png')
-    app.dock.setIcon(nativeImage.createFromPath(iconPath))
+    app.dock?.setIcon(nativeImage.createFromPath(iconPath))
   }
 
   if (process.env.ELECTRON_RENDERER_URL) {
@@ -87,7 +87,7 @@ function createWindow(): void {
       e.preventDefault()
       mainWindow?.hide()
       showWidget()
-      app.dock.show().catch(() => {})
+      app.dock?.show().catch(() => {})
       return
     }
   })
