@@ -6,7 +6,7 @@ import { GridView } from './components/GridView'
 import { TabView } from './components/TabView'
 import { MobileSinglePane } from './components/MobileSinglePane'
 import { FocusedTerminal } from './components/FocusedTerminal'
-import { ProjectSidebar } from './components/ProjectSidebar'
+import { ProjectSidebar } from './components/project-sidebar/ProjectSidebar'
 import { PromptLauncher } from './components/PromptLauncher'
 import { AddProjectDialog } from './components/AddProjectDialog'
 const WorkflowEditor = lazy(() =>
