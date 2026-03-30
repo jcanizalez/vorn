@@ -76,6 +76,11 @@ export function buildAgentLaunchLine(
     }
   }
 
+  // For fresh Claude sessions, pin the session ID so we can reliably --resume later
+  if (!payload.resumeSessionId && payload.sessionId && payload.agentType === 'claude') {
+    launchLine += ` --session-id ${payload.sessionId}`
+  }
+
   if (payload.initialPrompt) {
     const escaped = shellEscape(payload.initialPrompt)
     switch (payload.agentType) {

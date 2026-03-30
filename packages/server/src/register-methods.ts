@@ -166,6 +166,7 @@ export function registerAllMethods(): void {
   registerMethod('terminal:rename', ({ id, displayName }) => {
     ptyManager.renameSession(id, displayName)
     logSessionEvent(id, 'renamed', { displayName })
+    sessionManager.scheduleSave()
   })
   registerMethod('terminal:reorder', (ids) => {
     ptyManager.reorderSessions(ids)

@@ -178,6 +178,19 @@ class PtyManager extends EventEmitter {
       env: getSafeEnv()
     })
 
+    // For Claude: control the session ID so we can reliably resume later.
+    // On fresh launch, generate a UUID and pass --session-id.
+    // On resume, the resumeSessionId IS the session ID.
+    let hookSessionId: string | undefined
+    if (payload.agentType === 'claude') {
+      if (payload.resumeSessionId) {
+        hookSessionId = payload.resumeSessionId
+      } else {
+        hookSessionId = crypto.randomUUID()
+        payload.sessionId = hookSessionId
+      }
+    }
+
     const launchLine = this.buildAgentLaunchLine(payload)
     setTimeout(() => ptyProcess.write(launchLine + '\r'), 300)
 
@@ -195,7 +208,8 @@ class PtyManager extends EventEmitter {
       pid: ptyProcess.pid,
       ...(payload.displayName ? { displayName: payload.displayName } : {}),
       ...(branch ? { branch } : {}),
-      ...(worktreePath ? { worktreePath, worktreeName, isWorktree: true } : {})
+      ...(worktreePath ? { worktreePath, worktreeName, isWorktree: true } : {}),
+      ...(hookSessionId ? { hookSessionId, statusSource: 'hooks' as const } : {})
     }
     this.sessions.set(id, session)
     this.sessionOrder.push(id)

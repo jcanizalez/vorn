@@ -332,6 +332,7 @@ function createSchema(): void {
   `)
 
   migrateSchema(d)
+  verifySchema(d)
 }
 
 function migrateSchema(d: Database.Database): void {
@@ -420,6 +421,59 @@ function migrateSchema(d: Database.Database): void {
       ).run()
     })()
     log.info('[database] migrated schema to version 3 (session sort order)')
+  }
+}
+
+/**
+ * Self-healing schema check — runs after migrations to repair columns that
+ * migrations may have failed to add (e.g. version bumped but ALTER TABLE
+ * didn't stick). Only touches migration-added columns; logs repairs, stays
+ * silent when everything is healthy.
+ */
+function verifySchema(d: Database.Database): void {
+  // Grouped by table to avoid redundant PRAGMA calls
+  const expectedByTable: Record<string, { column: string; ddl: string }[]> = {
+    projects: [
+      {
+        column: 'workspace_id',
+        ddl: "ALTER TABLE projects ADD COLUMN workspace_id TEXT NOT NULL DEFAULT 'personal'"
+      }
+    ],
+    workflows: [
+      {
+        column: 'workspace_id',
+        ddl: "ALTER TABLE workflows ADD COLUMN workspace_id TEXT NOT NULL DEFAULT 'personal'"
+      }
+    ],
+    remote_hosts: [
+      { column: 'auth_method', ddl: 'ALTER TABLE remote_hosts ADD COLUMN auth_method TEXT' },
+      { column: 'credential_id', ddl: 'ALTER TABLE remote_hosts ADD COLUMN credential_id TEXT' },
+      {
+        column: 'encrypted_password',
+        ddl: 'ALTER TABLE remote_hosts ADD COLUMN encrypted_password TEXT'
+      }
+    ],
+    sessions: [
+      {
+        column: 'sort_order',
+        ddl: 'ALTER TABLE sessions ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0'
+      }
+    ]
+  }
+
+  for (const [table, columns] of Object.entries(expectedByTable)) {
+    const existing = new Set(
+      (d.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map((c) => c.name)
+    )
+    for (const { column, ddl } of columns) {
+      if (existing.has(column)) continue
+      try {
+        d.exec(ddl)
+        log.warn(`[database] self-heal: added missing column ${table}.${column}`)
+      } catch (err) {
+        log.error(`[database] self-heal: failed to add ${table}.${column}:`, err)
+      }
+    }
   }
 }
 

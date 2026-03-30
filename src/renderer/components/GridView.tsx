@@ -1,15 +1,20 @@
 import { memo, useRef, useState, useCallback, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useShallow } from 'zustand/react/shallow'
-import { AnimatePresence, LayoutGroup } from 'framer-motion'
+import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
 import { useAppStore } from '../stores'
 import { AgentCard } from './AgentCard'
 import { HeadlessPill } from './HeadlessPill'
 import { PromptLauncher } from './PromptLauncher'
 import { GridContextMenu } from './GridContextMenu'
+import { AgentIcon } from './AgentIcon'
 import { useVisibleTerminals } from '../hooks/useVisibleTerminals'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { resolveActiveProject } from '../lib/session-utils'
+import { getDisplayName } from '../lib/terminal-display'
 import { HeadlessSession } from '../../shared/types'
+import type { TerminalState } from '../stores/types'
+import { GitBranch, FolderGit2 } from 'lucide-react'
 
 const EMPTY_HEADLESS: HeadlessSession[] = []
 
@@ -17,7 +22,12 @@ interface DragState {
   draggingId: string
   startX: number
   startY: number
+  offsetX: number
+  offsetY: number
   isDragging: boolean
+  pointerX: number
+  pointerY: number
+  width: number
 }
 
 export const GridView = memo(function GridView() {
@@ -61,6 +71,7 @@ export const GridView = memo(function GridView() {
   const [gridContextMenu, setGridContextMenu] = useState<{ x: number; y: number } | null>(null)
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
+  const terminals = useAppStore((s) => s.terminals)
   const orderedIds = useVisibleTerminals()
 
   const isMobile = useIsMobile()
@@ -82,11 +93,18 @@ export const GridView = memo(function GridView() {
     (terminalId: string, e: React.PointerEvent) => {
       if (sortMode !== 'manual') return
       if (e.button !== 0) return
+      const el = cardRefs.current.get(terminalId)
+      const rect = el?.getBoundingClientRect()
       setDragState({
         draggingId: terminalId,
         startX: e.clientX,
         startY: e.clientY,
-        isDragging: false
+        offsetX: rect ? e.clientX - rect.left : 0,
+        offsetY: rect ? e.clientY - rect.top : 0,
+        isDragging: false,
+        pointerX: e.clientX,
+        pointerY: e.clientY,
+        width: rect?.width ?? 320
       })
     },
     [sortMode]
@@ -102,7 +120,13 @@ export const GridView = memo(function GridView() {
       if (!dragState.isDragging && Math.abs(dx) + Math.abs(dy) < DRAG_THRESHOLD) return
 
       if (!dragState.isDragging) {
-        setDragState({ ...dragState, isDragging: true })
+        setDragState((prev) =>
+          prev ? { ...prev, isDragging: true, pointerX: e.clientX, pointerY: e.clientY } : prev
+        )
+      } else {
+        setDragState((prev) =>
+          prev ? { ...prev, pointerX: e.clientX, pointerY: e.clientY } : prev
+        )
       }
 
       const targetIndex = getDropIndex(e.clientX, e.clientY, orderedIds, cardRefs.current)
@@ -121,6 +145,11 @@ export const GridView = memo(function GridView() {
     setDragState(null)
     setDropTargetIndex(null)
   }, [dragState, dropTargetIndex, orderedIds, reorderTerminals])
+
+  const handlePointerCancel = useCallback(() => {
+    setDragState(null)
+    setDropTargetIndex(null)
+  }, [])
 
   const handleGridDoubleClick = useCallback((e: React.MouseEvent) => {
     if (e.target !== e.currentTarget) return
@@ -148,6 +177,7 @@ export const GridView = memo(function GridView() {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
       onDoubleClick={handleGridDoubleClick}
       onContextMenu={handleGridContextMenu}
     >
@@ -222,9 +252,64 @@ export const GridView = memo(function GridView() {
       {gridContextMenu && (
         <GridContextMenu position={gridContextMenu} onClose={() => setGridContextMenu(null)} />
       )}
+      {dragState?.isDragging && <GridDragGhost dragState={dragState} terminals={terminals} />}
     </div>
   )
 })
+
+function GridDragGhost({
+  dragState,
+  terminals
+}: {
+  dragState: DragState
+  terminals: Map<string, TerminalState>
+}) {
+  const terminal = terminals.get(dragState.draggingId)
+  if (!terminal) return null
+
+  const session = terminal.session
+  const displayName = getDisplayName(session)
+
+  return createPortal(
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 0.9, scale: 1 }}
+      className="fixed rounded-lg border border-white/[0.12] overflow-hidden pointer-events-none"
+      style={{
+        left: dragState.pointerX - dragState.offsetX,
+        top: dragState.pointerY - dragState.offsetY,
+        width: dragState.width,
+        zIndex: 9999,
+        background: '#1a1a1e',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06)'
+      }}
+    >
+      <div className="flex items-center gap-2 px-3 py-2.5">
+        <AgentIcon agentType={session.agentType} size={14} />
+        <div className="flex-1 min-w-0">
+          <span className="text-[13px] font-medium text-gray-300 truncate block">
+            {displayName}
+          </span>
+          {session.branch && (
+            <div className="flex items-center gap-1 mt-0.5">
+              {session.isWorktree ? (
+                <FolderGit2 size={10} className="text-amber-500 shrink-0" strokeWidth={1.5} />
+              ) : (
+                <GitBranch size={10} className="text-gray-600 shrink-0" strokeWidth={1.5} />
+              )}
+              <span
+                className={`text-[10px] font-mono truncate ${session.isWorktree ? 'text-amber-400' : 'text-gray-500'}`}
+              >
+                {session.branch}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    </motion.div>,
+    document.body
+  )
+}
 
 function getDropIndex(
   pointerX: number,
