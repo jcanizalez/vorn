@@ -411,6 +411,8 @@ export interface CreateTerminalPayload {
   projectName: string
   projectPath: string
   resumeSessionId?: string
+  /** Pre-generated agent session ID (used with --session-id for Claude) */
+  sessionId?: string
   displayName?: string
   branch?: string
   useWorktree?: boolean
