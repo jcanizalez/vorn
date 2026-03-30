@@ -48,9 +48,10 @@ let ideCache: DetectedIDE[] | null = null
 
 interface Props {
   projectPath: string
+  direction?: 'up' | 'down'
 }
 
-export function OpenInButton({ projectPath }: Props) {
+export function OpenInButton({ projectPath, direction = 'down' }: Props) {
   const [ides, setIdes] = useState<DetectedIDE[]>(ideCache || [])
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -119,8 +120,9 @@ export function OpenInButton({ projectPath }: Props) {
 
       {isOpen && (
         <div
-          className="absolute right-0 top-full mt-1 z-50 min-w-[160px] py-1
-                     border border-white/[0.08] rounded-lg shadow-xl"
+          className={`absolute right-0 z-50 min-w-[160px] py-1
+                     border border-white/[0.08] rounded-lg shadow-xl
+                     ${direction === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'}`}
           style={{ background: '#1e1e22' }}
         >
           <div className="px-3 py-1.5 text-[11px] text-gray-500 font-medium">Open in</div>

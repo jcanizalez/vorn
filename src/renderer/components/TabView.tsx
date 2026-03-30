@@ -8,22 +8,16 @@ import { TerminalInstance } from './TerminalInstance'
 import { PromptLauncher } from './PromptLauncher'
 import { InlineRename } from './InlineRename'
 import { CardContextMenu } from './CardContextMenu'
+import { TabStatusBar } from './TabStatusBar'
 import { getDisplayName } from '../lib/terminal-display'
 import { closeTerminalSession } from '../lib/terminal-close'
 import { resolveActiveProject } from '../lib/session-utils'
 import { AgentStatus } from '../../shared/types'
 import { ConfirmPopover } from './ConfirmPopover'
 import { toast } from './Toast'
-import {
-  Pin,
-  GitBranch,
-  FolderGit2,
-  ListTodo,
-  Play,
-  GitFork,
-  Plus,
-  ChevronDown
-} from 'lucide-react'
+import { Play, GitFork, Plus, ChevronDown, GripVertical, Pencil } from 'lucide-react'
+
+const isMac = navigator.platform.toUpperCase().includes('MAC')
 
 const STATUS_DOT: Record<AgentStatus, string> = {
   running: 'bg-green-500',
@@ -221,8 +215,6 @@ export function TabView() {
   const activeTabId = useAppStore((s) => s.activeTabId)
   const setActiveTabId = useAppStore((s) => s.setActiveTabId)
   const setSelected = useAppStore((s) => s.setSelectedTerminal)
-  const setFocused = useAppStore((s) => s.setFocusedTerminal)
-  const focusedId = useAppStore((s) => s.focusedTerminalId)
   const statusFilter = useAppStore((s) => s.statusFilter)
   const renamingTerminalId = useAppStore((s) => s.renamingTerminalId)
   const setRenamingTerminalId = useAppStore((s) => s.setRenamingTerminalId)
@@ -260,15 +252,12 @@ export function TabView() {
     setSelected(id)
   }
 
-  const handleDoubleClick = (id: string): void => {
-    setFocused(id)
-  }
-
   const handleCloseTab = async (id: string): Promise<void> => {
     const terminal = terminals.get(id)
     const name = terminal ? getDisplayName(terminal.session) : id
 
-    if (focusedId === id) setFocused(null)
+    const state = useAppStore.getState()
+    if (state.focusedTerminalId === id) state.setFocusedTerminal(null)
 
     // Auto-select adjacent tab before removing
     if (activeTabId === id) {
@@ -385,11 +374,10 @@ export function TabView() {
           const terminal = terminals.get(id)
           if (!terminal) return null
           const isActive = id === activeTabId
-          const isPinned = terminal.session.pinned === true
-          const isIdlePinned = terminal.status === 'idle' && isPinned
           const isRenaming = renamingTerminalId === id
           const isDragTarget = dragState?.isDragging === true && dropTargetIndex === index
           const isDragging = dragState?.isDragging === true && dragState.draggingId === id
+          const isIdlePinned = terminal.status === 'idle' && terminal.session.pinned === true
 
           const assignedTask = tasks?.find(
             (t) => t.assignedSessionId === id && t.status === 'in_progress'
@@ -419,17 +407,14 @@ export function TabView() {
                 else tabRefs.current.delete(id)
               }}
               onClick={() => handleSelectTab(id)}
-              onDoubleClick={() => handleDoubleClick(id)}
-              onPointerDown={(e) => handleDragStart(id, e)}
               onContextMenu={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
                 setContextMenu({ terminalId: id, x: e.clientX, y: e.clientY })
               }}
               title={tooltip}
-              className={`group flex items-center gap-1.5 px-2.5 h-[28px] rounded-md text-xs
-                         transition-colors shrink-0 max-w-[220px]
-                         ${isManualSort ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : ''}
+              className={`group relative flex items-center gap-1.5 px-2.5 h-[28px] rounded-md text-xs
+                         transition-colors shrink-0 max-w-[240px]
                          ${isDragTarget ? 'ring-1 ring-blue-500/50' : ''}
                          ${isDragging ? 'opacity-50' : ''}
                          ${
@@ -439,15 +424,26 @@ export function TabView() {
                          }`}
               style={isIdlePinned ? { opacity: 0.55 } : undefined}
             >
-              {isPinned && (
-                <Pin size={10} strokeWidth={2} className="text-amber-400 fill-current shrink-0" />
+              {/* Drag handle — left edge, only in manual sort */}
+              {isManualSort && (
+                <span
+                  className={`absolute left-0 top-0 bottom-0 w-[14px] flex items-center justify-center
+                             opacity-0 group-hover:opacity-100 transition-opacity z-10
+                             ${isDragging ? 'cursor-grabbing opacity-100' : 'cursor-grab'}`}
+                  onPointerDown={(e) => {
+                    e.stopPropagation()
+                    handleDragStart(id, e)
+                  }}
+                >
+                  <GripVertical size={8} className="text-gray-600" strokeWidth={2} />
+                </span>
               )}
+
+              <AgentIcon agentType={terminal.session.agentType} size={12} />
 
               <span
                 className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[terminal.status]}`}
               />
-
-              <AgentIcon agentType={terminal.session.agentType} size={12} />
 
               {isRenaming ? (
                 <InlineRename
@@ -461,19 +457,31 @@ export function TabView() {
                   className="text-xs w-[100px]"
                 />
               ) : (
-                <span className="truncate">{displayName}</span>
+                <>
+                  <span className="truncate">{displayName}</span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setRenamingTerminalId(id)
+                    }}
+                    className="shrink-0 opacity-0 group-hover:opacity-100 text-gray-500 hover:text-gray-300 transition-opacity"
+                    title="Rename"
+                  >
+                    <Pencil size={9} />
+                  </button>
+                </>
               )}
 
-              {terminal.session.branch &&
-                !isRenaming &&
-                (terminal.session.isWorktree ? (
-                  <FolderGit2 size={10} className="text-amber-500 shrink-0" strokeWidth={1.5} />
-                ) : (
-                  <GitBranch size={10} className="text-gray-600 shrink-0" strokeWidth={1.5} />
-                ))}
-
-              {assignedTask && !isRenaming && (
-                <ListTodo size={10} className="text-violet-400 shrink-0" strokeWidth={2} />
+              {/* Keyboard shortcut badge */}
+              {index < 9 && !isRenaming && (
+                <span
+                  className="shrink-0 ml-auto px-0.5 text-[8px] font-mono text-gray-600
+                               bg-white/[0.04] border border-white/[0.06] rounded leading-none
+                               pointer-events-none"
+                >
+                  {isMac ? '\u2318' : 'Ctrl+'}
+                  {index + 1}
+                </span>
               )}
 
               <ConfirmPopover
@@ -553,38 +561,33 @@ export function TabView() {
 
       {/* Terminal content */}
       <div className="flex-1 min-h-0" style={{ background: '#141416' }}>
-        {activeTabId && activeTerminal && !focusedId && (
+        {activeTabId && activeTerminal && (
           <TerminalInstance key={activeTabId} terminalId={activeTabId} isFocused={true} />
         )}
-        {activeTabId && activeTerminal && focusedId === activeTabId && (
-          <div className="flex items-center justify-center h-full text-gray-600 text-xs">
-            Expanded
+        {activeTabId && activeTerminal && activeTerminal.lastOutputTimestamp === 0 && (
+          <div
+            className="absolute inset-0 p-3 space-y-2 pointer-events-none"
+            style={{ background: '#141416' }}
+          >
+            <div className="h-3 w-3/4 rounded bg-white/[0.04] animate-pulse" />
+            <div
+              className="h-3 w-1/2 rounded bg-white/[0.04] animate-pulse"
+              style={{ animationDelay: '0.15s' }}
+            />
+            <div
+              className="h-3 w-5/6 rounded bg-white/[0.04] animate-pulse"
+              style={{ animationDelay: '0.3s' }}
+            />
+            <div
+              className="h-3 w-2/3 rounded bg-white/[0.04] animate-pulse"
+              style={{ animationDelay: '0.45s' }}
+            />
           </div>
         )}
-        {activeTabId &&
-          activeTerminal &&
-          activeTerminal.lastOutputTimestamp === 0 &&
-          !focusedId && (
-            <div
-              className="absolute inset-0 p-3 space-y-2 pointer-events-none"
-              style={{ background: '#141416' }}
-            >
-              <div className="h-3 w-3/4 rounded bg-white/[0.04] animate-pulse" />
-              <div
-                className="h-3 w-1/2 rounded bg-white/[0.04] animate-pulse"
-                style={{ animationDelay: '0.15s' }}
-              />
-              <div
-                className="h-3 w-5/6 rounded bg-white/[0.04] animate-pulse"
-                style={{ animationDelay: '0.3s' }}
-              />
-              <div
-                className="h-3 w-2/3 rounded bg-white/[0.04] animate-pulse"
-                style={{ animationDelay: '0.45s' }}
-              />
-            </div>
-          )}
       </div>
+
+      {/* Status bar */}
+      {activeTabId && activeTerminal && <TabStatusBar terminalId={activeTabId} />}
 
       {/* Context menu */}
       {contextMenu && (
