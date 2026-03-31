@@ -20,8 +20,10 @@ import { buildAgentLaunchLine as buildLaunchLine } from './agent-launch'
 import { shellEscape, getSafeEnv, getDefaultShell, normalizePath } from './process-utils'
 
 import { stripAnsi } from './ansi-strip'
+import { analyzeOutput, createStatusContext, StatusContext } from './status-parser'
 
 const MAX_OUTPUT_LINES = 1000
+const IDLE_TIMEOUT_MS = 5000
 
 type WorktreeSessionCounter = (
   worktreePath: string,
@@ -39,6 +41,8 @@ class PtyManager extends EventEmitter {
   private tempKeyPaths = new Map<string, string>()
   private outputLines = new Map<string, string[]>()
   private outputPartials = new Map<string, string>()
+  private statusContexts = new Map<string, StatusContext>()
+  private idleTimers = new Map<string, ReturnType<typeof setTimeout>>()
   private sessionOrder: string[] = []
   private headlessWorktreeCounter?: WorktreeSessionCounter
 
@@ -428,8 +432,18 @@ class PtyManager extends EventEmitter {
     this.dataBuffers.delete(id)
   }
 
+  private clearSessionTracking(id: string): void {
+    this.outputLines.delete(id)
+    this.outputPartials.delete(id)
+    this.statusContexts.delete(id)
+    const idleTimer = this.idleTimers.get(id)
+    if (idleTimer) clearTimeout(idleTimer)
+    this.idleTimers.delete(id)
+  }
+
   private appendOutput(id: string, data: string): void {
-    if (!this.sessions.has(id)) return // skip shell-only PTYs
+    const session = this.sessions.get(id)
+    if (!session) return // skip shell-only PTYs
 
     let buf = this.outputLines.get(id)
     if (!buf) {
@@ -451,6 +465,33 @@ class PtyManager extends EventEmitter {
     if (buf.length > MAX_OUTPUT_LINES) {
       buf.splice(0, buf.length - MAX_OUTPUT_LINES)
     }
+
+    // Pattern-based status detection for non-hook sessions
+    if (session.statusSource !== 'hooks') {
+      let ctx = this.statusContexts.get(id)
+      if (!ctx) {
+        ctx = createStatusContext()
+        this.statusContexts.set(id, ctx)
+      }
+      const newStatus = analyzeOutput(ctx, clean)
+      if (newStatus !== session.status) {
+        this.updateSessionStatus(id, newStatus)
+      }
+
+      // Reset idle timer — if no data arrives for IDLE_TIMEOUT_MS, mark idle
+      const existingTimer = this.idleTimers.get(id)
+      if (existingTimer) clearTimeout(existingTimer)
+      this.idleTimers.set(
+        id,
+        setTimeout(() => {
+          this.idleTimers.delete(id)
+          const s = this.sessions.get(id)
+          if (s && s.statusSource !== 'hooks' && s.status === 'running') {
+            this.updateSessionStatus(id, 'idle')
+          }
+        }, IDLE_TIMEOUT_MS)
+      )
+    }
   }
 
   private setupPtyEvents(id: string, ptyProcess: pty.IPty): void {
@@ -468,8 +509,7 @@ class PtyManager extends EventEmitter {
       }
       this.clearBuffer(id)
       this.deleteTempKey(id)
-      this.outputLines.delete(id)
-      this.outputPartials.delete(id)
+      this.clearSessionTracking(id)
       this.sessionOrder = this.sessionOrder.filter((sid) => sid !== id)
 
       this.ptys.delete(id)
@@ -518,8 +558,7 @@ class PtyManager extends EventEmitter {
     const session = this.sessions.get(id)
     this.sessions.delete(id)
     this.normalizedPaths.delete(id)
-    this.outputLines.delete(id)
-    this.outputPartials.delete(id)
+    this.clearSessionTracking(id)
     this.sessionOrder = this.sessionOrder.filter((sid) => sid !== id)
     this.ptys.delete(id)
 
@@ -576,6 +615,9 @@ class PtyManager extends EventEmitter {
     this.sessions.clear()
     this.outputLines.clear()
     this.outputPartials.clear()
+    this.statusContexts.clear()
+    for (const timer of this.idleTimers.values()) clearTimeout(timer)
+    this.idleTimers.clear()
     this.sessionOrder = []
   }
 

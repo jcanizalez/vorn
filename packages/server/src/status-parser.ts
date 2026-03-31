@@ -1,16 +1,12 @@
-import { AgentStatus } from '../../shared/types'
-
 export interface StatusContext {
   lastOutputTime: number
   outputBuffer: string
-  currentStatus: AgentStatus
 }
 
 export function createStatusContext(): StatusContext {
   return {
     lastOutputTime: Date.now(),
-    outputBuffer: '',
-    currentStatus: 'running'
+    outputBuffer: ''
   }
 }
 
@@ -35,6 +31,8 @@ const ERROR_PATTERNS = [
   /ENOENT/,
   /EACCES/
 ]
+
+import type { AgentStatus } from '@vibegrid/shared/types'
 
 export function analyzeOutput(ctx: StatusContext, newData: string): AgentStatus {
   ctx.lastOutputTime = Date.now()
