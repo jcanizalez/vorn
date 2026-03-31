@@ -126,7 +126,6 @@ export function WorkspaceSwitcher() {
   const [showIconPicker, setShowIconPicker] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
-  const dropdownRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const workspaces = config?.workspaces ?? [DEFAULT_WORKSPACE]
@@ -142,19 +141,6 @@ export function WorkspaceSwitcher() {
     setShowIconPicker(false)
     setConfirmDeleteId(null)
   }
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setIsOpen(false)
-        resetForm()
-      }
-    }
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isOpen])
 
   useEffect(() => {
     if ((isCreating || editingId) && inputRef.current) {
@@ -219,7 +205,7 @@ export function WorkspaceSwitcher() {
   }
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative">
       {/* Trigger button */}
       <button
         onClick={() => {
@@ -237,6 +223,17 @@ export function WorkspaceSwitcher() {
           className={`text-gray-500 ml-auto shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
+
+      {/* Backdrop — titlebar-no-drag so clicks on Electron drag regions still close */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 titlebar-no-drag"
+          onClick={() => {
+            setIsOpen(false)
+            resetForm()
+          }}
+        />
+      )}
 
       {/* Dropdown */}
       {isOpen && (
