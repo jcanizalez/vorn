@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useAppStore } from '../../stores'
 import { Tooltip } from '../Tooltip'
 import { toast } from '../Toast'
@@ -9,7 +9,7 @@ import { generateWorktreeName } from '../../lib/worktree-names'
 import { ChevronRight, Plus, MoreHorizontal, GitBranch, FolderGit2 } from 'lucide-react'
 import type { ProjectConfig } from '../../../shared/types'
 import { MAIN_WORKTREE_SENTINEL } from '../../stores/types'
-import type { WorktreeInfo } from '../../stores/types'
+import type { WorktreeInfo, WorktreeFilter, WorktreeSortMode } from '../../stores/types'
 
 const EMPTY_WORKTREES: WorktreeInfo[] = []
 
@@ -20,7 +20,9 @@ export function ProjectItem({
   isActive,
   isCollapsed,
   worktreeSessionCounts,
-  mainRepoSessionCount
+  mainRepoSessionCount,
+  worktreeFilter,
+  worktreeSort
 }: {
   project: ProjectConfig
   sessionCount: number
@@ -29,6 +31,8 @@ export function ProjectItem({
   isCollapsed: boolean
   worktreeSessionCounts: Map<string, number>
   mainRepoSessionCount: number
+  worktreeFilter: WorktreeFilter
+  worktreeSort: WorktreeSortMode
 }) {
   const setActiveProject = useAppStore((s) => s.setActiveProject)
   const activeWorktreePath = useAppStore((s) => s.activeWorktreePath)
@@ -40,6 +44,7 @@ export function ProjectItem({
   const setEditingProject = useAppStore((s) => s.setEditingProject)
   const setAddProjectDialogOpen = useAppStore((s) => s.setAddProjectDialogOpen)
   const removeProject = useAppStore((s) => s.removeProject)
+  const terminals = useAppStore((s) => s.terminals)
 
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
   const [openMenu, setOpenMenu] = useState(false)
@@ -47,6 +52,28 @@ export function ProjectItem({
   const allWorktrees = worktreeCache.get(project.path) ?? EMPTY_WORKTREES
   const mainWt = allWorktrees.find((wt) => wt.isMain)
   const isMainActive = activeWorktreePath === MAIN_WORKTREE_SENTINEL && isActive
+
+  const sortedWorktrees = useMemo(() => {
+    let wts = allWorktrees.filter((wt) => !wt.isMain)
+    if (worktreeFilter === 'active') {
+      wts = wts.filter((wt) => (worktreeSessionCounts.get(wt.path) || 0) > 0)
+    }
+    if (worktreeSort === 'recent') {
+      wts = [...wts].sort((a, b) => {
+        const aTime = a.linkedSessionId
+          ? (terminals.get(a.linkedSessionId)?.lastOutputTimestamp ?? 0)
+          : 0
+        const bTime = b.linkedSessionId
+          ? (terminals.get(b.linkedSessionId)?.lastOutputTimestamp ?? 0)
+          : 0
+        if (bTime !== aTime) return bTime - aTime
+        return a.name.localeCompare(b.name)
+      })
+    } else {
+      wts = [...wts].sort((a, b) => a.name.localeCompare(b.name))
+    }
+    return wts
+  }, [allWorktrees, worktreeFilter, worktreeSort, worktreeSessionCounts, terminals])
 
   const toggleExpanded = () => {
     const expanding = !isExpanded
@@ -201,23 +228,21 @@ export function ProjectItem({
               </button>
             </div>
           )}
-          {allWorktrees.map((wt) =>
-            wt.isMain ? null : (
-              <WorktreeItem
-                key={wt.path}
-                worktree={wt}
-                projectPath={project.path}
-                projectName={project.name}
-                isActiveWorktree={activeWorktreePath === wt.path}
-                sessionCount={worktreeSessionCounts.get(wt.path) || 0}
-                onSelect={() => {
-                  setActiveProject(project.name)
-                  setActiveWorktreePath(activeWorktreePath === wt.path ? null : wt.path)
-                }}
-                onWorktreesChanged={() => loadWorktrees(project.path)}
-              />
-            )
-          )}
+          {sortedWorktrees.map((wt) => (
+            <WorktreeItem
+              key={wt.path}
+              worktree={wt}
+              projectPath={project.path}
+              projectName={project.name}
+              isActiveWorktree={activeWorktreePath === wt.path}
+              sessionCount={worktreeSessionCounts.get(wt.path) || 0}
+              onSelect={() => {
+                setActiveProject(project.name)
+                setActiveWorktreePath(activeWorktreePath === wt.path ? null : wt.path)
+              }}
+              onWorktreesChanged={() => loadWorktrees(project.path)}
+            />
+          ))}
         </div>
       )}
     </div>

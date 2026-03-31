@@ -30,6 +30,9 @@ export const MAIN_WORKTREE_SENTINEL = '__main__'
 export type SortMode = 'manual' | 'created' | 'recent'
 export type StatusFilter = AgentStatus | 'all'
 export type TaskStatusFilter = 'all' | 'todo' | 'in_progress' | 'in_review' | 'done' | 'cancelled'
+export type ProjectSortMode = 'manual' | 'name' | 'recent'
+export type WorktreeSortMode = 'name' | 'recent'
+export type WorktreeFilter = 'all' | 'active'
 export type PanelTab = 'changes' | 'all-files' | 'checks'
 
 export interface TerminalState {
@@ -188,6 +191,13 @@ export interface UISlice {
   unarchiveSession: (id: string) => Promise<void>
   worktreeCache: Map<string, WorktreeInfo[]>
   loadWorktrees: (projectPath: string) => Promise<void>
+  sidebarProjectSort: ProjectSortMode
+  sidebarWorktreeSort: WorktreeSortMode
+  sidebarWorktreeFilter: WorktreeFilter
+  setSidebarProjectSort: (mode: ProjectSortMode) => void
+  setSidebarWorktreeSort: (mode: WorktreeSortMode) => void
+  setSidebarWorktreeFilter: (filter: WorktreeFilter) => void
+  reorderProjects: (fromIndex: number, toIndex: number) => void
 }
 
 export interface TasksSlice {
