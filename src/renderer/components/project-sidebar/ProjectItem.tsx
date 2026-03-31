@@ -245,10 +245,21 @@ export function ProjectItem({
                     >
                       {showSessions ? (
                         <div
+                          role="button"
+                          tabIndex={0}
+                          aria-expanded={!collapsedBranches.has('__main__')}
+                          aria-label="Toggle sessions"
                           className="relative w-[14px] h-[14px] shrink-0"
                           onClick={(e) => {
                             e.stopPropagation()
                             toggleBranchCollapsed('__main__')
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.stopPropagation()
+                              e.preventDefault()
+                              toggleBranchCollapsed('__main__')
+                            }
                           }}
                         >
                           <span className="group-hover/main:hidden flex items-center justify-center w-full h-full">

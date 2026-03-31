@@ -94,10 +94,21 @@ export function WorktreeItem({
       >
         {onToggleSessionsExpanded ? (
           <div
+            role="button"
+            tabIndex={0}
+            aria-expanded={sessionsExpanded}
+            aria-label="Toggle sessions"
             className="relative w-[14px] h-[14px] shrink-0"
             onClick={(e) => {
               e.stopPropagation()
               onToggleSessionsExpanded()
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.stopPropagation()
+                e.preventDefault()
+                onToggleSessionsExpanded()
+              }
             }}
           >
             <span className="group-hover/wt:hidden flex items-center justify-center w-full h-full">

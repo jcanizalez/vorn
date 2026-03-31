@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 import { useAppStore } from '../src/renderer/stores'
@@ -15,9 +15,15 @@ const session: SidebarSessionInfo = {
   isWorktree: false
 }
 
+const initialState = useAppStore.getState()
+
 describe('SessionItem', () => {
   beforeEach(() => {
     useAppStore.setState({ focusedTerminalId: null })
+  })
+
+  afterEach(() => {
+    useAppStore.setState(initialState)
   })
 
   it('renders session name', () => {
