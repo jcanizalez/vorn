@@ -37,7 +37,7 @@ describe('SessionItem', () => {
 
   it('renders status dot with correct class', () => {
     const { container } = render(<SessionItem session={session} />)
-    const dot = container.querySelector('.status-dot.status-running')
+    const dot = container.querySelector('.bg-green-400')
     expect(dot).toBeInTheDocument()
   })
 

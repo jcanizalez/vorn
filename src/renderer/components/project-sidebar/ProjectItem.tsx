@@ -119,7 +119,7 @@ export function ProjectItem({
 
   const toggleExpanded = () => {
     const expanding = !isExpanded
-    if (expanding) loadWorktrees(project.path)
+    if (expanding && !sessionsOnly) loadWorktrees(project.path)
     setIsExpanded(!isExpanded)
   }
 

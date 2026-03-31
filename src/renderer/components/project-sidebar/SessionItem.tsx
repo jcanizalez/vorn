@@ -2,11 +2,11 @@ import { useAppStore } from '../../stores'
 import { AgentIcon } from '../AgentIcon'
 import type { SidebarSessionInfo } from './types'
 
-const STATUS_LABEL: Record<string, string> = {
-  running: 'Running',
-  waiting: 'Waiting',
-  idle: 'Idle',
-  error: 'Error'
+const STATUS_CONFIG: Record<string, { color: string; label: string }> = {
+  running: { color: 'bg-green-400', label: 'Running' },
+  waiting: { color: 'bg-yellow-400', label: 'Waiting' },
+  idle: { color: 'bg-gray-500', label: 'Idle' },
+  error: { color: 'bg-red-500', label: 'Error' }
 }
 
 export function SessionItem({
@@ -37,8 +37,10 @@ export function SessionItem({
         )}
       </div>
       <div className="flex items-center gap-1 shrink-0">
-        <div className={`status-dot status-${session.status}`} style={{ width: 6, height: 6 }} />
-        <span className="text-[10px] text-gray-600">{STATUS_LABEL[session.status]}</span>
+        <div
+          className={`w-1.5 h-1.5 rounded-full ${STATUS_CONFIG[session.status]?.color ?? 'bg-gray-500'}`}
+        />
+        <span className="text-[10px] text-gray-600">{STATUS_CONFIG[session.status]?.label}</span>
       </div>
     </button>
   )
