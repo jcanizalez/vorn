@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FolderGit2, GitBranch, Plus, Pencil, Trash2, Check, X } from 'lucide-react'
+import { FolderGit2, GitBranch, ChevronRight, Plus, Pencil, Trash2, Check, X } from 'lucide-react'
 import { useAppStore } from '../../stores'
 import { Tooltip } from '../Tooltip'
 import { toast } from '../Toast'
@@ -13,7 +13,9 @@ export function WorktreeItem({
   isActiveWorktree,
   sessionCount,
   onSelect,
-  onWorktreesChanged
+  onWorktreesChanged,
+  sessionsExpanded,
+  onToggleSessionsExpanded
 }: {
   worktree: WorktreeInfo
   projectPath: string
@@ -22,6 +24,8 @@ export function WorktreeItem({
   sessionCount: number
   onSelect: () => void
   onWorktreesChanged: () => void
+  sessionsExpanded?: boolean
+  onToggleSessionsExpanded?: () => void
 }) {
   const addTerminal = useAppStore((s) => s.addTerminal)
   const config = useAppStore((s) => s.config)
@@ -88,7 +92,37 @@ export function WorktreeItem({
             : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'
         }`}
       >
-        <FolderGit2 size={14} className="text-gray-500 shrink-0" strokeWidth={1.5} />
+        {onToggleSessionsExpanded ? (
+          <div
+            role="button"
+            tabIndex={0}
+            aria-expanded={sessionsExpanded}
+            aria-label="Toggle sessions"
+            className="relative w-[14px] h-[14px] shrink-0"
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleSessionsExpanded()
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.stopPropagation()
+                e.preventDefault()
+                onToggleSessionsExpanded()
+              }
+            }}
+          >
+            <span className="group-hover/wt:hidden flex items-center justify-center w-full h-full">
+              <FolderGit2 size={14} className="text-gray-500" strokeWidth={1.5} />
+            </span>
+            <ChevronRight
+              size={12}
+              strokeWidth={2.5}
+              className={`hidden group-hover/wt:block text-gray-500 transition-transform absolute top-[1px] left-[1px] ${sessionsExpanded ? 'rotate-90' : ''}`}
+            />
+          </div>
+        ) : (
+          <FolderGit2 size={14} className="text-gray-500 shrink-0" strokeWidth={1.5} />
+        )}
         <div className="flex flex-col min-w-0 flex-1">
           <span className="truncate">{wt.name}</span>
           <span className="text-[10px] text-gray-600 flex items-center gap-1 truncate">

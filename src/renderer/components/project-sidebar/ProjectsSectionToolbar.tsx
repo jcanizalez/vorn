@@ -1,6 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useAppStore } from '../../stores'
-import { ProjectSortMode, WorktreeSortMode, WorktreeFilter } from '../../stores/types'
+import {
+  ProjectSortMode,
+  WorktreeSortMode,
+  WorktreeFilter,
+  SidebarViewMode
+} from '../../stores/types'
 import { ListFilter } from 'lucide-react'
 import { Tooltip } from '../Tooltip'
 import { OptionRow } from '../OptionRow'
@@ -14,6 +19,12 @@ const PROJECT_SORT_OPTIONS: { value: ProjectSortMode; label: string }[] = [
 const WORKTREE_SORT_OPTIONS: { value: WorktreeSortMode; label: string }[] = [
   { value: 'name', label: 'Name' },
   { value: 'recent', label: 'Recent activity' }
+]
+
+const VIEW_MODE_OPTIONS: { value: SidebarViewMode; label: string }[] = [
+  { value: 'worktrees', label: 'Worktrees' },
+  { value: 'worktrees-sessions', label: 'Worktrees & sessions' },
+  { value: 'sessions', label: 'Sessions' }
 ]
 
 const WORKTREE_FILTER_OPTIONS: { value: WorktreeFilter; label: string }[] = [
@@ -30,12 +41,17 @@ export function ProjectsSectionToolbar() {
   const projectSort = useAppStore((s) => s.sidebarProjectSort)
   const worktreeSort = useAppStore((s) => s.sidebarWorktreeSort)
   const worktreeFilter = useAppStore((s) => s.sidebarWorktreeFilter)
+  const viewMode = useAppStore((s) => s.sidebarViewMode)
   const setProjectSort = useAppStore((s) => s.setSidebarProjectSort)
   const setWorktreeSort = useAppStore((s) => s.setSidebarWorktreeSort)
   const setWorktreeFilter = useAppStore((s) => s.setSidebarWorktreeFilter)
+  const setViewMode = useAppStore((s) => s.setSidebarViewMode)
 
   const hasNonDefault =
-    projectSort !== 'manual' || worktreeSort !== 'name' || worktreeFilter !== 'all'
+    viewMode !== 'worktrees' ||
+    projectSort !== 'manual' ||
+    worktreeSort !== 'name' ||
+    worktreeFilter !== 'all'
 
   const toggle = useCallback(() => {
     setOpen((o) => {
@@ -95,15 +111,31 @@ export function ProjectsSectionToolbar() {
         >
           <div className="py-1.5">
             <div className="px-3 py-1 text-[10px] text-gray-500 uppercase tracking-wider">Show</div>
-            {WORKTREE_FILTER_OPTIONS.map((opt) => (
+            {VIEW_MODE_OPTIONS.map((opt) => (
               <OptionRow
                 key={opt.value}
-                selected={worktreeFilter === opt.value}
+                selected={viewMode === opt.value}
                 label={opt.label}
-                onClick={() => setWorktreeFilter(opt.value)}
+                onClick={() => setViewMode(opt.value)}
               />
             ))}
           </div>
+
+          {viewMode !== 'sessions' && (
+            <div className="py-1.5 border-t border-white/[0.06]">
+              <div className="px-3 py-1 text-[10px] text-gray-500 uppercase tracking-wider">
+                Filter
+              </div>
+              {WORKTREE_FILTER_OPTIONS.map((opt) => (
+                <OptionRow
+                  key={opt.value}
+                  selected={worktreeFilter === opt.value}
+                  label={opt.label}
+                  onClick={() => setWorktreeFilter(opt.value)}
+                />
+              ))}
+            </div>
+          )}
 
           <div className="py-1.5 border-t border-white/[0.06]">
             <div className="px-3 py-1 text-[10px] text-gray-500 uppercase tracking-wider">
@@ -119,19 +151,21 @@ export function ProjectsSectionToolbar() {
             ))}
           </div>
 
-          <div className="py-1.5 border-t border-white/[0.06]">
-            <div className="px-3 py-1 text-[10px] text-gray-500 uppercase tracking-wider">
-              Sort worktrees
+          {viewMode !== 'sessions' && (
+            <div className="py-1.5 border-t border-white/[0.06]">
+              <div className="px-3 py-1 text-[10px] text-gray-500 uppercase tracking-wider">
+                Sort worktrees
+              </div>
+              {WORKTREE_SORT_OPTIONS.map((opt) => (
+                <OptionRow
+                  key={opt.value}
+                  selected={worktreeSort === opt.value}
+                  label={opt.label}
+                  onClick={() => setWorktreeSort(opt.value)}
+                />
+              ))}
             </div>
-            {WORKTREE_SORT_OPTIONS.map((opt) => (
-              <OptionRow
-                key={opt.value}
-                selected={worktreeSort === opt.value}
-                label={opt.label}
-                onClick={() => setWorktreeSort(opt.value)}
-              />
-            ))}
-          </div>
+          )}
         </div>
       )}
     </>

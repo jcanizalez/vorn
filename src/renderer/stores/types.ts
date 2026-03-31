@@ -33,6 +33,7 @@ export type TaskStatusFilter = 'all' | 'todo' | 'in_progress' | 'in_review' | 'd
 export type ProjectSortMode = 'manual' | 'name' | 'recent'
 export type WorktreeSortMode = 'name' | 'recent'
 export type WorktreeFilter = 'all' | 'active'
+export type SidebarViewMode = 'worktrees' | 'worktrees-sessions' | 'sessions'
 export type PanelTab = 'changes' | 'all-files'
 
 export interface TerminalState {
@@ -201,6 +202,8 @@ export interface UISlice {
   setSidebarProjectSort: (mode: ProjectSortMode) => void
   setSidebarWorktreeSort: (mode: WorktreeSortMode) => void
   setSidebarWorktreeFilter: (filter: WorktreeFilter) => void
+  sidebarViewMode: SidebarViewMode
+  setSidebarViewMode: (mode: SidebarViewMode) => void
   reorderProjects: (fromIndex: number, toIndex: number) => void
 }
 

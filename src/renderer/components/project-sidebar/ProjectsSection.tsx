@@ -15,7 +15,9 @@ export function ProjectsSection({
   projectTerminals,
   worktreeSessionCounts,
   mainRepoSessionCounts,
-  workspaceTerminalCount
+  workspaceTerminalCount,
+  worktreeSessions,
+  mainRepoSessions
 }: {
   isCollapsed: boolean
   workspaceProjects: ProjectConfig[]
@@ -23,10 +25,13 @@ export function ProjectsSection({
   worktreeSessionCounts: Map<string, number>
   mainRepoSessionCounts: Map<string, number>
   workspaceTerminalCount: number
+  worktreeSessions: Map<string, SidebarSessionInfo[]>
+  mainRepoSessions: Map<string, SidebarSessionInfo[]>
 }) {
   const activeProject = useAppStore((s) => s.activeProject)
   const setActiveProject = useAppStore((s) => s.setActiveProject)
   const setAddProjectDialogOpen = useAppStore((s) => s.setAddProjectDialogOpen)
+  const sidebarViewMode = useAppStore((s) => s.sidebarViewMode)
   const sidebarProjectSort = useAppStore((s) => s.sidebarProjectSort)
   const reorderProjects = useAppStore((s) => s.reorderProjects)
   const terminals = useAppStore((s) => s.terminals)
@@ -179,6 +184,10 @@ export function ProjectsSection({
                 isCollapsed={isCollapsed}
                 worktreeSessionCounts={worktreeSessionCounts}
                 mainRepoSessionCount={mainRepoSessionCounts.get(project.name) || 0}
+                viewMode={sidebarViewMode}
+                worktreeSessions={worktreeSessions}
+                mainRepoSessions={mainRepoSessions.get(project.name) ?? EMPTY_SESSIONS}
+                projectSessions={projectTerminals.get(project.name) ?? EMPTY_SESSIONS}
               />
             </div>
           )
