@@ -71,8 +71,23 @@ describe('SessionItem', () => {
 
   it('renders without branch when session has no branch', () => {
     const noBranch: SidebarSessionInfo = { ...session, branch: undefined }
-    const { container } = render(<SessionItem session={noBranch} />)
-    const branchEl = container.querySelector('.text-\\[10px\\]')
-    expect(branchEl).not.toBeInTheDocument()
+    render(<SessionItem session={noBranch} />)
+    expect(screen.queryByText('main')).not.toBeInTheDocument()
+  })
+
+  it('renders status label text', () => {
+    render(<SessionItem session={session} />)
+    expect(screen.getByText('Running')).toBeInTheDocument()
+  })
+
+  it.each([
+    ['running', 'Running'],
+    ['waiting', 'Waiting'],
+    ['idle', 'Idle'],
+    ['error', 'Error']
+  ] as const)('renders "%s" status as "%s"', (status, label) => {
+    const s: SidebarSessionInfo = { ...session, status }
+    render(<SessionItem session={s} />)
+    expect(screen.getByText(label)).toBeInTheDocument()
   })
 })

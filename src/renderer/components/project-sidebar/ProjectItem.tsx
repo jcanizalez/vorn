@@ -57,9 +57,19 @@ export function ProjectItem({
 
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
   const [openMenu, setOpenMenu] = useState(false)
+  const [collapsedBranches, setCollapsedBranches] = useState<Set<string>>(new Set())
 
   const showSessions = viewMode === 'worktrees-sessions'
   const sessionsOnly = viewMode === 'sessions'
+
+  const toggleBranchCollapsed = useCallback((key: string) => {
+    setCollapsedBranches((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }, [])
 
   const allWorktrees = worktreeCache.get(project.path) ?? EMPTY_WORKTREES
   const mainWt = allWorktrees.find((wt) => wt.isMain)
@@ -233,7 +243,26 @@ export function ProjectItem({
                           : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'
                       }`}
                     >
-                      <GitBranch size={14} className="text-gray-500 shrink-0" strokeWidth={1.5} />
+                      {showSessions ? (
+                        <div
+                          className="relative w-[14px] h-[14px] shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            toggleBranchCollapsed('__main__')
+                          }}
+                        >
+                          <span className="group-hover/main:hidden flex items-center justify-center w-full h-full">
+                            <GitBranch size={14} className="text-gray-500" strokeWidth={1.5} />
+                          </span>
+                          <ChevronRight
+                            size={12}
+                            strokeWidth={2.5}
+                            className={`hidden group-hover/main:block text-gray-500 transition-transform absolute top-[1px] left-[1px] ${!collapsedBranches.has('__main__') ? 'rotate-90' : ''}`}
+                          />
+                        </div>
+                      ) : (
+                        <GitBranch size={14} className="text-gray-500 shrink-0" strokeWidth={1.5} />
+                      )}
                       <span className="truncate">{mainWt.branch}</span>
                       {mainRepoSessionCount > 0 && !showSessions && (
                         <span className="text-gray-600 text-xs ml-auto group-hover/main:hidden shrink-0">
@@ -264,6 +293,7 @@ export function ProjectItem({
                     </button>
                   </div>
                   {showSessions &&
+                    !collapsedBranches.has('__main__') &&
                     mainRepoSessions.map((s) => (
                       <div key={s.id} className="ml-4">
                         <SessionItem session={s} showBranch={false} />
@@ -284,8 +314,13 @@ export function ProjectItem({
                       setActiveWorktreePath(activeWorktreePath === wt.path ? null : wt.path)
                     }}
                     onWorktreesChanged={() => loadWorktrees(project.path)}
+                    sessionsExpanded={showSessions ? !collapsedBranches.has(wt.path) : undefined}
+                    onToggleSessionsExpanded={
+                      showSessions ? () => toggleBranchCollapsed(wt.path) : undefined
+                    }
                   />
                   {showSessions &&
+                    !collapsedBranches.has(wt.path) &&
                     (worktreeSessions.get(wt.path) ?? EMPTY_SESSIONS).map((s) => (
                       <div key={s.id} className="ml-4">
                         <SessionItem session={s} showBranch={false} />
