@@ -8,8 +8,23 @@ vi.mock('ws', () => ({ WebSocket: vi.fn() }))
 // Mock node:fs so readPort() sees our controlled data
 const mockReadFileSync = vi.fn()
 vi.mock('node:fs', () => ({
-  default: { readFileSync: (...args: unknown[]) => mockReadFileSync(...args) },
-  readFileSync: (...args: unknown[]) => mockReadFileSync(...args)
+  default: {
+    readFileSync: (...args: unknown[]) => mockReadFileSync(...args),
+    existsSync: () => true,
+    mkdirSync: () => undefined,
+    writeFileSync: () => undefined
+  },
+  readFileSync: (...args: unknown[]) => mockReadFileSync(...args),
+  existsSync: () => true,
+  mkdirSync: () => undefined,
+  writeFileSync: () => undefined
+}))
+
+// Mock child_process so discoverPort() doesn't find the real running server
+vi.mock('node:child_process', () => ({
+  execFileSync: () => {
+    throw new Error('mocked')
+  }
 }))
 
 const PORT_FILE = path.join(os.homedir(), '.vibegrid', 'ws-port')

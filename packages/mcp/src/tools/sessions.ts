@@ -261,14 +261,16 @@ export function registerSessionTools(server: McpServer): void {
       data: z
         .string()
         .max(50000, 'Data must be 50000 characters or less')
-        .describe('Data to write (text input to send to the agent)')
+        .describe('Data to write (text input to send to the agent)'),
+      raw: z
+        .boolean()
+        .optional()
+        .describe('Send data as-is without appending carriage return (for raw terminal control)')
     },
     async (args) => {
       try {
-        // Append carriage return so the terminal submits the input.
-        // Treat both \r and \n as already terminated to avoid double-submission.
-        const trimmed = args.data.replace(/[\r\n]+$/, '')
-        const data = trimmed + '\r'
+        // In raw mode, send exactly what was given. Otherwise append \r to submit.
+        const data = args.raw ? args.data : args.data.replace(/[\r\n]+$/, '') + '\r'
         await rpcNotify('terminal:write', { id: args.id, data })
         return { content: [{ type: 'text', text: `Wrote to session: ${args.id}` }] }
       } catch (err) {
@@ -277,6 +279,85 @@ export function registerSessionTools(server: McpServer): void {
             {
               type: 'text',
               text: `Error writing to terminal: ${err instanceof Error ? err.message : err}`
+            }
+          ],
+          isError: true
+        }
+      }
+    }
+  )
+
+  // Named-key → ANSI escape sequence map
+  const KEY_MAP: Record<string, string> = {
+    enter: '\r',
+    escape: '\x1b',
+    esc: '\x1b',
+    tab: '\x09',
+    'shift+tab': '\x1b[Z',
+    up: '\x1b[A',
+    down: '\x1b[B',
+    left: '\x1b[D',
+    right: '\x1b[C',
+    backspace: '\x7f',
+    delete: '\x1b[3~',
+    home: '\x1b[H',
+    end: '\x1b[F',
+    'ctrl+c': '\x03',
+    'ctrl+d': '\x04',
+    'ctrl+x': '\x18',
+    'ctrl+z': '\x1a'
+  }
+
+  server.tool(
+    'send_key',
+    'Send a single keystroke or key combo to a terminal session without appending Enter. Use for TUI interactions like selecting menu options (1, 2, y, n), pressing Escape, Ctrl+C, arrow keys, etc.',
+    {
+      id: V.id.describe('Session ID'),
+      key: z
+        .string()
+        .min(1)
+        .max(20)
+        .describe(
+          'Key to send: single char (1, y, n), named key (enter, escape, tab, up, down, left, right, backspace, delete, home, end), or combo (ctrl+c, ctrl+d, ctrl+x, ctrl+z, shift+tab)'
+        )
+    },
+    async (args) => {
+      const key = args.key.toLowerCase().trim()
+
+      let data = KEY_MAP[key]
+
+      if (!data) {
+        // Handle ctrl+<letter> dynamically
+        const ctrlMatch = key.match(/^ctrl\+([a-z])$/)
+        if (ctrlMatch) {
+          data = String.fromCharCode(ctrlMatch[1].toUpperCase().charCodeAt(0) - 64)
+        } else if (args.key.length === 1) {
+          // Single printable character — send as-is
+          data = args.key
+        } else {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Unknown key: "${args.key}". Supported: single chars (1, y, n), named keys (${Object.keys(KEY_MAP).join(', ')}), or ctrl+<letter>.`
+              }
+            ],
+            isError: true
+          }
+        }
+      }
+
+      try {
+        await rpcNotify('terminal:write', { id: args.id, data })
+        return {
+          content: [{ type: 'text', text: `Sent key "${args.key}" to session: ${args.id}` }]
+        }
+      } catch (err) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error sending key to terminal: ${err instanceof Error ? err.message : err}`
             }
           ],
           isError: true

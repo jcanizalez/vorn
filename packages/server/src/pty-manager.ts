@@ -600,9 +600,9 @@ class PtyManager extends EventEmitter {
 
   updateSessionStatus(id: string, status: AgentStatus): void {
     const session = this.sessions.get(id)
-    if (session) {
+    if (session && session.status !== status) {
       session.status = status
-      this.emit('client-message', IPC.TERMINAL_DATA, { id, data: '' }) // trigger widget update
+      this.emit('client-message', IPC.SESSION_UPDATED, session)
     }
   }
 

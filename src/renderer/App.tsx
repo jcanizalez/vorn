@@ -287,6 +287,9 @@ export function App() {
       const store = useAppStore.getState()
       const existing = store.terminals.get(session.id)
       if (existing) {
+        if (session.status && session.status !== existing.status) {
+          store.updateStatus(session.id, session.status)
+        }
         if (session.branch && existing.session.branch !== session.branch) {
           store.updateSessionBranch(session.id, session.branch)
           if (existing.session.projectPath) {

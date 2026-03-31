@@ -153,12 +153,35 @@ export async function startServer(
   // Write port to stdout for parent process (Electron) to read
   process.stdout.write(JSON.stringify({ port: actualPort }) + '\n')
 
-  // Write WS port to a well-known file so MCP and other tools can discover it
+  // Write WS port to a well-known file so MCP and other tools can discover it.
+  // Use JSON with PID so multiple instances don't clobber each other's port files.
   const wsPortFile = path.join(os.homedir(), '.vibegrid', 'ws-port')
+  let ownsPortFile = true
   try {
-    const wsPortDir = path.dirname(wsPortFile)
-    if (!fs.existsSync(wsPortDir)) fs.mkdirSync(wsPortDir, { recursive: true })
-    fs.writeFileSync(wsPortFile, String(actualPort), 'utf-8')
+    fs.mkdirSync(path.dirname(wsPortFile), { recursive: true })
+
+    // Check if another live instance owns the port file
+    try {
+      const existing = JSON.parse(fs.readFileSync(wsPortFile, 'utf-8'))
+      if (existing.pid && existing.pid !== process.pid) {
+        try {
+          process.kill(existing.pid, 0) // probe — throws if dead
+          ownsPortFile = false
+          log.info(
+            { existingPid: existing.pid },
+            '[server] another instance owns ws-port file, skipping write'
+          )
+        } catch {
+          // dead PID — safe to overwrite
+        }
+      }
+    } catch {
+      // no file or invalid JSON — safe to write
+    }
+
+    if (ownsPortFile) {
+      fs.writeFileSync(wsPortFile, JSON.stringify({ port: actualPort, pid: process.pid }), 'utf-8')
+    }
   } catch (err) {
     log.warn({ err }, '[server] failed to write ws-port file (MCP discovery will not work)')
   }
@@ -185,10 +208,13 @@ export async function startServer(
     headlessManager.killAll()
     ptyManager.killAll()
     configManager.close()
-    try {
-      fs.unlinkSync(wsPortFile)
-    } catch {
-      /* ignore */
+    if (ownsPortFile) {
+      try {
+        const raw = JSON.parse(fs.readFileSync(wsPortFile, 'utf-8'))
+        if (raw.pid === process.pid) fs.unlinkSync(wsPortFile)
+      } catch {
+        /* ignore */
+      }
     }
     await app.close()
     process.exit(0)
