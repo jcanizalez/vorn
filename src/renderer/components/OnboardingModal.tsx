@@ -674,7 +674,7 @@ export function OnboardingModal() {
     if (config) {
       const updated = {
         ...config,
-        defaults: { ...config.defaults, hasSeenOnboarding: true }
+        defaults: { ...config.defaults, hasSeenOnboarding: 2 }
       }
       useAppStore.getState().setConfig(updated)
       window.api.saveConfig(updated)
