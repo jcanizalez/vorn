@@ -4,6 +4,7 @@ import { StatusBadge } from './StatusBadge'
 import { GitChangesIndicator } from './GitChangesIndicator'
 import { OpenInButton } from './OpenInButton'
 import { GitBranch, FolderGit2, Server, ListTodo } from 'lucide-react'
+import { getBranchLabel } from '../lib/terminal-display'
 
 interface Props {
   terminalId: string
@@ -46,7 +47,7 @@ export function TabStatusBar({ terminalId }: Props) {
                 terminal.session.isWorktree ? 'text-amber-400' : 'text-gray-400'
               }`}
             >
-              {terminal.session.branch}
+              {getBranchLabel(terminal.session)}
             </span>
             {terminal.session.isWorktree && (
               <span className="text-[10px] text-amber-500/60">worktree</span>

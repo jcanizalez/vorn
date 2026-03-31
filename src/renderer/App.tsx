@@ -286,8 +286,24 @@ export function App() {
         if (session.displayName && existing.session.displayName !== session.displayName) {
           store.renameTerminal(session.id, session.displayName)
         }
-      } else if (session.branch) {
-        store.updateHeadlessSession(session.id, { branch: session.branch })
+        const wtUpdates: { worktreePath?: string; worktreeName?: string } = {}
+        if (session.worktreePath && session.worktreePath !== existing.session.worktreePath) {
+          wtUpdates.worktreePath = session.worktreePath
+        }
+        if (session.worktreeName && session.worktreeName !== existing.session.worktreeName) {
+          wtUpdates.worktreeName = session.worktreeName
+        }
+        if (Object.keys(wtUpdates).length > 0) {
+          store.updateSessionWorktree(session.id, wtUpdates)
+        }
+      } else {
+        const updates: { branch?: string; worktreePath?: string; worktreeName?: string } = {}
+        if (session.branch) updates.branch = session.branch
+        if (session.worktreePath) updates.worktreePath = session.worktreePath
+        if (session.worktreeName) updates.worktreeName = session.worktreeName
+        if (Object.keys(updates).length > 0) {
+          store.updateHeadlessSession(session.id, updates)
+        }
       }
     })
 

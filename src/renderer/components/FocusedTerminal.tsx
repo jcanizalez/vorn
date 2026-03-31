@@ -14,7 +14,7 @@ import { MobileFontSizeControl } from './MobileFontSizeControl'
 import { MobileTerminalKeybar } from './MobileTerminalKeybar'
 import { AGENT_DEFINITIONS } from '../lib/agent-definitions'
 import { closeTerminalSession } from '../lib/terminal-close'
-import { getDisplayName } from '../lib/terminal-display'
+import { getDisplayName, getBranchLabel } from '../lib/terminal-display'
 import { useTerminalScrollButton } from '../hooks/useTerminalScrollButton'
 import { useTerminalPinchZoom } from '../hooks/useTerminalPinchZoom'
 import { useIsMobile } from '../hooks/useIsMobile'
@@ -215,7 +215,7 @@ export function FocusedTerminal() {
                 <span
                   className={`text-[12px] font-mono ${terminal.session.isWorktree ? 'text-amber-400' : 'text-gray-500'}`}
                 >
-                  {terminal.session.branch}
+                  {getBranchLabel(terminal.session)}
                 </span>
                 {terminal.session.isWorktree && (
                   <span className="text-[11px] text-amber-500/60 ml-1">worktree</span>

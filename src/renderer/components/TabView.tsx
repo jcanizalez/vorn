@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { useAppStore } from '../stores'
 import { useVisibleTerminals } from '../hooks/useVisibleTerminals'
 import { AgentIcon } from './AgentIcon'
@@ -9,13 +9,14 @@ import { PromptLauncher } from './PromptLauncher'
 import { InlineRename } from './InlineRename'
 import { CardContextMenu } from './CardContextMenu'
 import { TabStatusBar } from './TabStatusBar'
-import { getDisplayName } from '../lib/terminal-display'
+import { getDisplayName, getBranchLabel } from '../lib/terminal-display'
 import { closeTerminalSession } from '../lib/terminal-close'
 import { resolveActiveProject } from '../lib/session-utils'
 import { AgentStatus } from '../../shared/types'
 import { ConfirmPopover } from './ConfirmPopover'
 import { toast } from './Toast'
-import { Play, GitFork, Plus, ChevronDown, GripVertical, Pencil } from 'lucide-react'
+import { ChevronDown, GripVertical, Pencil } from 'lucide-react'
+import { GridContextMenu } from './GridContextMenu'
 
 const isMac = navigator.platform.toUpperCase().includes('MAC')
 
@@ -88,7 +89,7 @@ function buildTooltip(
   return lines.join('\n')
 }
 
-/* ── Plus-button dropdown ────────────────────────────────────── */
+/* ── Plus-button dropdown (reuses GridContextMenu) ──────────── */
 
 function PlusDropdown({
   position,
@@ -97,117 +98,7 @@ function PlusDropdown({
   position: { top: number; left: number }
   onClose: () => void
 }) {
-  const menuRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose()
-    }
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('pointerdown', handleClick)
-    document.addEventListener('keydown', handleKey)
-    return () => {
-      document.removeEventListener('pointerdown', handleClick)
-      document.removeEventListener('keydown', handleKey)
-    }
-  }, [onClose])
-
-  const items: {
-    icon: React.FC<{ size?: number; className?: string }>
-    label: string
-    className?: string
-    separator?: boolean
-    onClick: () => void
-  }[] = [
-    {
-      icon: Play,
-      label: 'New session',
-      className: 'text-green-400',
-      onClick: async () => {
-        onClose()
-        const state = useAppStore.getState()
-        const project = resolveActiveProject()
-        if (!project) {
-          state.setNewAgentDialogOpen(true)
-          return
-        }
-        const agentType = state.config?.defaults.defaultAgent || 'claude'
-        const session = await window.api.createTerminal({
-          agentType,
-          projectName: project.name,
-          projectPath: project.path
-        })
-        state.addTerminal(session)
-      }
-    },
-    {
-      icon: GitFork,
-      label: 'New session in worktree',
-      className: 'text-amber-400',
-      onClick: async () => {
-        onClose()
-        const state = useAppStore.getState()
-        const project = resolveActiveProject()
-        if (!project) {
-          state.setNewAgentDialogOpen(true)
-          return
-        }
-        const agentType = state.config?.defaults.defaultAgent || 'claude'
-        const branchResult = await window.api.listBranches(project.path)
-        const branch = branchResult.current || 'main'
-        const session = await window.api.createTerminal({
-          agentType,
-          projectName: project.name,
-          projectPath: project.path,
-          branch,
-          useWorktree: true
-        })
-        state.addTerminal(session)
-      }
-    },
-    {
-      icon: Plus,
-      label: 'New session...',
-      separator: true,
-      onClick: () => {
-        onClose()
-        useAppStore.getState().setNewAgentDialogOpen(true)
-      }
-    }
-  ]
-
-  return createPortal(
-    <AnimatePresence>
-      <motion.div
-        ref={menuRef}
-        initial={{ opacity: 0, y: -4, scale: 0.96 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: -4, scale: 0.96 }}
-        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-        className="fixed z-[150] rounded-lg border border-white/[0.1] shadow-2xl py-1"
-        style={{ top: position.top, left: position.left, background: '#1e1e22', minWidth: 220 }}
-      >
-        {items.map((item, i) => (
-          <div key={i}>
-            {item.separator && <div className="border-t border-white/[0.06] my-1" />}
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                item.onClick()
-              }}
-              className="w-full flex items-center gap-2.5 px-3 py-1.5 text-xs text-gray-300 hover:bg-white/[0.06] transition-colors"
-            >
-              <item.icon size={14} className={item.className ?? 'text-gray-500'} />
-              <span>{item.label}</span>
-            </button>
-          </div>
-        ))}
-      </motion.div>
-    </AnimatePresence>,
-    document.body
-  )
+  return <GridContextMenu position={{ x: position.left, y: position.top }} onClose={onClose} />
 }
 
 /* ── TabView ─────────────────────────────────────────────────── */
@@ -417,7 +308,7 @@ export function TabView() {
           const tooltip = buildTooltip(
             displayName,
             terminal.status,
-            terminal.session.branch,
+            getBranchLabel(terminal.session),
             terminal.session.isWorktree,
             terminal.session.remoteHostLabel,
             tooltipTaskTitle

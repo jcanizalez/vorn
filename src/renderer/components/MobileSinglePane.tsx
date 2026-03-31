@@ -6,7 +6,7 @@ import { GitChangesIndicator } from './GitChangesIndicator'
 import { CardContextMenu } from './CardContextMenu'
 import { PromptLauncher } from './PromptLauncher'
 import { useVisibleTerminals } from '../hooks/useVisibleTerminals'
-import { getDisplayName } from '../lib/terminal-display'
+import { getDisplayName, getBranchLabel } from '../lib/terminal-display'
 import { GitBranch, FolderGit2, Pin } from 'lucide-react'
 
 /**
@@ -76,7 +76,7 @@ function MobileSessionCard({
                 <GitBranch size={10} className="text-gray-600 shrink-0" strokeWidth={1.5} />
               )}
               <span className={terminal.session.isWorktree ? 'text-amber-400' : ''}>
-                {terminal.session.branch}
+                {getBranchLabel(terminal.session)}
               </span>
             </span>
           )}

@@ -152,12 +152,7 @@ export function ProjectItem({
                       e.stopPropagation()
                       const name = generateWorktreeName()
                       try {
-                        const currentBranch = await window.api.getWorktreeBranch(project.path)
-                        if (!currentBranch) {
-                          toast.error('Could not determine current Git branch')
-                          return
-                        }
-                        await window.api.createWorktree(project.path, currentBranch, name)
+                        await window.api.createWorktree(project.path, 'main', name)
                         if (!isExpanded) {
                           toggleExpanded()
                         } else {
