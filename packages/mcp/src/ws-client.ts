@@ -25,6 +25,10 @@ Then write the WS port (the one on *:<port>) to the file:
   echo '{"port":<PORT>,"pid":<PID>}' > ~/.vibegrid/ws-port
 Or restart VibeGrid to regenerate it.`
 
+const PORT_FILE_INVALID_MSG = `VibeGrid port file exists but contains invalid data (~/.vibegrid/ws-port).
+Delete it and restart VibeGrid, or overwrite it with the correct port:
+  ${IS_WIN ? 'del %USERPROFILE%\\.vibegrid\\ws-port' : 'rm ~/.vibegrid/ws-port'}`
+
 let rpcId = 0
 
 // Cache discovered port to avoid repeated execFileSync calls
@@ -92,39 +96,41 @@ function discoverPort(): number | null {
  * Read the VibeGrid server port from the well-known file.
  * Falls back to OS-level port discovery if the file is missing.
  */
-function readPort(): number | null {
+function readPort(): { port: number } | { port: null; reason: 'missing' | 'invalid' } {
   try {
     const raw = fs.readFileSync(PORT_FILE, 'utf-8').trim()
-    if (!raw) return null
+    if (!raw) return { port: null, reason: 'invalid' }
 
     // JSON format: { "port": 53829, "pid": 1234 }
     if (raw.startsWith('{')) {
       const parsed = JSON.parse(raw)
-      const port = parsed?.port
-      return typeof port === 'number' && Number.isFinite(port) && port > 0 ? port : null
+      const p = parsed?.port
+      return typeof p === 'number' && Number.isFinite(p) && p > 0
+        ? { port: p }
+        : { port: null, reason: 'invalid' }
     }
 
     // Legacy plain-number format: 53829
-    const port = parseInt(raw, 10)
-    return Number.isFinite(port) && port > 0 ? port : null
+    const p = parseInt(raw, 10)
+    return Number.isFinite(p) && p > 0 ? { port: p } : { port: null, reason: 'invalid' }
   } catch {
-    // Port file missing — return cached discovery if fresh
+    // Port file missing — try OS-level discovery with cache
     const now = Date.now()
-    if (cachedPort && now - cacheTimestamp < CACHE_TTL_MS) return cachedPort
+    if (cachedPort && now - cacheTimestamp < CACHE_TTL_MS) return { port: cachedPort }
 
     const discovered = discoverPort()
     cachedPort = discovered
     cacheTimestamp = now
     if (discovered) {
-      // Self-heal: write the port file so subsequent calls skip discovery
       try {
         fs.mkdirSync(path.dirname(PORT_FILE), { recursive: true })
         fs.writeFileSync(PORT_FILE, JSON.stringify({ port: discovered }), 'utf-8')
       } catch {
         // best-effort
       }
+      return { port: discovered }
     }
-    return discovered
+    return { port: null, reason: 'missing' }
   }
 }
 
@@ -133,13 +139,13 @@ function readPort(): number | null {
  * Opens a connection, sends, waits for the response, then closes.
  */
 export async function rpcCall<T = unknown>(method: string, params?: unknown): Promise<T> {
-  const port = readPort()
-  if (!port) {
-    throw new Error(PORT_FILE_MISSING_MSG)
+  const result = readPort()
+  if (!result.port) {
+    throw new Error(result.reason === 'invalid' ? PORT_FILE_INVALID_MSG : PORT_FILE_MISSING_MSG)
   }
 
   return new Promise<T>((resolve, reject) => {
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`)
+    const ws = new WebSocket(`ws://127.0.0.1:${result.port}/ws`)
     const id = ++rpcId
 
     const timer = setTimeout(() => {
@@ -178,13 +184,13 @@ export async function rpcCall<T = unknown>(method: string, params?: unknown): Pr
  * Send a fire-and-forget JSON-RPC notification (no response expected).
  */
 export async function rpcNotify(method: string, params?: unknown): Promise<void> {
-  const port = readPort()
-  if (!port) {
-    throw new Error(PORT_FILE_MISSING_MSG)
+  const result = readPort()
+  if (!result.port) {
+    throw new Error(result.reason === 'invalid' ? PORT_FILE_INVALID_MSG : PORT_FILE_MISSING_MSG)
   }
 
   return new Promise<void>((resolve, reject) => {
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`)
+    const ws = new WebSocket(`ws://127.0.0.1:${result.port}/ws`)
 
     ws.on('open', () => {
       // No id = fire-and-forget notification per JSON-RPC spec
@@ -203,5 +209,5 @@ export async function rpcNotify(method: string, params?: unknown): Promise<void>
  * Check whether the VibeGrid server is reachable.
  */
 export function isServerRunning(): boolean {
-  return readPort() !== null
+  return readPort().port !== null
 }
