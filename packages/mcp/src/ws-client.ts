@@ -16,6 +16,16 @@ let rpcId = 0
 function readPort(): number | null {
   try {
     const raw = fs.readFileSync(PORT_FILE, 'utf-8').trim()
+    if (!raw) return null
+
+    // JSON format: { "port": 53829, "pid": 1234 }
+    if (raw.startsWith('{')) {
+      const parsed = JSON.parse(raw)
+      const port = parsed?.port
+      return typeof port === 'number' && Number.isFinite(port) && port > 0 ? port : null
+    }
+
+    // Legacy plain-number format: 53829
     const port = parseInt(raw, 10)
     return Number.isFinite(port) && port > 0 ? port : null
   } catch {
