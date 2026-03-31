@@ -7,4 +7,5 @@ export interface SidebarSessionInfo {
   agentType: AgentType
   branch?: string
   isWorktree?: boolean
+  worktreePath?: string
 }

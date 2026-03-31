@@ -7,12 +7,15 @@ import { ProjectIcon } from './ProjectIcon'
 import { ProjectContextMenu } from './ProjectContextMenu'
 import { WorktreeItem } from './WorktreeItem'
 import { generateWorktreeName } from '../../lib/worktree-names'
+import { SessionItem } from './SessionItem'
 import { ChevronRight, Plus, MoreHorizontal, GitBranch, FolderGit2 } from 'lucide-react'
 import type { ProjectConfig } from '../../../shared/types'
 import { MAIN_WORKTREE_SENTINEL } from '../../stores/types'
-import type { WorktreeInfo } from '../../stores/types'
+import type { SidebarViewMode, WorktreeInfo } from '../../stores/types'
+import type { SidebarSessionInfo } from './types'
 
 const EMPTY_WORKTREES: WorktreeInfo[] = []
+const EMPTY_SESSIONS: SidebarSessionInfo[] = []
 
 export function ProjectItem({
   project,
@@ -21,7 +24,11 @@ export function ProjectItem({
   isActive,
   isCollapsed,
   worktreeSessionCounts,
-  mainRepoSessionCount
+  mainRepoSessionCount,
+  viewMode,
+  worktreeSessions,
+  mainRepoSessions,
+  projectSessions
 }: {
   project: ProjectConfig
   sessionCount: number
@@ -30,6 +37,10 @@ export function ProjectItem({
   isCollapsed: boolean
   worktreeSessionCounts: Map<string, number>
   mainRepoSessionCount: number
+  viewMode: SidebarViewMode
+  worktreeSessions: Map<string, SidebarSessionInfo[]>
+  mainRepoSessions: SidebarSessionInfo[]
+  projectSessions: SidebarSessionInfo[]
 }) {
   const setActiveProject = useAppStore((s) => s.setActiveProject)
   const activeWorktreePath = useAppStore((s) => s.activeWorktreePath)
@@ -46,6 +57,9 @@ export function ProjectItem({
 
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
   const [openMenu, setOpenMenu] = useState(false)
+
+  const showSessions = viewMode === 'worktrees-sessions'
+  const sessionsOnly = viewMode === 'sessions'
 
   const allWorktrees = worktreeCache.get(project.path) ?? EMPTY_WORKTREES
   const mainWt = allWorktrees.find((wt) => wt.isMain)
@@ -139,7 +153,7 @@ export function ProjectItem({
           {!isCollapsed && (
             <>
               <span className="truncate">{project.name}</span>
-              {sessionCount > 0 && (
+              {sessionCount > 0 && !sessionsOnly && !showSessions && (
                 <span className="text-gray-600 text-xs ml-auto group-hover:hidden">
                   {sessionCount}
                 </span>
@@ -197,65 +211,90 @@ export function ProjectItem({
 
       {!isCollapsed && isExpanded && (
         <div className="ml-4 mt-0.5 mb-1 space-y-0.5">
-          {mainWt && (
-            <div className="group/main flex items-center">
-              <button
-                onClick={() => {
-                  setActiveProject(project.name)
-                  setActiveWorktreePath(isMainActive ? null : MAIN_WORKTREE_SENTINEL)
-                }}
-                className={`flex-1 text-left px-2 py-1.5 rounded-md text-[13px] flex items-center gap-2 min-w-0 transition-colors ${
-                  isMainActive
-                    ? 'bg-white/[0.08] text-white'
-                    : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'
-                }`}
-              >
-                <GitBranch size={14} className="text-gray-500 shrink-0" strokeWidth={1.5} />
-                <span className="truncate">{mainWt.branch}</span>
-                {mainRepoSessionCount > 0 && (
-                  <span className="text-gray-600 text-xs ml-auto group-hover/main:hidden shrink-0">
-                    {mainRepoSessionCount}
-                  </span>
-                )}
-                <div className="hidden group-hover/main:flex items-center gap-0.5 ml-auto">
-                  <Tooltip label="New session" position="right">
+          {sessionsOnly ? (
+            projectSessions.length > 0 ? (
+              projectSessions.map((s) => <SessionItem key={s.id} session={s} />)
+            ) : (
+              <p className="text-[11px] text-gray-600 px-2 py-1">No active sessions</p>
+            )
+          ) : (
+            <>
+              {mainWt && (
+                <>
+                  <div className="group/main flex items-center">
                     <button
-                      type="button"
-                      onClick={async (e) => {
-                        e.stopPropagation()
-                        const agentType = config?.defaults.defaultAgent || 'claude'
-                        const session = await window.api.createTerminal({
-                          agentType,
-                          projectName: project.name,
-                          projectPath: project.path,
-                          branch: mainWt.branch
-                        })
-                        addTerminal(session)
+                      onClick={() => {
+                        setActiveProject(project.name)
+                        setActiveWorktreePath(isMainActive ? null : MAIN_WORKTREE_SENTINEL)
                       }}
-                      className="text-gray-500 hover:text-white p-0.5 rounded hover:bg-white/[0.08] transition-colors"
+                      className={`flex-1 text-left px-2 py-1.5 rounded-md text-[13px] flex items-center gap-2 min-w-0 transition-colors ${
+                        isMainActive
+                          ? 'bg-white/[0.08] text-white'
+                          : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'
+                      }`}
                     >
-                      <Plus size={14} strokeWidth={2} />
+                      <GitBranch size={14} className="text-gray-500 shrink-0" strokeWidth={1.5} />
+                      <span className="truncate">{mainWt.branch}</span>
+                      {mainRepoSessionCount > 0 && !showSessions && (
+                        <span className="text-gray-600 text-xs ml-auto group-hover/main:hidden shrink-0">
+                          {mainRepoSessionCount}
+                        </span>
+                      )}
+                      <div className="hidden group-hover/main:flex items-center gap-0.5 ml-auto">
+                        <Tooltip label="New session" position="right">
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation()
+                              const agentType = config?.defaults.defaultAgent || 'claude'
+                              const session = await window.api.createTerminal({
+                                agentType,
+                                projectName: project.name,
+                                projectPath: project.path,
+                                branch: mainWt.branch
+                              })
+                              addTerminal(session)
+                            }}
+                            className="text-gray-500 hover:text-white p-0.5 rounded hover:bg-white/[0.08] transition-colors"
+                          >
+                            <Plus size={14} strokeWidth={2} />
+                          </button>
+                        </Tooltip>
+                      </div>
                     </button>
-                  </Tooltip>
+                  </div>
+                  {showSessions &&
+                    mainRepoSessions.map((s) => (
+                      <div key={s.id} className="ml-4">
+                        <SessionItem session={s} showBranch={false} />
+                      </div>
+                    ))}
+                </>
+              )}
+              {sortedWorktrees.map((wt) => (
+                <div key={wt.path}>
+                  <WorktreeItem
+                    worktree={wt}
+                    projectPath={project.path}
+                    projectName={project.name}
+                    isActiveWorktree={activeWorktreePath === wt.path}
+                    sessionCount={showSessions ? 0 : worktreeSessionCounts.get(wt.path) || 0}
+                    onSelect={() => {
+                      setActiveProject(project.name)
+                      setActiveWorktreePath(activeWorktreePath === wt.path ? null : wt.path)
+                    }}
+                    onWorktreesChanged={() => loadWorktrees(project.path)}
+                  />
+                  {showSessions &&
+                    (worktreeSessions.get(wt.path) ?? EMPTY_SESSIONS).map((s) => (
+                      <div key={s.id} className="ml-4">
+                        <SessionItem session={s} showBranch={false} />
+                      </div>
+                    ))}
                 </div>
-              </button>
-            </div>
+              ))}
+            </>
           )}
-          {sortedWorktrees.map((wt) => (
-            <WorktreeItem
-              key={wt.path}
-              worktree={wt}
-              projectPath={project.path}
-              projectName={project.name}
-              isActiveWorktree={activeWorktreePath === wt.path}
-              sessionCount={worktreeSessionCounts.get(wt.path) || 0}
-              onSelect={() => {
-                setActiveProject(project.name)
-                setActiveWorktreePath(activeWorktreePath === wt.path ? null : wt.path)
-              }}
-              onWorktreesChanged={() => loadWorktrees(project.path)}
-            />
-          ))}
         </div>
       )}
     </div>

@@ -46,35 +46,52 @@ export function ProjectSidebar() {
     [config?.workflows, activeWorkspace]
   )
 
-  const projectTerminals = useMemo(() => {
-    const map = new Map<string, SidebarSessionInfo[]>()
+  const {
+    projectTerminals,
+    worktreeSessions,
+    mainRepoSessions,
+    worktreeSessionCounts,
+    mainRepoSessionCounts
+  } = useMemo(() => {
+    const byProject = new Map<string, SidebarSessionInfo[]>()
+    const byWorktree = new Map<string, SidebarSessionInfo[]>()
+    const byMainRepo = new Map<string, SidebarSessionInfo[]>()
+    const wtCounts = new Map<string, number>()
+    const mainCounts = new Map<string, number>()
+
     for (const [id, t] of terminals) {
       const pName = t.session.projectName
-      if (!map.has(pName)) map.set(pName, [])
-      map.get(pName)!.push({
+      const info: SidebarSessionInfo = {
         id,
         name: getDisplayName(t.session),
         status: t.status,
         agentType: t.session.agentType,
         branch: t.session.branch,
-        isWorktree: t.session.isWorktree
-      })
-    }
-    return map
-  }, [terminals])
+        isWorktree: t.session.isWorktree,
+        worktreePath: t.session.worktreePath
+      }
 
-  const { worktreeSessionCounts, mainRepoSessionCounts } = useMemo(() => {
-    const wtCounts = new Map<string, number>()
-    const mainCounts = new Map<string, number>()
-    for (const [, t] of terminals) {
+      if (!byProject.has(pName)) byProject.set(pName, [])
+      byProject.get(pName)!.push(info)
+
       if (t.session.worktreePath) {
+        if (!byWorktree.has(t.session.worktreePath)) byWorktree.set(t.session.worktreePath, [])
+        byWorktree.get(t.session.worktreePath)!.push(info)
         wtCounts.set(t.session.worktreePath, (wtCounts.get(t.session.worktreePath) || 0) + 1)
       } else {
-        const pName = t.session.projectName
+        if (!byMainRepo.has(pName)) byMainRepo.set(pName, [])
+        byMainRepo.get(pName)!.push(info)
         mainCounts.set(pName, (mainCounts.get(pName) || 0) + 1)
       }
     }
-    return { worktreeSessionCounts: wtCounts, mainRepoSessionCounts: mainCounts }
+
+    return {
+      projectTerminals: byProject,
+      worktreeSessions: byWorktree,
+      mainRepoSessions: byMainRepo,
+      worktreeSessionCounts: wtCounts,
+      mainRepoSessionCounts: mainCounts
+    }
   }, [terminals])
 
   const workspaceTerminalCount = useMemo(() => {
@@ -112,6 +129,8 @@ export function ProjectSidebar() {
           worktreeSessionCounts={worktreeSessionCounts}
           mainRepoSessionCounts={mainRepoSessionCounts}
           workspaceTerminalCount={workspaceTerminalCount}
+          worktreeSessions={worktreeSessions}
+          mainRepoSessions={mainRepoSessions}
         />
 
         <WorkflowsSection isCollapsed={isCollapsed} workspaceWorkflows={workspaceWorkflows} />
