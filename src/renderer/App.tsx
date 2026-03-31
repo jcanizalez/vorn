@@ -367,7 +367,7 @@ export function App() {
         {/* Top bar */}
         <div
           className={`titlebar-drag shrink-0 border-b border-white/[0.06]
-                        flex items-center ${isMobile ? 'px-2' : 'px-3'} h-[52px]`}
+                        flex items-center ${isMobile ? 'px-2 justify-between' : 'px-3'} h-[52px]`}
           style={!isSidebarOpen && !isWeb && !isMobile ? { paddingLeft: '80px' } : undefined}
         >
           <div className={`flex items-center titlebar-no-drag ${isMobile ? 'gap-2.5' : 'gap-1'}`}>

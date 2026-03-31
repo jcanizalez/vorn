@@ -30,6 +30,8 @@ export function BranchPicker({
 
   useEffect(() => {
     setLoadingLocal(true)
+    setRemoteBranches([])
+    setFilter('')
     window.api
       .listBranches(projectPath)
       .then((result) => setLocalBranches(result.local))
@@ -38,11 +40,18 @@ export function BranchPicker({
   }, [projectPath])
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
+    const handleMouseDown = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) onClose()
     }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('mousedown', handleMouseDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleMouseDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
   }, [onClose])
 
   useEffect(() => {
