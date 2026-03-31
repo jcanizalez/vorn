@@ -89,7 +89,7 @@ const LAUNCHER_PICKERS = [
 
 function CopyBtn({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
-  const timerRef = useRef<ReturnType<typeof setTimeout>>()
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   const copy = () => {
     navigator.clipboard.writeText(text)
