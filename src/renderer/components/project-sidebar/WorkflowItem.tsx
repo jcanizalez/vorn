@@ -2,7 +2,7 @@ import type { WorkflowDefinition } from '../../../shared/types'
 import { ICON_MAP } from './icon-map'
 import { WorkflowContextMenu } from './WorkflowContextMenu'
 import { useAppStore } from '../../stores'
-import { getActionCount, isScheduledWorkflow, getTriggerLabel } from '../../lib/workflow-helpers'
+import { isScheduledWorkflow } from '../../lib/workflow-helpers'
 import { executeWorkflow } from '../../lib/workflow-execution'
 import { Clock, Zap, Play, MoreHorizontal } from 'lucide-react'
 
@@ -22,24 +22,25 @@ export function WorkflowItem({
   const setEditingWorkflowId = useAppStore((s) => s.setEditingWorkflowId)
   const setWorkflowEditorOpen = useAppStore((s) => s.setWorkflowEditorOpen)
   const removeWorkflow = useAppStore((s) => s.removeWorkflow)
+  const updateWorkflow = useAppStore((s) => s.updateWorkflow)
 
   const wf = workflow
   const WfIcon = ICON_MAP[wf.icon] || Zap
   const isScheduled = isScheduledWorkflow(wf)
   const isDisabled = isScheduled && !wf.enabled
-  const scheduleLabel = getTriggerLabel(wf)
-  const actionCount = getActionCount(wf)
+
+  const handleEdit = () => {
+    setEditingWorkflowId(wf.id)
+    setWorkflowEditorOpen(true)
+  }
 
   return (
     <div className={`group relative flex items-center ${isDisabled ? 'opacity-40' : ''}`}>
       <button
-        onClick={() => {
-          setEditingWorkflowId(wf.id)
-          setWorkflowEditorOpen(true)
-        }}
+        onClick={handleEdit}
         className={`flex-1 text-left px-2.5 py-1.5 rounded-md text-[13px] transition-colors
                    flex items-center gap-2 text-gray-300 hover:text-white hover:bg-white/[0.04]
-                   ${isCollapsed ? 'justify-center px-0' : ''}`}
+                   min-w-0 ${isCollapsed ? 'justify-center px-0' : ''}`}
         title={isCollapsed ? wf.name : undefined}
       >
         <span className="relative shrink-0">
@@ -52,17 +53,10 @@ export function WorkflowItem({
             />
           )}
         </span>
-        {!isCollapsed && (
-          <>
-            <span className="truncate">{wf.name}</span>
-            <span className="text-gray-600 text-[10px] ml-auto shrink-0">
-              {scheduleLabel || actionCount}
-            </span>
-          </>
-        )}
+        {!isCollapsed && <span className="truncate">{wf.name}</span>}
       </button>
       {!isCollapsed && (
-        <div className="flex items-center">
+        <div className="flex items-center shrink-0">
           {!isScheduled && (
             <button
               onClick={() => executeWorkflow(wf)}
@@ -83,15 +77,17 @@ export function WorkflowItem({
             </button>
             {openMenuId === wf.id && (
               <WorkflowContextMenu
-                onEdit={() => {
-                  setEditingWorkflowId(wf.id)
-                  setWorkflowEditorOpen(true)
-                }}
+                onEdit={handleEdit}
                 onDelete={() => removeWorkflow(wf.id)}
+                onChangeIcon={(icon, color) => {
+                  updateWorkflow(wf.id, { ...wf, icon, iconColor: color })
+                }}
                 isScheduled={isScheduled}
                 isEnabled={wf.enabled}
+                currentIcon={wf.icon}
+                currentColor={wf.iconColor || '#3b82f6'}
                 onToggleEnabled={() => {
-                  useAppStore.getState().updateWorkflow(wf.id, { ...wf, enabled: !wf.enabled })
+                  updateWorkflow(wf.id, { ...wf, enabled: !wf.enabled })
                 }}
                 onClose={() => setOpenMenuId(null)}
               />

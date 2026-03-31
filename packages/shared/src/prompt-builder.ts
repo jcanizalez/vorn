@@ -1,4 +1,4 @@
-import { TaskConfig, ProjectConfig, TaskStatus } from './types'
+import { TaskConfig, ProjectConfig, TaskStatus, WorkflowDefinition } from './types'
 
 export interface TaskPromptContext {
   task: TaskConfig
@@ -7,6 +7,12 @@ export interface TaskPromptContext {
   siblingTasks?: TaskConfig[]
   /** Current git branch (if known at launch time) */
   currentBranch?: string
+}
+
+export interface WorkflowPromptContext {
+  workflow: WorkflowDefinition
+  stepName: string
+  userPrompt: string
 }
 
 /**
@@ -100,6 +106,40 @@ export function buildTaskPrompt(ctx: TaskPromptContext): string {
   lines.push(
     'When you complete this task, update its status to "in_review" or "done" using `update_task`.'
   )
+  lines.push('')
+
+  return lines.join('\n')
+}
+
+/**
+ * Wraps a user prompt with workflow context so the agent knows which
+ * workflow and step it belongs to, and can use MCP tools to check
+ * previous run logs.
+ */
+export function buildWorkflowPrompt(ctx: WorkflowPromptContext): string {
+  const { workflow, stepName, userPrompt } = ctx
+  const lines: string[] = []
+
+  lines.push(`# Workflow: ${workflow.name}`)
+  lines.push('')
+  lines.push(`**Step:** ${stepName}`)
+  lines.push(`**Workflow ID:** ${workflow.id}`)
+  lines.push('')
+
+  lines.push('## Task')
+  lines.push('')
+  lines.push(userPrompt)
+  lines.push('')
+
+  lines.push('## Available Tools')
+  lines.push('')
+  lines.push('You are managed by VibeGrid. You have access to MCP tools:')
+  lines.push('- `get_my_context` — Get your current project context')
+  lines.push(
+    `- \`list_workflow_runs\` — See previous runs for this workflow (workflow_id: "${workflow.id}")`
+  )
+  lines.push('- `list_tasks` — List tasks in this project')
+  lines.push('- `update_task` — Update task status when done')
   lines.push('')
 
   return lines.join('\n')

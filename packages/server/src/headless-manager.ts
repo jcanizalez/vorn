@@ -93,7 +93,10 @@ class HeadlessManager extends EventEmitter {
       worktreeName,
       isWorktree: !!worktreePath,
       status: 'running',
-      startedAt: Date.now()
+      startedAt: Date.now(),
+      ...(payload.workflowId != null && { workflowId: payload.workflowId }),
+      ...(payload.workflowName != null && { workflowName: payload.workflowName }),
+      ...(payload.taskId != null && { taskId: payload.taskId })
     }
     this.sessions.set(id, session)
 

@@ -13,6 +13,7 @@ import {
   Server,
   Terminal
 } from 'lucide-react'
+import { Tooltip } from '../../Tooltip'
 import {
   LaunchAgentConfig,
   TriggerConfig,
@@ -324,7 +325,13 @@ export function LaunchAgentConfigForm({
                 const disabled =
                   (key === 'new' && !hasBranch) ||
                   (key === 'fromStep' && priorWorktreeSteps.length === 0)
-                return (
+                const disabledReason =
+                  key === 'new' && !hasBranch
+                    ? 'Enter a branch name first'
+                    : key === 'fromStep' && priorWorktreeSteps.length === 0
+                      ? 'No prior worktree steps in this workflow'
+                      : undefined
+                const btn = (
                   <button
                     key={key}
                     onClick={() => {
@@ -351,6 +358,13 @@ export function LaunchAgentConfigForm({
                     {Icon && <Icon size={12} />}
                     {label}
                   </button>
+                )
+                return disabledReason ? (
+                  <Tooltip key={key} label={disabledReason} position="top" delay={200}>
+                    {btn}
+                  </Tooltip>
+                ) : (
+                  btn
                 )
               })}
             </div>

@@ -428,6 +428,9 @@ export interface CreateTerminalPayload {
   headless?: boolean
   /** Task ID — when set, the main process writes a .vibegrid/context.md file before agent spawn */
   taskId?: string
+  /** Workflow metadata — for tagging headless sessions launched by workflows */
+  workflowId?: string
+  workflowName?: string
   /** Per-invocation arg overrides (replaces settings-level args when set) */
   args?: string[]
   /** Transient: decrypted private key content for stored-key auth. Never persisted. */
@@ -451,6 +454,11 @@ export interface HeadlessSession {
   exitCode?: number
   startedAt: number
   endedAt?: number
+  /** Workflow that launched this session */
+  workflowId?: string
+  workflowName?: string
+  /** Task this session is working on */
+  taskId?: string
 }
 
 export interface ResizePayload {

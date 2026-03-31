@@ -187,6 +187,7 @@ function createSchema(): void {
       agent_type TEXT PRIMARY KEY,
       command TEXT NOT NULL,
       args TEXT NOT NULL DEFAULT '[]',
+      headless_args TEXT,
       fallback_command TEXT,
       fallback_args TEXT
     );
@@ -447,6 +448,22 @@ function migrateSchema(d: Database.Database): void {
     })()
     log.info('[database] migrated schema to version 4 (worktree name)')
   }
+
+  if (version < 5) {
+    d.transaction(() => {
+      const agentCols = d.prepare('PRAGMA table_info(agent_commands)').all() as Array<{
+        name: string
+      }>
+      if (!agentCols.some((c) => c.name === 'headless_args')) {
+        d.exec('ALTER TABLE agent_commands ADD COLUMN headless_args TEXT')
+      }
+
+      d.prepare(
+        "INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('schema_version', '5')"
+      ).run()
+    })()
+    log.info('[database] migrated schema to version 5 (headless args)')
+  }
 }
 
 /**
@@ -484,6 +501,12 @@ function verifySchema(d: Database.Database): void {
         ddl: 'ALTER TABLE sessions ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0'
       },
       { column: 'worktree_name', ddl: 'ALTER TABLE sessions ADD COLUMN worktree_name TEXT' }
+    ],
+    agent_commands: [
+      {
+        column: 'headless_args',
+        ddl: 'ALTER TABLE agent_commands ADD COLUMN headless_args TEXT'
+      }
     ]
   }
 
@@ -621,6 +644,7 @@ function loadAgentCommands(d: Database.Database): Partial<Record<AgentType, Agen
     agent_type: string
     command: string
     args: string
+    headless_args: string | null
     fallback_command: string | null
     fallback_args: string | null
   }>
@@ -629,6 +653,7 @@ function loadAgentCommands(d: Database.Database): Partial<Record<AgentType, Agen
     result[r.agent_type as AgentType] = {
       command: r.command,
       args: JSON.parse(r.args),
+      ...(r.headless_args != null && { headlessArgs: JSON.parse(r.headless_args) }),
       ...(r.fallback_command != null && { fallbackCommand: r.fallback_command }),
       ...(r.fallback_args != null && { fallbackArgs: JSON.parse(r.fallback_args) })
     }
@@ -753,7 +778,7 @@ export function saveConfig(config: AppConfig): void {
     // Agent commands
     d.prepare('DELETE FROM agent_commands').run()
     const insertAgent = d.prepare(
-      'INSERT INTO agent_commands (agent_type, command, args, fallback_command, fallback_args) VALUES (?, ?, ?, ?, ?)'
+      'INSERT INTO agent_commands (agent_type, command, args, headless_args, fallback_command, fallback_args) VALUES (?, ?, ?, ?, ?, ?)'
     )
     if (config.agentCommands) {
       for (const [agentType, cmd] of Object.entries(config.agentCommands)) {
@@ -762,6 +787,7 @@ export function saveConfig(config: AppConfig): void {
             agentType,
             cmd.command,
             JSON.stringify(cmd.args),
+            cmd.headlessArgs ? JSON.stringify(cmd.headlessArgs) : null,
             cmd.fallbackCommand ?? null,
             cmd.fallbackArgs ? JSON.stringify(cmd.fallbackArgs) : null
           )
