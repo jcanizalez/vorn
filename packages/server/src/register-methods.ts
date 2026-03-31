@@ -168,10 +168,12 @@ export function registerAllMethods(): void {
     ptyManager.renameSession(id, displayName)
     logSessionEvent(id, 'renamed', { displayName })
     sessionManager.scheduleSave()
+    broadcastWidgetUpdate()
   })
   registerMethod('terminal:reorder', (ids) => {
     ptyManager.reorderSessions(ids)
     sessionManager.scheduleSave()
+    broadcastWidgetUpdate()
   })
   registerMethod('terminal:readOutput', ({ id, lines }) => ptyManager.getOutput(id, lines))
   registerMethod('shell:create', (cwd) => ptyManager.createShellPty(cwd))
@@ -503,6 +505,7 @@ export function registerAllMethods(): void {
     }
 
     sessionManager.scheduleSave()
+    broadcastWidgetUpdate()
   })
 
   // Clean up Copilot hooks on session exit
@@ -514,6 +517,7 @@ export function registerAllMethods(): void {
     }
 
     sessionManager.scheduleSave()
+    broadcastWidgetUpdate()
   })
 
   // Start hook server
