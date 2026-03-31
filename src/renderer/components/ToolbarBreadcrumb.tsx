@@ -41,7 +41,7 @@ export function ToolbarBreadcrumb() {
       try {
         const result = await window.api.checkoutBranch(branchCwd, branch)
         if (result.ok) {
-          loadWorktrees(projectPath)
+          loadWorktrees(projectPath, true)
         } else {
           toast.error(result.error || `Failed to checkout '${branch}'`)
         }

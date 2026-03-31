@@ -190,7 +190,7 @@ export function ProjectItem({
                         if (!isExpanded) {
                           toggleExpanded()
                         } else {
-                          loadWorktrees(project.path)
+                          loadWorktrees(project.path, true)
                         }
                       } catch {
                         toast.error('Failed to create worktree')
@@ -334,7 +334,7 @@ export function ProjectItem({
                       setActiveProject(project.name)
                       setActiveWorktreePath(activeWorktreePath === wt.path ? null : wt.path)
                     }}
-                    onWorktreesChanged={() => loadWorktrees(project.path)}
+                    onWorktreesChanged={() => loadWorktrees(project.path, true)}
                     sessionsExpanded={showSessions ? !collapsedBranches.has(wt.path) : undefined}
                     onToggleSessionsExpanded={
                       showSessions ? () => toggleBranchCollapsed(wt.path) : undefined

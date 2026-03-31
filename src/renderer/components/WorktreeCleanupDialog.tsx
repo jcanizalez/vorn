@@ -114,7 +114,7 @@ export function WorktreeCleanupDialog() {
       const force = dirtyState === 'dirty' || dirtyState === 'unknown'
       const removed = await window.api.removeWorktree(activeProjectPath, activePath, force)
       if (removed) {
-        useAppStore.getState().loadWorktrees(activeProjectPath)
+        useAppStore.getState().loadWorktrees(activeProjectPath, true)
         handleClose()
       } else {
         setRemoveError(true)
