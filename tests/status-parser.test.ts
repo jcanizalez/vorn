@@ -1,10 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { createStatusContext, analyzeOutput } from '../src/renderer/lib/status-parser'
+import { createStatusContext, analyzeOutput } from '../packages/server/src/status-parser'
 
 describe('createStatusContext', () => {
-  it('creates context with running status and empty buffer', () => {
+  it('creates context with empty buffer', () => {
     const ctx = createStatusContext()
-    expect(ctx.currentStatus).toBe('running')
     expect(ctx.outputBuffer).toBe('')
     expect(ctx.lastOutputTime).toBeGreaterThan(0)
   })
