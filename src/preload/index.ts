@@ -19,7 +19,8 @@ import {
   SSHKeyMeta,
   RemoteHost,
   TailscaleStatus,
-  SessionLog
+  SessionLog,
+  FileEntry
 } from '../shared/types'
 
 const api = {
@@ -166,6 +167,12 @@ const api = {
     ipcRenderer.invoke(IPC.GIT_COMMIT, payload),
 
   gitPush: (cwd: string): Promise<GitCommitResult> => ipcRenderer.invoke(IPC.GIT_PUSH, cwd),
+
+  // File explorer
+  listDir: (dirPath: string): Promise<FileEntry[]> =>
+    ipcRenderer.invoke(IPC.FILE_LIST_DIR, dirPath),
+  readFileContent: (filePath: string, maxBytes?: number): Promise<string | null> =>
+    ipcRenderer.invoke(IPC.FILE_READ_CONTENT, { filePath, maxBytes }),
 
   // Task images
   openImageDialog: (): Promise<string[] | null> => ipcRenderer.invoke(IPC.DIALOG_OPEN_IMAGE),

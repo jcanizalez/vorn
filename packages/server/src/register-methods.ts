@@ -25,6 +25,7 @@ import {
   SessionEventType
 } from '@vibegrid/shared/types'
 import * as gitUtils from './git-utils'
+import { listDir, readFileContent } from './file-utils'
 import {
   saveTaskImage,
   saveTaskImageFromBase64,
@@ -350,6 +351,12 @@ export function registerAllMethods(): void {
   registerMethod('credential:listKeys', () => dbListSSHKeys())
   registerMethod('credential:deleteKey', (id) => dbDeleteSSHKey(id))
   registerMethod('credential:getEncryptedKey', (id) => dbGetSSHKey(id))
+
+  // File explorer
+  registerMethod('file:listDir', (dirPath) => listDir(dirPath))
+  registerMethod('file:readContent', ({ filePath, maxBytes }) =>
+    readFileContent(filePath, maxBytes)
+  )
 
   // SSH
   registerMethod('ssh:testConnection', (host) => testSshConnection(host))

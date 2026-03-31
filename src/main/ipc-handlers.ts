@@ -152,6 +152,12 @@ export function registerIpcHandlers(): void {
   // ─── Credential vault (requires safeStorage in main process) ───
   registerCredentialHandlers(requireBridge())
 
+  // File explorer
+  safeHandle(IPC.FILE_LIST_DIR, (_, dirPath) => requireBridge().request(IPC.FILE_LIST_DIR, dirPath))
+  safeHandle(IPC.FILE_READ_CONTENT, (_, params) =>
+    requireBridge().request(IPC.FILE_READ_CONTENT, params)
+  )
+
   // Tailscale
   safeHandle(IPC.TAILSCALE_STATUS, () => requireBridge().request(IPC.TAILSCALE_STATUS))
 

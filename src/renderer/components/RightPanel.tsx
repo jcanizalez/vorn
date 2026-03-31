@@ -2,13 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAppStore } from '../stores'
 import { GitDiffResult } from '../../shared/types'
 import { PanelTab } from '../stores/types'
-import {
-  DiffFileList,
-  DiffContent,
-  STATUS_ICONS,
-  DiffComment,
-  formatReviewFeedback
-} from './DiffSidebar'
+import { DiffFileList, DiffContent, DiffComment, formatReviewFeedback } from './DiffSidebar'
 import { CommitDialog } from './CommitDialog'
 import {
   X,
@@ -19,14 +13,16 @@ import {
   Send,
   Maximize2,
   Minimize2,
-  CircleDashed
+  GitBranch,
+  FolderGit2
 } from 'lucide-react'
+import { ProjectIcon } from './project-sidebar/ProjectIcon'
+import { FileTreeExplorer } from './FileTreeExplorer'
 
-const TABS: PanelTab[] = ['all-files', 'changes', 'checks']
+const TABS: PanelTab[] = ['all-files', 'changes']
 const TAB_LABELS: Record<PanelTab, string> = {
   'all-files': 'All files',
-  changes: 'Changes',
-  checks: 'Checks'
+  changes: 'Changes'
 }
 
 export function RightPanel() {
@@ -40,6 +36,10 @@ export function RightPanel() {
   const setMaximized = useAppStore((s) => s.setDiffPanelMaximized)
   const panelWidth = useAppStore((s) => s.diffPanelWidth)
   const setPanelWidth = useAppStore((s) => s.setDiffPanelWidth)
+  const activeProject = useAppStore((s) => s.activeProject)
+  const projectConfig = useAppStore((s) =>
+    s.activeProject ? s.config?.projects?.find((p) => p.name === s.activeProject) : undefined
+  )
 
   const [diffResult, setDiffResult] = useState<GitDiffResult | null>(null)
   const [loading, setLoading] = useState(false)
@@ -161,11 +161,6 @@ export function RightPanel() {
     document.addEventListener('pointerup', onUp)
   }
 
-  const handleFileClick = (filePath: string): void => {
-    setSelectedFile(filePath)
-    setActiveTab('changes')
-  }
-
   const computedWidth = isMaximized ? 'calc(100% - 48px)' : panelWidth
 
   return (
@@ -179,6 +174,36 @@ export function RightPanel() {
           className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500/30 transition-colors z-10"
           onPointerDown={handleResizeStart}
         />
+
+        {/* Context header */}
+        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-white/[0.06] shrink-0 text-[11px] text-gray-500 overflow-hidden">
+          {activeProject && (
+            <span className="flex items-center gap-1 shrink-0">
+              <ProjectIcon icon={projectConfig?.icon} color={projectConfig?.iconColor} size={11} />
+              <span className="truncate max-w-[100px]">{activeProject}</span>
+            </span>
+          )}
+          {terminal.session.worktreeName && (
+            <>
+              {activeProject && <span className="text-gray-700">/</span>}
+              <span className="flex items-center gap-1 shrink-0">
+                <FolderGit2 size={11} strokeWidth={1.5} className="text-amber-500" />
+                <span className="truncate max-w-[100px]">{terminal.session.worktreeName}</span>
+              </span>
+            </>
+          )}
+          {terminal.session.branch && (
+            <>
+              {(activeProject || terminal.session.worktreeName) && (
+                <span className="text-gray-700">/</span>
+              )}
+              <span className="flex items-center gap-1 min-w-0">
+                <GitBranch size={11} strokeWidth={1.5} className="text-gray-600 shrink-0" />
+                <span className="truncate">{terminal.session.branch}</span>
+              </span>
+            </>
+          )}
+        </div>
 
         {/* Tab bar */}
         <div className="flex items-center h-[36px] px-2 gap-0.5 border-b border-white/[0.06] shrink-0">
@@ -296,15 +321,7 @@ export function RightPanel() {
           />
         )}
 
-        {activeTab === 'all-files' && (
-          <AllFilesTabContent
-            loading={loading}
-            diffResult={diffResult}
-            onFileClick={handleFileClick}
-          />
-        )}
-
-        {activeTab === 'checks' && <ChecksTabContent />}
+        {activeTab === 'all-files' && <FileTreeExplorer key={cwd} cwd={cwd} />}
       </div>
 
       {showCommitDialog && (
@@ -375,66 +392,5 @@ function ChangesTabContent({
 
   return (
     <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">No changes</div>
-  )
-}
-
-function AllFilesTabContent({
-  loading,
-  diffResult,
-  onFileClick
-}: {
-  loading: boolean
-  diffResult: GitDiffResult | null
-  onFileClick: (path: string) => void
-}) {
-  if (loading && !diffResult) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <Loader2 size={20} className="text-gray-500 animate-spin" />
-      </div>
-    )
-  }
-
-  if (!diffResult || diffResult.files.length === 0) {
-    return (
-      <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
-        No changed files
-      </div>
-    )
-  }
-
-  return (
-    <div className="flex-1 overflow-y-auto">
-      {diffResult.files.map((file) => {
-        const meta = STATUS_ICONS[file.status] || STATUS_ICONS.modified
-        const Icon = meta.icon
-        return (
-          <button
-            key={file.filePath}
-            onClick={() => onFileClick(file.filePath)}
-            className="w-full flex items-center gap-2 px-3 py-2 text-left text-[12px] hover:bg-white/[0.04] transition-colors"
-          >
-            <Icon size={13} className={`${meta.color} shrink-0`} strokeWidth={1.5} />
-            <span className="flex-1 min-w-0 truncate text-gray-300 font-mono">{file.filePath}</span>
-            <span className="shrink-0 flex items-center gap-1.5 text-[11px] font-mono">
-              {file.insertions > 0 && <span className="text-green-400">+{file.insertions}</span>}
-              {file.deletions > 0 && <span className="text-red-400">-{file.deletions}</span>}
-            </span>
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-function ChecksTabContent() {
-  return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-2 text-gray-500 px-6">
-      <CircleDashed size={24} strokeWidth={1.5} className="text-gray-600" />
-      <span className="text-sm">No checks configured</span>
-      <span className="text-[11px] text-gray-600 text-center">
-        Checks for linting, tests, and CI status will appear here.
-      </span>
-    </div>
   )
 }
