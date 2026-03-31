@@ -81,19 +81,21 @@ describe('SessionItem', () => {
     expect(screen.queryByText('main')).not.toBeInTheDocument()
   })
 
-  it('renders status label text', () => {
-    render(<SessionItem session={session} />)
-    expect(screen.getByText('Running')).toBeInTheDocument()
+  it.each([
+    ['running', 'bg-green-400'],
+    ['waiting', 'bg-yellow-400'],
+    ['idle', 'bg-gray-500'],
+    ['error', 'bg-red-500']
+  ] as const)('renders "%s" status as badge dot', (status, colorClass) => {
+    const s: SidebarSessionInfo = { ...session, status }
+    const { container } = render(<SessionItem session={s} />)
+    const badge = container.querySelector(`.${colorClass.replace('/', '\\/')}`)
+    expect(badge).toBeInTheDocument()
   })
 
-  it.each([
-    ['running', 'Running'],
-    ['waiting', 'Waiting'],
-    ['idle', 'Idle'],
-    ['error', 'Error']
-  ] as const)('renders "%s" status as "%s"', (status, label) => {
-    const s: SidebarSessionInfo = { ...session, status }
-    render(<SessionItem session={s} />)
-    expect(screen.getByText(label)).toBeInTheDocument()
+  it('renders close button', () => {
+    const { container } = render(<SessionItem session={session} />)
+    const closeBtn = container.querySelector('button[type="button"]')
+    expect(closeBtn).toBeInTheDocument()
   })
 })

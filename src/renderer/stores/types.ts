@@ -195,7 +195,7 @@ export interface UISlice {
   archiveSession: (id: string) => Promise<void>
   unarchiveSession: (id: string) => Promise<void>
   worktreeCache: Map<string, WorktreeInfo[]>
-  loadWorktrees: (projectPath: string) => Promise<void>
+  loadWorktrees: (projectPath: string, force?: boolean) => Promise<void>
   sidebarProjectSort: ProjectSortMode
   sidebarWorktreeSort: WorktreeSortMode
   sidebarWorktreeFilter: WorktreeFilter

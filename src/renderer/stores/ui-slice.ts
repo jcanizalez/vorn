@@ -311,9 +311,11 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   },
 
   worktreeCache: new Map(),
-  loadWorktrees: async (projectPath) => {
-    const lastLoaded = worktreeCacheTimestamps.get(projectPath)
-    if (lastLoaded && Date.now() - lastLoaded < WORKTREE_CACHE_TTL) return
+  loadWorktrees: async (projectPath, force) => {
+    if (!force) {
+      const lastLoaded = worktreeCacheTimestamps.get(projectPath)
+      if (lastLoaded && Date.now() - lastLoaded < WORKTREE_CACHE_TTL) return
+    }
     worktreeCacheTimestamps.set(projectPath, Date.now())
 
     try {
