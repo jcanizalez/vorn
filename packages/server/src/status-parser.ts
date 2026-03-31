@@ -32,7 +32,7 @@ const ERROR_PATTERNS = [
   /EACCES/
 ]
 
-import { AgentStatus } from '@vibegrid/shared/types'
+import type { AgentStatus } from '@vibegrid/shared/types'
 
 export function analyzeOutput(ctx: StatusContext, newData: string): AgentStatus {
   ctx.lastOutputTime = Date.now()
