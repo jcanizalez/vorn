@@ -222,10 +222,11 @@ function getLang(name: string): string | undefined {
 
 type TokenLine = { content: string; color?: string }[]
 
-let highlighterPromise: Promise<import('shiki').HighlighterGeneric<string, string>> | null = null
+type Highlighter = Awaited<ReturnType<typeof import('shiki').createHighlighter>>
+let highlighterPromise: Promise<Highlighter> | null = null
 const loadedLangs = new Set<string>()
 
-function getHighlighter() {
+function getHighlighter(): Promise<Highlighter> {
   if (!highlighterPromise) {
     highlighterPromise = import('shiki').then((m) =>
       m.createHighlighter({
