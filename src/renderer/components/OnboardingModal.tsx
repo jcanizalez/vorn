@@ -202,8 +202,8 @@ function StepAgents() {
               <div className="w-7 h-7 rounded-md flex items-center justify-center shrink-0 bg-white/[0.03] opacity-40">
                 <AgentIcon agentType={a.type} size={14} />
               </div>
-              <span className="text-sm text-gray-500 flex-1">{a.displayName}</span>
-              <code className="text-[10px] text-gray-600 font-mono">
+              <span className="text-sm text-gray-500 flex-1 min-w-0">{a.displayName}</span>
+              <code className="text-[10px] text-gray-600 font-mono overflow-x-auto whitespace-nowrap max-w-[180px]">
                 {AGENT_DEFINITIONS[a.type].installCommand}
               </code>
             </div>
@@ -641,6 +641,8 @@ function StepReady() {
   )
 }
 
+const StepFallback: React.FC = () => null
+
 const STEP_CONTENT: Record<string, React.FC> = {
   agents: StepAgents,
   projects: StepProjects,
@@ -663,7 +665,7 @@ export function OnboardingModal() {
 
   const step = ONBOARDING_STEPS[currentStep]
   const StepIcon = STEP_ICONS[step.icon]
-  const StepBody = STEP_CONTENT[step.id]
+  const StepBody = STEP_CONTENT[step.id] ?? StepFallback
   const isLast = currentStep === ONBOARDING_STEPS.length - 1
 
   const close = useCallback(() => {
