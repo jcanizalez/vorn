@@ -5,6 +5,7 @@ import type {
   AppConfig,
   ArchivedSession,
   ResizePayload,
+  FileEntry,
   GitDiffStat,
   GitDiffResult,
   WorkflowExecution,
@@ -184,6 +185,10 @@ export interface RequestMethods {
   'credential:listKeys': { params: void; result: SSHKeyMeta[] }
   'credential:deleteKey': { params: string; result: void }
   'credential:getEncryptedKey': { params: string; result: SSHKey | null }
+
+  // File explorer
+  'file:listDir': { params: string; result: FileEntry[] }
+  'file:readContent': { params: { filePath: string; maxBytes?: number }; result: string | null }
 }
 
 // ─── Server Notifications (server → client, push events) ────────

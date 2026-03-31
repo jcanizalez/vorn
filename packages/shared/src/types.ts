@@ -459,6 +459,12 @@ export interface ResizePayload {
   rows: number
 }
 
+export interface FileEntry {
+  name: string
+  path: string
+  isDirectory: boolean
+}
+
 export interface GitDiffStat {
   filesChanged: number
   insertions: number
@@ -580,7 +586,9 @@ export const IPC = {
   CREDENTIAL_ENCRYPT: 'credential:encrypt',
   CREDENTIAL_SAFE_STORAGE_AVAILABLE: 'credential:safeStorageAvailable',
   SSH_TEST_CONNECTION: 'ssh:testConnection',
-  OPEN_EXTERNAL: 'shell:openExternal'
+  OPEN_EXTERNAL: 'shell:openExternal',
+  FILE_LIST_DIR: 'file:listDir',
+  FILE_READ_CONTENT: 'file:readContent'
 } as const
 
 export interface PermissionSuggestion {
