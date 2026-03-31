@@ -277,7 +277,7 @@ class PtyManager extends EventEmitter {
 
     // Build remote command: cd to project path then launch agent
     const agentLine = this.buildAgentLaunchLine(payload)
-    const remoteCmd = `cd ${shellEscape(payload.projectPath)} && ${agentLine}`
+    const remoteCmd = `cd ${shellEscape(payload.projectPath, 'posix')} && ${agentLine}`
 
     // Write SSH command after local shell is ready
     setTimeout(() => {

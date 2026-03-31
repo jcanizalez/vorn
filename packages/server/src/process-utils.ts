@@ -34,10 +34,10 @@ export function getDefaultShell(): string {
   return process.env.SHELL || '/bin/zsh'
 }
 
-export function shellEscape(s: string): string {
+export function shellEscape(s: string, flavor: 'auto' | 'posix' = 'auto'): string {
   // Skip quoting for simple safe strings (flags, paths without spaces, etc.)
   if (/^[a-zA-Z0-9_./:=@%+,-]+$/.test(s)) return s
-  if (process.platform === 'win32') {
+  if (flavor === 'auto' && process.platform === 'win32') {
     // PowerShell: single quotes with '' for inner quotes
     return "'" + s.replace(/'/g, "''") + "'"
   }

@@ -87,10 +87,13 @@ describe('process-utils (server package)', () => {
     expect(shell).toBe('/bin/zsh') // from TEST_ENV
   })
 
-  it('getShellArgs returns login flag on non-Windows', async () => {
+  it('getShellArgs returns platform-appropriate flags', async () => {
     const { getShellArgs } = await import('../packages/server/src/process-utils')
-    // Tests run on macOS/Linux, so expect login shell flag
-    expect(getShellArgs()).toEqual(['-l'])
+    if (process.platform === 'win32') {
+      expect(getShellArgs()).toEqual([])
+    } else {
+      expect(getShellArgs()).toEqual(['-l'])
+    }
   })
 
   describe('testSshConnection', () => {
