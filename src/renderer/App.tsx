@@ -213,8 +213,12 @@ export function App() {
     const removeExitListener = window.api.onTerminalExit(({ id }) => {
       const state = useAppStore.getState()
       if (consumePendingTerminalClose(id)) {
-        if (state.terminals.has(id)) {
+        const terminal = state.terminals.get(id)
+        if (terminal) {
           state.removeTerminal(id)
+          if (terminal.session.projectPath) {
+            state.loadWorktrees(terminal.session.projectPath)
+          }
         }
         const assignedTask = (state.config?.tasks || []).find(
           (t) => t.assignedSessionId === id && t.status === 'in_progress'
@@ -285,6 +289,9 @@ export function App() {
       if (existing) {
         if (session.branch && existing.session.branch !== session.branch) {
           store.updateSessionBranch(session.id, session.branch)
+          if (existing.session.projectPath) {
+            store.loadWorktrees(existing.session.projectPath)
+          }
         }
         if (session.displayName && existing.session.displayName !== session.displayName) {
           store.renameTerminal(session.id, session.displayName)
