@@ -139,6 +139,19 @@ export function registerIpcHandlers(): void {
     requireBridge().request(IPC.SESSION_LOG_UPDATE, entry)
   )
 
+  // Session events
+  safeHandle(IPC.SESSION_EVENT_LIST, (_, params) =>
+    requireBridge().request(IPC.SESSION_EVENT_LIST, params ?? {})
+  )
+
+  // Agent usage
+  safeHandle(IPC.AGENT_USAGE_GET_ALL, () => requireBridge().request(IPC.AGENT_USAGE_GET_ALL, {}))
+
+  // Activity feed
+  safeHandle(IPC.ACTIVITY_FEED, (_, params) =>
+    requireBridge().request(IPC.ACTIVITY_FEED, params ?? {})
+  )
+
   // Workflow execution complete
   safeHandle(IPC.WORKFLOW_EXECUTION_COMPLETE, (_, data) =>
     requireBridge().request(IPC.WORKFLOW_EXECUTION_COMPLETE, data)

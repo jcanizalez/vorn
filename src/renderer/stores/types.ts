@@ -12,7 +12,8 @@ import {
   GitDiffStat,
   TaskConfig,
   TaskStatus,
-  ArchivedSession
+  ArchivedSession,
+  MainViewMode
 } from '../../shared/types'
 
 export interface WorktreeInfo {
@@ -131,7 +132,7 @@ export interface UISlice {
   rightPanelTab: PanelTab
   isDiffPanelMaximized: boolean
   diffPanelWidth: number
-  mainViewMode: 'sessions' | 'tasks'
+  mainViewMode: MainViewMode
   selectedTaskId: string | null
   taskStatusFilter: TaskStatusFilter
   isTaskDialogOpen: boolean
@@ -172,7 +173,7 @@ export interface UISlice {
   setRightPanelTab: (tab: PanelTab) => void
   setDiffPanelMaximized: (maximized: boolean) => void
   setDiffPanelWidth: (width: number) => void
-  setMainViewMode: (mode: 'sessions' | 'tasks') => void
+  setMainViewMode: (mode: MainViewMode) => void
   setSelectedTaskId: (id: string | null) => void
   setTaskStatusFilter: (filter: TaskStatusFilter) => void
   setTaskDialogOpen: (open: boolean, defaultStatus?: TaskStatus) => void
@@ -222,4 +223,9 @@ export interface TasksSlice {
   reopenTask: (id: string) => void
 }
 
-export type AppStore = TerminalsSlice & ProjectsSlice & UISlice & TasksSlice
+export interface CommandCenterSlice {
+  ccProjectFilter: string // 'all' or project name
+  setCcProjectFilter: (project: string) => void
+}
+
+export type AppStore = TerminalsSlice & ProjectsSlice & UISlice & TasksSlice & CommandCenterSlice

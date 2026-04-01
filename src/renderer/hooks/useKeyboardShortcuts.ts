@@ -184,6 +184,13 @@ export function useKeyboardShortcuts() {
         return
       }
 
+      // Cmd+D — dashboard
+      if (modKey(e) && !e.shiftKey && e.key.toLowerCase() === 'd') {
+        e.preventDefault()
+        state.setMainViewMode('command-center')
+        return
+      }
+
       // Cmd+J — view options
       if (modKey(e) && !e.shiftKey && e.key.toLowerCase() === 'j' && !_isInputFocused()) {
         e.preventDefault()

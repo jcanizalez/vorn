@@ -1,4 +1,4 @@
-import { Monitor, ListTodo, Settings } from 'lucide-react'
+import { Monitor, ListTodo, LayoutDashboard, Settings } from 'lucide-react'
 import { useAppStore } from '../stores'
 
 interface Props {
@@ -38,6 +38,16 @@ export function MobileBottomTabs({ hidden }: Props) {
       onTap: () => {
         if (isSettingsOpen) setSettingsOpen(false)
         setMainViewMode('tasks')
+      }
+    },
+    {
+      id: 'command-center' as const,
+      label: 'Dashboard',
+      icon: LayoutDashboard,
+      active: mainViewMode === 'command-center' && !isSettingsOpen,
+      onTap: () => {
+        if (isSettingsOpen) setSettingsOpen(false)
+        setMainViewMode('command-center')
       }
     },
     {

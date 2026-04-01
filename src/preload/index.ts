@@ -20,8 +20,19 @@ import {
   RemoteHost,
   TailscaleStatus,
   SessionLog,
+  SessionEvent,
+  SessionEventType,
   FileEntry
 } from '../shared/types'
+
+interface AgentUsageData {
+  agentType: 'claude' | 'codex'
+  session?: { utilization: number; resetsAt: string }
+  weekly?: { utilization: number; resetsAt: string }
+  extraUsage?: { used: number; limit: number; currency: string }
+  lastUpdated: number
+  error?: string
+}
 
 const api = {
   createTerminal: (payload: CreateTerminalPayload) =>
@@ -315,6 +326,16 @@ const api = {
 
   listSessionLogs: (taskId: string): Promise<SessionLog[]> =>
     ipcRenderer.invoke(IPC.SESSION_LOG_LIST, taskId),
+
+  listSessionEvents: (params?: {
+    eventType?: SessionEventType
+    limit?: number
+  }): Promise<SessionEvent[]> => ipcRenderer.invoke(IPC.SESSION_EVENT_LIST, params),
+
+  getAgentUsage: (): Promise<AgentUsageData[]> => ipcRenderer.invoke(IPC.AGENT_USAGE_GET_ALL),
+
+  getActivityFeed: (limit?: number): Promise<SessionEvent[]> =>
+    ipcRenderer.invoke(IPC.ACTIVITY_FEED, { limit }),
 
   reportWorkflowComplete: (data: {
     workflowId: string

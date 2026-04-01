@@ -109,6 +109,14 @@ export const SHORTCUTS: ShortcutDef[] = [
     description: 'Tasks view'
   },
   {
+    id: 'view-command-center',
+    key: 'd',
+    meta: true,
+    display: `${MOD}D`,
+    category: 'view',
+    description: 'Dashboard'
+  },
+  {
     id: 'view-options',
     key: 'j',
     meta: true,

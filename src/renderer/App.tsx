@@ -12,6 +12,11 @@ import { AddProjectDialog } from './components/AddProjectDialog'
 const WorkflowEditor = lazy(() =>
   import('./components/workflow-editor/WorkflowEditor').then((m) => ({ default: m.WorkflowEditor }))
 )
+const CommandCenterView = lazy(() =>
+  import('./components/command-center/CommandCenterView').then((m) => ({
+    default: m.CommandCenterView
+  }))
+)
 import { executeWorkflow as runWorkflow } from './lib/workflow-execution'
 import { CommandPalette } from './components/CommandPalette'
 import { SessionRestoredBanner } from './components/SessionRestoredBanner'
@@ -20,7 +25,7 @@ import { ToolbarBreadcrumb } from './components/ToolbarBreadcrumb'
 import { SettingsPage } from './components/SettingsPage'
 import { RecentSessionsPopover } from './components/RecentSessionsPopover'
 import { Tooltip } from './components/Tooltip'
-import { RotateCcw, Monitor, ListTodo, Plus, Menu } from 'lucide-react'
+import { RotateCcw, Monitor, ListTodo, LayoutDashboard, Plus, Menu } from 'lucide-react'
 import { MobileBottomTabs } from './components/MobileBottomTabs'
 import { TaskToolbar } from './components/TaskToolbar'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
@@ -476,6 +481,22 @@ export function App() {
                       <ListTodo size={14} strokeWidth={2} />
                     </button>
                   </Tooltip>
+                  <Tooltip
+                    label="Dashboard"
+                    shortcut={`${isMac ? '⌘' : 'Ctrl+'}D`}
+                    position="bottom"
+                  >
+                    <button
+                      onClick={() => setMainViewMode('command-center')}
+                      className={`px-2.5 py-1 rounded-md transition-colors ${
+                        mainViewMode === 'command-center'
+                          ? 'bg-white/[0.1] text-white'
+                          : 'text-gray-500 hover:text-gray-300'
+                      }`}
+                    >
+                      <LayoutDashboard size={14} strokeWidth={2} />
+                    </button>
+                  </Tooltip>
                 </div>
               </>
             )}
@@ -486,7 +507,9 @@ export function App() {
             </div>
           )}
           <div className={`flex items-center titlebar-no-drag ${isMobile ? 'gap-1.5' : 'gap-1'}`}>
-            {mainViewMode === 'sessions' ? (
+            {mainViewMode === 'command-center' ? (
+              <>{/* Dashboard has no toolbar actions */}</>
+            ) : mainViewMode === 'sessions' ? (
               <>
                 {!isMobile && <GridToolbar />}
                 {!isMobile && (
@@ -621,7 +644,11 @@ export function App() {
         <UpdateBanner />
         <div className="flex-1 flex min-h-0">
           <div className="flex-1 min-w-0 flex flex-col min-h-0">
-            {mainViewMode === 'tasks' ? (
+            {mainViewMode === 'command-center' ? (
+              <Suspense fallback={null}>
+                <CommandCenterView />
+              </Suspense>
+            ) : mainViewMode === 'tasks' ? (
               <TaskBoardView />
             ) : isMobile ? (
               <MobileSinglePane />

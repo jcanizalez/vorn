@@ -51,9 +51,11 @@ import {
   listSessionLogs,
   insertSessionEvent,
   listSessionEvents,
-  listSessionEventsBySession
+  listSessionEventsBySession,
+  getScheduleLogEntries
 } from './database'
 import { stripAnsi } from './ansi-strip'
+import { getAllAgentUsage } from './agent-usage'
 import { executeScript } from './script-runner'
 import { getTailscaleStatus, clearBinaryCache } from './tailscale'
 import { checkAndRebind } from './server-rebind'
@@ -165,8 +167,16 @@ export function registerAllMethods(): void {
   registerMethod('terminal:kill', (id) => ptyManager.killPty(id))
   registerMethod('terminal:listActive', () => ptyManager.getActiveSessions())
   registerMethod('terminal:rename', ({ id, displayName }) => {
+    const session = ptyManager.getActiveSessions().find((s) => s.id === id)
     ptyManager.renameSession(id, displayName)
-    logSessionEvent(id, 'renamed', { displayName })
+    logSessionEvent(id, 'renamed', {
+      displayName,
+      ...(session && {
+        agentType: session.agentType,
+        projectName: session.projectName,
+        branch: session.branch
+      })
+    })
     sessionManager.scheduleSave()
     broadcastWidgetUpdate()
   })
@@ -320,6 +330,36 @@ export function registerAllMethods(): void {
 
   // Session events
   registerMethod('sessionEvent:list', ({ eventType, limit }) => listSessionEvents(eventType, limit))
+
+  // Unified activity feed: merges session events + schedule log
+  registerMethod('activity:feed', ({ limit }: { limit?: number }) => {
+    const feedLimit = limit ?? 50
+    const sessionEvents = listSessionEvents(undefined, feedLimit)
+    const scheduleEntries = getScheduleLogEntries()
+
+    // Convert schedule entries to a common shape
+    const workflowEvents = scheduleEntries.map((e) => ({
+      id: `wf-${e.workflowId}-${e.executedAt}`,
+      type: 'workflow_run' as const,
+      sessionId: '',
+      eventType: 'workflow_run' as const,
+      timestamp: e.executedAt,
+      metadata: {
+        workflowId: e.workflowId,
+        workflowName: e.workflowName,
+        status: e.status,
+        sessionsLaunched: e.sessionsLaunched,
+        ...(e.error && { error: e.error })
+      }
+    }))
+
+    // Merge and sort by timestamp descending
+    const merged = [...sessionEvents, ...workflowEvents]
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, feedLimit)
+
+    return merged
+  })
   registerMethod('sessionEvent:listBySession', ({ sessionId, limit }) =>
     listSessionEventsBySession(sessionId, limit)
   )
@@ -359,6 +399,9 @@ export function registerAllMethods(): void {
   registerMethod('file:readContent', ({ filePath, maxBytes }) =>
     readFileContent(filePath, maxBytes)
   )
+
+  // Agent usage
+  registerMethod('agentUsage:getAll', () => getAllAgentUsage())
 
   // SSH
   registerMethod('ssh:testConnection', (host) => testSshConnection(host))
@@ -423,7 +466,16 @@ export function registerAllMethods(): void {
     }
     if (channel === IPC.TERMINAL_EXIT) {
       const p = payload as { id: string; exitCode: number }
-      logSessionEvent(p.id, 'exited', { exitCode: p.exitCode })
+      const exitedSession = ptyManager.getActiveSessions().find((s) => s.id === p.id)
+      logSessionEvent(p.id, 'exited', {
+        exitCode: p.exitCode,
+        ...(exitedSession && {
+          agentType: exitedSession.agentType,
+          projectName: exitedSession.projectName,
+          displayName: exitedSession.displayName,
+          branch: exitedSession.branch
+        })
+      })
       if (taskLinkedSessions.has(p.id)) {
         flushAndCleanup(p.id)
         try {
@@ -447,7 +499,16 @@ export function registerAllMethods(): void {
     }
     if (channel === IPC.HEADLESS_EXIT) {
       const p = payload as { id: string; exitCode: number }
-      logSessionEvent(p.id, 'exited', { exitCode: p.exitCode })
+      const exitedHeadless = headlessManager.getActiveSessions().find((s) => s.id === p.id)
+      logSessionEvent(p.id, 'exited', {
+        exitCode: p.exitCode,
+        headless: true,
+        ...(exitedHeadless && {
+          agentType: exitedHeadless.agentType,
+          projectName: exitedHeadless.projectName,
+          displayName: exitedHeadless.displayName
+        })
+      })
       if (taskLinkedSessions.has(p.id)) {
         flushAndCleanup(p.id)
         try {

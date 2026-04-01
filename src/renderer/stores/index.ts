@@ -5,6 +5,7 @@ import { createTerminalsSlice } from './terminals-slice'
 import { createProjectsSlice } from './projects-slice'
 import { createUISlice } from './ui-slice'
 import { createTasksSlice } from './tasks-slice'
+import { createCommandCenterSlice } from './command-center-slice'
 
 export const useAppStore = create<AppStore>()(
   devtools(
@@ -12,7 +13,8 @@ export const useAppStore = create<AppStore>()(
       ...createTerminalsSlice(...a),
       ...createProjectsSlice(...a),
       ...createUISlice(...a),
-      ...createTasksSlice(...a)
+      ...createTasksSlice(...a),
+      ...createCommandCenterSlice(...a)
     }),
     { name: 'VibeGrid' }
   )

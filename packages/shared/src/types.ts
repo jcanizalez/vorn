@@ -129,7 +129,7 @@ export type TaskStatus = 'todo' | 'in_progress' | 'in_review' | 'done' | 'cancel
 
 export type TaskViewMode = 'list' | 'kanban'
 
-export type MainViewMode = 'sessions' | 'tasks'
+export type MainViewMode = 'sessions' | 'tasks' | 'command-center'
 
 export interface TaskConfig {
   id: string
@@ -596,7 +596,9 @@ export const IPC = {
   SSH_TEST_CONNECTION: 'ssh:testConnection',
   OPEN_EXTERNAL: 'shell:openExternal',
   FILE_LIST_DIR: 'file:listDir',
-  FILE_READ_CONTENT: 'file:readContent'
+  FILE_READ_CONTENT: 'file:readContent',
+  AGENT_USAGE_GET_ALL: 'agentUsage:getAll',
+  ACTIVITY_FEED: 'activity:feed'
 } as const
 
 export interface PermissionSuggestion {

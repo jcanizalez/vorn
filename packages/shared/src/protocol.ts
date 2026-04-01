@@ -189,6 +189,31 @@ export interface RequestMethods {
   // File explorer
   'file:listDir': { params: string; result: FileEntry[] }
   'file:readContent': { params: { filePath: string; maxBytes?: number }; result: string | null }
+
+  // Activity feed (unified session events + workflow runs)
+  'activity:feed': {
+    params: { limit?: number }
+    result: Array<{
+      id?: number | string
+      sessionId: string
+      eventType: string
+      timestamp: string
+      metadata?: Record<string, unknown>
+    }>
+  }
+
+  // Agent usage
+  'agentUsage:getAll': {
+    params: Record<string, never>
+    result: Array<{
+      agentType: 'claude' | 'codex'
+      session?: { utilization: number; resetsAt: string }
+      weekly?: { utilization: number; resetsAt: string }
+      extraUsage?: { used: number; limit: number; currency: string }
+      lastUpdated: number
+      error?: string
+    }>
+  }
 }
 
 // ─── Server Notifications (server → client, push events) ────────
