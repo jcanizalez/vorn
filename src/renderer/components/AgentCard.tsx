@@ -302,7 +302,9 @@ export const AgentCard = memo(
 
         {/* Terminal */}
         <div className="relative flex-1 min-h-0" style={{ background: '#141416' }}>
-          {!isFocused && <TerminalInstance terminalId={terminalId} isFocused={isSelected} />}
+          {!isFocused && (
+            <TerminalInstance terminalId={terminalId} isFocused={isSelected && !isRenaming} />
+          )}
           {isFocused && (
             <div className="flex items-center justify-center h-full text-gray-600 text-xs">
               Expanded

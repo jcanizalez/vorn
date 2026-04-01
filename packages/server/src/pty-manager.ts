@@ -493,13 +493,16 @@ class PtyManager extends EventEmitter {
 
     // Bracketed paste mode detection — works for all agents using readline.
     // Programs enable \x1b[?2004h when ready for input, disable with 'l' when executing.
-    if (BRACKETED_PASTE_ON.test(data)) {
-      if (session.status !== 'waiting') {
-        this.updateSessionStatus(id, 'waiting')
-      }
-    } else if (BRACKETED_PASTE_OFF.test(data)) {
-      if (session.status !== 'running') {
-        this.updateSessionStatus(id, 'running')
+    const hasBracketedOn = BRACKETED_PASTE_ON.test(data)
+    const hasBracketedOff = BRACKETED_PASTE_OFF.test(data)
+
+    if (hasBracketedOn || hasBracketedOff) {
+      // Use the last signal in the chunk (a chunk may contain both off then on)
+      const lastOn = data.lastIndexOf('\x1b[?2004h')
+      const lastOff = data.lastIndexOf('\x1b[?2004l')
+      const newStatus = lastOn > lastOff ? 'waiting' : 'running'
+      if (newStatus !== session.status) {
+        this.updateSessionStatus(id, newStatus as AgentStatus)
       }
     } else if (session.statusSource !== 'hooks') {
       // Pattern-based fallback for non-hook sessions without bracketed paste
