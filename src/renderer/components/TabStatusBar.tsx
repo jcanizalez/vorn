@@ -70,9 +70,7 @@ export function TabStatusBar({ terminalId }: Props) {
       <div className="group/status flex items-center gap-2 shrink-0">
         <StatusBadge status={terminal.status} />
         <GitChangesIndicator terminalId={terminalId} />
-        <div className="hidden group-hover/status:block group-focus-within/status:block">
-          <BrowseFilesButton terminalId={terminalId} />
-        </div>
+        <BrowseFilesButton terminalId={terminalId} />
         <OpenInButton projectPath={terminal.session.projectPath} direction="up" />
       </div>
     </div>
