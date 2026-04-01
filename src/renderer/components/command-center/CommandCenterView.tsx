@@ -255,8 +255,7 @@ function ActivityFeed({
   const filtered = useMemo(() => {
     if (filter === 'all') return events
     if (filter === 'sessions') return events.filter((e) => e.eventType !== 'workflow_run')
-    if (filter === 'workflows')
-      return events.filter((e) => e.eventType === ('workflow_run' as string))
+    if (filter === 'workflows') return events.filter((e) => e.eventType === 'workflow_run')
     return events
   }, [events, filter])
 
@@ -768,7 +767,7 @@ export function CommandCenterView() {
 
   // Workflow runs — count from actual activity events
   const workflowsToday = useMemo(() => {
-    const wfEvents = activityEvents.filter((e) => e.eventType === ('workflow_run' as string))
+    const wfEvents = activityEvents.filter((e) => e.eventType === 'workflow_run')
     let success = 0
     let error = 0
     for (const e of wfEvents) {
@@ -784,7 +783,7 @@ export function CommandCenterView() {
     return activityEvents.filter((ev) => {
       const proj = ev.metadata?.projectName as string | undefined
       // Workflow runs don't have projectName — always show them
-      if (ev.eventType === ('workflow_run' as string)) return true
+      if (ev.eventType === 'workflow_run') return true
       return proj === activeProject
     })
   }, [activityEvents, activeProject])
@@ -800,7 +799,7 @@ export function CommandCenterView() {
     (event: SessionEvent) => {
       const meta = event.metadata ?? {}
 
-      if (event.eventType === ('workflow_run' as string)) {
+      if (event.eventType === 'workflow_run') {
         const wfId = meta.workflowId as string | undefined
         if (wfId) {
           useAppStore.getState().setEditingWorkflowId(wfId)

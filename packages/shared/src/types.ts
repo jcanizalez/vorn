@@ -158,6 +158,7 @@ export type SessionEventType =
   | 'renamed'
   | 'archived'
   | 'unarchived'
+  | 'workflow_run'
 
 export interface SessionEvent {
   id?: number
