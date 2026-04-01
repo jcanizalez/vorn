@@ -353,7 +353,7 @@ export function App() {
     // Auto-prune exited headless sessions
     const pruneInterval = setInterval(() => {
       const retentionMinutes =
-        useAppStore.getState().config?.defaults?.headlessRetentionMinutes ?? 5
+        useAppStore.getState().config?.defaults?.headlessRetentionMinutes ?? 1
       useAppStore.getState().pruneExitedHeadless(retentionMinutes * 60_000)
     }, 30_000)
 

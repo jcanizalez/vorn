@@ -117,7 +117,7 @@ export function GeneralSettings() {
             description="How long to show completed headless agents before auto-hiding"
           >
             <select
-              value={config.defaults.headlessRetentionMinutes ?? 5}
+              value={config.defaults.headlessRetentionMinutes ?? 1}
               onChange={(e) => updateDefaults({ headlessRetentionMinutes: +e.target.value })}
               className="w-32 px-3 py-1.5 bg-white/[0.04] border border-white/[0.08] rounded-md text-sm
                          text-gray-200 focus:border-white/[0.15] focus:outline-none"
