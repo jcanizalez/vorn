@@ -658,10 +658,6 @@ const STEP_CONTENT: Record<string, React.FC> = {
    ═══════════════════════════════════════════════════════════════════════ */
 export function OnboardingModal() {
   const [currentStep, setCurrentStep] = useState(0)
-  const stepRef = useRef(currentStep)
-  useEffect(() => {
-    stepRef.current = currentStep
-  }, [currentStep])
 
   const step = ONBOARDING_STEPS[currentStep]
   const StepIcon = STEP_ICONS[step.icon]
@@ -684,9 +680,9 @@ export function OnboardingModal() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') close()
-      if (e.key === 'ArrowRight' && stepRef.current < ONBOARDING_STEPS.length - 1)
-        setCurrentStep((s) => s + 1)
-      if (e.key === 'ArrowLeft' && stepRef.current > 0) setCurrentStep((s) => s - 1)
+      if (e.key === 'ArrowRight')
+        setCurrentStep((s) => Math.min(ONBOARDING_STEPS.length - 1, s + 1))
+      if (e.key === 'ArrowLeft') setCurrentStep((s) => Math.max(0, s - 1))
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
