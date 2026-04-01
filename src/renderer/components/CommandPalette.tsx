@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../stores'
-import { getProjectHostIds, type RecentSession } from '../../shared/types'
+import { getProjectHostIds, getProjectRemoteHostId, type RecentSession } from '../../shared/types'
 import { SortMode, StatusFilter } from '../stores/types'
 import { AGENT_DEFINITIONS, AGENT_LIST } from '../lib/agent-definitions'
 import { AgentIcon } from './AgentIcon'

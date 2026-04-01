@@ -273,7 +273,6 @@ export function useLaunchSettings() {
     const s = loadSaved()
     setSelectedAgent(s.agent || defaultAgent)
     setSelectedProject(s.project || activeProject || firstProject)
-    setSelectedHost(s.host || 'local')
     setRemoteBranches([])
     setBranchFilter('')
     setBranchWarning(null)
