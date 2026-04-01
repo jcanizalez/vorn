@@ -167,7 +167,9 @@ export function App() {
           Notification.requestPermission()
         }
 
-        if (!config.defaults.hasSeenOnboarding) {
+        // Version 2 = redesigned 7-step wizard; show to users who haven't seen it
+        const ONBOARDING_VERSION = 2
+        if (Number(config.defaults.hasSeenOnboarding ?? 0) < ONBOARDING_VERSION) {
           useAppStore.getState().setOnboardingOpen(true)
         }
         // Web: hydrate already-running sessions that started before we connected

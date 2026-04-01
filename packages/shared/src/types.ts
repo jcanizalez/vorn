@@ -375,7 +375,7 @@ export interface AppConfig {
     rowHeight?: number
     defaultAgent?: AgentType
     notifications?: NotificationConfig
-    hasSeenOnboarding?: boolean
+    hasSeenOnboarding?: boolean | number
     reopenSessions?: boolean
     widgetEnabled?: boolean
     taskViewMode?: TaskViewMode

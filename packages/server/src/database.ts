@@ -578,7 +578,7 @@ function loadDefaults(d: Database.Database): AppConfig['defaults'] {
       notifications: map.notifications as AppConfig['defaults']['notifications']
     }),
     ...(map.hasSeenOnboarding !== undefined && {
-      hasSeenOnboarding: map.hasSeenOnboarding as boolean
+      hasSeenOnboarding: map.hasSeenOnboarding as boolean | number
     }),
     ...(map.reopenSessions !== undefined && { reopenSessions: map.reopenSessions as boolean }),
     ...(map.widgetEnabled !== undefined && { widgetEnabled: map.widgetEnabled as boolean }),
