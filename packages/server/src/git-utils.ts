@@ -3,7 +3,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import crypto from 'node:crypto'
 import type { RemoteHost } from '@vibegrid/shared/types'
-import { sshExecSync } from './process-utils'
+import { sshExecSync, shellEscape } from './process-utils'
 
 /**
  * Run a git command locally or via SSH depending on whether a remote host is provided.
@@ -15,7 +15,7 @@ function gitExec(
   opts?: { timeout?: number; remote?: RemoteHost }
 ): string {
   if (opts?.remote) {
-    const cmd = `cd ${shellEscapePosix(cwd)} && git ${args.map(shellEscapePosix).join(' ')}`
+    const cmd = `cd ${shellEscape(cwd, 'posix')} && git ${args.map((a) => shellEscape(a, 'posix')).join(' ')}`
     return sshExecSync(opts.remote, cmd, { timeout: opts?.timeout ?? 10000 })
   }
   return execFileSync('git', args, {
@@ -23,11 +23,6 @@ function gitExec(
     ...EXEC_OPTS,
     timeout: opts?.timeout ?? 10000
   }).trim()
-}
-
-function shellEscapePosix(s: string): string {
-  if (/^[a-zA-Z0-9_./:@=-]+$/.test(s)) return s
-  return "'" + s.replace(/'/g, "'\\''") + "'"
 }
 
 const EXEC_OPTS = {
@@ -193,7 +188,7 @@ export function createWorktree(
   const worktreeDir = `${baseDir}${sep}${name}-${shortId}`
 
   if (remote) {
-    sshExecSync(remote, `mkdir -p ${shellEscapePosix(baseDir)}`, { timeout: 5000 })
+    sshExecSync(remote, `mkdir -p ${shellEscape(baseDir, 'posix')}`, { timeout: 5000 })
   } else {
     fs.mkdirSync(baseDir, { recursive: true })
   }
@@ -282,7 +277,7 @@ export function renameWorktree(
   if (remote) {
     const check = sshExecSync(
       remote,
-      `test -d ${shellEscapePosix(newDir)} && echo EXISTS || echo MISSING`,
+      `test -d ${shellEscape(newDir, 'posix')} && echo EXISTS || echo MISSING`,
       { timeout: 5000 }
     ).trim()
     if (check === 'EXISTS') return null

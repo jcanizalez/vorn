@@ -3,7 +3,7 @@ import path from 'node:path'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import type { FileEntry, RemoteHost } from '@vibegrid/shared/types'
-import { sshExecSync } from './process-utils'
+import { sshExecSync, shellEscape } from './process-utils'
 
 const execFileAsync = promisify(execFile)
 
@@ -89,8 +89,9 @@ export async function listDir(dirPath: string, remote?: RemoteHost): Promise<Fil
 
 function listDirRemote(dirPath: string, remote: RemoteHost): FileEntry[] {
   try {
-    const esc = dirPath.replace(/'/g, "'\\''")
-    const output = sshExecSync(remote, `ls -1aF '${esc}'`, { timeout: 10000 }).trim()
+    const output = sshExecSync(remote, `ls -1aF ${shellEscape(dirPath, 'posix')}`, {
+      timeout: 10000
+    }).trim()
     if (!output) return []
 
     const result: FileEntry[] = []
@@ -167,8 +168,9 @@ function readFileContentRemote(
   remote: RemoteHost
 ): string | null {
   try {
-    const esc = filePath.replace(/'/g, "'\\''")
-    const text = sshExecSync(remote, `head -c ${maxBytes} '${esc}'`, { timeout: 10000 })
+    const text = sshExecSync(remote, `head -c ${maxBytes} ${shellEscape(filePath, 'posix')}`, {
+      timeout: 10000
+    })
 
     // Binary check
     for (let i = 0; i < Math.min(text.length, 8192); i++) {

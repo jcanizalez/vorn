@@ -114,20 +114,8 @@ export interface SshTestResult {
 export function testSshConnection(host: RemoteHost): Promise<SshTestResult> {
   return new Promise((resolve) => {
     const start = Date.now()
-    const args: string[] = [
-      '-o',
-      'ConnectTimeout=5',
-      '-o',
-      'BatchMode=yes',
-      '-o',
-      'StrictHostKeyChecking=accept-new'
-    ]
-    if (host.port !== 22) args.push('-p', String(host.port))
-    if (host.sshKeyPath) args.push('-i', host.sshKeyPath)
-    if (host.sshOptions) {
-      args.push(...host.sshOptions.split(/\s+/).filter(Boolean))
-    }
-    args.push(`${host.user}@${host.hostname}`, 'echo', '__VIBEGRID_OK__')
+    const args = buildSshArgs(host, { connectTimeout: 5 })
+    args.push('echo', '__VIBEGRID_OK__')
 
     const safetyTimer = setTimeout(() => {
       try {
@@ -170,10 +158,10 @@ export function testSshConnection(host: RemoteHost): Promise<SshTestResult> {
  * Build the SSH args prefix for a remote host (user@host, port, key, options).
  * Does NOT include the remote command — caller appends that.
  */
-export function buildSshArgs(host: RemoteHost): string[] {
+export function buildSshArgs(host: RemoteHost, opts?: { connectTimeout?: number }): string[] {
   const args: string[] = [
     '-o',
-    'ConnectTimeout=10',
+    `ConnectTimeout=${opts?.connectTimeout ?? 10}`,
     '-o',
     'BatchMode=yes',
     '-o',

@@ -24,7 +24,7 @@ import {
   PermissionRequestInfo,
   SessionEventType,
   RemoteHost,
-  getProjectHostIds
+  getProjectRemoteHostId
 } from '@vibegrid/shared/types'
 import * as gitUtils from './git-utils'
 import { listDir, readFileContent } from './file-utils'
@@ -204,8 +204,7 @@ export function registerAllMethods(): void {
     const cfg = configManager.loadConfig()
     const project = cfg.projects.find((p) => p.path === projectPath)
     if (!project) return undefined
-    const hostIds = getProjectHostIds(project)
-    const remoteId = hostIds.find((id) => id !== 'local')
+    const remoteId = getProjectRemoteHostId(project)
     if (!remoteId) return undefined
     return cfg.remoteHosts?.find((h) => h.id === remoteId)
   }
@@ -214,18 +213,14 @@ export function registerAllMethods(): void {
   function resolveRemoteHostByPath(anyPath: string): RemoteHost | undefined {
     const cfg = configManager.loadConfig()
     for (const project of cfg.projects) {
-      // Match project root or worktree paths that share the same parent
       if (anyPath === project.path || anyPath.startsWith(project.path + '/')) {
-        const hostIds = getProjectHostIds(project)
-        const remoteId = hostIds.find((id) => id !== 'local')
+        const remoteId = getProjectRemoteHostId(project)
         if (!remoteId) return undefined
         return cfg.remoteHosts?.find((h) => h.id === remoteId)
       }
-      // Match .vibegrid-worktrees sibling directories
       const parentDir = project.path.replace(/\/[^/]+$/, '')
       if (anyPath.startsWith(parentDir + '/.vibegrid-worktrees/')) {
-        const hostIds = getProjectHostIds(project)
-        const remoteId = hostIds.find((id) => id !== 'local')
+        const remoteId = getProjectRemoteHostId(project)
         if (!remoteId) return undefined
         return cfg.remoteHosts?.find((h) => h.id === remoteId)
       }
