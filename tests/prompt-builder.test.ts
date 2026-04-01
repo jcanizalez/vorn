@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { buildTaskPrompt, buildFeedbackPrompt } from '@vibegrid/shared/prompt-builder'
-import type { TaskConfig, ProjectConfig } from '@vibegrid/shared/types'
+import {
+  buildTaskPrompt,
+  buildFeedbackPrompt,
+  buildWorkflowPrompt
+} from '@vibegrid/shared/prompt-builder'
+import type { TaskConfig, ProjectConfig, WorkflowDefinition } from '@vibegrid/shared/types'
 
 function makeTask(overrides: Partial<TaskConfig> = {}): TaskConfig {
   return {
@@ -131,5 +135,57 @@ describe('buildFeedbackPrompt', () => {
   it('includes task ID', () => {
     const result = buildFeedbackPrompt('Fix it', makeTask(), makeProject())
     expect(result).toContain('**Task ID:** task-001')
+  })
+})
+
+describe('buildWorkflowPrompt', () => {
+  const workflow: WorkflowDefinition = {
+    id: 'wf-123',
+    name: 'Deploy Pipeline',
+    icon: 'Rocket',
+    iconColor: '#ef4444',
+    nodes: [],
+    edges: [],
+    enabled: true
+  }
+
+  it('includes workflow name and step', () => {
+    const result = buildWorkflowPrompt({
+      workflow,
+      stepName: 'Run tests',
+      userPrompt: 'Execute the test suite'
+    })
+    expect(result).toContain('# Workflow: Deploy Pipeline')
+    expect(result).toContain('**Step:** Run tests')
+  })
+
+  it('includes workflow ID', () => {
+    const result = buildWorkflowPrompt({
+      workflow,
+      stepName: 'Build',
+      userPrompt: 'Build the project'
+    })
+    expect(result).toContain('**Workflow ID:** wf-123')
+  })
+
+  it('includes the user prompt under Task section', () => {
+    const result = buildWorkflowPrompt({
+      workflow,
+      stepName: 'Deploy',
+      userPrompt: 'Deploy to staging'
+    })
+    expect(result).toContain('## Task')
+    expect(result).toContain('Deploy to staging')
+  })
+
+  it('includes MCP tools with workflow_id for list_workflow_runs', () => {
+    const result = buildWorkflowPrompt({
+      workflow,
+      stepName: 'Check',
+      userPrompt: 'Check status'
+    })
+    expect(result).toContain('list_workflow_runs')
+    expect(result).toContain('wf-123')
+    expect(result).toContain('get_my_context')
   })
 })

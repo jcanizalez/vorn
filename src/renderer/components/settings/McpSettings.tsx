@@ -1,35 +1,7 @@
 import { useState } from 'react'
-import { AgentType } from '../../../shared/types'
 import { AGENT_DEFINITIONS } from '../../lib/agent-definitions'
+import { AGENT_MCP_SETUPS } from '../../lib/mcp-data'
 import { AgentIcon } from '../AgentIcon'
-
-interface AgentMcpSetup {
-  agentType: AgentType
-  command: string
-}
-
-const AGENT_SETUPS: AgentMcpSetup[] = [
-  {
-    agentType: 'claude',
-    command: 'claude mcp add vibegrid -- npx -y @vibegrid/mcp@latest'
-  },
-  {
-    agentType: 'copilot',
-    command: 'copilot mcp add vibegrid -- npx -y @vibegrid/mcp@latest'
-  },
-  {
-    agentType: 'codex',
-    command: 'codex mcp add vibegrid -- npx -y @vibegrid/mcp@latest'
-  },
-  {
-    agentType: 'opencode',
-    command: 'opencode mcp add vibegrid -- npx -y @vibegrid/mcp@latest'
-  },
-  {
-    agentType: 'gemini',
-    command: 'gemini mcp add vibegrid -- npx -y @vibegrid/mcp@latest'
-  }
-]
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
@@ -60,7 +32,7 @@ export function McpSettings() {
       {/* Per-agent commands */}
       <h3 className="text-sm font-medium text-gray-200 mb-3">Agent Setup</h3>
       <div className="space-y-3">
-        {AGENT_SETUPS.map((setup) => {
+        {AGENT_MCP_SETUPS.map((setup) => {
           const agent = AGENT_DEFINITIONS[setup.agentType]
 
           return (

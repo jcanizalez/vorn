@@ -14,7 +14,13 @@ import {
   TerminalSession,
   RemoteHost
 } from '@vibegrid/shared/types'
-import { getGitBranch, checkoutBranch, createWorktree, extractWorktreeName } from './git-utils'
+import {
+  getGitBranch,
+  checkoutBranch,
+  createWorktree,
+  extractWorktreeName,
+  isGitRepo
+} from './git-utils'
 import { DEFAULT_AGENT_COMMANDS } from '@vibegrid/shared/agent-defaults'
 import { buildAgentLaunchLine as buildLaunchLine } from './agent-launch'
 import {
@@ -160,24 +166,30 @@ class PtyManager extends EventEmitter {
       worktreeName = payload.worktreeName || extractWorktreeName(payload.existingWorktreePath)
       effectiveBranch = payload.branch
     } else if ((payload.useWorktree || payload.existingWorktreePath) && payload.branch) {
-      if (payload.existingWorktreePath) {
-        log.warn(
-          `[pty] worktree path no longer exists, creating new: ${payload.existingWorktreePath}`
-        )
+      if (isGitRepo(payload.projectPath)) {
+        if (payload.existingWorktreePath) {
+          log.warn(
+            `[pty] worktree path no longer exists, creating new: ${payload.existingWorktreePath}`
+          )
+        }
+        const result = createWorktree(payload.projectPath, payload.branch, payload.worktreeName)
+        effectivePath = result.worktreePath
+        worktreePath = result.worktreePath
+        worktreeName = result.name
+        effectiveBranch = result.branch
+      } else {
+        log.warn(`[pty] skipping worktree for non-git project: ${payload.projectPath}`)
       }
-      const result = createWorktree(payload.projectPath, payload.branch, payload.worktreeName)
-      effectivePath = result.worktreePath
-      worktreePath = result.worktreePath
-      worktreeName = result.name
-      effectiveBranch = result.branch
     }
     // Handle branch checkout (no worktree)
     else if (payload.branch) {
-      const currentBranch = getGitBranch(payload.projectPath)
-      if (currentBranch !== payload.branch) {
-        checkoutBranch(payload.projectPath, payload.branch)
+      if (isGitRepo(payload.projectPath)) {
+        const currentBranch = getGitBranch(payload.projectPath)
+        if (currentBranch !== payload.branch) {
+          checkoutBranch(payload.projectPath, payload.branch)
+        }
+        effectiveBranch = payload.branch
       }
-      effectiveBranch = payload.branch
     }
 
     const ptyProcess = pty.spawn(shell, getShellArgs(), {

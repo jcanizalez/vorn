@@ -228,11 +228,14 @@ export function registerAllMethods(): void {
     return undefined
   }
 
+  registerMethod('git:isGitRepo', (projectPath) => gitUtils.isGitRepo(projectPath))
   registerMethod('git:listBranches', (projectPath) => {
     const remote = resolveRemoteHost(projectPath)
+    const isRepo = remote || gitUtils.isGitRepo(projectPath)
     return {
-      local: gitUtils.listBranches(projectPath, remote),
-      current: gitUtils.getGitBranch(projectPath, remote)
+      local: isRepo ? gitUtils.listBranches(projectPath, remote) : [],
+      current: isRepo ? gitUtils.getGitBranch(projectPath, remote) : null,
+      isGitRepo: !!isRepo
     }
   })
   registerMethod('git:listRemoteBranches', (projectPath) => {

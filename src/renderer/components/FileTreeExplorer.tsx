@@ -45,7 +45,8 @@ function TreeNode({
     guides.push(
       <span
         key={i}
-        className="absolute top-0 bottom-0 border-l border-white/[0.06]"
+        className="absolute top-0 bottom-0 border-l border-white/[0.06] pointer-events-none"
+        aria-hidden="true"
         style={{ left: `${BASE_LEFT + 7 + i * INDENT_WIDTH}px` }}
       />
     )
@@ -107,7 +108,8 @@ function TreeNode({
                   ...guides,
                   <span
                     key={depth}
-                    className="absolute top-0 bottom-0 border-l border-white/[0.06]"
+                    className="absolute top-0 bottom-0 border-l border-white/[0.06] pointer-events-none"
+                    aria-hidden="true"
                     style={{ left: `${BASE_LEFT + 7 + depth * INDENT_WIDTH}px` }}
                   />
                 ]}

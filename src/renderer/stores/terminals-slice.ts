@@ -125,17 +125,21 @@ export const createTerminalsSlice: StateCreator<AppStore, [], [], TerminalsSlice
         }
       }
 
-      // Keep locally-added sessions not yet known to the server (just created)
+      // Keep local sessions not on the server: running ones (just created, not synced yet)
+      // AND recently exited ones (server cleans up after 30s, but renderer retains per TTL)
       for (const s of state.headlessSessions) {
-        if (!serverIds.has(s.id) && !dismissed.has(s.id) && s.status === 'running') {
-          next.push(s)
+        if (!serverIds.has(s.id) && !dismissed.has(s.id)) {
+          if (s.status === 'running' || (s.status === 'exited' && s.endedAt)) {
+            next.push(s)
+          }
         }
       }
 
-      // Clean up output entries for sessions no longer present
+      // Clean up output entries for sessions no longer in the retained list
+      const nextIds = new Set(next.map((s) => s.id))
       const nextOutput = new Map(state.headlessLastOutput)
       for (const id of nextOutput.keys()) {
-        if (!serverIds.has(id)) nextOutput.delete(id)
+        if (!nextIds.has(id)) nextOutput.delete(id)
       }
 
       return { headlessSessions: next, headlessLastOutput: nextOutput }

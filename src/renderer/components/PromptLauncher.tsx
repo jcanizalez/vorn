@@ -305,7 +305,7 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
       </div>
 
       {/* Worktree picker — worktree-first, before branch */}
-      {settings.activeProjectPath && (
+      {settings.activeProjectPath && settings.isGitRepo && (
         <div className="relative" ref={worktreePickerRef}>
           <button
             onClick={() => setShowWorktreePicker(!showWorktreePicker)}
@@ -410,7 +410,7 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
       )}
 
       {/* Branch picker */}
-      {settings.activeProjectPath && (
+      {settings.activeProjectPath && settings.isGitRepo && (
         <div className="relative" ref={settings.dropdownRef}>
           <button
             onClick={() => settings.setShowBranchDropdown(!settings.showBranchDropdown)}

@@ -9,13 +9,30 @@ import {
   HeadlessSession,
   IPC
 } from '@vibegrid/shared/types'
-import { getGitBranch, checkoutBranch, createWorktree, extractWorktreeName } from './git-utils'
+import {
+  getGitBranch,
+  checkoutBranch,
+  createWorktree,
+  extractWorktreeName,
+  isGitRepo
+} from './git-utils'
 import { getSafeEnv } from './process-utils'
 import { buildHeadlessSpawnArgs } from './agent-launch'
 import { DEFAULT_AGENT_COMMANDS } from '@vibegrid/shared/agent-defaults'
 import log from './logger'
 
 const MAX_OUTPUT_LINES = 1000
+const FORCE_KILL_DELAY_MS = 5000
+
+/** Force-kill a Windows process tree via taskkill (best-effort). */
+function forceKillWin(pid: number): void {
+  const child = spawn('taskkill', ['/F', '/T', '/PID', String(pid)], {
+    stdio: 'ignore',
+    windowsHide: true
+  })
+  child.on('error', () => {})
+  child.unref()
+}
 
 class HeadlessManager extends EventEmitter {
   private processes = new Map<string, ChildProcess>()
@@ -47,16 +64,23 @@ class HeadlessManager extends EventEmitter {
     }
     // Handle worktree creation (or fallback if existing path gone)
     else if ((payload.useWorktree || payload.existingWorktreePath) && payload.branch) {
-      const result = createWorktree(payload.projectPath, payload.branch, payload.worktreeName)
-      effectivePath = result.worktreePath
-      worktreeName = result.name
-      effectiveBranch = result.branch
-    } else if (payload.branch) {
-      const currentBranch = getGitBranch(payload.projectPath)
-      if (currentBranch !== payload.branch) {
-        checkoutBranch(payload.projectPath, payload.branch)
+      if (isGitRepo(payload.projectPath)) {
+        const result = createWorktree(payload.projectPath, payload.branch, payload.worktreeName)
+        effectivePath = result.worktreePath
+        worktreeName = result.name
+        effectiveBranch = result.branch
+      } else {
+        log.warn(`[headless] skipping worktree for non-git project: ${payload.projectPath}`)
+        payload.useWorktree = false
       }
-      effectiveBranch = payload.branch
+    } else if (payload.branch) {
+      if (isGitRepo(payload.projectPath)) {
+        const currentBranch = getGitBranch(payload.projectPath)
+        if (currentBranch !== payload.branch) {
+          checkoutBranch(payload.projectPath, payload.branch)
+        }
+        effectiveBranch = payload.branch
+      }
     }
 
     const env = getSafeEnv()
@@ -68,10 +92,12 @@ class HeadlessManager extends EventEmitter {
     const child = spawn(spawnArgs.command, spawnArgs.args, {
       cwd: effectivePath,
       env,
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true
     })
 
     // Close stdin immediately so the process doesn't hang waiting for input
+    child.stdin?.on('error', () => {}) // prevent EPIPE if process exits early
     child.stdin?.end()
 
     this.processes.set(id, child)
@@ -93,7 +119,10 @@ class HeadlessManager extends EventEmitter {
       worktreeName,
       isWorktree: !!worktreePath,
       status: 'running',
-      startedAt: Date.now()
+      startedAt: Date.now(),
+      ...(payload.workflowId != null && { workflowId: payload.workflowId }),
+      ...(payload.workflowName != null && { workflowName: payload.workflowName }),
+      ...(payload.taskId != null && { taskId: payload.taskId })
     }
     this.sessions.set(id, session)
 
@@ -145,14 +174,14 @@ class HeadlessManager extends EventEmitter {
     if (!proc) return
     if (process.platform === 'win32') {
       proc.kill()
+      setTimeout(() => {
+        if (this.processes.has(id) && proc.pid) forceKillWin(proc.pid)
+      }, FORCE_KILL_DELAY_MS)
     } else {
       proc.kill('SIGTERM')
-      // Force kill after 5s if still running
       setTimeout(() => {
-        if (this.processes.has(id)) {
-          proc.kill('SIGKILL')
-        }
-      }, 5000)
+        if (this.processes.has(id)) proc.kill('SIGKILL')
+      }, FORCE_KILL_DELAY_MS)
     }
   }
 
@@ -193,8 +222,12 @@ class HeadlessManager extends EventEmitter {
 
   killAll(): void {
     for (const [id, proc] of this.processes) {
-      if (process.platform === 'win32') proc.kill()
-      else proc.kill('SIGKILL')
+      if (process.platform === 'win32') {
+        proc.kill()
+        if (proc.pid) forceKillWin(proc.pid)
+      } else {
+        proc.kill('SIGKILL')
+      }
       this.processes.delete(id)
     }
     this.sessions.clear()

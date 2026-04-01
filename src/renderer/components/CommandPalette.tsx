@@ -105,7 +105,8 @@ function scoreMatch(query: string, command: Command): number {
 
 function useCommands(
   recentSessions: RecentSession[],
-  installStatus: Record<string, boolean>
+  installStatus: Record<string, boolean>,
+  gitRepoStatus: Record<string, boolean>
 ): Command[] {
   const config = useAppStore((s) => s.config)
   const terminals = useAppStore((s) => s.terminals)
@@ -368,29 +369,31 @@ function useCommands(
             addTerminal(session)
           }
         })
-        // Worktree variant
-        commands.push({
-          id: `quicklaunch:${agent.type}:${project.name}:worktree`,
-          label: `${agent.displayName} on ${project.name} (worktree)`,
-          sublabel: 'Isolated worktree from current branch',
-          category: 'quicklaunch',
-          icon: <AgentIcon agentType={agent.type} size={14} />,
-          keywords: ['launch', 'start', 'run', 'worktree', 'branch', 'isolated', 'fork'],
-          onExecute: async () => {
-            const remoteHostId = getProjectRemoteHostId(project)
-            const branchResult = await window.api.listBranches(project.path)
-            const branch = branchResult.current || 'main'
-            const session = await window.api.createTerminal({
-              agentType: agent.type,
-              projectName: project.name,
-              projectPath: project.path,
-              branch,
-              useWorktree: true,
-              remoteHostId
-            })
-            addTerminal(session)
-          }
-        })
+        // Worktree variant — only for confirmed git repos
+        if (gitRepoStatus[project.path] === true) {
+          commands.push({
+            id: `quicklaunch:${agent.type}:${project.name}:worktree`,
+            label: `${agent.displayName} on ${project.name} (worktree)`,
+            sublabel: 'Isolated worktree from current branch',
+            category: 'quicklaunch',
+            icon: <AgentIcon agentType={agent.type} size={14} />,
+            keywords: ['launch', 'start', 'run', 'worktree', 'branch', 'isolated', 'fork'],
+            onExecute: async () => {
+              const remoteHostId = getProjectRemoteHostId(project)
+              const branchResult = await window.api.listBranches(project.path)
+              const branch = branchResult.current || 'main'
+              const session = await window.api.createTerminal({
+                agentType: agent.type,
+                projectName: project.name,
+                projectPath: project.path,
+                branch,
+                useWorktree: true,
+                remoteHostId
+              })
+              addTerminal(session)
+            }
+          })
+        }
       }
     }
 
@@ -435,6 +438,7 @@ function useCommands(
     config,
     recentSessions,
     installStatus,
+    gitRepoStatus,
     addTerminal,
     setFocusedTerminal,
     setActiveProject,
@@ -458,24 +462,40 @@ export function CommandPalette() {
   const isOpen = useAppStore((s) => s.isCommandPaletteOpen)
   const setOpen = useAppStore((s) => s.setCommandPaletteOpen)
 
+  const config = useAppStore((s) => s.config)
   const [query, setQuery] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([])
+  const [gitRepoStatus, setGitRepoStatus] = useState<Record<string, boolean>>({})
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const { status: installStatus } = useAgentInstallStatus()
 
-  // Fetch recent sessions when palette opens
   useEffect(() => {
     if (isOpen) {
       window.api
         .getRecentSessions()
         .then(setRecentSessions)
         .catch(() => setRecentSessions([]))
-    }
-  }, [isOpen])
 
-  const commands = useCommands(recentSessions, installStatus)
+      const localProjects = (config?.projects ?? []).filter((p) =>
+        getProjectHostIds(p).includes('local')
+      )
+      Promise.allSettled(
+        localProjects.map(async (p) => {
+          const isRepo = await window.api.isGitRepo(p.path)
+          return [p.path, isRepo] as const
+        })
+      ).then((results) => {
+        const entries = results.map((r, i) =>
+          r.status === 'fulfilled' ? r.value : ([localProjects[i].path, false] as const)
+        )
+        setGitRepoStatus(Object.fromEntries(entries))
+      })
+    }
+  }, [isOpen, config?.projects])
+
+  const commands = useCommands(recentSessions, installStatus, gitRepoStatus)
 
   const filtered = useMemo(() => {
     const q = query.trim()

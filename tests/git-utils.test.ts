@@ -19,6 +19,7 @@ vi.mock('node:crypto', () => ({
 
 import { execFileSync } from 'node:child_process'
 import {
+  isGitRepo,
   getGitBranch,
   listBranches,
   getGitDiffStat,
@@ -36,6 +37,25 @@ const mockExecFileSync = vi.mocked(execFileSync)
 
 beforeEach(() => {
   vi.clearAllMocks()
+})
+
+describe('isGitRepo', () => {
+  it('returns true for a git repo', () => {
+    mockExecFileSync.mockReturnValue('true\n')
+    expect(isGitRepo('/project')).toBe(true)
+  })
+
+  it('returns false for non-git directory', () => {
+    mockExecFileSync.mockImplementation(() => {
+      throw new Error('not a git repo')
+    })
+    expect(isGitRepo('/not-a-repo')).toBe(false)
+  })
+
+  it('returns false for unexpected output', () => {
+    mockExecFileSync.mockReturnValue('false\n')
+    expect(isGitRepo('/project')).toBe(false)
+  })
 })
 
 describe('getGitBranch', () => {

@@ -15,18 +15,20 @@ export async function executeScript(config: ScriptConfig): Promise<ScriptExecuti
     let command: string
     let args: string[]
 
+    const isWin = process.platform === 'win32'
+
     switch (config.scriptType) {
       case 'bash':
-        command = 'bash'
+        command = isWin ? 'bash.exe' : 'bash'
         // Run from stdin
         args = ['-s']
         break
       case 'powershell':
-        command = 'powershell'
+        command = 'pwsh'
         args = ['-Command', '-']
         break
       case 'python':
-        command = 'python3'
+        command = isWin ? 'python' : 'python3'
         args = ['-']
         break
       case 'node':
@@ -54,7 +56,8 @@ export async function executeScript(config: ScriptConfig): Promise<ScriptExecuti
     const child = spawn(command, args, {
       cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: getSafeEnv()
+      env: getSafeEnv(),
+      windowsHide: true
     })
 
     let stdout = ''
@@ -88,7 +91,8 @@ export async function executeScript(config: ScriptConfig): Promise<ScriptExecuti
     })
 
     // Write script content to stdin
-    child.stdin.write(config.scriptContent)
-    child.stdin.end()
+    child.stdin?.on('error', () => {}) // prevent EPIPE if process exits early
+    child.stdin?.write(config.scriptContent)
+    child.stdin?.end()
   })
 }

@@ -13,7 +13,7 @@ import {
 } from '../../shared/types'
 import { getTriggerNode } from './workflow-helpers'
 import { resolveTemplateVars, StepOutputs } from './template-vars'
-import { buildTaskPrompt } from '../../shared/prompt-builder'
+import { buildTaskPrompt, buildWorkflowPrompt } from '../../shared/prompt-builder'
 import { useAppStore } from '../stores'
 
 /** Guard against concurrent execution of the same workflow */
@@ -228,6 +228,15 @@ async function executeNode(
     initialPrompt = resolveTemplateVars(initialPrompt, context, stepOutputs)
   }
 
+  // Wrap with workflow context so the agent knows which workflow/step it belongs to
+  if (initialPrompt) {
+    initialPrompt = buildWorkflowPrompt({
+      workflow,
+      stepName: config.displayName || node.label,
+      userPrompt: initialPrompt
+    })
+  }
+
   if (config.headless) {
     console.log(
       `[workflow] creating headless session for "${node.label}" prompt="${(initialPrompt || '').slice(0, 80)}"`
@@ -275,6 +284,8 @@ async function executeNode(
         promptDelayMs: config.promptDelayMs,
         headless: true,
         taskId: resolvedTaskId,
+        workflowId: workflow.id,
+        workflowName: workflow.name,
         args: config.args
       })
 

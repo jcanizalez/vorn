@@ -174,7 +174,7 @@ export function registerWorkflowTools(server: McpServer): void {
       const workflow: WorkflowDefinition = {
         id: crypto.randomUUID(),
         name: args.name,
-        icon: args.icon ?? 'zap',
+        icon: args.icon ?? 'Zap',
         iconColor: args.icon_color ?? '#6366f1',
         nodes,
         edges,

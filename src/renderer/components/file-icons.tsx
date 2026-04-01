@@ -11,7 +11,7 @@ const FONT_ID = 'seti-icons'
 let fontInjected = false
 
 function ensureFont(): void {
-  if (fontInjected) return
+  if (fontInjected || typeof document === 'undefined') return
   fontInjected = true
   const style = document.createElement('style')
   style.textContent = `

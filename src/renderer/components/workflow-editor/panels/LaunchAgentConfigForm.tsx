@@ -11,6 +11,7 @@ import {
   Folder,
   EyeOff
 } from 'lucide-react'
+import { Tooltip } from '../../Tooltip'
 import {
   LaunchAgentConfig,
   TriggerConfig,
@@ -62,18 +63,23 @@ export function LaunchAgentConfigForm({
   const [existingWorktrees, setExistingWorktrees] = useState<
     { path: string; branch: string; isMain: boolean; name: string }[]
   >([])
+  const [isGitRepo, setIsGitRepo] = useState(true)
 
   // Remote host is now derived from the project's hostIds
   const selectedProject = projects.find((p) => p.name === config.projectName)
   const isRemote = !!selectedProject && !!getProjectRemoteHostId(selectedProject)
 
-  // Fetch existing worktrees when project changes
   useEffect(() => {
     if (!config.projectPath || isRemote) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: reset when project/host changes
       setExistingWorktrees([])
+      setIsGitRepo(true)
       return
     }
+    window.api
+      .isGitRepo(config.projectPath)
+      .then(setIsGitRepo)
+      .catch(() => setIsGitRepo(false))
     window.api
       .listWorktrees(config.projectPath)
       .then((wts) => setExistingWorktrees(wts.filter((w) => !w.isMain)))
@@ -215,8 +221,8 @@ export function LaunchAgentConfigForm({
         )}
       </div>
 
-      {/* ── Git & Branch — hidden for remote hosts ── */}
-      {!isRemote && (
+      {/* ── Git & Branch — hidden for remote hosts and non-git projects ── */}
+      {!isRemote && isGitRepo && (
         <div className="border border-white/[0.06] rounded-lg p-3 space-y-3">
           <div className="text-[13px] text-gray-400 font-medium flex items-center gap-1.5">
             <GitBranch size={11} />
@@ -261,7 +267,13 @@ export function LaunchAgentConfigForm({
                 const disabled =
                   (key === 'new' && !hasBranch) ||
                   (key === 'fromStep' && priorWorktreeSteps.length === 0)
-                return (
+                const disabledReason =
+                  key === 'new' && !hasBranch
+                    ? 'Enter a branch name first'
+                    : key === 'fromStep' && priorWorktreeSteps.length === 0
+                      ? 'No prior worktree steps in this workflow'
+                      : undefined
+                const btn = (
                   <button
                     key={key}
                     onClick={() => {
@@ -288,6 +300,13 @@ export function LaunchAgentConfigForm({
                     {Icon && <Icon size={12} />}
                     {label}
                   </button>
+                )
+                return disabledReason ? (
+                  <Tooltip key={key} label={disabledReason} position="top" delay={200}>
+                    {btn}
+                  </Tooltip>
+                ) : (
+                  btn
                 )
               })}
             </div>

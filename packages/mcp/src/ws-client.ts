@@ -92,9 +92,29 @@ function discoverPort(): number | null {
   return null
 }
 
+/** Try OS-level discovery, cache result, and heal the port file. */
+function discoverAndHeal(): { port: number } | { port: null; reason: 'missing' } {
+  const now = Date.now()
+  if (cachedPort && now - cacheTimestamp < CACHE_TTL_MS) return { port: cachedPort }
+
+  const discovered = discoverPort()
+  cachedPort = discovered
+  cacheTimestamp = now
+  if (discovered) {
+    try {
+      fs.mkdirSync(path.dirname(PORT_FILE), { recursive: true })
+      fs.writeFileSync(PORT_FILE, JSON.stringify({ port: discovered }), 'utf-8')
+    } catch {
+      // best-effort
+    }
+    return { port: discovered }
+  }
+  return { port: null, reason: 'missing' }
+}
+
 /**
  * Read the VibeGrid server port from the well-known file.
- * Falls back to OS-level port discovery if the file is missing.
+ * Falls back to OS-level port discovery if the file is missing or stale.
  */
 function readPort(): { port: number } | { port: null; reason: 'missing' | 'invalid' } {
   try {
@@ -105,32 +125,30 @@ function readPort(): { port: number } | { port: null; reason: 'missing' | 'inval
     if (raw.startsWith('{')) {
       const parsed = JSON.parse(raw)
       const p = parsed?.port
-      return typeof p === 'number' && Number.isFinite(p) && p > 0
-        ? { port: p }
-        : { port: null, reason: 'invalid' }
+      const pid = parsed?.pid
+      if (typeof p !== 'number' || !Number.isFinite(p) || p <= 0) {
+        return { port: null, reason: 'invalid' }
+      }
+      // If PID is present, verify the process is still alive
+      if (typeof pid === 'number' && Number.isInteger(pid) && pid > 0) {
+        try {
+          process.kill(pid, 0)
+        } catch (err: unknown) {
+          // EPERM means the process exists but we lack permission — treat as alive
+          if ((err as NodeJS.ErrnoException).code === 'EPERM') return { port: p }
+          // PID is dead — port file is stale, fall through to discovery
+          return discoverAndHeal()
+        }
+      }
+      return { port: p }
     }
 
     // Legacy plain-number format: 53829
     const p = parseInt(raw, 10)
     return Number.isFinite(p) && p > 0 ? { port: p } : { port: null, reason: 'invalid' }
   } catch {
-    // Port file missing — try OS-level discovery with cache
-    const now = Date.now()
-    if (cachedPort && now - cacheTimestamp < CACHE_TTL_MS) return { port: cachedPort }
-
-    const discovered = discoverPort()
-    cachedPort = discovered
-    cacheTimestamp = now
-    if (discovered) {
-      try {
-        fs.mkdirSync(path.dirname(PORT_FILE), { recursive: true })
-        fs.writeFileSync(PORT_FILE, JSON.stringify({ port: discovered }), 'utf-8')
-      } catch {
-        // best-effort
-      }
-      return { port: discovered }
-    }
-    return { port: null, reason: 'missing' }
+    // Port file missing — try OS-level discovery
+    return discoverAndHeal()
   }
 }
 
