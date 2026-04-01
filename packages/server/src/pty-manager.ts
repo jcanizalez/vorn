@@ -38,6 +38,12 @@ const MAX_OUTPUT_LINES = 1000
 const IDLE_TIMEOUT_MS = 5000
 const IDLE_TIMEOUT_HOOKS_MS = 30_000
 
+// Bracketed paste mode: programs enable this when ready for input
+// eslint-disable-next-line no-control-regex
+const BRACKETED_PASTE_ON = /\x1b\[\?2004h/
+// eslint-disable-next-line no-control-regex
+const BRACKETED_PASTE_OFF = /\x1b\[\?2004l/
+
 type WorktreeSessionCounter = (
   worktreePath: string,
   excludeId?: string
@@ -485,8 +491,18 @@ class PtyManager extends EventEmitter {
       buf.splice(0, buf.length - MAX_OUTPUT_LINES)
     }
 
-    // Pattern-based status detection for non-hook sessions
-    if (session.statusSource !== 'hooks') {
+    // Bracketed paste mode detection — works for all agents using readline.
+    // Programs enable \x1b[?2004h when ready for input, disable with 'l' when executing.
+    if (BRACKETED_PASTE_ON.test(data)) {
+      if (session.status !== 'waiting') {
+        this.updateSessionStatus(id, 'waiting')
+      }
+    } else if (BRACKETED_PASTE_OFF.test(data)) {
+      if (session.status !== 'running') {
+        this.updateSessionStatus(id, 'running')
+      }
+    } else if (session.statusSource !== 'hooks') {
+      // Pattern-based fallback for non-hook sessions without bracketed paste
       let ctx = this.statusContexts.get(id)
       if (!ctx) {
         ctx = createStatusContext()
@@ -556,6 +572,11 @@ class PtyManager extends EventEmitter {
 
   writeToPty(id: string, data: string): void {
     this.ptys.get(id)?.write(data)
+    // User input means the session is active — mark running if it was idle/waiting
+    const session = this.sessions.get(id)
+    if (session && (session.status === 'idle' || session.status === 'waiting')) {
+      this.updateSessionStatus(id, 'running')
+    }
   }
 
   resizePty(id: string, cols: number, rows: number): void {
