@@ -124,6 +124,11 @@ export function getProjectHostIds(project: ProjectConfig): string[] {
   return project.hostIds?.length ? project.hostIds : ['local']
 }
 
+/** Returns the first remote host ID for a project, or undefined if local-only. */
+export function getProjectRemoteHostId(project: ProjectConfig): string | undefined {
+  return getProjectHostIds(project).find((id) => id !== 'local')
+}
+
 // Task queue types
 export type TaskStatus = 'todo' | 'in_progress' | 'in_review' | 'done' | 'cancelled'
 

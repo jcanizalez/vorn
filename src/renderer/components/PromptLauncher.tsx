@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, KeyboardEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../stores'
-import { AgentType, ProjectConfig } from '../../shared/types'
+import { AgentType, ProjectConfig, getProjectHostIds } from '../../shared/types'
 import { AGENT_LIST } from '../lib/agent-definitions'
 import { AgentIcon } from './AgentIcon'
 import { useLaunchSettings } from '../hooks/useLaunchSettings'
@@ -132,7 +132,10 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
     setLaunching(true)
 
     try {
-      const isRemote = settings.selectedHost !== 'local'
+      // Derive remote host from project config
+      const projectHostIds = getProjectHostIds(project)
+      const remoteHostId = projectHostIds.find((id) => id !== 'local')
+      const isRemote = !!remoteHostId
       const { worktreeMode, selectedWorktreePath, selectedBranch, currentBranch, liveBranch } =
         settings
 
@@ -173,7 +176,7 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
         useWorktree,
         existingWorktreePath,
         worktreeName,
-        remoteHostId: isRemote ? settings.selectedHost : undefined,
+        remoteHostId: isRemote ? remoteHostId : undefined,
         initialPrompt: prompt.trim() || undefined
       })
 
@@ -450,37 +453,7 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
         </div>
       )}
 
-      {/* Host selector — only if remote hosts exist */}
-      {settings.remoteHosts.length > 0 && (
-        <>
-          <div className="w-px h-4 bg-white/[0.06] mx-0.5" />
-          <button
-            onClick={() => settings.setSelectedHost('local')}
-            className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors ${
-              settings.selectedHost === 'local'
-                ? 'text-gray-300 bg-white/[0.06]'
-                : 'text-gray-600 hover:text-gray-400'
-            }`}
-          >
-            <Terminal size={11} />
-            Local
-          </button>
-          {settings.remoteHosts.map((host) => (
-            <button
-              key={host.id}
-              onClick={() => settings.setSelectedHost(host.id)}
-              className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors ${
-                settings.selectedHost === host.id
-                  ? 'bg-blue-500/10 text-blue-300'
-                  : 'text-gray-600 hover:text-gray-400'
-              }`}
-            >
-              <Server size={11} />
-              {host.label}
-            </button>
-          ))}
-        </>
-      )}
+      {/* Host indicator (derived from project, not selectable) */}
 
       {/* Spacer */}
       <div className="flex-1" />

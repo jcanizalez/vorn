@@ -5,7 +5,8 @@ import {
   GitDiffResult,
   WorkflowExecution,
   SessionLog,
-  supportsExactSessionResume
+  supportsExactSessionResume,
+  getProjectRemoteHostId
 } from '../../shared/types'
 import { buildTaskPrompt, buildFeedbackPrompt } from '../../shared/prompt-builder'
 import { TASK_TEMPLATE } from './MarkdownEditor'
@@ -373,6 +374,7 @@ export function TaskDetailPanel() {
     if (!project || !task) return
     const agentType = formAssignedAgent ?? config?.defaults.defaultAgent ?? 'claude'
     const siblingTasks = (config?.tasks || []).filter((t) => t.projectName === task.projectName)
+    const remoteHostId = getProjectRemoteHostId(project)
     const session = await window.api.createTerminal({
       agentType,
       projectName: project.name,
@@ -380,7 +382,8 @@ export function TaskDetailPanel() {
       branch: task.branch,
       useWorktree: task.useWorktree,
       initialPrompt: buildTaskPrompt({ task, project, siblingTasks }),
-      taskId: task.id
+      taskId: task.id,
+      remoteHostId
     })
     addTerminal(session)
     startTask(task.id, session.id, agentType, session.worktreePath)
@@ -394,13 +397,15 @@ export function TaskDetailPanel() {
     if (!task?.agentSessionId || !task?.assignedAgent || !project) return
     if (!supportsExactSessionResume(task.assignedAgent)) return
 
+    const remoteHostId = getProjectRemoteHostId(project)
     const session = await window.api.createTerminal({
       agentType: task.assignedAgent,
       projectName: task.projectName,
       projectPath: project.path,
       branch: task.branch,
       useWorktree: task.useWorktree,
-      resumeSessionId: task.agentSessionId
+      resumeSessionId: task.agentSessionId,
+      remoteHostId
     })
     addTerminal(session)
     if (task.status === 'in_progress') {
@@ -419,13 +424,16 @@ export function TaskDetailPanel() {
   ) => {
     if (!supportsExactSessionResume(agentType)) return
 
+    const proj = config?.projects.find((p) => p.name === projectName)
+    const remoteHostId = proj ? getProjectRemoteHostId(proj) : undefined
     const session = await window.api.createTerminal({
       agentType,
       projectName,
       projectPath,
       branch,
       useWorktree,
-      resumeSessionId: agentSessionId
+      resumeSessionId: agentSessionId,
+      remoteHostId
     })
     addTerminal(session)
     setFocusedTerminal(session.id)
@@ -463,6 +471,7 @@ export function TaskDetailPanel() {
       project &&
       supportsExactSessionResume(task.assignedAgent)
     ) {
+      const remoteHostId = getProjectRemoteHostId(project)
       const session = await window.api.createTerminal({
         agentType: task.assignedAgent,
         projectName: task.projectName,
@@ -471,7 +480,8 @@ export function TaskDetailPanel() {
         useWorktree: task.useWorktree,
         resumeSessionId: task.agentSessionId,
         initialPrompt: buildFeedbackPrompt(feedback, task, project),
-        taskId: task.id
+        taskId: task.id,
+        remoteHostId
       })
       addTerminal(session)
       startTask(task.id, session.id, task.assignedAgent, session.worktreePath)

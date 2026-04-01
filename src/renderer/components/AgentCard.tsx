@@ -12,7 +12,7 @@ import { closeTerminalSession } from '../lib/terminal-close'
 import { getDisplayName, getBranchLabel } from '../lib/terminal-display'
 import { CardContextMenu } from './CardContextMenu'
 import { useTerminalScrollButton } from '../hooks/useTerminalScrollButton'
-import { GitBranch, FolderGit2, Server, Pencil, ListTodo, Pin, Archive } from 'lucide-react'
+import { GitBranch, FolderGit2, Pencil, ListTodo, Pin, Archive } from 'lucide-react'
 import { toast } from './Toast'
 import { Tooltip } from './Tooltip'
 
@@ -231,14 +231,6 @@ export const AgentCard = memo(
                       </span>
                     </>
                   )}
-                </div>
-              )}
-              {terminal.session.remoteHostLabel && (
-                <div className="flex items-center gap-1.5 mt-1 px-1.5 py-0.5 rounded-md bg-blue-500/[0.08] border border-blue-500/[0.12] w-fit">
-                  <Server size={10} className="text-blue-400 shrink-0" strokeWidth={2} />
-                  <span className="text-[10px] font-medium text-blue-300 truncate">
-                    {terminal.session.remoteHostLabel}
-                  </span>
                 </div>
               )}
               {!isMinimized && assignedTask && (

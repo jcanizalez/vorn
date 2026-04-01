@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Play, FolderGit2, Plus, ChevronRight } from 'lucide-react'
 import { useAppStore } from '../stores'
+import { getProjectRemoteHostId } from '../../shared/types'
 import { ProjectIcon } from './project-sidebar/ProjectIcon'
 import { resolveActiveProject } from '../lib/session-utils'
 
@@ -109,20 +110,23 @@ export function GridContextMenu({ position, onClose }: Props) {
         onClose()
         const state = useAppStore.getState()
         const agentType = state.config?.defaults.defaultAgent || 'claude'
+        const remoteHostId = getProjectRemoteHostId(project)
         if (activeWorktreePath) {
           const session = await window.api.createTerminal({
             agentType,
             projectName: project.name,
             projectPath: project.path,
             branch: activeWorktreeBranch,
-            existingWorktreePath: activeWorktreePath
+            existingWorktreePath: activeWorktreePath,
+            remoteHostId
           })
           state.addTerminal(session)
         } else {
           const session = await window.api.createTerminal({
             agentType,
             projectName: project.name,
-            projectPath: project.path
+            projectPath: project.path,
+            remoteHostId
           })
           state.addTerminal(session)
         }
@@ -157,12 +161,14 @@ export function GridContextMenu({ position, onClose }: Props) {
           onClose()
           const state = useAppStore.getState()
           const agentType = state.config?.defaults.defaultAgent || 'claude'
+          const remoteHostId = getProjectRemoteHostId(project)
           const session = await window.api.createTerminal({
             agentType,
             projectName: project.name,
             projectPath: project.path,
             branch: wt.branch,
-            existingWorktreePath: wt.path
+            existingWorktreePath: wt.path,
+            remoteHostId
           })
           state.addTerminal(session)
         }
@@ -178,12 +184,14 @@ export function GridContextMenu({ position, onClose }: Props) {
         const agentType = state.config?.defaults.defaultAgent || 'claude'
         const branchResult = await window.api.listBranches(project.path)
         const branchName = branchResult.current || 'main'
+        const remoteHostId = getProjectRemoteHostId(project)
         const session = await window.api.createTerminal({
           agentType,
           projectName: project.name,
           projectPath: project.path,
           branch: branchName,
-          useWorktree: true
+          useWorktree: true,
+          remoteHostId
         })
         state.addTerminal(session)
       },
@@ -209,10 +217,12 @@ export function GridContextMenu({ position, onClose }: Props) {
           onClose()
           const state = useAppStore.getState()
           const agentType = state.config?.defaults.defaultAgent || 'claude'
+          const remoteHostId = getProjectRemoteHostId(p)
           const session = await window.api.createTerminal({
             agentType,
             projectName: p.name,
-            projectPath: p.path
+            projectPath: p.path,
+            remoteHostId
           })
           state.addTerminal(session)
         }

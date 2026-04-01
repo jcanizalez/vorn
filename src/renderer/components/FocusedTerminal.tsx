@@ -25,7 +25,6 @@ import {
   FileCode2,
   RefreshCw,
   Loader2,
-  Server,
   ArrowDown,
   ChevronDown
 } from 'lucide-react'
@@ -220,14 +219,6 @@ export function FocusedTerminal() {
                 {terminal.session.isWorktree && (
                   <span className="text-[11px] text-amber-500/60 ml-1">worktree</span>
                 )}
-              </span>
-            )}
-            {terminal.session.remoteHostLabel && (
-              <span className="inline-flex items-center gap-1.5 ml-3 px-2 py-0.5 rounded-md bg-blue-500/[0.08] border border-blue-500/[0.12]">
-                <Server size={12} className="text-blue-400" strokeWidth={2} />
-                <span className="text-[12px] font-medium text-blue-300">
-                  {terminal.session.remoteHostLabel}
-                </span>
               </span>
             )}
           </div>

@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useAppStore } from '../../stores'
 import { AgentIcon } from '../AgentIcon'
 import { Tooltip } from '../Tooltip'
-import { supportsExactSessionResume } from '../../../shared/types'
+import { supportsExactSessionResume, getProjectRemoteHostId } from '../../../shared/types'
 import { ChevronRight, RotateCcw, Play } from 'lucide-react'
 
 export function ArchivedSessionsSection({
@@ -74,11 +74,15 @@ export function ArchivedSessionsSection({
                   <button
                     onClick={async () => {
                       const agentType = session.agentType
+                      const cfg = useAppStore.getState().config
+                      const proj = cfg?.projects.find((p) => p.name === session.projectName)
+                      const remoteHostId = proj ? getProjectRemoteHostId(proj) : undefined
                       const newSession = await window.api.createTerminal({
                         agentType,
                         projectName: session.projectName,
                         projectPath: session.projectPath,
-                        resumeSessionId: session.agentSessionId
+                        resumeSessionId: session.agentSessionId,
+                        remoteHostId
                       })
                       addTerminal(newSession)
                       await unarchiveSession(session.id)

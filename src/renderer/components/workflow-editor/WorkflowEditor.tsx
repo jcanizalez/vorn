@@ -9,7 +9,8 @@ import {
   WorkflowEdge,
   TriggerConfig,
   AgentType,
-  supportsExactSessionResume
+  supportsExactSessionResume,
+  getProjectRemoteHostId
 } from '../../../shared/types'
 import { WorkflowCanvas } from './WorkflowCanvas'
 import { NodePalette } from './panels/NodePalette'
@@ -414,13 +415,17 @@ export function WorkflowEditor() {
     ) => {
       if (!supportsExactSessionResume(agentType)) return
 
+      const cfg = useAppStore.getState().config
+      const proj = cfg?.projects.find((p) => p.name === projectName)
+      const remoteHostId = proj ? getProjectRemoteHostId(proj) : undefined
       const session = await window.api.createTerminal({
         agentType,
         projectName,
         projectPath,
         branch,
         useWorktree,
-        resumeSessionId: agentSessionId
+        resumeSessionId: agentSessionId,
+        remoteHostId
       })
       addTerminal(session)
       setFocusedTerminal(session.id)

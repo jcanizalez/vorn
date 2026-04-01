@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Maximize2, Pencil, Pin, FolderGit2, Plus, X, ChevronRight } from 'lucide-react'
 import { useAppStore } from '../stores'
+import { getProjectRemoteHostId } from '../../shared/types'
 import { ProjectIcon } from './project-sidebar/ProjectIcon'
 import { closeTerminalSession } from '../lib/terminal-close'
 import { toast } from './Toast'
@@ -88,6 +89,7 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
   const isPinned = terminal.session.pinned === true
 
   const project = config?.projects.find((p) => p.name === terminal.session.projectName)
+  const remoteHostId = project ? getProjectRemoteHostId(project) : undefined
   const projectPath = terminal.session.projectPath
   const projectName = terminal.session.projectName
   const isWorktree = terminal.session.isWorktree
@@ -151,14 +153,16 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
           projectName,
           projectPath,
           branch,
-          existingWorktreePath: terminal.session.worktreePath
+          existingWorktreePath: terminal.session.worktreePath,
+          remoteHostId
         })
         state.addTerminal(session)
       } else {
         const session = await window.api.createTerminal({
           agentType,
           projectName,
-          projectPath
+          projectPath,
+          remoteHostId
         })
         state.addTerminal(session)
       }
@@ -186,7 +190,8 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
           projectName,
           projectPath,
           branch: wt.branch,
-          existingWorktreePath: wt.path
+          existingWorktreePath: wt.path,
+          remoteHostId
         })
         state.addTerminal(session)
       }
@@ -207,7 +212,8 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
         projectName,
         projectPath,
         branch: branchName,
-        useWorktree: true
+        useWorktree: true,
+        remoteHostId
       })
       state.addTerminal(session)
     },

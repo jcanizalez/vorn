@@ -8,8 +8,9 @@ import { ProjectContextMenu } from './ProjectContextMenu'
 import { WorktreeItem } from './WorktreeItem'
 import { generateWorktreeName } from '../../lib/worktree-names'
 import { SessionItem } from './SessionItem'
-import { ChevronRight, Plus, MoreHorizontal, GitBranch, FolderGit2 } from 'lucide-react'
+import { ChevronRight, Plus, MoreHorizontal, GitBranch, FolderGit2, Server } from 'lucide-react'
 import type { ProjectConfig } from '../../../shared/types'
+import { getProjectHostIds } from '../../../shared/types'
 import { MAIN_WORKTREE_SENTINEL } from '../../stores/types'
 import type { SidebarViewMode, WorktreeInfo } from '../../stores/types'
 import type { SidebarSessionInfo } from './types'
@@ -61,6 +62,17 @@ export function ProjectItem({
 
   const showSessions = viewMode === 'worktrees-sessions'
   const sessionsOnly = viewMode === 'sessions'
+
+  // Remote host labels for badge
+  const remoteHosts = config?.remoteHosts
+  const remoteHostLabels = useMemo(() => {
+    const hostIds = getProjectHostIds(project)
+    const remoteIds = hostIds.filter((id) => id !== 'local')
+    if (remoteIds.length === 0 || !remoteHosts) return null
+    return remoteIds
+      .map((id) => remoteHosts.find((h) => h.id === id)?.label)
+      .filter(Boolean) as string[]
+  }, [project, remoteHosts])
 
   const toggleBranchCollapsed = useCallback((key: string) => {
     setCollapsedBranches((prev) => {
@@ -173,6 +185,15 @@ export function ProjectItem({
           {!isCollapsed && (
             <>
               <span className="truncate">{project.name}</span>
+              {remoteHostLabels && remoteHostLabels.length > 0 && (
+                <Tooltip label={remoteHostLabels.join(', ')} position="right">
+                  <Server
+                    size={11}
+                    strokeWidth={1.5}
+                    className="text-blue-400/60 shrink-0 group-hover:hidden"
+                  />
+                </Tooltip>
+              )}
               {sessionCount > 0 && !sessionsOnly && !showSessions && (
                 <span className="text-gray-600 text-xs ml-auto group-hover:hidden">
                   {sessionCount}
@@ -189,8 +210,9 @@ export function ProjectItem({
                         await window.api.createWorktree(project.path, 'main', name)
                         loadWorktrees(project.path, true)
                         if (!isExpanded) setIsExpanded(true)
-                      } catch {
-                        toast.error('Failed to create worktree')
+                      } catch (err) {
+                        const msg = err instanceof Error ? err.message : String(err)
+                        toast.error(msg || 'Failed to create worktree')
                       }
                     }}
                     className="text-gray-500 hover:text-white p-0.5 rounded hover:bg-white/[0.08] transition-colors"
@@ -294,11 +316,14 @@ export function ProjectItem({
                             onClick={async (e) => {
                               e.stopPropagation()
                               const agentType = config?.defaults.defaultAgent || 'claude'
+                              const hostIds = getProjectHostIds(project)
+                              const remoteHostId = hostIds.find((id) => id !== 'local')
                               const session = await window.api.createTerminal({
                                 agentType,
                                 projectName: project.name,
                                 projectPath: project.path,
-                                branch: mainWt.branch
+                                branch: mainWt.branch,
+                                remoteHostId
                               })
                               addTerminal(session)
                             }}

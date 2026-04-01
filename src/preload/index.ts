@@ -169,10 +169,14 @@ const api = {
   gitPush: (cwd: string): Promise<GitCommitResult> => ipcRenderer.invoke(IPC.GIT_PUSH, cwd),
 
   // File explorer
-  listDir: (dirPath: string): Promise<FileEntry[]> =>
-    ipcRenderer.invoke(IPC.FILE_LIST_DIR, dirPath),
-  readFileContent: (filePath: string, maxBytes?: number): Promise<string | null> =>
-    ipcRenderer.invoke(IPC.FILE_READ_CONTENT, { filePath, maxBytes }),
+  listDir: (dirPath: string, remoteHostId?: string): Promise<FileEntry[]> =>
+    ipcRenderer.invoke(IPC.FILE_LIST_DIR, { dirPath, remoteHostId }),
+  readFileContent: (
+    filePath: string,
+    maxBytes?: number,
+    remoteHostId?: string
+  ): Promise<string | null> =>
+    ipcRenderer.invoke(IPC.FILE_READ_CONTENT, { filePath, maxBytes, remoteHostId }),
 
   // Task images
   openImageDialog: (): Promise<string[] | null> => ipcRenderer.invoke(IPC.DIALOG_OPEN_IMAGE),

@@ -2,7 +2,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import type { FileEntry } from '@vibegrid/shared/types'
+import type { FileEntry, RemoteHost } from '@vibegrid/shared/types'
+import { sshExecSync } from './process-utils'
 
 const execFileAsync = promisify(execFile)
 
@@ -52,7 +53,9 @@ async function getGitIgnored(cwd: string): Promise<Set<string> | null> {
   }
 }
 
-export async function listDir(dirPath: string): Promise<FileEntry[]> {
+export async function listDir(dirPath: string, remote?: RemoteHost): Promise<FileEntry[]> {
+  if (remote) return listDirRemote(dirPath, remote)
+
   const ignored = await getGitIgnored(dirPath)
   let entries: fs.Dirent[]
   try {
@@ -84,10 +87,43 @@ export async function listDir(dirPath: string): Promise<FileEntry[]> {
   return result
 }
 
+function listDirRemote(dirPath: string, remote: RemoteHost): FileEntry[] {
+  try {
+    const esc = dirPath.replace(/'/g, "'\\''")
+    const output = sshExecSync(remote, `ls -1aF '${esc}'`, { timeout: 10000 }).trim()
+    if (!output) return []
+
+    const result: FileEntry[] = []
+    for (const line of output.split('\n')) {
+      const isDir = line.endsWith('/')
+      const name = line.replace(/[/@*|=]$/, '') // strip type indicators
+      if (!name || name === '.' || name === '..') continue
+      if (ALWAYS_EXCLUDE.has(name)) continue
+      if (name.startsWith('.') && name !== '.github') continue
+
+      result.push({
+        name,
+        path: `${dirPath}/${name}`,
+        isDirectory: isDir
+      })
+    }
+
+    result.sort(
+      (a, b) => Number(b.isDirectory) - Number(a.isDirectory) || a.name.localeCompare(b.name)
+    )
+    return result
+  } catch {
+    return []
+  }
+}
+
 export function readFileContent(
   filePath: string,
-  maxBytes: number = MAX_READ_BYTES
+  maxBytes: number = MAX_READ_BYTES,
+  remote?: RemoteHost
 ): string | null {
+  if (remote) return readFileContentRemote(filePath, maxBytes, remote)
+
   let fd: number | undefined
   try {
     const stat = fs.statSync(filePath)
@@ -122,5 +158,24 @@ export function readFileContent(
         /* ignore close errors */
       }
     }
+  }
+}
+
+function readFileContentRemote(
+  filePath: string,
+  maxBytes: number,
+  remote: RemoteHost
+): string | null {
+  try {
+    const esc = filePath.replace(/'/g, "'\\''")
+    const text = sshExecSync(remote, `head -c ${maxBytes} '${esc}'`, { timeout: 10000 })
+
+    // Binary check
+    for (let i = 0; i < Math.min(text.length, 8192); i++) {
+      if (text.charCodeAt(i) === 0) return null
+    }
+    return text
+  } catch {
+    return null
   }
 }

@@ -321,7 +321,9 @@ export function RightPanel() {
           />
         )}
 
-        {activeTab === 'all-files' && <FileTreeExplorer key={cwd} cwd={cwd} />}
+        {activeTab === 'all-files' && (
+          <FileTreeExplorer key={cwd} cwd={cwd} remoteHostId={terminal?.session.remoteHostId} />
+        )}
       </div>
 
       {showCommitDialog && (

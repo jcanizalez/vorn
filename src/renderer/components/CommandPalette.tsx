@@ -252,25 +252,14 @@ function useCommands(
       onExecute: () => navigator.clipboard.writeText('http://localhost:56433/mcp')
     })
     commands.push({
-      id: 'action:manage-hosts',
-      label: 'Manage Remote Hosts',
+      id: 'action:manage-ssh',
+      label: 'SSH & Hosts',
       category: 'actions',
       icon: <Server size={14} strokeWidth={1.5} />,
-      keywords: ['ssh', 'remote', 'host', 'server'],
+      keywords: ['ssh', 'remote', 'host', 'server', 'key', 'credential', 'vault'],
       onExecute: () => {
         setSettingsOpen(true)
-        useAppStore.getState().setSettingsCategory('hosts')
-      }
-    })
-    commands.push({
-      id: 'action:manage-keys',
-      label: 'Manage SSH Keys',
-      category: 'actions',
-      icon: <Server size={14} strokeWidth={1.5} />,
-      keywords: ['ssh', 'key', 'credential', 'vault', 'private', 'certificate'],
-      onExecute: () => {
-        setSettingsOpen(true)
-        useAppStore.getState().setSettingsCategory('keys')
+        useAppStore.getState().setSettingsCategory('ssh')
       }
     })
 
@@ -302,11 +291,14 @@ function useCommands(
         keywords: ['resume', 'recent', 'history', projectName, session.agentType],
         onExecute: async () => {
           try {
+            const proj = config?.projects.find((p) => p.name === projectName)
+            const remoteHostId = proj ? getProjectRemoteHostId(proj) : undefined
             const result = await window.api.createTerminal({
               agentType: session.agentType,
               projectName,
               projectPath: session.projectPath,
-              resumeSessionId: session.sessionId
+              resumeSessionId: session.sessionId,
+              remoteHostId
             })
             addTerminal(result)
           } catch (err) {
@@ -366,10 +358,12 @@ function useCommands(
           icon: <AgentIcon agentType={agent.type} size={14} />,
           keywords: ['launch', 'start', 'run'],
           onExecute: async () => {
+            const remoteHostId = getProjectRemoteHostId(project)
             const session = await window.api.createTerminal({
               agentType: agent.type,
               projectName: project.name,
-              projectPath: project.path
+              projectPath: project.path,
+              remoteHostId
             })
             addTerminal(session)
           }
@@ -383,6 +377,7 @@ function useCommands(
           icon: <AgentIcon agentType={agent.type} size={14} />,
           keywords: ['launch', 'start', 'run', 'worktree', 'branch', 'isolated', 'fork'],
           onExecute: async () => {
+            const remoteHostId = getProjectRemoteHostId(project)
             const branchResult = await window.api.listBranches(project.path)
             const branch = branchResult.current || 'main'
             const session = await window.api.createTerminal({
@@ -390,7 +385,8 @@ function useCommands(
               projectName: project.name,
               projectPath: project.path,
               branch,
-              useWorktree: true
+              useWorktree: true,
+              remoteHostId
             })
             addTerminal(session)
           }
@@ -398,34 +394,7 @@ function useCommands(
       }
     }
 
-    // Remote host quick-launch variants — only host-matched projects
-    const remoteHosts = config?.remoteHosts ?? []
-    for (const host of remoteHosts) {
-      const hostProjects = (config?.projects ?? []).filter((p) =>
-        getProjectHostIds(p).includes(host.id)
-      )
-      for (const project of hostProjects) {
-        const agentType = config?.defaults.defaultAgent || 'claude'
-        const agentDef = AGENT_DEFINITIONS[agentType]
-        commands.push({
-          id: `quicklaunch:remote:${host.id}:${project.name}`,
-          label: `${agentDef?.displayName || agentType} on ${project.name} @ ${host.label}`,
-          sublabel: `${host.user}@${host.hostname}`,
-          category: 'quicklaunch',
-          icon: <AgentIcon agentType={agentType} size={14} />,
-          keywords: ['launch', 'start', 'run', 'remote', 'ssh', host.hostname, host.label],
-          onExecute: async () => {
-            const session = await window.api.createTerminal({
-              agentType,
-              projectName: project.name,
-              projectPath: project.path,
-              remoteHostId: host.id
-            })
-            addTerminal(session)
-          }
-        })
-      }
-    }
+    // Remote host quick-launch is now project-level — remoteHostId is derived from project config
 
     // --- Filter & Sort ---
     const statusOptions: { value: StatusFilter; label: string; shortcut?: string }[] = [

@@ -14,7 +14,7 @@ export function useGitDiffPolling(): void {
 
       const { terminals, updateGitDiffStats, updateSessionBranch } = useAppStore.getState()
 
-      const entries = Array.from(terminals).filter(([, t]) => !t.session.remoteHostId)
+      const entries = Array.from(terminals)
 
       const batchStats = new Map<string, GitDiffStat>()
       await Promise.allSettled(

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { FolderGit2, GitBranch, ChevronRight, Plus, Pencil, Trash2, Check, X } from 'lucide-react'
 import { useAppStore } from '../../stores'
+import { getProjectRemoteHostId } from '../../../shared/types'
 import { Tooltip } from '../Tooltip'
 import { toast } from '../Toast'
 import { requestWorktreeDelete } from '../WorktreeCleanupDialog'
@@ -142,12 +143,15 @@ export function WorktreeItem({
               onClick={async (e) => {
                 e.stopPropagation()
                 const agentType = config?.defaults.defaultAgent || 'claude'
+                const proj = config?.projects.find((p) => p.name === projectName)
+                const remoteHostId = proj ? getProjectRemoteHostId(proj) : undefined
                 const session = await window.api.createTerminal({
                   agentType,
                   projectName,
                   projectPath,
                   branch: wt.branch,
-                  existingWorktreePath: wt.path
+                  existingWorktreePath: wt.path,
+                  remoteHostId
                 })
                 addTerminal(session)
               }}

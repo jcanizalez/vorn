@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../stores'
-import type { RecentSession } from '../../shared/types'
+import { getProjectRemoteHostId, type RecentSession } from '../../shared/types'
 import { AgentIcon } from './AgentIcon'
 import { formatRecentSessionActivity, resolveProjectName } from '../lib/session-utils'
 
@@ -46,11 +46,14 @@ export function RecentSessionsPopover({ isOpen, onClose }: Props) {
 
     try {
       const projectName = resolveProjectName(session, config?.projects)
+      const proj = config?.projects.find((p) => p.name === projectName)
+      const remoteHostId = proj ? getProjectRemoteHostId(proj) : undefined
       const result = await window.api.createTerminal({
         agentType: session.agentType,
         projectName,
         projectPath: session.projectPath,
-        resumeSessionId: session.sessionId
+        resumeSessionId: session.sessionId,
+        remoteHostId
       })
       addTerminal(result)
       onClose()

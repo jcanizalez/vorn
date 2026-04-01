@@ -2,18 +2,44 @@ import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import fs from 'node:fs'
 import crypto from 'node:crypto'
+import type { RemoteHost } from '@vibegrid/shared/types'
+import { sshExecSync } from './process-utils'
+
+/**
+ * Run a git command locally or via SSH depending on whether a remote host is provided.
+ * For remote: `cd <cwd> && git <args>`
+ */
+function gitExec(
+  args: string[],
+  cwd: string,
+  opts?: { timeout?: number; remote?: RemoteHost }
+): string {
+  if (opts?.remote) {
+    const cmd = `cd ${shellEscapePosix(cwd)} && git ${args.map(shellEscapePosix).join(' ')}`
+    return sshExecSync(opts.remote, cmd, { timeout: opts?.timeout ?? 10000 })
+  }
+  return execFileSync('git', args, {
+    cwd,
+    ...EXEC_OPTS,
+    timeout: opts?.timeout ?? 10000
+  }).trim()
+}
+
+function shellEscapePosix(s: string): string {
+  if (/^[a-zA-Z0-9_./:@=-]+$/.test(s)) return s
+  return "'" + s.replace(/'/g, "'\\''") + "'"
+}
 
 const EXEC_OPTS = {
   encoding: 'utf-8' as const,
   stdio: ['pipe', 'pipe', 'pipe'] as ['pipe', 'pipe', 'pipe']
 }
 
-export function getGitBranch(projectPath: string): string | null {
+export function getGitBranch(projectPath: string, remote?: RemoteHost): string | null {
   try {
-    const branch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
-      cwd: projectPath,
-      ...EXEC_OPTS,
-      timeout: 3000
+    const branch = gitExec(['rev-parse', '--abbrev-ref', 'HEAD'], projectPath, {
+      timeout: 3000,
+      remote
     }).trim()
     return branch && branch !== 'HEAD' ? branch : null
   } catch {
@@ -21,12 +47,11 @@ export function getGitBranch(projectPath: string): string | null {
   }
 }
 
-export function listBranches(projectPath: string): string[] {
+export function listBranches(projectPath: string, remote?: RemoteHost): string[] {
   try {
-    const output = execFileSync('git', ['branch', '--format=%(refname:short)'], {
-      cwd: projectPath,
-      ...EXEC_OPTS,
-      timeout: 5000
+    const output = gitExec(['branch', '--format=%(refname:short)'], projectPath, {
+      timeout: 5000,
+      remote
     }).trim()
     return output
       ? output
@@ -39,17 +64,12 @@ export function listBranches(projectPath: string): string[] {
   }
 }
 
-export function listRemoteBranches(projectPath: string): string[] {
+export function listRemoteBranches(projectPath: string, remote?: RemoteHost): string[] {
   try {
-    execFileSync('git', ['fetch', '--prune'], {
-      cwd: projectPath,
-      ...EXEC_OPTS,
-      timeout: 15000
-    })
-    const output = execFileSync('git', ['branch', '-r', '--format=%(refname:short)'], {
-      cwd: projectPath,
-      ...EXEC_OPTS,
-      timeout: 5000
+    gitExec(['fetch', '--prune'], projectPath, { timeout: 15000, remote })
+    const output = gitExec(['branch', '-r', '--format=%(refname:short)'], projectPath, {
+      timeout: 5000,
+      remote
     }).trim()
     return output
       ? output
@@ -64,14 +84,11 @@ export function listRemoteBranches(projectPath: string): string[] {
 
 export function checkoutBranch(
   projectPath: string,
-  branch: string
+  branch: string,
+  remote?: RemoteHost
 ): { ok: boolean; error?: string } {
   try {
-    execFileSync('git', ['checkout', branch], {
-      cwd: projectPath,
-      ...EXEC_OPTS,
-      timeout: 10000
-    })
+    gitExec(['checkout', branch], projectPath, { timeout: 10000, remote })
     return { ok: true }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
@@ -160,81 +177,79 @@ function generateName(): string {
 export function createWorktree(
   projectPath: string,
   branch: string,
-  worktreeName?: string
+  worktreeName?: string,
+  remote?: RemoteHost
 ): { worktreePath: string; branch: string; name: string } {
-  const projectName = path.basename(projectPath)
+  // Use posix path separators for remote (always Linux)
+  const sep = remote ? '/' : path.sep
+  const projectName = remote ? projectPath.split('/').pop()! : path.basename(projectPath)
   const shortId = crypto.randomUUID().slice(0, 8)
   const rawName = worktreeName || generateName()
   const name = rawName.replace(/[^a-zA-Z0-9-]/g, '-')
-  const baseDir = path.join(path.dirname(projectPath), '.vibegrid-worktrees', projectName)
-  const worktreeDir = path.join(baseDir, `${name}-${shortId}`)
+  const parentDir = remote
+    ? projectPath.split('/').slice(0, -1).join('/')
+    : path.dirname(projectPath)
+  const baseDir = `${parentDir}${sep}.vibegrid-worktrees${sep}${projectName}`
+  const worktreeDir = `${baseDir}${sep}${name}-${shortId}`
 
-  fs.mkdirSync(baseDir, { recursive: true })
+  if (remote) {
+    sshExecSync(remote, `mkdir -p ${shellEscapePosix(baseDir)}`, { timeout: 5000 })
+  } else {
+    fs.mkdirSync(baseDir, { recursive: true })
+  }
 
-  const localBranches = listBranches(projectPath)
+  const localBranches = listBranches(projectPath, remote)
 
   if (localBranches.includes(branch)) {
-    // Branch exists -- create worktree (git handles "already checked out" by using detached HEAD if needed)
     try {
-      execFileSync('git', ['worktree', 'add', worktreeDir, branch], {
-        cwd: projectPath,
-        ...EXEC_OPTS,
-        timeout: 30000
+      gitExec(['worktree', 'add', worktreeDir, branch], projectPath, {
+        timeout: 30000,
+        remote
       })
     } catch {
-      // If branch is already checked out, create a new branch named after the friendly name
       const newBranch = localBranches.includes(name) ? `${name}-${shortId}` : name
-      execFileSync('git', ['worktree', 'add', '-b', newBranch, worktreeDir, branch], {
-        cwd: projectPath,
-        ...EXEC_OPTS,
-        timeout: 30000
+      gitExec(['worktree', 'add', '-b', newBranch, worktreeDir, branch], projectPath, {
+        timeout: 30000,
+        remote
       })
       return { worktreePath: worktreeDir, branch: newBranch, name }
     }
   } else {
-    // Branch doesn't exist locally -- create new branch from HEAD
-    execFileSync('git', ['worktree', 'add', '-b', branch, worktreeDir], {
-      cwd: projectPath,
-      ...EXEC_OPTS,
-      timeout: 30000
+    gitExec(['worktree', 'add', '-b', branch, worktreeDir], projectPath, {
+      timeout: 30000,
+      remote
     })
   }
 
   return { worktreePath: worktreeDir, branch, name }
 }
 
-export function isWorktreeDirty(worktreePath: string): boolean {
+export function isWorktreeDirty(worktreePath: string, remote?: RemoteHost): boolean {
   try {
-    const output = execFileSync('git', ['status', '--porcelain'], {
-      cwd: worktreePath,
-      ...EXEC_OPTS,
-      timeout: 5000
+    const output = gitExec(['status', '--porcelain'], worktreePath, {
+      timeout: 5000,
+      remote
     }).trim()
     return output.length > 0
   } catch {
-    // Treat errors/timeouts as dirty to avoid accidental data loss
     return true
   }
 }
 
-export function renameWorktreeBranch(worktreePath: string, newBranch: string): boolean {
+export function renameWorktreeBranch(
+  worktreePath: string,
+  newBranch: string,
+  remote?: RemoteHost
+): boolean {
   const trimmed = newBranch.trim()
   if (!trimmed || trimmed.startsWith('-')) return false
 
   try {
-    const currentBranch = getGitBranch(worktreePath)
+    const currentBranch = getGitBranch(worktreePath, remote)
     if (!currentBranch) {
-      execFileSync('git', ['switch', '-c', trimmed], {
-        cwd: worktreePath,
-        ...EXEC_OPTS,
-        timeout: 10000
-      })
+      gitExec(['switch', '-c', trimmed], worktreePath, { timeout: 10000, remote })
     } else {
-      execFileSync('git', ['branch', '-m', trimmed], {
-        cwd: worktreePath,
-        ...EXEC_OPTS,
-        timeout: 10000
-      })
+      gitExec(['branch', '-m', trimmed], worktreePath, { timeout: 10000, remote })
     }
     return true
   } catch {
@@ -244,7 +259,8 @@ export function renameWorktreeBranch(worktreePath: string, newBranch: string): b
 
 export function renameWorktree(
   worktreePath: string,
-  newName: string
+  newName: string,
+  remote?: RemoteHost
 ): { newPath: string; name: string } | null {
   const trimmed = newName
     .trim()
@@ -253,22 +269,31 @@ export function renameWorktree(
     .replace(/^-|-$/g, '')
   if (!trimmed) return null
 
-  const dir = path.dirname(worktreePath)
-  const basename = path.basename(worktreePath)
-  // Preserve the short-id suffix (last 8 hex chars)
+  const sep = remote ? '/' : path.sep
+  const dir = remote ? worktreePath.split('/').slice(0, -1).join('/') : path.dirname(worktreePath)
+  const basename = remote ? worktreePath.split('/').pop()! : path.basename(worktreePath)
   const idMatch = basename.match(/-([0-9a-f]{8})$/)
   if (!idMatch) return null
   const shortId = idMatch[1]
-  const newDir = path.join(dir, `${trimmed}-${shortId}`)
+  const newDir = `${dir}${sep}${trimmed}-${shortId}`
 
   if (newDir === worktreePath) return null
-  if (fs.existsSync(newDir)) return null
+
+  if (remote) {
+    const check = sshExecSync(
+      remote,
+      `test -d ${shellEscapePosix(newDir)} && echo EXISTS || echo MISSING`,
+      { timeout: 5000 }
+    ).trim()
+    if (check === 'EXISTS') return null
+  } else {
+    if (fs.existsSync(newDir)) return null
+  }
 
   try {
-    execFileSync('git', ['worktree', 'move', worktreePath, newDir], {
-      cwd: worktreePath,
-      ...EXEC_OPTS,
-      timeout: 10000
+    gitExec(['worktree', 'move', worktreePath, newDir], worktreePath, {
+      timeout: 10000,
+      remote
     })
     return { newPath: newDir, name: trimmed }
   } catch {
@@ -276,15 +301,16 @@ export function renameWorktree(
   }
 }
 
-export function removeWorktree(projectPath: string, worktreePath: string, force = false): boolean {
+export function removeWorktree(
+  projectPath: string,
+  worktreePath: string,
+  force = false,
+  remote?: RemoteHost
+): boolean {
   try {
     const args = ['worktree', 'remove', worktreePath]
     if (force) args.push('--force')
-    execFileSync('git', args, {
-      cwd: projectPath,
-      ...EXEC_OPTS,
-      timeout: 10000
-    })
+    gitExec(args, projectPath, { timeout: 10000, remote })
     return true
   } catch {
     return false
@@ -299,13 +325,13 @@ export interface WorktreeEntry {
 }
 
 export function getGitDiffStat(
-  cwd: string
+  cwd: string,
+  remote?: RemoteHost
 ): { filesChanged: number; insertions: number; deletions: number } | null {
   try {
-    const output = execFileSync('git', ['diff', 'HEAD', '--numstat'], {
-      cwd,
-      ...EXEC_OPTS,
-      timeout: 10000
+    const output = gitExec(['diff', 'HEAD', '--numstat'], cwd, {
+      timeout: 10000,
+      remote
     }).trim()
 
     if (!output) return { filesChanged: 0, insertions: 0, deletions: 0 }
@@ -330,31 +356,30 @@ export function getGitDiffStat(
   }
 }
 
-export function getGitDiffFull(cwd: string): {
+export function getGitDiffFull(
+  cwd: string,
+  remote?: RemoteHost
+): {
   stat: { filesChanged: number; insertions: number; deletions: number }
   files: { filePath: string; status: string; insertions: number; deletions: number; diff: string }[]
 } | null {
   try {
-    const stat = getGitDiffStat(cwd)
+    const stat = getGitDiffStat(cwd, remote)
     if (!stat) return null
 
     const MAX_DIFF_SIZE = 500 * 1024 // 500KB
-    let rawDiff = execFileSync('git', ['diff', 'HEAD', '-U3'], {
-      cwd,
-      ...EXEC_OPTS,
+    let rawDiff = gitExec(['diff', 'HEAD', '-U3'], cwd, {
       timeout: 15000,
-      maxBuffer: MAX_DIFF_SIZE * 2
+      remote
     })
 
     if (rawDiff.length > MAX_DIFF_SIZE) {
       rawDiff = rawDiff.slice(0, MAX_DIFF_SIZE) + '\n\n... diff truncated (too large) ...\n'
     }
 
-    // Parse numstat for per-file stats
-    const numstatOutput = execFileSync('git', ['diff', 'HEAD', '--numstat'], {
-      cwd,
-      ...EXEC_OPTS,
-      timeout: 10000
+    const numstatOutput = gitExec(['diff', 'HEAD', '--numstat'], cwd, {
+      timeout: 10000,
+      remote
     }).trim()
 
     const fileStats = new Map<string, { insertions: number; deletions: number }>()
@@ -416,17 +441,14 @@ export function getGitDiffFull(cwd: string): {
 export function gitCommit(
   cwd: string,
   message: string,
-  includeUnstaged: boolean
+  includeUnstaged: boolean,
+  remote?: RemoteHost
 ): { success: boolean; error?: string } {
   try {
     if (includeUnstaged) {
-      execFileSync('git', ['add', '-A'], { cwd, ...EXEC_OPTS, timeout: 10000 })
+      gitExec(['add', '-A'], cwd, { timeout: 10000, remote })
     }
-    execFileSync('git', ['commit', '-m', message], {
-      cwd,
-      ...EXEC_OPTS,
-      timeout: 15000
-    })
+    gitExec(['commit', '-m', message], cwd, { timeout: 15000, remote })
     return { success: true }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
@@ -434,9 +456,9 @@ export function gitCommit(
   }
 }
 
-export function gitPush(cwd: string): { success: boolean; error?: string } {
+export function gitPush(cwd: string, remote?: RemoteHost): { success: boolean; error?: string } {
   try {
-    execFileSync('git', ['push'], { cwd, ...EXEC_OPTS, timeout: 30000 })
+    gitExec(['push'], cwd, { timeout: 30000, remote })
     return { success: true }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
@@ -444,12 +466,11 @@ export function gitPush(cwd: string): { success: boolean; error?: string } {
   }
 }
 
-export function listWorktrees(projectPath: string): WorktreeEntry[] {
+export function listWorktrees(projectPath: string, remote?: RemoteHost): WorktreeEntry[] {
   try {
-    const output = execFileSync('git', ['worktree', 'list', '--porcelain'], {
-      cwd: projectPath,
-      ...EXEC_OPTS,
-      timeout: 5000
+    const output = gitExec(['worktree', 'list', '--porcelain'], projectPath, {
+      timeout: 5000,
+      remote
     }).trim()
 
     if (!output) return []

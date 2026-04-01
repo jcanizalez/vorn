@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
 import { useAppStore } from '../stores'
+import { getProjectRemoteHostId } from '../../shared/types'
 import { useVisibleTerminals } from '../hooks/useVisibleTerminals'
 import { AgentIcon } from './AgentIcon'
 import { TerminalInstance } from './TerminalInstance'
@@ -73,15 +74,11 @@ function buildTooltip(
   status: AgentStatus,
   branch?: string,
   isWorktree?: boolean,
-  remoteHostLabel?: string,
   taskTitle?: string
 ): string {
   const lines = [`${displayName} \u2014 ${STATUS_LABEL[status]}`]
   if (branch) {
     lines.push(`Branch: ${branch}${isWorktree ? ' (worktree)' : ''}`)
-  }
-  if (remoteHostLabel) {
-    lines.push(`Remote: ${remoteHostLabel}`)
   }
   if (taskTitle) {
     lines.push(`Task: ${taskTitle}`)
@@ -234,10 +231,12 @@ export function TabView() {
       return
     }
     const agentType = state.config?.defaults.defaultAgent || 'claude'
+    const remoteHostId = getProjectRemoteHostId(project)
     const session = await window.api.createTerminal({
       agentType,
       projectName: project.name,
-      projectPath: project.path
+      projectPath: project.path,
+      remoteHostId
     })
     state.addTerminal(session)
   }
@@ -310,7 +309,6 @@ export function TabView() {
             terminal.status,
             getBranchLabel(terminal.session),
             terminal.session.isWorktree,
-            terminal.session.remoteHostLabel,
             tooltipTaskTitle
           )
 

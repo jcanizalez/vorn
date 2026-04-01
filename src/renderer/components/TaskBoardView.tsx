@@ -1,6 +1,11 @@
 import { useMemo } from 'react'
 import { useAppStore } from '../stores'
-import { TaskConfig, TaskStatus, supportsExactSessionResume } from '../../shared/types'
+import {
+  TaskConfig,
+  TaskStatus,
+  supportsExactSessionResume,
+  getProjectRemoteHostId
+} from '../../shared/types'
 import { buildTaskPrompt } from '../../shared/prompt-builder'
 import { TaskKanbanBoard } from './task-board/TaskKanbanBoard'
 import { TaskListView } from './task-board/TaskListView'
@@ -53,6 +58,7 @@ export function TaskBoardView() {
     if (!project) return
     const agentType = config?.defaults.defaultAgent || 'claude'
     const siblingTasks = (config?.tasks || []).filter((t) => t.projectName === task.projectName)
+    const remoteHostId = getProjectRemoteHostId(project)
     const session = await window.api.createTerminal({
       agentType,
       projectName: project.name,
@@ -60,7 +66,8 @@ export function TaskBoardView() {
       branch: task.branch,
       useWorktree: task.useWorktree,
       initialPrompt: buildTaskPrompt({ task, project, siblingTasks }),
-      taskId: task.id
+      taskId: task.id,
+      remoteHostId
     })
     addTerminal(session)
     startTask(task.id, session.id, agentType, session.worktreePath)
@@ -83,13 +90,15 @@ export function TaskBoardView() {
       return async () => {
         const project = config?.projects.find((p) => p.name === task.projectName)
         const agentType = task.assignedAgent!
+        const remoteHostId = project ? getProjectRemoteHostId(project) : undefined
         const session = await window.api.createTerminal({
           agentType,
           projectName: task.projectName,
           projectPath: project?.path || '',
           branch: task.branch,
           useWorktree: task.useWorktree,
-          resumeSessionId: task.agentSessionId
+          resumeSessionId: task.agentSessionId,
+          remoteHostId
         })
         addTerminal(session)
         if (task.status === 'in_progress') {

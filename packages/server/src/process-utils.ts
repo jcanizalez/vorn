@@ -1,4 +1,4 @@
-import { execFileSync, execFile } from 'node:child_process'
+import { execFileSync, execFile, type ExecFileSyncOptions } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import type { RemoteHost } from '@vibegrid/shared/types'
@@ -120,7 +120,7 @@ export function testSshConnection(host: RemoteHost): Promise<SshTestResult> {
       '-o',
       'BatchMode=yes',
       '-o',
-      'StrictHostKeyChecking=yes'
+      'StrictHostKeyChecking=accept-new'
     ]
     if (host.port !== 22) args.push('-p', String(host.port))
     if (host.sshKeyPath) args.push('-i', host.sshKeyPath)
@@ -147,13 +147,69 @@ export function testSshConnection(host: RemoteHost): Promise<SshTestResult> {
         if (!err && stdout.includes('__VIBEGRID_OK__')) {
           resolve({ success: true, message: `Connected in ${durationMs}ms`, durationMs })
         } else {
-          let msg = stderr?.trim() || err?.message || 'Connection failed'
+          // Strip SSH warnings (e.g. "Warning: Permanently added ... to known hosts")
+          const stderrClean = (stderr || '')
+            .split('\n')
+            .filter((line) => !line.startsWith('Warning:'))
+            .join('\n')
+            .trim()
+          let msg = stderrClean || err?.message || 'Connection failed'
           if (msg.includes('Host key verification failed')) {
-            msg = 'Host key not in known_hosts — connect manually first to accept the key'
+            msg = 'Host key changed — remove old entry from known_hosts or verify the server'
+          } else if (msg.includes('Permission denied')) {
+            msg = 'Permission denied — check username and authentication method'
           }
           resolve({ success: false, message: msg, durationMs })
         }
       }
     )
   })
+}
+
+/**
+ * Build the SSH args prefix for a remote host (user@host, port, key, options).
+ * Does NOT include the remote command — caller appends that.
+ */
+export function buildSshArgs(host: RemoteHost): string[] {
+  const args: string[] = [
+    '-o',
+    'ConnectTimeout=10',
+    '-o',
+    'BatchMode=yes',
+    '-o',
+    'StrictHostKeyChecking=accept-new',
+    '-o',
+    'ControlMaster=auto',
+    '-o',
+    'ControlPath=/tmp/vibegrid-ssh-%r@%h:%p',
+    '-o',
+    'ControlPersist=60'
+  ]
+  if (host.port !== 22) args.push('-p', String(host.port))
+  if (host.sshKeyPath) args.push('-i', host.sshKeyPath)
+  if (host.sshOptions) {
+    args.push(...host.sshOptions.split(/\s+/).filter(Boolean))
+  }
+  args.push(`${host.user}@${host.hostname}`)
+  return args
+}
+
+/**
+ * Run a command synchronously on a remote host via SSH.
+ * Equivalent to execFileSync('ssh', [...sshArgs, remoteCommand]).
+ */
+export function sshExecSync(
+  host: RemoteHost,
+  remoteCommand: string,
+  opts?: { timeout?: number }
+): string {
+  const sshArgs = buildSshArgs(host)
+  sshArgs.push(remoteCommand)
+  const execOpts: ExecFileSyncOptions = {
+    encoding: 'utf-8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+    timeout: opts?.timeout ?? 15000,
+    env: getSafeEnv()
+  }
+  return execFileSync('ssh', sshArgs, execOpts) as unknown as string
 }

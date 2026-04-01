@@ -71,16 +71,23 @@ export function AddProjectDialog() {
   const [projectName, setProjectName] = useState('')
   const [selectedIcon, setSelectedIcon] = useState('Folder')
   const [selectedColor, setSelectedColor] = useState('#6b7280')
-  const [hostIds, setHostIds] = useState<string[]>(['local'])
+  // 'local' or a remote host UUID
+  const [selectedHostId, setSelectedHostId] = useState<string>('local')
   const [prevOpen, setPrevOpen] = useState(false)
 
-  // Sync form fields when dialog opens for editing (derive-state-from-props pattern)
+  const remoteHosts = config?.remoteHosts ?? []
+  const hasRemoteHosts = remoteHosts.length > 0
+  const isRemote = selectedHostId !== 'local'
+
+  // Sync form fields when dialog opens for editing
   if (isOpen && !prevOpen && editingProject) {
     setProjectName(editingProject.name)
     setSelectedPath(editingProject.path)
     setSelectedIcon(editingProject.icon || 'Folder')
     setSelectedColor(editingProject.iconColor || '#6b7280')
-    setHostIds(editingProject.hostIds?.length ? editingProject.hostIds : ['local'])
+    const hostIds = editingProject.hostIds?.length ? editingProject.hostIds : ['local']
+    const remoteId = hostIds.find((id) => id !== 'local')
+    setSelectedHostId(remoteId || 'local')
   }
   if (isOpen !== prevOpen) {
     setPrevOpen(isOpen)
@@ -106,7 +113,7 @@ export function AddProjectDialog() {
       preferredAgents: (editingProject?.preferredAgents || ['claude']) as AgentType[],
       icon: selectedIcon,
       iconColor: selectedColor,
-      hostIds,
+      hostIds: [selectedHostId],
       workspaceId: editingProject?.workspaceId ?? activeWorkspace
     }
 
@@ -127,7 +134,7 @@ export function AddProjectDialog() {
     setProjectName('')
     setSelectedIcon('Folder')
     setSelectedColor('#6b7280')
-    setHostIds(['local'])
+    setSelectedHostId('local')
   }
 
   const SelectedIconComponent = ICON_MAP[selectedIcon] || Folder
@@ -166,28 +173,89 @@ export function AddProjectDialog() {
             </div>
 
             <div className="p-6 space-y-5">
-              {/* Folder picker */}
-              <div>
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 block">
-                  Project Folder
-                </label>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleBrowse}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-white/[0.06] hover:bg-white/[0.1]
-                               border border-white/[0.08] rounded-lg text-sm text-gray-200
-                               transition-colors shrink-0"
-                  >
-                    <FolderOpen size={16} strokeWidth={1.5} />
-                    Browse
-                  </button>
-                  <div
-                    className="flex-1 px-4 py-2.5 bg-white/[0.03] border border-white/[0.06]
-                                  rounded-lg text-sm text-gray-400 truncate min-w-0"
-                  >
-                    {selectedPath || 'No folder selected'}
+              {/* Host selector — only when remote hosts exist */}
+              {hasRemoteHosts && (
+                <div>
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 block">
+                    Host
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setSelectedHostId('local')}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all ${
+                        !isRemote
+                          ? 'border-white/[0.15] bg-white/[0.06] text-white'
+                          : 'border-white/[0.04] bg-white/[0.02] text-gray-500 hover:border-white/[0.1]'
+                      }`}
+                    >
+                      <Monitor
+                        size={13}
+                        strokeWidth={1.5}
+                        className={!isRemote ? 'text-white' : 'text-gray-500'}
+                      />
+                      Local
+                    </button>
+                    {remoteHosts.map((host) => (
+                      <button
+                        key={host.id}
+                        onClick={() => setSelectedHostId(host.id)}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all ${
+                          selectedHostId === host.id
+                            ? 'border-blue-500/20 bg-blue-500/[0.06] text-blue-300'
+                            : 'border-white/[0.04] bg-white/[0.02] text-gray-500 hover:border-white/[0.1]'
+                        }`}
+                      >
+                        <Server
+                          size={13}
+                          className={selectedHostId === host.id ? 'text-blue-400' : 'text-gray-500'}
+                          strokeWidth={1.5}
+                        />
+                        {host.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
+              )}
+
+              {/* Folder picker / Remote path */}
+              <div>
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 block">
+                  {isRemote ? 'Remote Path' : 'Project Folder'}
+                </label>
+                {!isRemote ? (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleBrowse}
+                      className="flex items-center gap-2 px-4 py-2.5 bg-white/[0.06] hover:bg-white/[0.1]
+                                 border border-white/[0.08] rounded-lg text-sm text-gray-200
+                                 transition-colors shrink-0"
+                    >
+                      <FolderOpen size={16} strokeWidth={1.5} />
+                      Browse
+                    </button>
+                    <div
+                      className="flex-1 px-4 py-2.5 bg-white/[0.03] border border-white/[0.06]
+                                    rounded-lg text-sm text-gray-400 truncate min-w-0"
+                    >
+                      {selectedPath || 'No folder selected'}
+                    </div>
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    placeholder="/home/user/project"
+                    value={selectedPath}
+                    onChange={(e) => {
+                      setSelectedPath(e.target.value)
+                      if (!projectName) {
+                        const folderName = e.target.value.split('/').pop() || ''
+                        setProjectName(folderName)
+                      }
+                    }}
+                    className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/[0.06] rounded-lg text-sm
+                               text-gray-200 font-mono placeholder-gray-600 focus:border-white/[0.15] focus:outline-none"
+                  />
+                )}
               </div>
 
               {/* Project name */}
@@ -259,58 +327,6 @@ export function AddProjectDialog() {
                   </div>
                 </div>
               </div>
-
-              {/* Available On — host association */}
-              {(config?.remoteHosts ?? []).length > 0 && (
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 block">
-                    Available On
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => {
-                        setHostIds((prev) =>
-                          prev.includes('local')
-                            ? prev.filter((h) => h !== 'local')
-                            : [...prev, 'local']
-                        )
-                      }}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all ${
-                        hostIds.includes('local')
-                          ? 'border-white/[0.15] bg-white/[0.06] text-white'
-                          : 'border-white/[0.04] bg-white/[0.02] text-gray-500 hover:border-white/[0.1]'
-                      }`}
-                    >
-                      <Monitor size={13} strokeWidth={1.5} />
-                      Local
-                    </button>
-                    {config?.remoteHosts?.map((host) => (
-                      <button
-                        key={host.id}
-                        onClick={() => {
-                          setHostIds((prev) =>
-                            prev.includes(host.id)
-                              ? prev.filter((h) => h !== host.id)
-                              : [...prev, host.id]
-                          )
-                        }}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all ${
-                          hostIds.includes(host.id)
-                            ? 'border-blue-500/20 bg-blue-500/[0.06] text-blue-300'
-                            : 'border-white/[0.04] bg-white/[0.02] text-gray-500 hover:border-white/[0.1]'
-                        }`}
-                      >
-                        <Server
-                          size={13}
-                          className={hostIds.includes(host.id) ? 'text-blue-400' : 'text-gray-500'}
-                          strokeWidth={1.5}
-                        />
-                        {host.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Footer */}
@@ -324,7 +340,7 @@ export function AddProjectDialog() {
               </button>
               <button
                 onClick={handleSubmit}
-                disabled={!projectName.trim() || !selectedPath.trim() || hostIds.length === 0}
+                disabled={!projectName.trim() || !selectedPath.trim()}
                 className="px-4 py-2 text-sm font-medium text-white
                            bg-white/[0.1] hover:bg-white/[0.15]
                            disabled:opacity-30 disabled:cursor-not-allowed

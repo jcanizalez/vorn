@@ -3,7 +3,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { StatusBadge } from './StatusBadge'
 import { GitChangesIndicator, BrowseFilesButton } from './GitChangesIndicator'
 import { OpenInButton } from './OpenInButton'
-import { GitBranch, FolderGit2, Server, ListTodo } from 'lucide-react'
+import { GitBranch, FolderGit2, ListTodo } from 'lucide-react'
 import { getBranchLabel } from '../lib/terminal-display'
 
 interface Props {
@@ -52,15 +52,6 @@ export function TabStatusBar({ terminalId }: Props) {
             {terminal.session.isWorktree && (
               <span className="text-[10px] text-amber-500/60">worktree</span>
             )}
-          </div>
-        )}
-
-        {terminal.session.remoteHostLabel && (
-          <div className="flex items-center gap-1 shrink-0 px-1.5 py-0.5 rounded bg-blue-500/[0.08] border border-blue-500/[0.12]">
-            <Server size={10} className="text-blue-400" strokeWidth={2} />
-            <span className="text-blue-300 font-medium truncate max-w-[100px]">
-              {terminal.session.remoteHostLabel}
-            </span>
           </div>
         )}
 

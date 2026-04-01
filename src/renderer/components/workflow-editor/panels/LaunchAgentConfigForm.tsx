@@ -9,9 +9,7 @@ import {
   GitBranch,
   FolderGit2,
   Folder,
-  EyeOff,
-  Server,
-  Terminal
+  EyeOff
 } from 'lucide-react'
 import {
   LaunchAgentConfig,
@@ -56,7 +54,6 @@ export function LaunchAgentConfigForm({
   const [advancedOpen, setAdvancedOpen] = useState(!!config.args?.length)
   const projects = useAppStore((s) => s.config?.projects ?? EMPTY_PROJECTS)
   const tasks = useAppStore((s) => s.config?.tasks ?? EMPTY_TASKS)
-  const remoteHosts = useAppStore((s) => s.config?.remoteHosts) || []
   const { status: installStatus } = useAgentInstallStatus()
   const projectTasks = tasks.filter(
     (t) => t.projectName === config.projectName && t.status === 'todo'
@@ -66,10 +63,10 @@ export function LaunchAgentConfigForm({
     { path: string; branch: string; isMain: boolean; name: string }[]
   >([])
 
-  const isRemote = !!config.remoteHostId
-  const filteredProjects = projects.filter((p) =>
-    getProjectHostIds(p).includes(config.remoteHostId || 'local')
-  )
+  // Remote host is now derived from the project's hostIds
+  const selectedProject = projects.find((p) => p.name === config.projectName)
+  const projectHostIds = selectedProject ? getProjectHostIds(selectedProject) : ['local']
+  const isRemote = projectHostIds.some((id) => id !== 'local')
 
   // Fetch existing worktrees when project changes
   useEffect(() => {
@@ -126,77 +123,18 @@ export function LaunchAgentConfigForm({
         />
       </div>
 
-      {/* Host */}
-      {remoteHosts.length > 0 && (
-        <div>
-          <label className="text-[13px] text-gray-400 font-medium block mb-2">Host</label>
-          <div className="flex flex-wrap gap-1.5">
-            <button
-              onClick={() => {
-                const patch: Partial<LaunchAgentConfig> = { remoteHostId: undefined }
-                const proj = projects.find((p) => p.name === config.projectName)
-                if (proj && !getProjectHostIds(proj).includes('local')) {
-                  patch.projectName = ''
-                  patch.projectPath = ''
-                }
-                onChange({ ...config, ...patch })
-              }}
-              className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-md transition-colors
-                         ${
-                           !isRemote
-                             ? 'bg-white/[0.12] text-white border border-white/[0.15]'
-                             : 'bg-white/[0.06] text-gray-400 border border-white/[0.08] hover:bg-white/[0.1]'
-                         }`}
-            >
-              <Terminal size={12} />
-              Local
-            </button>
-            {remoteHosts.map((host) => (
-              <button
-                key={host.id}
-                onClick={() => {
-                  const patch: Partial<LaunchAgentConfig> = {
-                    remoteHostId: host.id,
-                    branch: undefined,
-                    useWorktree: undefined
-                  }
-                  const proj = projects.find((p) => p.name === config.projectName)
-                  if (proj && !getProjectHostIds(proj).includes(host.id)) {
-                    patch.projectName = ''
-                    patch.projectPath = ''
-                  }
-                  onChange({ ...config, ...patch })
-                }}
-                className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-md transition-colors
-                           ${
-                             config.remoteHostId === host.id
-                               ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                               : 'bg-white/[0.06] text-gray-400 border border-white/[0.08] hover:bg-white/[0.1]'
-                           }`}
-              >
-                <Server size={12} />
-                {host.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Project — filtered by selected host */}
+      {/* Project */}
       <div>
         <label className="text-[13px] text-gray-400 font-medium block mb-2">Project</label>
         <ProjectPicker
           currentProject={config.projectName}
-          projects={filteredProjects}
+          projects={projects}
           onChange={(name) => {
             const proj = projects.find((p) => p.name === name)
             if (proj) onChange({ ...config, projectName: proj.name, projectPath: proj.path })
           }}
           variant="form"
         />
-        {isRemote && filteredProjects.length === 0 && (
-          <p className="text-[11px] text-gray-600 mt-1">No projects configured for this host</p>
-        )}
       </div>
 
       {/* Prompt Source */}

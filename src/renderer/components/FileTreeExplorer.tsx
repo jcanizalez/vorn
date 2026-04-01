@@ -369,7 +369,7 @@ function FilePreview({
   )
 }
 
-export function FileTreeExplorer({ cwd }: { cwd: string }) {
+export function FileTreeExplorer({ cwd, remoteHostId }: { cwd: string; remoteHostId?: string }) {
   const [rootEntries, setRootEntries] = useState<FileEntry[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [dirCache, setDirCache] = useState(() => new Map<string, FileEntry[]>())
@@ -380,37 +380,47 @@ export function FileTreeExplorer({ cwd }: { cwd: string }) {
 
   useEffect(() => {
     let stale = false
-    window.api.listDir(cwd).then((entries) => {
-      if (stale) return
-      setRootEntries(entries)
-      setLoading(false)
-    })
+    window.api
+      .listDir(cwd, remoteHostId)
+      .then((entries) => {
+        if (stale) return
+        setRootEntries(entries)
+        setLoading(false)
+      })
+      .catch(() => {
+        if (!stale) setLoading(false)
+      })
     return () => {
       stale = true
     }
-  }, [cwd])
+  }, [cwd, remoteHostId])
 
-  const loadDir = useCallback(async (dirPath: string) => {
-    const entries = await window.api.listDir(dirPath)
-    setDirCache((prev) => {
-      if (prev.has(dirPath)) return prev
-      const next = new Map(prev)
-      next.set(dirPath, entries)
-      return next
-    })
-  }, [])
+  const loadDir = useCallback(
+    async (dirPath: string) => {
+      const entries = await window.api.listDir(dirPath, remoteHostId)
+      setDirCache((prev) => {
+        if (prev.has(dirPath)) return prev
+        const next = new Map(prev)
+        next.set(dirPath, entries)
+        return next
+      })
+    },
+    [remoteHostId]
+  )
 
-  const handleSelectFile = useCallback(async (filePath: string) => {
-    if (filePath === activeRequestRef.current) return
-    activeRequestRef.current = filePath
-    setSelectedFile(filePath)
-    setFileLoading(true)
-    const content = await window.api.readFileContent(filePath)
-    // Guard against stale responses from rapid clicks
-    if (activeRequestRef.current !== filePath) return
-    setFileContent(content)
-    setFileLoading(false)
-  }, [])
+  const handleSelectFile = useCallback(
+    async (filePath: string) => {
+      if (filePath === activeRequestRef.current) return
+      activeRequestRef.current = filePath
+      setSelectedFile(filePath)
+      setFileLoading(true)
+      const content = await window.api.readFileContent(filePath, undefined, remoteHostId)
+      if (activeRequestRef.current !== filePath) return
+      setFileContent(content)
+      setFileLoading(false)
+    },
+    [remoteHostId]
+  )
 
   const handleClosePreview = useCallback(() => {
     activeRequestRef.current = null

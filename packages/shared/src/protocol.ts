@@ -187,8 +187,11 @@ export interface RequestMethods {
   'credential:getEncryptedKey': { params: string; result: SSHKey | null }
 
   // File explorer
-  'file:listDir': { params: string; result: FileEntry[] }
-  'file:readContent': { params: { filePath: string; maxBytes?: number }; result: string | null }
+  'file:listDir': { params: { dirPath: string; remoteHostId?: string }; result: FileEntry[] }
+  'file:readContent': {
+    params: { filePath: string; maxBytes?: number; remoteHostId?: string }
+    result: string | null
+  }
 }
 
 // ─── Server Notifications (server → client, push events) ────────
