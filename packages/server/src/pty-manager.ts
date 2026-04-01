@@ -495,21 +495,22 @@ class PtyManager extends EventEmitter {
       if (newStatus !== session.status) {
         this.updateSessionStatus(id, newStatus)
       }
-
-      // Reset idle timer — if no data arrives for IDLE_TIMEOUT_MS, mark idle
-      const existingTimer = this.idleTimers.get(id)
-      if (existingTimer) clearTimeout(existingTimer)
-      this.idleTimers.set(
-        id,
-        setTimeout(() => {
-          this.idleTimers.delete(id)
-          const s = this.sessions.get(id)
-          if (s && s.statusSource !== 'hooks' && s.status === 'running') {
-            this.updateSessionStatus(id, 'idle')
-          }
-        }, IDLE_TIMEOUT_MS)
-      )
     }
+
+    // Idle timer fallback — if no data arrives for IDLE_TIMEOUT_MS, mark idle.
+    // Applies to all sessions including hook-based ones as a safety net.
+    const existingTimer = this.idleTimers.get(id)
+    if (existingTimer) clearTimeout(existingTimer)
+    this.idleTimers.set(
+      id,
+      setTimeout(() => {
+        this.idleTimers.delete(id)
+        const s = this.sessions.get(id)
+        if (s && s.status === 'running') {
+          this.updateSessionStatus(id, 'idle')
+        }
+      }, IDLE_TIMEOUT_MS)
+    )
   }
 
   private setupPtyEvents(id: string, ptyProcess: pty.IPty): void {

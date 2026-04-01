@@ -194,6 +194,7 @@ export const AgentCard = memo(
                         : getDisplayName(terminal.session)}
                   </span>
                   <button
+                    onPointerDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       e.stopPropagation()
                       setRenamingTerminalId(terminalId)
