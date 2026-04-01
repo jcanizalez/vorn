@@ -359,7 +359,7 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   sidebarProjectSort: (savedSidebar.projectSort as 'manual' | 'name' | 'recent') ?? 'manual',
   sidebarWorktreeSort: (savedSidebar.worktreeSort as 'name' | 'recent') ?? 'name',
   sidebarWorktreeFilter: (savedSidebar.worktreeFilter as 'all' | 'active') ?? 'all',
-  sidebarViewMode: (savedSidebar.viewMode as SidebarViewMode) ?? 'worktrees',
+  sidebarViewMode: (savedSidebar.viewMode as SidebarViewMode) ?? 'worktrees-sessions',
 
   setSidebarProjectSort: (mode) => {
     saveSidebarSettings({ projectSort: mode })

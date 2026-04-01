@@ -250,7 +250,7 @@ export function FocusedTerminal() {
                 <kbd className="px-1 py-0.5 rounded bg-white/[0.06] text-gray-500 font-mono">
                   {MOD}W
                 </kbd>
-                close
+                collapse
               </span>
               <span className="flex items-center gap-0.5">
                 <kbd className="px-1 py-0.5 rounded bg-white/[0.06] text-gray-500 font-mono">
