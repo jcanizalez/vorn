@@ -130,7 +130,7 @@ describe('process-utils (server package)', () => {
       // Verify SSH args include BatchMode and StrictHostKeyChecking
       const args = mockExecFile.mock.calls[0][1] as string[]
       expect(args).toContain('BatchMode=yes')
-      expect(args).toContain('StrictHostKeyChecking=yes')
+      expect(args).toContain('StrictHostKeyChecking=accept-new')
       expect(args).toContain('ubuntu@example.com')
     })
 
@@ -150,7 +150,7 @@ describe('process-utils (server package)', () => {
       const { testSshConnection } = await import('../packages/server/src/process-utils')
       const result = await testSshConnection(host)
       expect(result.success).toBe(false)
-      expect(result.message).toBe('Permission denied (publickey)')
+      expect(result.message).toBe('Permission denied — check username and authentication method')
     })
 
     it('returns helpful message for host key verification failure', async () => {
