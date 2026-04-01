@@ -548,7 +548,7 @@ export async function executeWorkflow(
   for (const ns of execution.nodeStates) {
     if (ns.sessionId && !ns.agentSessionId) {
       const terminal = terminals.get(ns.sessionId)
-      const agentSid = terminal?.session.hookSessionId ?? terminal?.session.claudeSessionId
+      const agentSid = terminal?.session.claudeSessionId ?? terminal?.session.hookSessionId
       if (agentSid) {
         ns.agentSessionId = agentSid
       }

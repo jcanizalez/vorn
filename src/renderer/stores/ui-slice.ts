@@ -285,7 +285,7 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
       projectPath: term.session.projectPath,
       displayName: term.session.displayName,
       branch: term.session.branch,
-      agentSessionId: term.session.hookSessionId ?? term.session.claudeSessionId,
+      agentSessionId: term.session.claudeSessionId ?? term.session.hookSessionId,
       archivedAt: Date.now()
     })
     const sessions = await window.api.listArchivedSessions()
