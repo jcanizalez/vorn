@@ -153,6 +153,22 @@ function createWidgetWindow(): void {
   widgetReady = false
   widgetWindow.webContents.once('did-finish-load', () => {
     widgetReady = true
+    // Push current sessions to widget on load
+    const b = getServerBridge()
+    if (b) {
+      b.request<import('../shared/types').TerminalSession[]>('terminal:listActive')
+        .then((sessions) => {
+          const agents = sessions.map((s) => ({
+            id: s.id,
+            agentType: s.agentType,
+            displayName: s.displayName,
+            projectName: s.projectName,
+            status: s.status
+          }))
+          sendToWidget(IPC.WIDGET_STATUS_UPDATE, agents)
+        })
+        .catch(() => {})
+    }
   })
   widgetWindow.on('closed', () => {
     widgetWindow = null

@@ -36,6 +36,13 @@ import { analyzeOutput, createStatusContext, StatusContext } from './status-pars
 
 const MAX_OUTPUT_LINES = 1000
 const IDLE_TIMEOUT_MS = 5000
+const IDLE_TIMEOUT_HOOKS_MS = 30_000
+
+// Bracketed paste mode: programs enable this when ready for input
+// eslint-disable-next-line no-control-regex
+const BRACKETED_PASTE_ON = /\x1b\[\?2004h/
+// eslint-disable-next-line no-control-regex
+const BRACKETED_PASTE_OFF = /\x1b\[\?2004l/
 
 type WorktreeSessionCounter = (
   worktreePath: string,
@@ -484,8 +491,21 @@ class PtyManager extends EventEmitter {
       buf.splice(0, buf.length - MAX_OUTPUT_LINES)
     }
 
-    // Pattern-based status detection for non-hook sessions
-    if (session.statusSource !== 'hooks') {
+    // Bracketed paste mode detection — works for all agents using readline.
+    // Programs enable \x1b[?2004h when ready for input, disable with 'l' when executing.
+    const hasBracketedOn = BRACKETED_PASTE_ON.test(data)
+    const hasBracketedOff = BRACKETED_PASTE_OFF.test(data)
+
+    if (hasBracketedOn || hasBracketedOff) {
+      // Use the last signal in the chunk (a chunk may contain both off then on)
+      const lastOn = data.lastIndexOf('\x1b[?2004h')
+      const lastOff = data.lastIndexOf('\x1b[?2004l')
+      const newStatus = lastOn > lastOff ? 'waiting' : 'running'
+      if (newStatus !== session.status) {
+        this.updateSessionStatus(id, newStatus as AgentStatus)
+      }
+    } else if (session.statusSource !== 'hooks') {
+      // Pattern-based fallback for non-hook sessions without bracketed paste
       let ctx = this.statusContexts.get(id)
       if (!ctx) {
         ctx = createStatusContext()
@@ -495,21 +515,23 @@ class PtyManager extends EventEmitter {
       if (newStatus !== session.status) {
         this.updateSessionStatus(id, newStatus)
       }
-
-      // Reset idle timer — if no data arrives for IDLE_TIMEOUT_MS, mark idle
-      const existingTimer = this.idleTimers.get(id)
-      if (existingTimer) clearTimeout(existingTimer)
-      this.idleTimers.set(
-        id,
-        setTimeout(() => {
-          this.idleTimers.delete(id)
-          const s = this.sessions.get(id)
-          if (s && s.statusSource !== 'hooks' && s.status === 'running') {
-            this.updateSessionStatus(id, 'idle')
-          }
-        }, IDLE_TIMEOUT_MS)
-      )
     }
+
+    // Idle timer — if no output arrives within timeout, mark idle.
+    // Hook sessions use a longer timeout as safety net (hooks are primary).
+    const timeout = session.statusSource === 'hooks' ? IDLE_TIMEOUT_HOOKS_MS : IDLE_TIMEOUT_MS
+    const existingTimer = this.idleTimers.get(id)
+    if (existingTimer) clearTimeout(existingTimer)
+    this.idleTimers.set(
+      id,
+      setTimeout(() => {
+        this.idleTimers.delete(id)
+        const s = this.sessions.get(id)
+        if (s && s.status === 'running') {
+          this.updateSessionStatus(id, 'idle')
+        }
+      }, timeout)
+    )
   }
 
   private setupPtyEvents(id: string, ptyProcess: pty.IPty): void {
@@ -553,6 +575,11 @@ class PtyManager extends EventEmitter {
 
   writeToPty(id: string, data: string): void {
     this.ptys.get(id)?.write(data)
+    // User input means the session is active — mark running if it was idle/waiting
+    const session = this.sessions.get(id)
+    if (session && (session.status === 'idle' || session.status === 'waiting')) {
+      this.updateSessionStatus(id, 'running')
+    }
   }
 
   resizePty(id: string, cols: number, rows: number): void {
