@@ -38,8 +38,9 @@ export function shellEscape(s: string, flavor: 'auto' | 'posix' = 'auto'): strin
   // Skip quoting for simple safe strings (flags, paths without spaces, etc.)
   if (/^[a-zA-Z0-9_./:=@%+,-]+$/.test(s)) return s
   if (flavor === 'auto' && process.platform === 'win32') {
-    // PowerShell: single quotes with '' for inner quotes
-    return "'" + s.replace(/'/g, "''") + "'"
+    // Windows: use double quotes — works in both cmd.exe and PowerShell.
+    // Escape existing double quotes, carets, and percent signs for cmd.exe.
+    return '"' + s.replace(/["%^]/g, '^$&') + '"'
   }
   return "'" + s.replace(/'/g, "'\\''") + "'"
 }

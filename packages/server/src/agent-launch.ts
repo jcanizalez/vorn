@@ -122,7 +122,8 @@ export function buildHeadlessLaunchLine(
   const extraArgs = resolveHeadlessArgs(payload, cmdConfig, cmd.args)
   const argsStr = extraArgs.length > 0 ? extraArgs.join(' ') + ' ' : ''
 
-  const prompt = payload.initialPrompt ? shellEscape(payload.initialPrompt) : "''"
+  const emptyStr = process.platform === 'win32' ? '""' : "''"
+  const prompt = payload.initialPrompt ? shellEscape(payload.initialPrompt) : emptyStr
 
   switch (payload.agentType) {
     case 'claude':
