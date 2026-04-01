@@ -524,6 +524,7 @@ export const IPC = {
   DIALOG_OPEN_DIRECTORY: 'dialog:openDirectory',
   IDE_DETECT: 'ide:detect',
   IDE_OPEN: 'ide:open',
+  GIT_IS_REPO: 'git:isGitRepo',
   GIT_LIST_BRANCHES: 'git:listBranches',
   GIT_LIST_REMOTE_BRANCHES: 'git:listRemoteBranches',
   GIT_CREATE_WORKTREE: 'git:createWorktree',

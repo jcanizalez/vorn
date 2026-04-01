@@ -41,6 +41,9 @@ export function registerIpcHandlers(): void {
   safeHandle(IPC.TERMINAL_REORDER, (_, ids) => requireBridge().request('terminal:reorder', ids))
 
   // Git
+  safeHandle(IPC.GIT_IS_REPO, (_, projectPath) =>
+    requireBridge().request(IPC.GIT_IS_REPO, projectPath)
+  )
   safeHandle(IPC.GIT_LIST_BRANCHES, (_, projectPath) =>
     requireBridge().request(IPC.GIT_LIST_BRANCHES, projectPath)
   )

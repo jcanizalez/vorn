@@ -110,7 +110,12 @@ const api = {
   openInIDE: (ideId: string, projectPath: string): Promise<void> =>
     ipcRenderer.invoke(IPC.IDE_OPEN, { ideId, projectPath }),
 
-  listBranches: (projectPath: string): Promise<{ local: string[]; current: string | null }> =>
+  isGitRepo: (projectPath: string): Promise<boolean> =>
+    ipcRenderer.invoke(IPC.GIT_IS_REPO, projectPath),
+
+  listBranches: (
+    projectPath: string
+  ): Promise<{ local: string[]; current: string | null; isGitRepo: boolean }> =>
     ipcRenderer.invoke(IPC.GIT_LIST_BRANCHES, projectPath),
 
   listRemoteBranches: (projectPath: string): Promise<string[]> =>

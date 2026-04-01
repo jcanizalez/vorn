@@ -8,6 +8,20 @@ const EXEC_OPTS = {
   stdio: ['pipe', 'pipe', 'pipe'] as ['pipe', 'pipe', 'pipe']
 }
 
+export function isGitRepo(projectPath: string): boolean {
+  try {
+    return (
+      execFileSync('git', ['rev-parse', '--is-inside-work-tree'], {
+        cwd: projectPath,
+        ...EXEC_OPTS,
+        timeout: 3000
+      }).trim() === 'true'
+    )
+  } catch {
+    return false
+  }
+}
+
 export function getGitBranch(projectPath: string): string | null {
   try {
     const branch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {

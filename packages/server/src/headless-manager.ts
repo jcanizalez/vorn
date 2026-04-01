@@ -9,7 +9,13 @@ import {
   HeadlessSession,
   IPC
 } from '@vibegrid/shared/types'
-import { getGitBranch, checkoutBranch, createWorktree, extractWorktreeName } from './git-utils'
+import {
+  getGitBranch,
+  checkoutBranch,
+  createWorktree,
+  extractWorktreeName,
+  isGitRepo
+} from './git-utils'
 import { getSafeEnv } from './process-utils'
 import { buildHeadlessSpawnArgs } from './agent-launch'
 import { DEFAULT_AGENT_COMMANDS } from '@vibegrid/shared/agent-defaults'
@@ -58,16 +64,23 @@ class HeadlessManager extends EventEmitter {
     }
     // Handle worktree creation (or fallback if existing path gone)
     else if ((payload.useWorktree || payload.existingWorktreePath) && payload.branch) {
-      const result = createWorktree(payload.projectPath, payload.branch, payload.worktreeName)
-      effectivePath = result.worktreePath
-      worktreeName = result.name
-      effectiveBranch = result.branch
-    } else if (payload.branch) {
-      const currentBranch = getGitBranch(payload.projectPath)
-      if (currentBranch !== payload.branch) {
-        checkoutBranch(payload.projectPath, payload.branch)
+      if (isGitRepo(payload.projectPath)) {
+        const result = createWorktree(payload.projectPath, payload.branch, payload.worktreeName)
+        effectivePath = result.worktreePath
+        worktreeName = result.name
+        effectiveBranch = result.branch
+      } else {
+        log.warn(`[headless] skipping worktree for non-git project: ${payload.projectPath}`)
+        payload.useWorktree = false
       }
-      effectiveBranch = payload.branch
+    } else if (payload.branch) {
+      if (isGitRepo(payload.projectPath)) {
+        const currentBranch = getGitBranch(payload.projectPath)
+        if (currentBranch !== payload.branch) {
+          checkoutBranch(payload.projectPath, payload.branch)
+        }
+        effectiveBranch = payload.branch
+      }
     }
 
     const env = getSafeEnv()

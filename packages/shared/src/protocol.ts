@@ -65,9 +65,10 @@ export interface RequestMethods {
   'sessions:getPrevious': { params: void; result: TerminalSession[] }
   'sessions:clear': { params: void; result: void }
   'sessions:getRecent': { params: string | undefined; result: RecentSession[] }
+  'git:isGitRepo': { params: string; result: boolean }
   'git:listBranches': {
     params: string
-    result: { local: string[]; current: string | null }
+    result: { local: string[]; current: string | null; isGitRepo: boolean }
   }
   'git:listRemoteBranches': { params: string; result: string[] }
   'git:createWorktree': {

@@ -192,10 +192,15 @@ export function registerAllMethods(): void {
   registerMethod('sessions:getRecent', (projectPath) => getRecentSessions(projectPath))
 
   // Git
-  registerMethod('git:listBranches', (projectPath) => ({
-    local: gitUtils.listBranches(projectPath),
-    current: gitUtils.getGitBranch(projectPath)
-  }))
+  registerMethod('git:isGitRepo', (projectPath) => gitUtils.isGitRepo(projectPath))
+  registerMethod('git:listBranches', (projectPath) => {
+    const isRepo = gitUtils.isGitRepo(projectPath)
+    return {
+      local: isRepo ? gitUtils.listBranches(projectPath) : [],
+      current: isRepo ? gitUtils.getGitBranch(projectPath) : null,
+      isGitRepo: isRepo
+    }
+  })
   registerMethod('git:listRemoteBranches', (projectPath) =>
     gitUtils.listRemoteBranches(projectPath)
   )
