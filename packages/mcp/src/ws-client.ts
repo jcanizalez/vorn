@@ -130,10 +130,12 @@ function readPort(): { port: number } | { port: null; reason: 'missing' | 'inval
         return { port: null, reason: 'invalid' }
       }
       // If PID is present, verify the process is still alive
-      if (typeof pid === 'number') {
+      if (typeof pid === 'number' && Number.isInteger(pid) && pid > 0) {
         try {
           process.kill(pid, 0)
-        } catch {
+        } catch (err: unknown) {
+          // EPERM means the process exists but we lack permission — treat as alive
+          if ((err as NodeJS.ErrnoException).code === 'EPERM') return { port: p }
           // PID is dead — port file is stale, fall through to discovery
           return discoverAndHeal()
         }

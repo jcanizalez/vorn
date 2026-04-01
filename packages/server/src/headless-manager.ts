@@ -18,12 +18,14 @@ import log from './logger'
 const MAX_OUTPUT_LINES = 1000
 const FORCE_KILL_DELAY_MS = 5000
 
-/** Force-kill a Windows process tree via taskkill. */
+/** Force-kill a Windows process tree via taskkill (best-effort). */
 function forceKillWin(pid: number): void {
-  spawn('taskkill', ['/F', '/T', '/PID', String(pid)], {
+  const child = spawn('taskkill', ['/F', '/T', '/PID', String(pid)], {
     stdio: 'ignore',
     windowsHide: true
-  }).unref()
+  })
+  child.on('error', () => {})
+  child.unref()
 }
 
 class HeadlessManager extends EventEmitter {
