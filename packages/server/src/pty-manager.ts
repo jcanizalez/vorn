@@ -36,6 +36,7 @@ import { analyzeOutput, createStatusContext, StatusContext } from './status-pars
 
 const MAX_OUTPUT_LINES = 1000
 const IDLE_TIMEOUT_MS = 5000
+const IDLE_TIMEOUT_HOOKS_MS = 30_000
 
 type WorktreeSessionCounter = (
   worktreePath: string,
@@ -497,8 +498,9 @@ class PtyManager extends EventEmitter {
       }
     }
 
-    // Idle timer fallback — if no data arrives for IDLE_TIMEOUT_MS, mark idle.
-    // Applies to all sessions including hook-based ones as a safety net.
+    // Idle timer — if no output arrives within timeout, mark idle.
+    // Hook sessions use a longer timeout as safety net (hooks are primary).
+    const timeout = session.statusSource === 'hooks' ? IDLE_TIMEOUT_HOOKS_MS : IDLE_TIMEOUT_MS
     const existingTimer = this.idleTimers.get(id)
     if (existingTimer) clearTimeout(existingTimer)
     this.idleTimers.set(
@@ -509,7 +511,7 @@ class PtyManager extends EventEmitter {
         if (s && s.status === 'running') {
           this.updateSessionStatus(id, 'idle')
         }
-      }, IDLE_TIMEOUT_MS)
+      }, timeout)
     )
   }
 
