@@ -464,6 +464,21 @@ function migrateSchema(d: Database.Database): void {
     })()
     log.info('[database] migrated schema to version 5 (headless args)')
   }
+
+  if (version < 6) {
+    d.transaction(() => {
+      const sessionCols = d.prepare('PRAGMA table_info(sessions)').all() as Array<{
+        name: string
+      }>
+      if (!sessionCols.some((c) => c.name === 'claude_session_id')) {
+        d.exec('ALTER TABLE sessions ADD COLUMN claude_session_id TEXT')
+      }
+      d.prepare(
+        "INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('schema_version', '6')"
+      ).run()
+    })()
+    log.info('[database] migrated schema to version 6 (claude session id)')
+  }
 }
 
 /**
@@ -500,7 +515,8 @@ function verifySchema(d: Database.Database): void {
         column: 'sort_order',
         ddl: 'ALTER TABLE sessions ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0'
       },
-      { column: 'worktree_name', ddl: 'ALTER TABLE sessions ADD COLUMN worktree_name TEXT' }
+      { column: 'worktree_name', ddl: 'ALTER TABLE sessions ADD COLUMN worktree_name TEXT' },
+      { column: 'claude_session_id', ddl: 'ALTER TABLE sessions ADD COLUMN claude_session_id TEXT' }
     ],
     agent_commands: [
       {
@@ -1443,8 +1459,8 @@ export function saveSessions(sessions: TerminalSession[]): void {
   const run = d.transaction(() => {
     d.prepare('DELETE FROM sessions').run()
     const insert = d.prepare(
-      `INSERT INTO sessions (id, agent_type, project_name, project_path, status, created_at, pid, display_name, branch, worktree_path, is_worktree, remote_host_id, remote_host_label, hook_session_id, status_source, saved_at, sort_order, worktree_name)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO sessions (id, agent_type, project_name, project_path, status, created_at, pid, display_name, branch, worktree_path, is_worktree, remote_host_id, remote_host_label, hook_session_id, status_source, saved_at, sort_order, worktree_name, claude_session_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     for (let i = 0; i < sessions.length; i++) {
       const s = sessions[i]
@@ -1466,7 +1482,8 @@ export function saveSessions(sessions: TerminalSession[]): void {
         s.statusSource ?? null,
         savedAt,
         i,
-        s.worktreeName ?? null
+        s.worktreeName ?? null,
+        s.claudeSessionId ?? null
       )
     }
   })
@@ -1493,6 +1510,7 @@ export function getPreviousSessions(): TerminalSession[] {
     status_source: string | null
     saved_at: number | null
     worktree_name: string | null
+    claude_session_id: string | null
   }>
   return rows.map((r) => ({
     id: r.id,
@@ -1512,7 +1530,8 @@ export function getPreviousSessions(): TerminalSession[] {
     ...(r.status_source != null && {
       statusSource: r.status_source as TerminalSession['statusSource']
     }),
-    ...(r.worktree_name != null && { worktreeName: r.worktree_name })
+    ...(r.worktree_name != null && { worktreeName: r.worktree_name }),
+    ...(r.claude_session_id != null && { claudeSessionId: r.claude_session_id })
   }))
 }
 

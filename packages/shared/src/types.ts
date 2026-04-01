@@ -45,6 +45,7 @@ export interface TerminalSession {
   remoteHostId?: string
   remoteHostLabel?: string
   hookSessionId?: string
+  claudeSessionId?: string
   statusSource?: 'hooks' | 'pattern'
   pinned?: boolean
 }

@@ -67,7 +67,8 @@ export async function resolveResumeSessionId(
   claimed: Set<string> = new Set()
 ): Promise<string | undefined> {
   if (!supportsExactSessionResume(s.agentType)) return undefined
-  if (s.hookSessionId && !claimed.has(s.hookSessionId)) return s.hookSessionId
+  const resumeId = s.claudeSessionId ?? s.hookSessionId
+  if (resumeId && !claimed.has(resumeId)) return resumeId
 
   const isAvailable = (r: RecentSession): boolean =>
     r.agentType === s.agentType && r.canResumeExact && !claimed.has(r.sessionId)

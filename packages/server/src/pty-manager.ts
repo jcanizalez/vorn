@@ -207,19 +207,19 @@ class PtyManager extends EventEmitter {
       env: getSafeEnv()
     })
 
-    // Per-agent hookSessionId strategy:
-    //   Claude:       generate UUID → pass --session-id → stored as hookSessionId immediately
-    //   Copilot:      UUID injected into hooks.json by copilot-hook-installer; forceLink sets hookSessionId
-    //   Codex/OpenCode: no CLI support for session ID pinning; hookSessionId stays undefined,
-    //                   restore relies on history-based fallback in resolveResumeSessionId
+    // Per-agent session ID strategy:
+    //   Claude:       generate UUID → pass --session-id for resume. hookSessionId stays
+    //                 unset until tryLink matches on SessionStart hook event.
+    //   Copilot:      UUID injected into hooks.json; forceLink sets hookSessionId
+    //   Codex/OpenCode: no CLI support for session ID pinning; relies on history fallback
     //   Gemini:       no resume support (supportsExactSessionResume returns false)
-    let hookSessionId: string | undefined
+    let claudeSessionId: string | undefined
     if (payload.agentType === 'claude') {
       if (payload.resumeSessionId) {
-        hookSessionId = payload.resumeSessionId
+        claudeSessionId = payload.resumeSessionId
       } else {
-        hookSessionId = crypto.randomUUID()
-        payload.sessionId = hookSessionId
+        claudeSessionId = crypto.randomUUID()
+        payload.sessionId = claudeSessionId
       }
     }
 
@@ -241,7 +241,7 @@ class PtyManager extends EventEmitter {
       ...(payload.displayName ? { displayName: payload.displayName } : {}),
       ...(branch ? { branch } : {}),
       ...(worktreePath ? { worktreePath, worktreeName, isWorktree: true } : {}),
-      ...(hookSessionId ? { hookSessionId, statusSource: 'hooks' as const } : {})
+      ...(claudeSessionId ? { claudeSessionId, statusSource: 'hooks' as const } : {})
     }
     this.sessions.set(id, session)
     this.sessionOrder.push(id)
@@ -575,9 +575,14 @@ class PtyManager extends EventEmitter {
 
   writeToPty(id: string, data: string): void {
     this.ptys.get(id)?.write(data)
-    // User input means the session is active — mark running if it was idle/waiting
+    // For non-hook sessions, user input means the session is active.
+    // Hook sessions rely on hooks to transition to running (e.g. PreToolUse).
     const session = this.sessions.get(id)
-    if (session && (session.status === 'idle' || session.status === 'waiting')) {
+    if (
+      session &&
+      session.statusSource !== 'hooks' &&
+      (session.status === 'idle' || session.status === 'waiting')
+    ) {
       this.updateSessionStatus(id, 'running')
     }
   }
