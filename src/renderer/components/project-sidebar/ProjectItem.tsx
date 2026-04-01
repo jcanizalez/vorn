@@ -59,11 +59,16 @@ export function ProjectItem({
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
   const [openMenu, setOpenMenu] = useState(false)
   const [collapsedBranches, setCollapsedBranches] = useState<Set<string>>(new Set())
-  const [isGitRepo, setIsGitRepo] = useState(true)
+  const isRemoteProject = !!getProjectRemoteHostId(project)
+  const [isGitRepo, setIsGitRepo] = useState(isRemoteProject)
 
   useEffect(() => {
-    window.api.isGitRepo(project.path).then(setIsGitRepo)
-  }, [project.path])
+    if (isRemoteProject) return
+    window.api
+      .isGitRepo(project.path)
+      .then(setIsGitRepo)
+      .catch(() => setIsGitRepo(false))
+  }, [project.path, isRemoteProject])
 
   const showSessions = viewMode === 'worktrees-sessions'
   const sessionsOnly = viewMode === 'sessions'
@@ -232,15 +237,20 @@ export function ProjectItem({
                       type="button"
                       onClick={async (e) => {
                         e.stopPropagation()
-                        const agentType = config?.defaults.defaultAgent || 'claude'
-                        const remoteHostId = getProjectRemoteHostId(project)
-                        const session = await window.api.createTerminal({
-                          agentType,
-                          projectName: project.name,
-                          projectPath: project.path,
-                          remoteHostId
-                        })
-                        addTerminal(session)
+                        try {
+                          const agentType = config?.defaults.defaultAgent || 'claude'
+                          const remoteHostId = getProjectRemoteHostId(project)
+                          const session = await window.api.createTerminal({
+                            agentType,
+                            projectName: project.name,
+                            projectPath: project.path,
+                            remoteHostId
+                          })
+                          addTerminal(session)
+                        } catch (err) {
+                          const msg = err instanceof Error ? err.message : String(err)
+                          toast.error(msg || 'Failed to create session')
+                        }
                       }}
                       className="text-gray-500 hover:text-white p-0.5 rounded hover:bg-white/[0.08] transition-colors"
                     >

@@ -68,6 +68,7 @@ export function WorkflowEditor() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [showRunHistory, setShowRunHistory] = useState(false)
   const [showIconPicker, setShowIconPicker] = useState(false)
+  const iconPickerRef = useRef<HTMLDivElement>(null)
   const [executionHistory, setExecutionHistory] = useState<
     import('../../../shared/types').WorkflowExecution[]
   >([])
@@ -148,6 +149,17 @@ export function WorkflowEditor() {
     setSelectedNodeId(null)
     setShowRunHistory(false)
   }, [existingWorkflow, editingId, isOpen])
+
+  useEffect(() => {
+    if (!showIconPicker) return
+    const handler = (e: MouseEvent) => {
+      if (iconPickerRef.current && !iconPickerRef.current.contains(e.target as Node)) {
+        setShowIconPicker(false)
+      }
+    }
+    document.addEventListener('pointerdown', handler)
+    return () => document.removeEventListener('pointerdown', handler)
+  }, [showIconPicker])
 
   const handleClose = useCallback(() => {
     setOpen(false)
@@ -483,6 +495,7 @@ export function WorkflowEditor() {
             </button>
             {showIconPicker && (
               <div
+                ref={iconPickerRef}
                 className="absolute top-full left-0 mt-1 p-2 rounded-lg border border-white/[0.08] shadow-xl z-50 w-[220px] space-y-2"
                 style={{ background: '#1e1e22' }}
               >

@@ -67,18 +67,26 @@ export function SessionItem({
         ) : (
           <div className="flex items-center gap-1 group/rename">
             <span className="truncate">{session.name}</span>
-            <button
-              type="button"
+            <span
+              role="button"
+              tabIndex={0}
               aria-label="Rename session"
               title="Rename"
               onClick={(e) => {
                 e.stopPropagation()
                 setRenamingTerminalId(session.id)
               }}
-              className="opacity-0 group-hover/rename:opacity-100 text-gray-500 hover:text-gray-300 transition-opacity shrink-0"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setRenamingTerminalId(session.id)
+                }
+              }}
+              className="opacity-0 group-hover/rename:opacity-100 text-gray-500 hover:text-gray-300 transition-opacity shrink-0 cursor-pointer"
             >
               <Pencil size={9} />
-            </button>
+            </span>
           </div>
         )}
         {showBranch && session.branch && (

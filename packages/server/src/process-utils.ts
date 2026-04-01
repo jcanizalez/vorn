@@ -35,11 +35,17 @@ export function getDefaultShell(): string {
 }
 
 export function shellEscape(s: string, flavor: 'auto' | 'posix' = 'auto'): string {
+  const isWin = flavor === 'auto' && process.platform === 'win32'
   // Skip quoting for simple safe strings (flags, paths without spaces, etc.)
-  if (/^[a-zA-Z0-9_./:=@%+,-]+$/.test(s)) return s
-  if (flavor === 'auto' && process.platform === 'win32') {
-    // Windows: use double quotes — works in both cmd.exe and PowerShell.
-    // Escape existing double quotes, carets, and percent signs for cmd.exe.
+  // On Windows, exclude % from safe chars to prevent env var expansion in cmd.exe.
+  const safePattern = isWin ? /^[a-zA-Z0-9_./:=@+,-]+$/ : /^[a-zA-Z0-9_./:=@%+,-]+$/
+  if (safePattern.test(s)) return s
+  if (isWin) {
+    const shell = getDefaultShell().toLowerCase()
+    if (shell.includes('powershell') || shell.includes('pwsh')) {
+      return "'" + s.replace(/'/g, "''") + "'"
+    }
+    // cmd.exe: double quotes with caret escaping for ", %, and ^
     return '"' + s.replace(/["%^]/g, '^$&') + '"'
   }
   return "'" + s.replace(/'/g, "'\\''") + "'"
