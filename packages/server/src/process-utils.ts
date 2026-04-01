@@ -165,14 +165,20 @@ export function buildSshArgs(host: RemoteHost, opts?: { connectTimeout?: number 
     '-o',
     'BatchMode=yes',
     '-o',
-    'StrictHostKeyChecking=accept-new',
-    '-o',
-    'ControlMaster=auto',
-    '-o',
-    'ControlPath=/tmp/vibegrid-ssh-%r@%h:%p',
-    '-o',
-    'ControlPersist=60'
+    'StrictHostKeyChecking=accept-new'
   ]
+  // SSH multiplexing (not available on Windows)
+  if (process.platform !== 'win32') {
+    const tmpDir = process.env.TMPDIR || '/tmp'
+    args.push(
+      '-o',
+      'ControlMaster=auto',
+      '-o',
+      `ControlPath=${tmpDir}/vibegrid-ssh-%h-%p`,
+      '-o',
+      'ControlPersist=60'
+    )
+  }
   if (host.port !== 22) args.push('-p', String(host.port))
   if (host.sshKeyPath) args.push('-i', host.sshKeyPath)
   if (host.sshOptions) {

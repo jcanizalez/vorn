@@ -19,6 +19,7 @@ class ConfigManager {
   private changeCallbacks: ConfigChangeCallback[] = []
   private dbWatcher: fs.FSWatcher | null = null
   private debounceTimer: ReturnType<typeof setTimeout> | null = null
+  private cachedConfig: AppConfig | null = null
 
   init(): void {
     initDatabase()
@@ -30,8 +31,11 @@ class ConfigManager {
   }
 
   loadConfig(): AppConfig {
+    if (this.cachedConfig) return this.cachedConfig
     try {
-      return dbLoadConfig()
+      const config = dbLoadConfig()
+      this.cachedConfig = config
+      return config
     } catch (err) {
       log.error('[config-manager] loadConfig failed, returning defaults:', err)
       return {
@@ -55,6 +59,7 @@ class ConfigManager {
   saveConfig(config: AppConfig): void {
     try {
       dbSaveConfig(config)
+      this.cachedConfig = null
     } catch (err) {
       log.error('[config-manager] saveConfig failed:', err)
       throw err
@@ -68,6 +73,7 @@ class ConfigManager {
 
   /** Notify all registered callbacks (call after main-process config mutations) */
   notifyChanged(): void {
+    this.cachedConfig = null
     const config = this.loadConfig()
     for (const cb of this.changeCallbacks) {
       cb(config)

@@ -380,6 +380,9 @@ export function FileTreeExplorer({ cwd, remoteHostId }: { cwd: string; remoteHos
 
   useEffect(() => {
     let stale = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: reset cache when cwd/host changes
+    setDirCache(new Map())
+    setLoading(true)
     window.api
       .listDir(cwd, remoteHostId)
       .then((entries) => {

@@ -18,7 +18,6 @@ const STORAGE_KEY = 'vibegrid:lastLaunchSettings'
 interface SavedSettings {
   project?: string
   agent?: AgentType
-  host?: string
 }
 
 function loadSaved(): SavedSettings {
@@ -43,7 +42,6 @@ export function useLaunchSettings() {
   const [saved] = useState(loadSaved)
   const [selectedAgent, setSelectedAgent] = useState<AgentType>(saved.agent || defaultAgent)
   const [selectedProject, setSelectedProject] = useState(saved.project || '')
-  const [selectedHost] = useState(saved.host || 'local')
   const [localBranches, setLocalBranches] = useState<string[]>([])
   const [remoteBranches, setRemoteBranches] = useState<string[]>([])
   const [currentBranch, setCurrentBranch] = useState<string | null>(null)
@@ -264,8 +262,8 @@ export function useLaunchSettings() {
   }, [currentBranch])
 
   const persist = useCallback(() => {
-    persistSettings({ project: selectedProject, agent: selectedAgent, host: selectedHost })
-  }, [selectedProject, selectedAgent, selectedHost])
+    persistSettings({ project: selectedProject, agent: selectedAgent })
+  }, [selectedProject, selectedAgent])
 
   const firstProject = config?.projects?.[0]?.name || ''
 
@@ -292,7 +290,6 @@ export function useLaunchSettings() {
     setSelectedAgent,
     selectedProject,
     setSelectedProject: handleProjectChange,
-    selectedHost,
     selectedBranch,
     setSelectedBranch,
     branchFilter,

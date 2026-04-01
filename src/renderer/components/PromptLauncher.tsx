@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, KeyboardEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../stores'
-import { AgentType, ProjectConfig, getProjectHostIds } from '../../shared/types'
+import { AgentType, ProjectConfig, getProjectRemoteHostId } from '../../shared/types'
 import { AGENT_LIST } from '../lib/agent-definitions'
 import { AgentIcon } from './AgentIcon'
 import { useLaunchSettings } from '../hooks/useLaunchSettings'
@@ -132,10 +132,7 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
     setLaunching(true)
 
     try {
-      // Derive remote host from project config
-      const projectHostIds = getProjectHostIds(project)
-      const remoteHostId = projectHostIds.find((id) => id !== 'local')
-      const isRemote = !!remoteHostId
+      const remoteHostId = getProjectRemoteHostId(project)
       const { worktreeMode, selectedWorktreePath, selectedBranch, currentBranch, liveBranch } =
         settings
 
@@ -144,9 +141,7 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
       let existingWorktreePath: string | undefined
       let worktreeName: string | undefined
 
-      if (isRemote) {
-        // Remote sessions don't use worktrees
-      } else if (worktreeMode === 'existing' && selectedWorktreePath) {
+      if (worktreeMode === 'existing' && selectedWorktreePath) {
         existingWorktreePath = selectedWorktreePath
         worktreeName = settings.selectedWorktreeName || undefined
         // Checkout different branch in the worktree if user changed it
@@ -176,7 +171,7 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
         useWorktree,
         existingWorktreePath,
         worktreeName,
-        remoteHostId: isRemote ? remoteHostId : undefined,
+        remoteHostId,
         initialPrompt: prompt.trim() || undefined
       })
 
@@ -310,7 +305,7 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
       </div>
 
       {/* Worktree picker — worktree-first, before branch */}
-      {settings.selectedHost === 'local' && settings.activeProjectPath && (
+      {settings.activeProjectPath && (
         <div className="relative" ref={worktreePickerRef}>
           <button
             onClick={() => setShowWorktreePicker(!showWorktreePicker)}
@@ -415,7 +410,7 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
       )}
 
       {/* Branch picker */}
-      {settings.selectedHost === 'local' && settings.activeProjectPath && (
+      {settings.activeProjectPath && (
         <div className="relative" ref={settings.dropdownRef}>
           <button
             onClick={() => settings.setShowBranchDropdown(!settings.showBranchDropdown)}

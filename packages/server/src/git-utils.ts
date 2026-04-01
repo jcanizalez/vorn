@@ -12,7 +12,7 @@ import { sshExecSync, shellEscape } from './process-utils'
 function gitExec(
   args: string[],
   cwd: string,
-  opts?: { timeout?: number; remote?: RemoteHost }
+  opts?: { timeout?: number; maxBuffer?: number; remote?: RemoteHost }
 ): string {
   if (opts?.remote) {
     const cmd = `cd ${shellEscape(cwd, 'posix')} && git ${args.map((a) => shellEscape(a, 'posix')).join(' ')}`
@@ -21,7 +21,8 @@ function gitExec(
   return execFileSync('git', args, {
     cwd,
     ...EXEC_OPTS,
-    timeout: opts?.timeout ?? 10000
+    timeout: opts?.timeout ?? 10000,
+    maxBuffer: opts?.maxBuffer
   }).trim()
 }
 
@@ -365,6 +366,7 @@ export function getGitDiffFull(
     const MAX_DIFF_SIZE = 500 * 1024 // 500KB
     let rawDiff = gitExec(['diff', 'HEAD', '-U3'], cwd, {
       timeout: 15000,
+      maxBuffer: MAX_DIFF_SIZE * 2,
       remote
     })
 

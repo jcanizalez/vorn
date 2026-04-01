@@ -6,37 +6,43 @@ const POLL_INTERVAL = 30_000
 
 export function useGitDiffPolling(): void {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pollingRef = useRef(false)
 
   useEffect(() => {
     const poll = async (): Promise<void> => {
-      // Skip polling when window is hidden to save energy
       if (document.hidden) return
+      if (pollingRef.current) return // skip if previous poll still running
+      pollingRef.current = true
 
-      const { terminals, updateGitDiffStats, updateSessionBranch } = useAppStore.getState()
+      try {
+        const { terminals, updateGitDiffStats, updateSessionBranch } = useAppStore.getState()
 
-      const entries = Array.from(terminals)
+        const entries = Array.from(terminals)
 
-      const batchStats = new Map<string, GitDiffStat>()
-      await Promise.allSettled(
-        entries.map(async ([id, t]) => {
-          const cwd = t.session.worktreePath || t.session.projectPath
-          try {
-            const [stat, branch] = await Promise.all([
-              window.api.getGitDiffStat(cwd),
-              window.api.getGitBranch(cwd)
-            ])
-            if (stat) batchStats.set(id, stat)
-            if (branch && branch !== t.session.branch) {
-              updateSessionBranch(id, branch)
+        const batchStats = new Map<string, GitDiffStat>()
+        await Promise.allSettled(
+          entries.map(async ([id, t]) => {
+            const cwd = t.session.worktreePath || t.session.projectPath
+            try {
+              const [stat, branch] = await Promise.all([
+                window.api.getGitDiffStat(cwd),
+                window.api.getGitBranch(cwd)
+              ])
+              if (stat) batchStats.set(id, stat)
+              if (branch && branch !== t.session.branch) {
+                updateSessionBranch(id, branch)
+              }
+            } catch {
+              // not a git repo or error — skip
             }
-          } catch {
-            // not a git repo or error — skip
-          }
-        })
-      )
+          })
+        )
 
-      if (batchStats.size > 0) {
-        updateGitDiffStats(batchStats)
+        if (batchStats.size > 0) {
+          updateGitDiffStats(batchStats)
+        }
+      } finally {
+        pollingRef.current = false
       }
     }
 

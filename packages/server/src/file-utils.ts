@@ -89,18 +89,30 @@ export async function listDir(dirPath: string, remote?: RemoteHost): Promise<Fil
 
 function listDirRemote(dirPath: string, remote: RemoteHost): FileEntry[] {
   try {
-    const output = sshExecSync(remote, `ls -1aF ${shellEscape(dirPath, 'posix')}`, {
-      timeout: 10000
-    }).trim()
-    if (!output) return []
+    // Get directory listing and git-ignored files in one SSH call
+    const esc = shellEscape(dirPath, 'posix')
+    const cmd = `ls -1aF ${esc} && echo '__VIBEGRID_SEP__' && (cd ${esc} && git ls-files --others --ignored --exclude-standard --directory 2>/dev/null || true)`
+    const output = sshExecSync(remote, cmd, { timeout: 10000 })
+
+    const [lsOutput, ignoredOutput] = output.split('__VIBEGRID_SEP__\n')
+    if (!lsOutput?.trim()) return []
+
+    const ignoredSet = new Set(
+      (ignoredOutput || '')
+        .trim()
+        .split('\n')
+        .map((p) => p.replace(/\/$/, ''))
+        .filter(Boolean)
+    )
 
     const result: FileEntry[] = []
-    for (const line of output.split('\n')) {
+    for (const line of lsOutput.trim().split('\n')) {
       const isDir = line.endsWith('/')
-      const name = line.replace(/[/@*|=]$/, '') // strip type indicators
+      const name = line.replace(/[/@*|=]$/, '')
       if (!name || name === '.' || name === '..') continue
       if (ALWAYS_EXCLUDE.has(name)) continue
       if (name.startsWith('.') && name !== '.github') continue
+      if (ignoredSet.has(name)) continue
 
       result.push({
         name,
