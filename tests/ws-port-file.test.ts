@@ -41,7 +41,8 @@ describe('ws-port file parsing (readPort via isServerRunning)', () => {
   }
 
   it('returns true for JSON format with port and pid', async () => {
-    mockReadFileSync.mockReturnValue(JSON.stringify({ port: 53829, pid: 1234 }))
+    // Use current PID so the liveness check passes
+    mockReadFileSync.mockReturnValue(JSON.stringify({ port: 53829, pid: process.pid }))
     const isServerRunning = await loadIsServerRunning()
     expect(isServerRunning()).toBe(true)
   })
@@ -96,6 +97,12 @@ describe('ws-port file parsing (readPort via isServerRunning)', () => {
     expect(isServerRunning()).toBe(false)
   })
 
+  it('returns false for JSON with dead pid (stale port file)', async () => {
+    mockReadFileSync.mockReturnValue(JSON.stringify({ port: 53829, pid: 999999 }))
+    const isServerRunning = await loadIsServerRunning()
+    expect(isServerRunning()).toBe(false)
+  })
+
   it('returns true for JSON with port but no pid (forward compat)', async () => {
     mockReadFileSync.mockReturnValue(JSON.stringify({ port: 8080 }))
     const isServerRunning = await loadIsServerRunning()
@@ -103,7 +110,7 @@ describe('ws-port file parsing (readPort via isServerRunning)', () => {
   })
 
   it('reads from the correct path', async () => {
-    mockReadFileSync.mockReturnValue(JSON.stringify({ port: 53829, pid: 1 }))
+    mockReadFileSync.mockReturnValue(JSON.stringify({ port: 53829, pid: process.pid }))
     const isServerRunning = await loadIsServerRunning()
     isServerRunning()
     expect(mockReadFileSync).toHaveBeenCalledWith(PORT_FILE, 'utf-8')
