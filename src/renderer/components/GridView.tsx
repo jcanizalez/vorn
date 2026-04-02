@@ -7,8 +7,7 @@ import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 import { useAppStore } from '../stores'
 import { AgentCard } from './AgentCard'
-import { HeadlessPill } from './HeadlessPill'
-import { MinimizedPill } from './MinimizedPill'
+import { BackgroundTray } from './BackgroundTray'
 import { PromptLauncher } from './PromptLauncher'
 import { GridContextMenu } from './GridContextMenu'
 import { AgentIcon } from './AgentIcon'
@@ -192,43 +191,13 @@ export const GridView = memo(function GridView() {
       onDoubleClick={handleGridDoubleClick}
       onContextMenu={handleGridContextMenu}
     >
-      {/* Headless agents section */}
-      {filteredHeadless.length > 0 && (
-        <div className="mb-4">
-          <div className="flex items-center gap-2 mb-2 px-1">
-            <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">
-              Headless Agents
-            </span>
-            <span className="text-[10px] text-gray-600">
-              {filteredHeadless.filter((s) => s.status === 'running').length} running
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {filteredHeadless.map((session) => (
-              <HeadlessPill key={session.id} session={session} />
-            ))}
-          </div>
-          {orderedIds.length > 0 && <div className="h-px bg-white/[0.06] mt-4" />}
-        </div>
-      )}
-
-      {/* Minimized sessions section */}
-      {minimizedIds.length > 0 && (
-        <div className="mb-4">
-          <div className="flex items-center gap-2 mb-2 px-1">
-            <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">
-              Minimized
-            </span>
-            <span className="text-[10px] text-gray-600">{minimizedIds.length}</span>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {minimizedIds.map((id) => (
-              <MinimizedPill key={id} terminalId={id} />
-            ))}
-          </div>
-          {orderedIds.length > 0 && <div className="h-px bg-white/[0.06] mt-4" />}
-        </div>
-      )}
+      {/* Background tray: headless + minimized */}
+      <BackgroundTray
+        headlessSessions={filteredHeadless}
+        minimizedIds={minimizedIds}
+        variant="grid"
+        hasItemsBelow={orderedIds.length > 0}
+      />
 
       {orderedIds.length === 0 && filteredHeadless.length === 0 && minimizedIds.length === 0 ? (
         isFiltered ? (
