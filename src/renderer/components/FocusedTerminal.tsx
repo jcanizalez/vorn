@@ -1,19 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { isElectron } from '../lib/platform'
 import { useAppStore } from '../stores'
 import { TerminalInstance } from './TerminalInstance'
 import { AgentIcon } from './AgentIcon'
 import { StatusBadge } from './StatusBadge'
-import { TrafficLights } from './TrafficLights'
 import { InlineRename } from './InlineRename'
 import { OpenInButton } from './OpenInButton'
+import { Tooltip } from './Tooltip'
 import { CommitDialog } from './CommitDialog'
 import { DiffFileList, DiffContent } from './DiffSidebar'
 import { MobileFontSizeControl } from './MobileFontSizeControl'
 import { MobileTerminalKeybar } from './MobileTerminalKeybar'
 import { AGENT_DEFINITIONS } from '../lib/agent-definitions'
-import { closeTerminalSession } from '../lib/terminal-close'
 import { getDisplayName, getBranchLabel } from '../lib/terminal-display'
 import { useTerminalScrollButton } from '../hooks/useTerminalScrollButton'
 import { useTerminalPinchZoom } from '../hooks/useTerminalPinchZoom'
@@ -26,10 +24,9 @@ import {
   RefreshCw,
   Loader2,
   ArrowDown,
-  ChevronDown
+  Minimize2
 } from 'lucide-react'
 import { GitDiffResult } from '../../shared/types'
-import { toast } from './Toast'
 
 const isMac = navigator.platform.toUpperCase().includes('MAC')
 const MOD = isMac ? '⌘' : 'Ctrl+'
@@ -89,13 +86,6 @@ export function FocusedTerminal() {
     setFocused(null)
   }
 
-  const handleKill = async (): Promise<void> => {
-    const name = getDisplayName(terminal.session)
-    setFocused(null)
-    await closeTerminalSession(focusedId)
-    toast.success(`Session "${name}" closed`)
-  }
-
   const handleToggleDiff = (): void => {
     setShowDiffPanel(!showDiffPanel)
   }
@@ -134,38 +124,39 @@ export function FocusedTerminal() {
 
   return (
     <>
-      {/* Backdrop */}
-      <motion.div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        onClick={handleContract}
-      />
+      {/* Backdrop — mobile only */}
+      {isMobile && (
+        <motion.div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          onClick={handleContract}
+        />
+      )}
 
       {/* Focused panel */}
       <motion.div
-        className={`fixed z-50 shadow-2xl flex flex-col overflow-hidden ${
-          isMobile ? 'inset-0' : 'rounded-xl border border-white/[0.08]'
-        }`}
+        className={
+          isMobile
+            ? 'fixed inset-0 z-50 shadow-2xl flex flex-col overflow-hidden'
+            : 'flex-1 flex flex-col min-h-0 overflow-hidden'
+        }
         style={{
           background: '#1a1a1e',
-          ...(isMobile
-            ? { paddingTop: 'var(--safe-top, 0px)' }
-            : {
-                top: 'calc(0.75rem + var(--safe-top, 0px))',
-                right: 'calc(0.75rem + var(--safe-right, 0px))',
-                bottom: 'calc(0.75rem + var(--safe-bottom, 0px))',
-                left: 'calc(0.75rem + var(--safe-left, 0px))'
-              })
+          ...(isMobile ? { paddingTop: 'var(--safe-top, 0px)' } : {})
         }}
-        initial={{ opacity: 0, scale: 0.97 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+        {...(isMobile
+          ? {
+              initial: { opacity: 0, scale: 0.97 },
+              animate: { opacity: 1, scale: 1 },
+              transition: { type: 'spring', stiffness: 400, damping: 30 }
+            }
+          : {})}
       >
-        {/* Title bar — pl-[78px] for macOS traffic light safe zone (Electron only) */}
+        {/* Title bar */}
         <div
           className={`flex items-center gap-3 pr-4 py-2.5 border-b border-white/[0.06] titlebar-no-drag ${
-            isMobile ? 'pl-3' : isElectron ? 'pl-[78px]' : 'pl-4'
+            isMobile ? 'pl-3' : 'pl-4'
           }`}
           onDoubleClick={(e) => {
             // Contract on double-click, but not if clicking on a button or interactive element
@@ -173,14 +164,14 @@ export function FocusedTerminal() {
             handleContract()
           }}
         >
-          {/* Mobile: back button to return to card list */}
+          {/* Mobile: back button */}
           {isMobile && (
             <button
               onClick={handleContract}
-              className="p-1.5 -ml-1 rounded-full text-gray-400 active:text-white active:bg-white/[0.1] transition-colors"
+              className="p-1.5 -ml-1 rounded-md text-gray-400 hover:text-white hover:bg-white/[0.08] transition-colors"
               title="Back to sessions"
             >
-              <ChevronDown size={20} strokeWidth={2} />
+              <Minimize2 size={16} strokeWidth={2} />
             </button>
           )}
           <AgentIcon agentType={terminal.session.agentType} size={16} />
@@ -266,12 +257,14 @@ export function FocusedTerminal() {
 
           {!isMobile && <OpenInButton projectPath={terminal.session.projectPath} />}
           {!isMobile && (
-            <TrafficLights
-              onClose={handleKill}
-              onMinimize={handleContract}
-              onExpand={handleContract}
-              expanded
-            />
+            <Tooltip label="Collapse to grid" position="bottom">
+              <button
+                onClick={handleContract}
+                className="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/[0.08] transition-colors"
+              >
+                <Minimize2 size={16} strokeWidth={2} />
+              </button>
+            </Tooltip>
           )}
         </div>
 
