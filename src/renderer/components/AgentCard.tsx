@@ -25,6 +25,7 @@ interface Props {
   index?: number
   isDragTarget?: boolean
   onDragStart?: (terminalId: string, e: React.PointerEvent) => void
+  flexible?: boolean
 }
 
 function RowResizeHandle() {
@@ -59,7 +60,7 @@ function RowResizeHandle() {
 
 export const AgentCard = memo(
   forwardRef<HTMLDivElement, Props>(function AgentCard(
-    { terminalId, index, isDragTarget, onDragStart },
+    { terminalId, index, isDragTarget, onDragStart, flexible },
     ref
   ) {
     const {
@@ -125,10 +126,11 @@ export const AgentCard = memo(
     return (
       <motion.div
         ref={ref}
-        layout
-        layoutId={terminalId}
+        layout={!flexible}
+        layoutId={flexible ? undefined : terminalId}
         className={`relative rounded-lg border overflow-hidden flex flex-col
                    transition-colors
+                   ${flexible ? 'h-full' : ''}
                    ${
                      isFocused
                        ? 'border-blue-500/60 ring-1 ring-blue-500/30'
@@ -350,7 +352,7 @@ export const AgentCard = memo(
         </div>
 
         {/* Resize handle */}
-        <RowResizeHandle />
+        {!flexible && <RowResizeHandle />}
 
         {/* Shortcut badge */}
         {typeof index === 'number' && index < 9 && (

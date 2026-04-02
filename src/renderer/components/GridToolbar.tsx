@@ -28,7 +28,8 @@ const COLUMN_OPTIONS: { value: string; label: string }[] = [
   { value: '1', label: '1 Column' },
   { value: '2', label: '2 Columns' },
   { value: '3', label: '3 Columns' },
-  { value: '4', label: '4 Columns' }
+  { value: '4', label: '4 Columns' },
+  { value: '-1', label: 'Flexible' }
 ]
 
 /* ── Icons ───────────────────────────────────────────────────── */

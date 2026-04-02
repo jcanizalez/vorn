@@ -1,12 +1,13 @@
 import { StateCreator } from 'zustand'
 import { TerminalSession } from '../../shared/types'
-import { AppStore, UISlice, SidebarViewMode } from './types'
+import { AppStore, UISlice, SidebarViewMode, FlexibleLayoutRect } from './types'
 
 const EMPTY_SESSIONS: TerminalSession[] = []
 const WORKTREE_CACHE_TTL = 5_000
 const worktreeCacheTimestamps = new Map<string, number>()
 const GRID_STORAGE_KEY = 'vibegrid:gridSettings'
 const SIDEBAR_STORAGE_KEY = 'vibegrid:sidebarSettings'
+const FLEXIBLE_STORAGE_KEY = 'vibegrid:flexibleLayouts'
 
 function loadGridSettings(): { gridColumns?: number; sortMode?: string; statusFilter?: string } {
   try {
@@ -21,6 +22,23 @@ function saveGridSettings(patch: Record<string, unknown>): void {
   try {
     const current = loadGridSettings()
     localStorage.setItem(GRID_STORAGE_KEY, JSON.stringify({ ...current, ...patch }))
+  } catch {
+    /* ignore */
+  }
+}
+
+function loadFlexibleLayouts(): Record<string, FlexibleLayoutRect> {
+  try {
+    const raw = localStorage.getItem(FLEXIBLE_STORAGE_KEY)
+    return raw ? JSON.parse(raw) : {}
+  } catch {
+    return {}
+  }
+}
+
+function saveFlexibleLayouts(layouts: Record<string, FlexibleLayoutRect>): void {
+  try {
+    localStorage.setItem(FLEXIBLE_STORAGE_KEY, JSON.stringify(layouts))
   } catch {
     /* ignore */
   }
@@ -66,6 +84,7 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   previousSessions: [],
   gridColumns: (savedGrid.gridColumns as number) ?? 0,
   rowHeight: 208,
+  flexibleLayouts: loadFlexibleLayouts(),
   sortMode: (savedGrid.sortMode as 'manual' | 'created' | 'recent') ?? 'manual',
   statusFilter:
     (savedGrid.statusFilter as 'all' | 'running' | 'waiting' | 'idle' | 'error') ?? 'all',
@@ -155,6 +174,11 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
     } else {
       set({ rowHeight: height })
     }
+  },
+
+  setFlexibleLayouts: (layouts) => {
+    saveFlexibleLayouts(layouts)
+    set({ flexibleLayouts: layouts })
   },
 
   setTerminalOrder: (order) => set({ terminalOrder: order }),

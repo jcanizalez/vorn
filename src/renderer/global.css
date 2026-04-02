@@ -216,3 +216,36 @@ select:focus:not(:focus-visible) {
   width: 100%;
   height: 100%;
 }
+
+/* ── Flexible Grid (react-grid-layout) ── */
+.flexible-grid .react-grid-item {
+  transition: none;
+}
+.flexible-grid .react-grid-item.react-draggable-dragging {
+  z-index: 100;
+  opacity: 0.9;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+.flexible-grid .react-grid-item > .react-resizable-handle {
+  background: none;
+  width: 14px;
+  height: 14px;
+}
+.flexible-grid .react-grid-item > .react-resizable-handle::after {
+  border-right-color: rgba(255, 255, 255, 0.15);
+  border-bottom-color: rgba(255, 255, 255, 0.15);
+  width: 7px;
+  height: 7px;
+  right: 4px;
+  bottom: 4px;
+}
+.flexible-grid .react-grid-item:hover > .react-resizable-handle::after {
+  border-right-color: rgba(255, 255, 255, 0.35);
+  border-bottom-color: rgba(255, 255, 255, 0.35);
+}
+.flexible-grid .react-grid-placeholder {
+  background: rgba(59, 130, 246, 0.15) !important;
+  border: 1px dashed rgba(59, 130, 246, 0.4);
+  border-radius: 8px;
+  opacity: 1 !important;
+}

@@ -36,6 +36,13 @@ export type WorktreeFilter = 'all' | 'active'
 export type SidebarViewMode = 'worktrees' | 'worktrees-sessions' | 'sessions' | 'sessions-flat'
 export type PanelTab = 'changes' | 'all-files'
 
+export interface FlexibleLayoutRect {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
 export interface TerminalState {
   id: string
   session: TerminalSession
@@ -117,8 +124,9 @@ export interface UISlice {
   settingsCategory: SettingsCategory
   showSessionBanner: boolean
   previousSessions: TerminalSession[]
-  gridColumns: number // 0 = auto
+  gridColumns: number // 0 = auto, -1 = flexible (react-grid-layout)
   rowHeight: number
+  flexibleLayouts: Record<string, FlexibleLayoutRect>
   sortMode: SortMode
   statusFilter: StatusFilter
   terminalOrder: string[]
@@ -160,6 +168,7 @@ export interface UISlice {
   setSessionBanner: (show: boolean, sessions?: TerminalSession[]) => void
   setGridColumns: (cols: number) => void
   setRowHeight: (height: number) => void
+  setFlexibleLayouts: (layouts: Record<string, FlexibleLayoutRect>) => void
   setTerminalOrder: (order: string[]) => void
   setVisibleTerminalIds: (ids: string[]) => void
   reorderTerminals: (fromIndex: number, toIndex: number) => void

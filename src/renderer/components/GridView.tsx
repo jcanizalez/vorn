@@ -1,7 +1,10 @@
-import { memo, useRef, useState, useCallback, useMemo } from 'react'
+import { memo, useRef, useState, useCallback, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useShallow } from 'zustand/react/shallow'
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
+import { GridLayout, noCompactor, type EventCallback, type Layout } from 'react-grid-layout'
+import 'react-grid-layout/css/styles.css'
+import 'react-resizable/css/styles.css'
 import { useAppStore } from '../stores'
 import { AgentCard } from './AgentCard'
 import { HeadlessPill } from './HeadlessPill'
@@ -14,7 +17,7 @@ import { useIsMobile } from '../hooks/useIsMobile'
 import { resolveActiveProject } from '../lib/session-utils'
 import { getDisplayName, getBranchLabel } from '../lib/terminal-display'
 import { HeadlessSession } from '../../shared/types'
-import type { TerminalState } from '../stores/types'
+import type { TerminalState, FlexibleLayoutRect } from '../stores/types'
 import { GitBranch, FolderGit2 } from 'lucide-react'
 
 const EMPTY_HEADLESS: HeadlessSession[] = []
@@ -152,8 +155,7 @@ export const GridView = memo(function GridView() {
     setDropTargetIndex(null)
   }, [])
 
-  const handleGridDoubleClick = useCallback((e: React.MouseEvent) => {
-    if (e.target !== e.currentTarget) return
+  const createNewSession = useCallback(() => {
     const state = useAppStore.getState()
     const project = resolveActiveProject()
     if (!project) {
@@ -165,6 +167,14 @@ export const GridView = memo(function GridView() {
       .createTerminal({ agentType, projectName: project.name, projectPath: project.path })
       .then((session) => state.addTerminal(session))
   }, [])
+
+  const handleGridDoubleClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (e.target !== e.currentTarget) return
+      createNewSession()
+    },
+    [createNewSession]
+  )
 
   const handleGridContextMenu = useCallback((e: React.MouseEvent) => {
     if (e.target !== e.currentTarget) return
@@ -243,30 +253,38 @@ export const GridView = memo(function GridView() {
           <PromptLauncher mode="inline" />
         )
       ) : orderedIds.length > 0 ? (
-        <LayoutGroup>
-          <div
-            className="grid gap-4"
-            style={gridStyle}
-            onDoubleClick={handleGridDoubleClick}
-            onContextMenu={handleGridContextMenu}
-          >
-            <AnimatePresence>
-              {orderedIds.map((id, index) => (
-                <AgentCard
-                  key={id}
-                  ref={(el) => {
-                    if (el) cardRefs.current.set(id, el)
-                    else cardRefs.current.delete(id)
-                  }}
-                  terminalId={id}
-                  index={index}
-                  isDragTarget={dragState?.isDragging === true && dropTargetIndex === index}
-                  onDragStart={sortMode === 'manual' ? handleDragStart : undefined}
-                />
-              ))}
-            </AnimatePresence>
-          </div>
-        </LayoutGroup>
+        gridColumns === -1 ? (
+          <FlexibleGrid
+            orderedIds={orderedIds}
+            onCreateSession={createNewSession}
+            onShowContextMenu={setGridContextMenu}
+          />
+        ) : (
+          <LayoutGroup>
+            <div
+              className="grid gap-4"
+              style={gridStyle}
+              onDoubleClick={handleGridDoubleClick}
+              onContextMenu={handleGridContextMenu}
+            >
+              <AnimatePresence>
+                {orderedIds.map((id, index) => (
+                  <AgentCard
+                    key={id}
+                    ref={(el) => {
+                      if (el) cardRefs.current.set(id, el)
+                      else cardRefs.current.delete(id)
+                    }}
+                    terminalId={id}
+                    index={index}
+                    isDragTarget={dragState?.isDragging === true && dropTargetIndex === index}
+                    onDragStart={sortMode === 'manual' ? handleDragStart : undefined}
+                  />
+                ))}
+              </AnimatePresence>
+            </div>
+          </LayoutGroup>
+        )
       ) : null}
       {gridContextMenu && (
         <GridContextMenu position={gridContextMenu} onClose={() => setGridContextMenu(null)} />
@@ -275,6 +293,157 @@ export const GridView = memo(function GridView() {
     </div>
   )
 })
+
+/* ── Flexible Grid (Grafana-style free positioning) ──────────── */
+
+const FLEX_COLS = 12
+const FLEX_ROW_H = 80
+const FLEX_DEFAULT_W = 4
+const FLEX_DEFAULT_H = 3
+
+function getStableKey(session: TerminalState['session']): string {
+  return session.claudeSessionId || session.hookSessionId || ''
+}
+
+function FlexibleGrid({
+  orderedIds,
+  onCreateSession,
+  onShowContextMenu
+}: {
+  orderedIds: string[]
+  onCreateSession: () => void
+  onShowContextMenu: (pos: { x: number; y: number } | null) => void
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [containerWidth, setContainerWidth] = useState(0)
+
+  // Narrow selector: only extract the stable keys we need, not the full terminals Map
+  const stableKeys = useAppStore(
+    useShallow((s) => {
+      const keys: Record<string, string> = {}
+      for (const id of orderedIds) {
+        const t = s.terminals.get(id)
+        if (t) keys[id] = getStableKey(t.session) || id
+      }
+      return keys
+    })
+  )
+  const flexibleLayouts = useAppStore((s) => s.flexibleLayouts)
+  const setFlexibleLayouts = useAppStore((s) => s.setFlexibleLayouts)
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const observer = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width
+      if (w && w > 0) setContainerWidth(w)
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  const layout = useMemo(() => {
+    // Stack new items below all previously-placed cards so they don't overlap
+    let nextY = 0
+    for (const id of orderedIds) {
+      const key = stableKeys[id]
+      if (!key) continue
+      const saved = flexibleLayouts[key]
+      if (saved) nextY = Math.max(nextY, saved.y + saved.h)
+    }
+
+    let autoIndex = 0
+    return orderedIds.map((id) => {
+      const key = stableKeys[id]
+      if (!key) return { i: id, x: 0, y: 0, w: FLEX_DEFAULT_W, h: FLEX_DEFAULT_H }
+      const saved = flexibleLayouts[key]
+      if (saved) {
+        return { i: id, x: saved.x, y: saved.y, w: saved.w, h: saved.h }
+      }
+      const maxPerRow = Math.floor(FLEX_COLS / FLEX_DEFAULT_W)
+      const x = (autoIndex % maxPerRow) * FLEX_DEFAULT_W
+      const y = nextY + Math.floor(autoIndex / maxPerRow) * FLEX_DEFAULT_H
+      autoIndex++
+      return { i: id, x, y, w: FLEX_DEFAULT_W, h: FLEX_DEFAULT_H }
+    })
+  }, [orderedIds, stableKeys, flexibleLayouts])
+
+  const persistLayout = useCallback(
+    (updatedLayout: Layout) => {
+      const merged: Record<string, FlexibleLayoutRect> = { ...flexibleLayouts }
+      for (const item of updatedLayout) {
+        const key = stableKeys[item.i]
+        if (!key) continue
+        merged[key] = { x: item.x, y: item.y, w: item.w, h: item.h }
+      }
+      setFlexibleLayouts(merged)
+    },
+    [stableKeys, flexibleLayouts, setFlexibleLayouts]
+  )
+
+  const handleDragStop: EventCallback = useCallback(
+    (layout) => persistLayout(layout),
+    [persistLayout]
+  )
+
+  const handleResizeStop: EventCallback = useCallback(
+    (layout) => {
+      persistLayout(layout)
+      // Notify terminals to refit after RGL finishes resizing their containers
+      setTimeout(() => window.dispatchEvent(new Event('resize')), 50)
+    },
+    [persistLayout]
+  )
+
+  const handleDoubleClick = useCallback(
+    (e: React.MouseEvent) => {
+      if ((e.target as HTMLElement).closest('.react-grid-item')) return
+      onCreateSession()
+    },
+    [onCreateSession]
+  )
+
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      if ((e.target as HTMLElement).closest('.react-grid-item')) return
+      e.preventDefault()
+      onShowContextMenu({ x: e.clientX, y: e.clientY })
+    },
+    [onShowContextMenu]
+  )
+
+  if (containerWidth === 0) {
+    return <div ref={containerRef} className="w-full min-h-[200px]" />
+  }
+
+  return (
+    <div ref={containerRef} onDoubleClick={handleDoubleClick} onContextMenu={handleContextMenu}>
+      <GridLayout
+        className="flexible-grid"
+        layout={layout}
+        width={containerWidth}
+        gridConfig={{
+          cols: FLEX_COLS,
+          rowHeight: FLEX_ROW_H,
+          margin: [16, 16],
+          containerPadding: null,
+          maxRows: Infinity
+        }}
+        compactor={noCompactor}
+        dragConfig={{ enabled: true, handle: '.drag-handle', bounded: false, threshold: 3 }}
+        resizeConfig={{ enabled: true, handles: ['se'] }}
+        onDragStop={handleDragStop}
+        onResizeStop={handleResizeStop}
+      >
+        {orderedIds.map((id, index) => (
+          <div key={id} className="h-full">
+            <AgentCard terminalId={id} index={index} flexible />
+          </div>
+        ))}
+      </GridLayout>
+    </div>
+  )
+}
 
 function GridDragGhost({
   dragState,
