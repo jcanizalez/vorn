@@ -320,6 +320,7 @@ export const AgentCard = memo(
                     handleExpand()
                   }}
                   className="p-1.5 rounded text-gray-500 hover:text-white hover:bg-white/[0.08] transition-colors"
+                  aria-label="Expand session"
                 >
                   <Maximize2 size={12} strokeWidth={2} />
                 </button>
@@ -331,6 +332,7 @@ export const AgentCard = memo(
                     handleMinimize()
                   }}
                   className="p-1.5 rounded text-gray-500 hover:text-white hover:bg-white/[0.08] transition-colors"
+                  aria-label="Minimize session"
                 >
                   <Minus size={12} strokeWidth={2} />
                 </button>
@@ -342,6 +344,7 @@ export const AgentCard = memo(
                     handleKill()
                   }}
                   className="p-1.5 rounded text-gray-500 hover:text-red-400 hover:bg-white/[0.08] transition-colors"
+                  aria-label="Close session"
                 >
                   <X size={12} strokeWidth={2} />
                 </button>
