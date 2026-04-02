@@ -21,14 +21,25 @@ export function SessionItem({
   showBranch?: boolean
 }) {
   const focusedTerminalId = useAppStore((s) => s.focusedTerminalId)
+  const activeTabId = useAppStore((s) => s.activeTabId)
   const setFocusedTerminal = useAppStore((s) => s.setFocusedTerminal)
-  const isFocused = focusedTerminalId === session.id
+  const setActiveTabId = useAppStore((s) => s.setActiveTabId)
+  const layoutMode = useAppStore((s) => s.config?.defaults?.layoutMode ?? 'grid')
+  const isActive =
+    layoutMode === 'tabs' ? activeTabId === session.id : focusedTerminalId === session.id
 
   return (
     <button
-      onClick={() => setFocusedTerminal(session.id)}
+      onClick={() => {
+        if (layoutMode === 'tabs') {
+          setActiveTabId(session.id)
+          setFocusedTerminal(null)
+        } else {
+          setFocusedTerminal(session.id)
+        }
+      }}
       className={`group/session w-full text-left px-2 py-1 rounded-md text-[12px] flex items-center gap-2 min-w-0 transition-colors ${
-        isFocused
+        isActive
           ? 'bg-white/[0.08] text-white'
           : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'
       }`}

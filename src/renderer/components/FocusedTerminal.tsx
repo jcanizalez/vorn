@@ -13,6 +13,7 @@ import { MobileFontSizeControl } from './MobileFontSizeControl'
 import { MobileTerminalKeybar } from './MobileTerminalKeybar'
 import { AGENT_DEFINITIONS } from '../lib/agent-definitions'
 import { getDisplayName, getBranchLabel } from '../lib/terminal-display'
+import { closeTerminalSession } from '../lib/terminal-close'
 import { useTerminalScrollButton } from '../hooks/useTerminalScrollButton'
 import { useTerminalPinchZoom } from '../hooks/useTerminalPinchZoom'
 import { useIsMobile } from '../hooks/useIsMobile'
@@ -24,7 +25,9 @@ import {
   RefreshCw,
   Loader2,
   ArrowDown,
-  Minimize2
+  Minimize2,
+  X,
+  Pencil
 } from 'lucide-react'
 import { GitDiffResult } from '../../shared/types'
 
@@ -187,11 +190,20 @@ export function FocusedTerminal() {
                 className="text-[13px] font-medium"
               />
             ) : (
-              <span
-                className="text-[13px] font-medium text-gray-200 cursor-default"
-                onDoubleClick={() => setRenamingTerminalId(focusedId)}
-              >
-                {getDisplayName(terminal.session)}
+              <span className="inline-flex items-center gap-1 group/rename">
+                <span
+                  className="text-[13px] font-medium text-gray-200 cursor-default"
+                  onDoubleClick={() => setRenamingTerminalId(focusedId)}
+                >
+                  {getDisplayName(terminal.session)}
+                </span>
+                <button
+                  onClick={() => setRenamingTerminalId(focusedId)}
+                  className="opacity-0 group-hover/rename:opacity-100 text-gray-500 hover:text-gray-300 transition-opacity shrink-0"
+                  title="Rename"
+                >
+                  <Pencil size={11} />
+                </button>
               </span>
             )}
             <span className="text-[13px] text-gray-500 ml-2">{def.displayName}</span>
@@ -266,6 +278,19 @@ export function FocusedTerminal() {
               </button>
             </Tooltip>
           )}
+          {!isMobile && (
+            <Tooltip label="Close session" position="bottom">
+              <button
+                onClick={async () => {
+                  setFocused(null)
+                  await closeTerminalSession(focusedId)
+                }}
+                className="p-1.5 rounded-md text-gray-400 hover:text-red-400 hover:bg-white/[0.08] transition-colors"
+              >
+                <X size={16} strokeWidth={2} />
+              </button>
+            </Tooltip>
+          )}
         </div>
 
         {/* Content area: terminal + optional diff panel */}
@@ -276,7 +301,7 @@ export function FocusedTerminal() {
             className="relative flex-1 p-1 min-w-0"
             style={{ background: 'rgba(0, 0, 0, 0.3)' }}
           >
-            <TerminalInstance terminalId={focusedId} isFocused={true} />
+            <TerminalInstance terminalId={focusedId} isFocused={!isRenaming} />
             {/* Mobile: floating controls (font size + scroll) */}
             <div className="absolute bottom-4 right-4 flex flex-col items-end gap-2 z-10">
               {isMobile && <MobileFontSizeControl />}

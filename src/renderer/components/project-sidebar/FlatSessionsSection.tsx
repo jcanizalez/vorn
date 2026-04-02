@@ -18,6 +18,7 @@ export function FlatSessionsSection({
   const terminals = useAppStore((s) => s.terminals)
   const activeProject = useAppStore((s) => s.activeProject)
   const setActiveProject = useAppStore((s) => s.setActiveProject)
+  const setFocusedTerminal = useAppStore((s) => s.setFocusedTerminal)
 
   const sessions = useMemo(() => {
     const effectiveProject =
@@ -57,7 +58,10 @@ export function FlatSessionsSection({
       )}
 
       <button
-        onClick={() => setActiveProject(null)}
+        onClick={() => {
+          setActiveProject(null)
+          setFocusedTerminal(null)
+        }}
         className={`w-full text-left px-2.5 py-1.5 rounded-md text-[13px] transition-colors flex items-center gap-2 ${
           activeProject === null
             ? 'bg-white/[0.08] text-white'
