@@ -44,6 +44,7 @@ export function ProjectItem({
   projectSessions: SidebarSessionInfo[]
 }) {
   const setActiveProject = useAppStore((s) => s.setActiveProject)
+  const setFocusedTerminal = useAppStore((s) => s.setFocusedTerminal)
   const activeWorktreePath = useAppStore((s) => s.activeWorktreePath)
   const setActiveWorktreePath = useAppStore((s) => s.setActiveWorktreePath)
   const worktreeCache = useAppStore((s) => s.worktreeCache)
@@ -169,7 +170,10 @@ export function ProjectItem({
     <div>
       <div className="group relative flex items-center">
         <button
-          onClick={() => setActiveProject(project.name)}
+          onClick={() => {
+            setActiveProject(project.name)
+            setFocusedTerminal(null)
+          }}
           className={`flex-1 text-left px-2 py-1.5 rounded-md text-[13px] transition-colors flex items-center gap-2 ${
             isActive
               ? 'bg-white/[0.08] text-white'
@@ -215,7 +219,32 @@ export function ProjectItem({
                 </span>
               )}
               <div className="hidden group-hover:flex items-center gap-0.5 ml-auto">
-                {isGitRepo ? (
+                <Tooltip label="New session" position="right">
+                  <button
+                    type="button"
+                    onClick={async (e) => {
+                      e.stopPropagation()
+                      try {
+                        const agentType = config?.defaults.defaultAgent || 'claude'
+                        const remoteHostId = getProjectRemoteHostId(project)
+                        const session = await window.api.createTerminal({
+                          agentType,
+                          projectName: project.name,
+                          projectPath: project.path,
+                          remoteHostId
+                        })
+                        addTerminal(session)
+                      } catch (err) {
+                        const msg = err instanceof Error ? err.message : String(err)
+                        toast.error(msg || 'Failed to create session')
+                      }
+                    }}
+                    className="text-gray-500 hover:text-white p-0.5 rounded hover:bg-white/[0.08] transition-colors"
+                  >
+                    <Plus size={14} strokeWidth={2} />
+                  </button>
+                </Tooltip>
+                {isGitRepo && (
                   <Tooltip label="New worktree" position="right">
                     <button
                       type="button"
@@ -234,32 +263,6 @@ export function ProjectItem({
                       className="text-gray-500 hover:text-white p-0.5 rounded hover:bg-white/[0.08] transition-colors"
                     >
                       <FolderGit2 size={14} strokeWidth={1.5} className="text-amber-400/70" />
-                    </button>
-                  </Tooltip>
-                ) : (
-                  <Tooltip label="New session" position="right">
-                    <button
-                      type="button"
-                      onClick={async (e) => {
-                        e.stopPropagation()
-                        try {
-                          const agentType = config?.defaults.defaultAgent || 'claude'
-                          const remoteHostId = getProjectRemoteHostId(project)
-                          const session = await window.api.createTerminal({
-                            agentType,
-                            projectName: project.name,
-                            projectPath: project.path,
-                            remoteHostId
-                          })
-                          addTerminal(session)
-                        } catch (err) {
-                          const msg = err instanceof Error ? err.message : String(err)
-                          toast.error(msg || 'Failed to create session')
-                        }
-                      }}
-                      className="text-gray-500 hover:text-white p-0.5 rounded hover:bg-white/[0.08] transition-colors"
-                    >
-                      <Plus size={14} strokeWidth={2} />
                     </button>
                   </Tooltip>
                 )}
@@ -316,6 +319,7 @@ export function ProjectItem({
                       onClick={() => {
                         setActiveProject(project.name)
                         setActiveWorktreePath(isMainActive ? null : MAIN_WORKTREE_SENTINEL)
+                        setFocusedTerminal(null)
                       }}
                       className={`flex-1 text-left px-2 py-1.5 rounded-md text-[13px] flex items-center gap-2 min-w-0 transition-colors ${
                         isMainActive
@@ -405,6 +409,7 @@ export function ProjectItem({
                     onSelect={() => {
                       setActiveProject(project.name)
                       setActiveWorktreePath(activeWorktreePath === wt.path ? null : wt.path)
+                      setFocusedTerminal(null)
                     }}
                     onWorktreesChanged={() => loadWorktrees(project.path, true)}
                     sessionsExpanded={showSessions ? !collapsedBranches.has(wt.path) : undefined}

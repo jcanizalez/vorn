@@ -30,9 +30,11 @@ export function ProjectsSection({
 }) {
   const activeProject = useAppStore((s) => s.activeProject)
   const setActiveProject = useAppStore((s) => s.setActiveProject)
+  const setFocusedTerminal = useAppStore((s) => s.setFocusedTerminal)
   const setAddProjectDialogOpen = useAppStore((s) => s.setAddProjectDialogOpen)
   const sidebarViewMode = useAppStore((s) => s.sidebarViewMode)
   const sidebarProjectSort = useAppStore((s) => s.sidebarProjectSort)
+  const worktreeFilter = useAppStore((s) => s.sidebarWorktreeFilter)
   const reorderProjects = useAppStore((s) => s.reorderProjects)
   const terminals = useAppStore((s) => s.terminals)
 
@@ -53,16 +55,20 @@ export function ProjectsSection({
   }, [sidebarProjectSort, terminals])
 
   const sortedProjects = useMemo(() => {
-    if (sidebarProjectSort === 'manual') return workspaceProjects
-    if (sidebarProjectSort === 'name') {
-      return [...workspaceProjects].sort((a, b) => a.name.localeCompare(b.name))
+    let projects = workspaceProjects
+    if (worktreeFilter === 'active') {
+      projects = projects.filter((p) => (projectTerminals.get(p.name)?.length ?? 0) > 0)
     }
-    return [...workspaceProjects].sort((a, b) => {
+    if (sidebarProjectSort === 'manual') return projects
+    if (sidebarProjectSort === 'name') {
+      return [...projects].sort((a, b) => a.name.localeCompare(b.name))
+    }
+    return [...projects].sort((a, b) => {
       const aMax = projectLastActivity?.get(a.name) ?? 0
       const bMax = projectLastActivity?.get(b.name) ?? 0
       return bMax - aMax
     })
-  }, [workspaceProjects, sidebarProjectSort, projectLastActivity])
+  }, [workspaceProjects, sidebarProjectSort, projectLastActivity, worktreeFilter, projectTerminals])
 
   const handleDragStart = useCallback(
     (e: React.DragEvent, index: number) => {
@@ -137,7 +143,10 @@ export function ProjectsSection({
 
       {!sectionCollapsed && (
         <button
-          onClick={() => setActiveProject(null)}
+          onClick={() => {
+            setActiveProject(null)
+            setFocusedTerminal(null)
+          }}
           className={`w-full text-left px-2.5 py-1.5 rounded-md text-[13px] transition-colors flex items-center gap-2 ${
             activeProject === null
               ? 'bg-white/[0.08] text-white'

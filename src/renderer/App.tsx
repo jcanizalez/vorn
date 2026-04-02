@@ -627,6 +627,8 @@ export function App() {
               <TaskBoardView />
             ) : isMobile ? (
               <MobileSinglePane />
+            ) : focusedId ? (
+              <FocusedTerminal />
             ) : layoutMode === 'tabs' ? (
               <TabView />
             ) : (
@@ -634,14 +636,14 @@ export function App() {
             )}
           </div>
           {mainViewMode === 'tasks' && selectedTaskId && <TaskDetailPanel />}
-          {mainViewMode === 'sessions' && diffSidebarTerminalId && <RightPanel />}
+          {mainViewMode === 'sessions' && diffSidebarTerminalId && !focusedId && <RightPanel />}
         </div>
         <TerminalPanel />
         {isMobile && <MobileBottomTabs hidden={keyboardHeight > 0} />}
       </main>
 
-      {/* Focus overlay — no AnimatePresence so terminal handoff is instant */}
-      {focusedId && <FocusedTerminal />}
+      {/* Focus overlay — mobile only (desktop renders inline in content area) */}
+      {isMobile && focusedId && <FocusedTerminal />}
 
       <PromptLauncher mode="overlay" onClose={() => setDialogOpen(false)} />
       <AddProjectDialog />

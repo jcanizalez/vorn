@@ -28,8 +28,8 @@ const VIEW_MODE_OPTIONS: { value: SidebarViewMode; label: string }[] = [
   { value: 'sessions-flat', label: 'Sessions (Flat)' }
 ]
 
-const WORKTREE_FILTER_OPTIONS: { value: WorktreeFilter; label: string }[] = [
-  { value: 'all', label: 'All worktrees' },
+const FILTER_OPTIONS: { value: WorktreeFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
   { value: 'active', label: 'With active sessions' }
 ]
 
@@ -122,12 +122,12 @@ export function ProjectsSectionToolbar() {
             ))}
           </div>
 
-          {viewMode !== 'sessions' && viewMode !== 'sessions-flat' && (
+          {viewMode !== 'sessions-flat' && (
             <div className="py-1.5 border-t border-white/[0.06]">
               <div className="px-3 py-1 text-[10px] text-gray-500 uppercase tracking-wider">
                 Filter
               </div>
-              {WORKTREE_FILTER_OPTIONS.map((opt) => (
+              {FILTER_OPTIONS.map((opt) => (
                 <OptionRow
                   key={opt.value}
                   selected={worktreeFilter === opt.value}

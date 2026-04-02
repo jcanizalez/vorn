@@ -5,14 +5,23 @@ import { useAppStore } from '../stores'
 import { AgentIcon } from './AgentIcon'
 import { StatusBadge } from './StatusBadge'
 import { TerminalInstance } from './TerminalInstance'
-import { TrafficLights } from './TrafficLights'
 import { InlineRename } from './InlineRename'
 import { GitChangesIndicator, BrowseFilesButton } from './GitChangesIndicator'
 import { closeTerminalSession } from '../lib/terminal-close'
 import { getDisplayName, getBranchLabel } from '../lib/terminal-display'
 import { CardContextMenu } from './CardContextMenu'
 import { useTerminalScrollButton } from '../hooks/useTerminalScrollButton'
-import { GitBranch, FolderGit2, Pencil, ListTodo, Pin, Archive } from 'lucide-react'
+import {
+  GitBranch,
+  FolderGit2,
+  Pencil,
+  ListTodo,
+  Pin,
+  Archive,
+  Maximize2,
+  Minus,
+  X
+} from 'lucide-react'
 import { toast } from './Toast'
 import { Tooltip } from './Tooltip'
 
@@ -250,19 +259,27 @@ export const AgentCard = memo(
           </div>
 
           <StatusBadge status={terminal.status} />
-          <GitChangesIndicator terminalId={terminalId} />
+          {typeof index === 'number' && index < 9 && (
+            <span
+              className="px-1 py-0.5 text-[9px] font-mono text-gray-600
+                         bg-white/[0.04] border border-white/[0.06] rounded
+                         leading-none shrink-0"
+            >
+              {isMac ? '\u2318' : 'Ctrl+'}
+              {index + 1}
+            </span>
+          )}
 
-          {/* Pin / Archive / Browse buttons */}
+          {/* Pin + Browse — appear on hover, left of git */}
           {cardHovered && (
             <div className="flex items-center gap-0.5">
-              <BrowseFilesButton terminalId={terminalId} />
               <Tooltip label={isPinned ? 'Unpin session' : 'Pin session'} position="top">
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
                     togglePinned(terminalId)
                   }}
-                  className={`p-2 rounded transition-colors ${
+                  className={`p-1.5 rounded transition-colors ${
                     isPinned
                       ? 'text-amber-400 hover:text-amber-300'
                       : 'text-gray-500 hover:text-gray-300'
@@ -279,27 +296,63 @@ export const AgentCard = memo(
                       e.stopPropagation()
                       archiveSession(terminalId)
                     }}
-                    className="p-2 rounded text-gray-500 hover:text-gray-300 transition-colors"
+                    className="p-1.5 rounded text-gray-500 hover:text-gray-300 transition-colors"
                     aria-label="Archive session"
                   >
                     <Archive size={12} strokeWidth={2} />
                   </button>
                 </Tooltip>
               )}
+              <BrowseFilesButton terminalId={terminalId} />
             </div>
           )}
           {!cardHovered && isPinned && (
             <Pin size={10} strokeWidth={2} className="text-amber-400 fill-current shrink-0" />
           )}
 
-          {/* Traffic lights — right side */}
-          <div className={cardHovered ? '' : 'traffic-light-inactive'}>
-            <TrafficLights
-              onClose={handleKill}
-              onMinimize={handleMinimize}
-              onExpand={handleExpand}
-            />
-          </div>
+          <GitChangesIndicator terminalId={terminalId} />
+
+          {/* Expand + Minimize + Close — appear on hover, right of git */}
+          {cardHovered && (
+            <div className="flex items-center gap-0.5">
+              <Tooltip label="Expand" position="top">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleExpand()
+                  }}
+                  className="p-1.5 rounded text-gray-500 hover:text-white hover:bg-white/[0.08] transition-colors"
+                  aria-label="Expand session"
+                >
+                  <Maximize2 size={12} strokeWidth={2} />
+                </button>
+              </Tooltip>
+              <Tooltip label="Minimize" position="top">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleMinimize()
+                  }}
+                  className="p-1.5 rounded text-gray-500 hover:text-white hover:bg-white/[0.08] transition-colors"
+                  aria-label="Minimize session"
+                >
+                  <Minus size={12} strokeWidth={2} />
+                </button>
+              </Tooltip>
+              <Tooltip label="Close session" position="top">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleKill()
+                  }}
+                  className="p-1.5 rounded text-gray-500 hover:text-red-400 hover:bg-white/[0.08] transition-colors"
+                  aria-label="Close session"
+                >
+                  <X size={12} strokeWidth={2} />
+                </button>
+              </Tooltip>
+            </div>
+          )}
         </div>
 
         {/* Terminal */}
@@ -353,18 +406,6 @@ export const AgentCard = memo(
 
         {/* Resize handle */}
         {!flexible && <RowResizeHandle />}
-
-        {/* Shortcut badge */}
-        {typeof index === 'number' && index < 9 && (
-          <span
-            className="absolute top-1.5 right-1.5 z-10 px-1 py-0.5 text-[9px] font-mono
-                         text-gray-600 bg-white/[0.04] border border-white/[0.06] rounded
-                         leading-none pointer-events-none"
-          >
-            {isMac ? '\u2318' : 'Ctrl+'}
-            {index + 1}
-          </span>
-        )}
 
         {/* Context menu */}
         {contextMenu && (

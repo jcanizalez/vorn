@@ -24,6 +24,9 @@ export function AppearanceSettings() {
     if (patch.fontSize !== undefined) {
       setAllTerminalsFontSize(patch.fontSize)
     }
+    if (patch.layoutMode === 'tabs') {
+      useAppStore.getState().setFocusedTerminal(null)
+    }
   }
 
   return (
