@@ -7,20 +7,17 @@ import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 import { useAppStore } from '../stores'
 import { AgentCard } from './AgentCard'
-import { HeadlessPill } from './HeadlessPill'
-import { MinimizedPill } from './MinimizedPill'
+import { BackgroundTray } from './BackgroundTray'
 import { PromptLauncher } from './PromptLauncher'
 import { GridContextMenu } from './GridContextMenu'
 import { AgentIcon } from './AgentIcon'
 import { useVisibleTerminals } from '../hooks/useVisibleTerminals'
+import { useFilteredHeadless } from '../hooks/useFilteredHeadless'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { resolveActiveProject } from '../lib/session-utils'
 import { getDisplayName, getBranchLabel } from '../lib/terminal-display'
-import { HeadlessSession } from '../../shared/types'
 import type { TerminalState, FlexibleLayoutRect } from '../stores/types'
 import { GitBranch, FolderGit2 } from 'lucide-react'
-
-const EMPTY_HEADLESS: HeadlessSession[] = []
 
 interface DragState {
   draggingId: string
@@ -44,31 +41,7 @@ export const GridView = memo(function GridView() {
       rowHeight: s.rowHeight
     }))
   )
-  const headlessSessions = useAppStore((s) => s.headlessSessions)
-  const showHeadless = useAppStore((s) => s.config?.defaults?.showHeadlessAgents !== false)
-  const activeProject = useAppStore((s) => s.activeProject)
-  const activeWorkspace = useAppStore((s) => s.activeWorkspace)
-  const projects = useAppStore((s) => s.config?.projects)
-
-  const workspaceProjects = useMemo(() => {
-    if (!projects) return null
-    return new Set(
-      projects.filter((p) => (p.workspaceId ?? 'personal') === activeWorkspace).map((p) => p.name)
-    )
-  }, [projects, activeWorkspace])
-
-  const filteredHeadless = useMemo(() => {
-    if (!showHeadless || headlessSessions.length === 0) return EMPTY_HEADLESS
-    return headlessSessions.filter((s) => {
-      if (activeProject && s.projectName !== activeProject) return false
-      if (!activeProject && workspaceProjects && !workspaceProjects.has(s.projectName)) return false
-      if (statusFilter !== 'all') {
-        const mapped = s.status === 'running' ? 'running' : s.exitCode !== 0 ? 'error' : 'idle'
-        if (mapped !== statusFilter) return false
-      }
-      return true
-    })
-  }, [headlessSessions, showHeadless, activeProject, workspaceProjects, statusFilter])
+  const filteredHeadless = useFilteredHeadless()
 
   const [dragState, setDragState] = useState<DragState | null>(null)
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null)
@@ -192,43 +165,13 @@ export const GridView = memo(function GridView() {
       onDoubleClick={handleGridDoubleClick}
       onContextMenu={handleGridContextMenu}
     >
-      {/* Headless agents section */}
-      {filteredHeadless.length > 0 && (
-        <div className="mb-4">
-          <div className="flex items-center gap-2 mb-2 px-1">
-            <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">
-              Headless Agents
-            </span>
-            <span className="text-[10px] text-gray-600">
-              {filteredHeadless.filter((s) => s.status === 'running').length} running
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {filteredHeadless.map((session) => (
-              <HeadlessPill key={session.id} session={session} />
-            ))}
-          </div>
-          {orderedIds.length > 0 && <div className="h-px bg-white/[0.06] mt-4" />}
-        </div>
-      )}
-
-      {/* Minimized sessions section */}
-      {minimizedIds.length > 0 && (
-        <div className="mb-4">
-          <div className="flex items-center gap-2 mb-2 px-1">
-            <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">
-              Minimized
-            </span>
-            <span className="text-[10px] text-gray-600">{minimizedIds.length}</span>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {minimizedIds.map((id) => (
-              <MinimizedPill key={id} terminalId={id} />
-            ))}
-          </div>
-          {orderedIds.length > 0 && <div className="h-px bg-white/[0.06] mt-4" />}
-        </div>
-      )}
+      {/* Background tray: headless + minimized */}
+      <BackgroundTray
+        headlessSessions={filteredHeadless}
+        minimizedIds={minimizedIds}
+        variant="grid"
+        hasItemsBelow={orderedIds.length > 0}
+      />
 
       {orderedIds.length === 0 && filteredHeadless.length === 0 && minimizedIds.length === 0 ? (
         isFiltered ? (
