@@ -170,9 +170,10 @@ export function FocusedTerminal() {
           {/* Mobile: back button */}
           {isMobile && (
             <button
+              type="button"
               onClick={handleContract}
               className="p-1.5 -ml-1 rounded-md text-gray-400 hover:text-white hover:bg-white/[0.08] transition-colors"
-              title="Back to sessions"
+              aria-label="Back to sessions"
             >
               <Minimize2 size={16} strokeWidth={2} />
             </button>
@@ -198,9 +199,10 @@ export function FocusedTerminal() {
                   {getDisplayName(terminal.session)}
                 </span>
                 <button
+                  type="button"
                   onClick={() => setRenamingTerminalId(focusedId)}
                   className="opacity-0 group-hover/rename:opacity-100 text-gray-500 hover:text-gray-300 transition-opacity shrink-0"
-                  title="Rename"
+                  aria-label="Rename session"
                 >
                   <Pencil size={11} />
                 </button>
@@ -271,8 +273,10 @@ export function FocusedTerminal() {
           {!isMobile && (
             <Tooltip label="Collapse to grid" position="bottom">
               <button
+                type="button"
                 onClick={handleContract}
                 className="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-white/[0.08] transition-colors"
+                aria-label="Collapse to grid"
               >
                 <Minimize2 size={16} strokeWidth={2} />
               </button>
@@ -281,11 +285,13 @@ export function FocusedTerminal() {
           {!isMobile && (
             <Tooltip label="Close session" position="bottom">
               <button
+                type="button"
                 onClick={async () => {
                   setFocused(null)
                   await closeTerminalSession(focusedId)
                 }}
                 className="p-1.5 rounded-md text-gray-400 hover:text-red-400 hover:bg-white/[0.08] transition-colors"
+                aria-label="Close session"
               >
                 <X size={16} strokeWidth={2} />
               </button>
