@@ -9,6 +9,7 @@ import {
   HeadlessSession,
   IPC
 } from '@vibegrid/shared/types'
+import { displayNameFromPrompt } from '@vibegrid/shared/string-utils'
 import {
   getGitBranch,
   checkoutBranch,
@@ -114,7 +115,9 @@ class HeadlessManager extends EventEmitter {
       agentType: payload.agentType,
       projectName: payload.projectName,
       projectPath: payload.projectPath,
-      displayName: payload.displayName,
+      displayName:
+        payload.displayName ||
+        (payload.initialPrompt ? displayNameFromPrompt(payload.initialPrompt) : undefined),
       branch,
       worktreePath,
       worktreeName,

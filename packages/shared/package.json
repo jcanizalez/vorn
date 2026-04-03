@@ -10,6 +10,7 @@
     "./types": "./src/types.ts",
     "./agent-defaults": "./src/agent-defaults.ts",
     "./prompt-builder": "./src/prompt-builder.ts",
-    "./protocol": "./src/protocol.ts"
+    "./protocol": "./src/protocol.ts",
+    "./string-utils": "./src/string-utils.ts"
   }
 }

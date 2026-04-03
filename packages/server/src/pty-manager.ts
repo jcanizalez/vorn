@@ -14,6 +14,7 @@ import {
   TerminalSession,
   RemoteHost
 } from '@vibegrid/shared/types'
+import { displayNameFromPrompt } from '@vibegrid/shared/string-utils'
 import {
   getGitBranch,
   checkoutBranch,
@@ -238,7 +239,11 @@ class PtyManager extends EventEmitter {
       status: 'running',
       createdAt: Date.now(),
       pid: ptyProcess.pid,
-      ...(payload.displayName ? { displayName: payload.displayName } : {}),
+      ...(payload.displayName
+        ? { displayName: payload.displayName }
+        : payload.initialPrompt
+          ? { displayName: displayNameFromPrompt(payload.initialPrompt) }
+          : {}),
       ...(branch ? { branch } : {}),
       ...(worktreePath ? { worktreePath, worktreeName, isWorktree: true } : {}),
       ...(claudeSessionId ? { claudeSessionId, statusSource: 'hooks' as const } : {})
@@ -404,7 +409,11 @@ class PtyManager extends EventEmitter {
       pid: ptyProcess.pid,
       remoteHostId: host.id,
       remoteHostLabel: host.label,
-      ...(payload.displayName ? { displayName: payload.displayName } : {})
+      ...(payload.displayName
+        ? { displayName: payload.displayName }
+        : payload.initialPrompt
+          ? { displayName: displayNameFromPrompt(payload.initialPrompt) }
+          : {})
     }
     this.sessions.set(id, session)
     this.sessionOrder.push(id)

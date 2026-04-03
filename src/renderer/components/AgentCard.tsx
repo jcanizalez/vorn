@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { toast } from './Toast'
 import { Tooltip } from './Tooltip'
+import { ConfirmPopover } from './ConfirmPopover'
 
 const isMac = navigator.platform.toUpperCase().includes('MAC')
 // On touch devices, always show action buttons (no hover available)
@@ -339,18 +340,21 @@ export const AgentCard = memo(
                   <Minus size={12} strokeWidth={2} />
                 </button>
               </Tooltip>
-              <Tooltip label="Close session" position="top">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleKill()
-                  }}
-                  className="p-1.5 rounded text-gray-500 hover:text-red-400 hover:bg-white/[0.08] transition-colors"
-                  aria-label="Close session"
-                >
-                  <X size={12} strokeWidth={2} />
-                </button>
-              </Tooltip>
+              <ConfirmPopover
+                message="Close this session?"
+                confirmLabel="Close"
+                onConfirm={handleKill}
+              >
+                <Tooltip label="Close session" position="top">
+                  <button
+                    onPointerDown={(e) => e.stopPropagation()}
+                    className="p-1.5 rounded text-gray-500 hover:text-red-400 hover:bg-white/[0.08] transition-colors"
+                    aria-label="Close session"
+                  >
+                    <X size={12} strokeWidth={2} />
+                  </button>
+                </Tooltip>
+              </ConfirmPopover>
             </div>
           )}
         </div>
