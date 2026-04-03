@@ -62,7 +62,7 @@
     "framer-motion": "^12.36.0",
     "libsql": "^0.5.22",
     "lowlight": "^3.3.0",
-    "lucide-react": "0.577.0",
+    "lucide-react": "1.7.0",
     "node-cron": "^3.0.3",
     "node-pty": "1.2.0-beta.12",
     "qrcode": "^1.5.4",
