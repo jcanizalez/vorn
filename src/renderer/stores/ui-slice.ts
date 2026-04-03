@@ -91,6 +91,7 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   terminalOrder: [],
   visibleTerminalIds: [],
   minimizedTerminals: new Set(),
+  backgroundTrayCollapsed: false,
   isOnboardingOpen: false,
   diffSidebarTerminalId: null,
   gitDiffStats: new Map(),
@@ -203,6 +204,9 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
       }
       return { minimizedTerminals: next }
     }),
+
+  toggleBackgroundTray: () =>
+    set((state) => ({ backgroundTrayCollapsed: !state.backgroundTrayCollapsed })),
 
   setOnboardingOpen: (open) => set({ isOnboardingOpen: open }),
   setDiffSidebarTerminalId: (id, tab) =>
