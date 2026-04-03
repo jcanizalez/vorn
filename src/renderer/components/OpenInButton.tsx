@@ -112,9 +112,9 @@ export function OpenInButton({ projectPath, direction = 'down' }: Props) {
           onClick={handleToggle}
           className="flex items-center px-0.5 py-0.5 text-gray-500 hover:text-white
                      bg-white/[0.04] hover:bg-white/[0.08] rounded-r-md border border-white/[0.06]
-                     transition-colors"
+                     transition-colors self-stretch"
         >
-          <ChevronDown size={10} strokeWidth={2} />
+          <ChevronDown size={11} strokeWidth={2} />
         </button>
       </div>
 

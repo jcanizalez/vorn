@@ -636,7 +636,7 @@ export function App() {
             )}
           </div>
           {mainViewMode === 'tasks' && selectedTaskId && <TaskDetailPanel />}
-          {mainViewMode === 'sessions' && diffSidebarTerminalId && !focusedId && <RightPanel />}
+          {mainViewMode === 'sessions' && !isMobile && diffSidebarTerminalId && <RightPanel />}
         </div>
         <TerminalPanel />
         {isMobile && <MobileBottomTabs hidden={keyboardHeight > 0} />}
