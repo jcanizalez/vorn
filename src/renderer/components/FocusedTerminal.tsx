@@ -23,20 +23,28 @@ const MOD = isMac ? '⌘' : 'Ctrl+'
 
 export function FocusedTerminal() {
   const focusedId = useAppStore((s) => s.focusedTerminalId)
-  const terminal = useAppStore((s) => (focusedId ? s.terminals.get(focusedId) : undefined))
+  const previewId = useAppStore((s) => s.previewTerminalId)
+  const effectiveId = previewId ?? focusedId
+  const isPreview = previewId !== null && focusedId !== previewId
+  const terminal = useAppStore((s) => (effectiveId ? s.terminals.get(effectiveId) : undefined))
   const setFocused = useAppStore((s) => s.setFocusedTerminal)
-  const isRenaming = useAppStore((s) => s.renamingTerminalId === focusedId)
+  const setPreviewTerminal = useAppStore((s) => s.setPreviewTerminal)
+  const isRenaming = useAppStore((s) => s.renamingTerminalId === effectiveId)
   const setRenamingTerminalId = useAppStore((s) => s.setRenamingTerminalId)
   const renameTerminal = useAppStore((s) => s.renameTerminal)
-  const { showScrollBtn, handleScrollToBottom } = useTerminalScrollButton(focusedId)
+  const { showScrollBtn, handleScrollToBottom } = useTerminalScrollButton(effectiveId)
   const terminalContainerRef = useRef<HTMLDivElement>(null)
   const isMobile = useIsMobile()
   useTerminalPinchZoom(terminalContainerRef)
 
-  if (!focusedId || !terminal) return null
+  if (!effectiveId || !terminal) return null
 
   const handleContract = (): void => {
-    setFocused(null)
+    if (isPreview) {
+      setPreviewTerminal(null)
+    } else {
+      setFocused(null)
+    }
   }
 
   return (
@@ -98,7 +106,7 @@ export function FocusedTerminal() {
               <InlineRename
                 value={getDisplayName(terminal.session)}
                 onCommit={(name) => {
-                  renameTerminal(focusedId, name)
+                  renameTerminal(effectiveId, name)
                   setRenamingTerminalId(null)
                 }}
                 onCancel={() => setRenamingTerminalId(null)}
@@ -108,13 +116,13 @@ export function FocusedTerminal() {
               <span className="inline-flex items-center gap-1 group/rename">
                 <span
                   className="text-[13px] font-medium text-gray-200 cursor-default"
-                  onDoubleClick={() => setRenamingTerminalId(focusedId)}
+                  onDoubleClick={() => setRenamingTerminalId(effectiveId)}
                 >
                   {getDisplayName(terminal.session)}
                 </span>
                 <button
                   type="button"
-                  onClick={() => setRenamingTerminalId(focusedId)}
+                  onClick={() => setRenamingTerminalId(effectiveId)}
                   className="opacity-0 group-hover/rename:opacity-100 text-gray-500 hover:text-gray-300 transition-opacity shrink-0"
                   aria-label="Rename session"
                 >
@@ -141,8 +149,8 @@ export function FocusedTerminal() {
             )}
           </div>
 
-          {!isMobile && <BrowseFilesButton terminalId={focusedId} />}
-          {!isMobile && <GitChangesIndicator terminalId={focusedId} />}
+          {!isMobile && <BrowseFilesButton terminalId={effectiveId} />}
+          {!isMobile && <GitChangesIndicator terminalId={effectiveId} />}
 
           <StatusBadge status={terminal.status} />
 
@@ -185,8 +193,12 @@ export function FocusedTerminal() {
               message="Close this session?"
               confirmLabel="Close"
               onConfirm={async () => {
-                setFocused(null)
-                await closeTerminalSession(focusedId)
+                if (isPreview) {
+                  setPreviewTerminal(null)
+                } else {
+                  setFocused(null)
+                }
+                await closeTerminalSession(effectiveId)
               }}
             >
               <Tooltip label="Close session" position="bottom">
@@ -208,7 +220,7 @@ export function FocusedTerminal() {
           className="relative flex-1 p-1 min-h-0"
           style={{ background: 'rgba(0, 0, 0, 0.3)' }}
         >
-          <TerminalInstance terminalId={focusedId} isFocused={!isRenaming} />
+          <TerminalInstance terminalId={effectiveId} isFocused={!isRenaming && !isPreview} />
           {/* Mobile: floating controls (font size + scroll) */}
           <div className="absolute bottom-4 right-4 flex flex-col items-end gap-2 z-10">
             {isMobile && <MobileFontSizeControl />}
@@ -227,7 +239,7 @@ export function FocusedTerminal() {
         </div>
 
         {/* Mobile: extended terminal keyboard bar (Termux-style) */}
-        {isMobile && <MobileTerminalKeybar terminalId={focusedId} />}
+        {isMobile && <MobileTerminalKeybar terminalId={effectiveId} />}
       </motion.div>
     </>
   )

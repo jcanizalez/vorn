@@ -102,6 +102,7 @@ function WindowControls() {
 export function App() {
   const {
     focusedId,
+    previewId,
     showBanner,
     isSidebarOpen,
     isSettingsOpen,
@@ -116,6 +117,7 @@ export function App() {
   } = useAppStore(
     useShallow((s) => ({
       focusedId: s.focusedTerminalId,
+      previewId: s.previewTerminalId,
       showBanner: s.showSessionBanner,
       isSidebarOpen: s.isSidebarOpen,
       isSettingsOpen: s.isSettingsOpen,
@@ -627,7 +629,7 @@ export function App() {
               <TaskBoardView />
             ) : isMobile ? (
               <MobileSinglePane />
-            ) : focusedId ? (
+            ) : focusedId || previewId ? (
               <FocusedTerminal />
             ) : layoutMode === 'tabs' ? (
               <TabView />

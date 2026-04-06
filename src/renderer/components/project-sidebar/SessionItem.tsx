@@ -1,3 +1,4 @@
+import { useRef, useCallback, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { useAppStore } from '../../stores'
 import { AgentIcon } from '../AgentIcon'
@@ -13,6 +14,8 @@ const STATUS_CONFIG: Record<AgentStatus, { color: string; label: string; pulse: 
   error: { color: 'bg-red-500', label: 'Error', pulse: false }
 }
 
+const PREVIEW_DELAY_MS = 300
+
 export function SessionItem({
   session,
   showBranch = true
@@ -24,13 +27,50 @@ export function SessionItem({
   const activeTabId = useAppStore((s) => s.activeTabId)
   const setFocusedTerminal = useAppStore((s) => s.setFocusedTerminal)
   const setActiveTabId = useAppStore((s) => s.setActiveTabId)
+  const setPreviewTerminal = useAppStore((s) => s.setPreviewTerminal)
+  const previewTerminalId = useAppStore((s) => s.previewTerminalId)
   const layoutMode = useAppStore((s) => s.config?.defaults?.layoutMode ?? 'grid')
+  const enableHoverPreview = useAppStore((s) => s.config?.defaults?.enableHoverPreview ?? false)
   const isActive =
     layoutMode === 'tabs' ? activeTabId === session.id : focusedTerminalId === session.id
+  const isPreviewing = previewTerminalId === session.id
+
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
+    }
+  }, [])
+
+  const handleMouseEnter = useCallback(() => {
+    if (!enableHoverPreview) return
+    if (layoutMode === 'tabs') return
+    if (focusedTerminalId === session.id) return
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
+    hoverTimerRef.current = setTimeout(() => {
+      hoverTimerRef.current = null
+      setPreviewTerminal(session.id)
+    }, PREVIEW_DELAY_MS)
+  }, [enableHoverPreview, layoutMode, focusedTerminalId, session.id, setPreviewTerminal])
+
+  const handleMouseLeave = useCallback(() => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current)
+      hoverTimerRef.current = null
+    }
+    if (previewTerminalId === session.id) {
+      setPreviewTerminal(null)
+    }
+  }, [previewTerminalId, session.id, setPreviewTerminal])
 
   return (
     <button
       onClick={() => {
+        if (hoverTimerRef.current) {
+          clearTimeout(hoverTimerRef.current)
+          hoverTimerRef.current = null
+        }
         if (layoutMode === 'tabs') {
           setActiveTabId(session.id)
           setFocusedTerminal(null)
@@ -38,8 +78,10 @@ export function SessionItem({
           setFocusedTerminal(session.id)
         }
       }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       className={`group/session w-full text-left px-2 py-1 rounded-md text-[12px] flex items-center gap-2 min-w-0 transition-colors ${
-        isActive
+        isActive || isPreviewing
           ? 'bg-white/[0.08] text-white'
           : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'
       }`}
