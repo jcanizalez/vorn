@@ -394,6 +394,7 @@ export interface AppConfig {
     networkAccessEnabled?: boolean
     showHeadlessAgents?: boolean
     headlessRetentionMinutes?: number
+    enableHoverPreview?: boolean
   }
   projects: ProjectConfig[]
   agentCommands?: Partial<Record<AgentType, AgentCommandConfig>>

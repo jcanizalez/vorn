@@ -111,6 +111,7 @@ export interface UISlice {
   activeWorkspace: string
   focusedTerminalId: string | null
   selectedTerminalId: string | null
+  previewTerminalId: string | null
   renamingTerminalId: string | null
   isSidebarOpen: boolean
   isNewAgentDialogOpen: boolean
@@ -153,6 +154,7 @@ export interface UISlice {
   setActiveWorkspace: (id: string) => void
   setFocusedTerminal: (id: string | null) => void
   setSelectedTerminal: (id: string | null) => void
+  setPreviewTerminal: (id: string | null) => void
   setRenamingTerminalId: (id: string | null) => void
   setSortMode: (mode: SortMode) => void
   setStatusFilter: (filter: StatusFilter) => void

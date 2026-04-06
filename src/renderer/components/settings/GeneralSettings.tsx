@@ -83,6 +83,17 @@ export function GeneralSettings() {
           />
         </SettingRow>
 
+        {/* Hover Preview */}
+        <SettingRow
+          label="Hover Preview"
+          description="Preview sessions by hovering over them in the sidebar"
+        >
+          <ToggleSwitch
+            checked={config.defaults.enableHoverPreview ?? false}
+            onChange={(enableHoverPreview) => updateDefaults({ enableHoverPreview })}
+          />
+        </SettingRow>
+
         {/* Floating Widget — Electron only */}
         {isElectron && (
           <SettingRow

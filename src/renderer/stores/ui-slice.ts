@@ -69,6 +69,7 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   activeWorkspace: 'personal',
   focusedTerminalId: null,
   selectedTerminalId: null,
+  previewTerminalId: null,
   renamingTerminalId: null,
   isSidebarOpen: true,
   isNewAgentDialogOpen: false,
@@ -123,9 +124,11 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   setFocusedTerminal: (id) =>
     set(() => ({
       focusedTerminalId: id,
-      selectedTerminalId: id
+      selectedTerminalId: id,
+      previewTerminalId: null
     })),
   setSelectedTerminal: (id) => set({ selectedTerminalId: id }),
+  setPreviewTerminal: (id) => set({ previewTerminalId: id }),
   setRenamingTerminalId: (id) => set({ renamingTerminalId: id }),
   setSortMode: (mode) => {
     saveGridSettings({ sortMode: mode })
@@ -238,7 +241,9 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   setMainViewMode: (mode) => {
     const config = get().config
     const extra =
-      mode !== 'sessions' ? { diffSidebarTerminalId: null, focusedTerminalId: null } : {}
+      mode !== 'sessions'
+        ? { diffSidebarTerminalId: null, focusedTerminalId: null, previewTerminalId: null }
+        : {}
     if (config) {
       const updated = { ...config, defaults: { ...config.defaults, mainViewMode: mode } }
       window.api.saveConfig(updated)
