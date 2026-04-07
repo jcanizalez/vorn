@@ -1,7 +1,7 @@
 import { execFileSync, execFile, type ExecFileSyncOptions } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import type { RemoteHost } from '@vorn/shared/types'
+import type { RemoteHost } from '@vornrun/shared/types'
 
 function getUserShellEnv(): Record<string, string> {
   if (process.platform === 'win32') return { ...process.env } as Record<string, string>

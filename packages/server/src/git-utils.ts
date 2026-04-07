@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import fs from 'node:fs'
 import crypto from 'node:crypto'
-import type { RemoteHost } from '@vorn/shared/types'
+import type { RemoteHost } from '@vornrun/shared/types'
 import { sshExecSync, shellEscape } from './process-utils'
 
 /**

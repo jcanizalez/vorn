@@ -1,5 +1,5 @@
 {
-  "name": "@vorn/web",
+  "name": "@vornrun/web",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@vorn/shared": "workspace:*"
+    "@vornrun/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^19.2.14",

@@ -1,1 +1,1 @@
-export * from '@vorn/shared/types'
+export * from '@vornrun/shared/types'

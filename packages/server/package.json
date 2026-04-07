@@ -1,5 +1,5 @@
 {
-  "name": "@vorn/server",
+  "name": "@vornrun/server",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -20,7 +20,7 @@
     "@fastify/static": "^9.0.0",
     "@fastify/websocket": "^11.0.2",
     "@modelcontextprotocol/sdk": "^1.27.1",
-    "@vorn/shared": "workspace:*",
+    "@vornrun/shared": "workspace:*",
     "fastify": "^5.3.3",
     "libsql": "^0.5.22",
     "node-cron": "^3.0.3",

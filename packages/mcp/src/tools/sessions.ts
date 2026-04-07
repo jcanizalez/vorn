@@ -8,7 +8,7 @@ import type {
   RecentSession,
   ArchivedSession,
   SessionEvent
-} from '@vorn/shared/types'
+} from '@vornrun/shared/types'
 import { V } from '../validation'
 import { rpcCall, rpcNotify } from '../ws-client'
 

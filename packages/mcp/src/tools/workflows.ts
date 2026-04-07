@@ -8,8 +8,8 @@ import type {
   WorkflowEdge,
   TriggerConfig,
   LaunchAgentConfig
-} from '@vorn/shared/types'
-import type { ScheduleLogEntry } from '@vorn/shared/types'
+} from '@vornrun/shared/types'
+import type { ScheduleLogEntry } from '@vornrun/shared/types'
 import {
   dbListWorkflows,
   dbInsertWorkflow,
@@ -18,7 +18,7 @@ import {
   listWorkflowRuns,
   listWorkflowRunsByTask,
   dbSignalChange
-} from '@vorn/server/database'
+} from '@vornrun/server/database'
 import { rpcCall } from '../ws-client'
 
 const launchAgentConfigSchema = z.object({

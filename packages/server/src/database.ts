@@ -23,8 +23,8 @@ import {
   SessionLog,
   SessionEvent,
   SessionEventType
-} from '@vorn/shared/types'
-import { DEFAULT_AGENT_COMMANDS } from '@vorn/shared/agent-defaults'
+} from '@vornrun/shared/types'
+import { DEFAULT_AGENT_COMMANDS } from '@vornrun/shared/agent-defaults'
 
 const CONFIG_DIR = path.join(os.homedir(), '.vorn')
 const DB_PATH = path.join(CONFIG_DIR, 'vorn.db')

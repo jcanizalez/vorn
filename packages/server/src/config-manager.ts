@@ -1,8 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
-import { AppConfig } from '@vorn/shared/types'
-import { DEFAULT_AGENT_COMMANDS } from '@vorn/shared/agent-defaults'
+import { AppConfig } from '@vornrun/shared/types'
+import { DEFAULT_AGENT_COMMANDS } from '@vornrun/shared/agent-defaults'
 import {
   initDatabase,
   closeDatabase,

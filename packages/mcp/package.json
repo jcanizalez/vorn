@@ -1,5 +1,5 @@
 {
-  "name": "@vorn/mcp",
+  "name": "@vornrun/mcp",
   "version": "0.1.3",
   "description": "Vorn MCP server — task management, git, and workflow tools for AI coding agents",
   "type": "module",
@@ -38,8 +38,8 @@
     "zod": "^3.23.0"
   },
   "devDependencies": {
-    "@vorn/server": "workspace:*",
-    "@vorn/shared": "workspace:*",
+    "@vornrun/server": "workspace:*",
+    "@vornrun/shared": "workspace:*",
     "tsup": "^8.5.0",
     "tsx": "^4.19.4",
     "typescript": "^5.6.0"

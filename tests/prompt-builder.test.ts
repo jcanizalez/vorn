@@ -3,8 +3,8 @@ import {
   buildTaskPrompt,
   buildFeedbackPrompt,
   buildWorkflowPrompt
-} from '@vorn/shared/prompt-builder'
-import type { TaskConfig, ProjectConfig, WorkflowDefinition } from '@vorn/shared/types'
+} from '@vornrun/shared/prompt-builder'
+import type { TaskConfig, ProjectConfig, WorkflowDefinition } from '@vornrun/shared/types'
 
 function makeTask(overrides: Partial<TaskConfig> = {}): TaskConfig {
   return {
