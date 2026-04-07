@@ -686,6 +686,8 @@ export function registerAllMethods(): void {
           return
         }
 
+        ptyManager.promoteToHookStatus(terminalId)
+
         const session = ptyManager.getActiveSessions().find((s) => s.id === terminalId)
 
         const permReq: PermissionRequestInfo = {

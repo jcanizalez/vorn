@@ -6,6 +6,7 @@ import path from 'node:path'
 import { EventEmitter } from 'node:events'
 import log from './logger'
 import {
+  AgentType,
   AgentStatus,
   AgentCommandConfig,
   CreateTerminalPayload,

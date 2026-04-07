@@ -82,7 +82,7 @@ export function captureAgentSessionId(agentType: AgentType, cwd: string): string
 
     return row?.id
   } catch (err) {
-    log.warn(`[session-capture] failed to read ${agentType} DB at ${dbPath}:`, err)
+    log.warn({ err }, `[session-capture] failed to read ${agentType} DB at ${dbPath}`)
     return undefined
   } finally {
     try {
