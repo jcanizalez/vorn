@@ -574,7 +574,10 @@ export function registerAllMethods(): void {
       copilotInstallations.set(session.id, installation)
       hookStatusMapper.forceLink(installation.sessionId, session.id)
       session.hookSessionId = installation.sessionId
-      session.statusSource = 'hooks'
+      // Don't set statusSource = 'hooks' eagerly — it disables the pattern-based
+      // fallback. If hooks actually fire, promoteToHookStatus is called on the
+      // first event. This fixes status stuck on 'waiting' when hooks don't work
+      // (e.g. the agent CLI doesn't support hooks.json).
     }
 
     sessionManager.scheduleSave()
@@ -612,6 +615,7 @@ export function registerAllMethods(): void {
         const result = hookStatusMapper.mapEventToStatus(event)
         if (result) {
           ptyManager.updateSessionStatus(result.terminalId, result.status)
+          ptyManager.promoteToHookStatus(result.terminalId)
           broadcastWidgetUpdate()
 
           // Persist after hookSessionId is set (SessionStart links the session)

@@ -246,7 +246,11 @@ class PtyManager extends EventEmitter {
           : {}),
       ...(branch ? { branch } : {}),
       ...(worktreePath ? { worktreePath, worktreeName, isWorktree: true } : {}),
-      ...(claudeSessionId ? { claudeSessionId, statusSource: 'hooks' as const } : {})
+      // Don't set statusSource: 'hooks' eagerly — promoteToHookStatus() sets it
+      // when the first hook event actually arrives. This provides graceful
+      // degradation: if hooks fail (uninstalled, port conflict, etc.), the
+      // pattern-based fallback keeps working instead of leaving status stuck.
+      ...(claudeSessionId ? { claudeSessionId } : {})
     }
     this.sessions.set(id, session)
     this.sessionOrder.push(id)
@@ -704,6 +708,15 @@ class PtyManager extends EventEmitter {
     if (session && session.status !== status) {
       session.status = status
       this.emit('client-message', IPC.SESSION_UPDATED, session)
+    }
+  }
+
+  /** Promote a session to hook-based status detection (disables pattern fallback). */
+  promoteToHookStatus(id: string): void {
+    const session = this.sessions.get(id)
+    if (session && session.statusSource !== 'hooks') {
+      session.statusSource = 'hooks'
+      log.info(`[pty] session ${id} promoted to hook-based status`)
     }
   }
 
