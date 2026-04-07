@@ -1,0 +1,94 @@
+import Database from 'libsql'
+import fs from 'node:fs'
+import path from 'node:path'
+import os from 'node:os'
+import { AgentType } from '@vibegrid/shared/types'
+import log from './logger'
+
+function getAgentDbPath(agentType: AgentType): string | undefined {
+  switch (agentType) {
+    case 'copilot':
+      return path.join(os.homedir(), '.copilot', 'session-store.db')
+    case 'codex':
+      return path.join(os.homedir(), '.codex', 'state_5.sqlite')
+    case 'opencode': {
+      const baseDir =
+        process.platform === 'win32'
+          ? process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local')
+          : process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share')
+      return path.join(baseDir, 'opencode', 'opencode.db')
+    }
+    default:
+      return undefined
+  }
+}
+
+/** Normalize a cwd for comparison: lowercase, forward slashes, no trailing slash. */
+function normalizeCwd(cwd: string): string {
+  return cwd.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+}
+
+/**
+ * Read the agent CLI's own database to find the most recent session matching
+ * the given cwd. Returns the agent's real session ID, or undefined.
+ *
+ * Uses libsql in read-only mode — no sqlite3 CLI dependency, works on Windows.
+ */
+export function captureAgentSessionId(agentType: AgentType, cwd: string): string | undefined {
+  const dbPath = getAgentDbPath(agentType)
+  if (!dbPath || !fs.existsSync(dbPath)) return undefined
+
+  const normalized = normalizeCwd(cwd)
+  let db: InstanceType<typeof Database> | undefined
+
+  try {
+    db = new Database(dbPath, { readonly: true })
+
+    let row: { id: string } | undefined
+
+    switch (agentType) {
+      case 'copilot':
+        row = db
+          .prepare(
+            `SELECT id FROM sessions
+             WHERE lower(replace(cwd, '\\', '/')) = ?
+             ORDER BY updated_at DESC LIMIT 1`
+          )
+          .get(normalized) as typeof row
+        break
+
+      case 'codex':
+        row = db
+          .prepare(
+            `SELECT id FROM threads
+             WHERE archived = 0
+               AND lower(replace(cwd, '\\', '/')) = ?
+             ORDER BY updated_at DESC LIMIT 1`
+          )
+          .get(normalized) as typeof row
+        break
+
+      case 'opencode':
+        row = db
+          .prepare(
+            `SELECT id FROM session
+             WHERE time_archived IS NULL
+               AND lower(replace(directory, '\\', '/')) = ?
+             ORDER BY time_updated DESC LIMIT 1`
+          )
+          .get(normalized) as typeof row
+        break
+    }
+
+    return row?.id
+  } catch (err) {
+    log.warn(`[session-capture] failed to read ${agentType} DB at ${dbPath}:`, err)
+    return undefined
+  } finally {
+    try {
+      db?.close()
+    } catch {
+      /* ignore close errors */
+    }
+  }
+}

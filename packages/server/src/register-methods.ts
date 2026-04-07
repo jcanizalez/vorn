@@ -60,6 +60,8 @@ import { executeScript } from './script-runner'
 import { getTailscaleStatus, clearBinaryCache } from './tailscale'
 import { checkAndRebind } from './server-rebind'
 import { testSshConnection } from './process-utils'
+import { captureAgentSessionId } from './agent-session-capture'
+import { supportsExactSessionResume, supportsSessionIdPinning } from '@vibegrid/shared/types'
 import log from './logger'
 
 const copilotInstallations = new Map<string, CopilotHookInstallation>()
@@ -578,6 +580,27 @@ export function registerAllMethods(): void {
       // fallback. If hooks actually fire, promoteToHookStatus is called on the
       // first event. This fixes status stuck on 'waiting' when hooks don't work
       // (e.g. the agent CLI doesn't support hooks.json).
+    }
+
+    // For agents without session ID pinning (copilot, codex, opencode), read
+    // the agent's own DB after it starts to capture the real session ID.
+    // This enables reliable --resume on next app restart.
+    if (
+      supportsExactSessionResume(payload.agentType) &&
+      !supportsSessionIdPinning(payload.agentType)
+    ) {
+      const captureSessionId = session.id
+      setTimeout(() => {
+        const s = ptyManager.getActiveSessions().find((t) => t.id === captureSessionId)
+        if (!s || s.agentSessionId) return
+        const cwd = s.worktreePath || s.projectPath
+        const capturedId = captureAgentSessionId(s.agentType, cwd)
+        if (capturedId) {
+          s.agentSessionId = capturedId
+          sessionManager.scheduleSave()
+          log.info(`[session] captured ${s.agentType} session ID: ${capturedId}`)
+        }
+      }, 5000)
     }
 
     sessionManager.scheduleSave()
