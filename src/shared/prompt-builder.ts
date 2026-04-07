@@ -1,1 +1,1 @@
-export * from '@vorn/shared/prompt-builder'
+export * from '@vornrun/shared/prompt-builder'

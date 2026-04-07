@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import type { AgentType } from '@vorn/shared/types'
+import type { AgentType } from '@vornrun/shared/types'
 import { V } from '../validation'
 import {
   dbListProjects,
@@ -9,7 +9,7 @@ import {
   dbUpdateProject,
   dbDeleteProject,
   dbSignalChange
-} from '@vorn/server/database'
+} from '@vornrun/server/database'
 
 const AGENT_TYPES: [AgentType, ...AgentType[]] = [
   'claude',

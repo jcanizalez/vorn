@@ -9,7 +9,7 @@ let serverProcess: ChildProcess | UtilityProcess | null = null
 let bridge: ServerBridge | null = null
 
 /**
- * Spawns the @vorn/server process and returns a connected ServerBridge.
+ * Spawns the @vornrun/server process and returns a connected ServerBridge.
  *
  * The server writes `{"port": N}` to stdout on startup.
  * We read the port, then connect a WebSocket bridge.

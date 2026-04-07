@@ -40,7 +40,7 @@ export async function startServer(
 
   // Re-sync managers and broadcast to clients when config changes
   const { clientRegistry } = await import('./broadcast')
-  const { IPC } = await import('@vorn/shared/types')
+  const { IPC } = await import('@vornrun/shared/types')
   configManager.onConfigChanged((cfg) => {
     ptyManager.setAgentCommands(cfg.agentCommands)
     ptyManager.setRemoteHosts(cfg.remoteHosts ?? [])

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { displayNameFromPrompt } from '@vorn/shared/string-utils'
+import { displayNameFromPrompt } from '@vornrun/shared/string-utils'
 
 describe('displayNameFromPrompt', () => {
   it('returns short prompt as-is', () => {

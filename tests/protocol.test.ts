@@ -4,7 +4,7 @@ import {
   createNotification,
   createResponse,
   createErrorResponse
-} from '@vorn/shared/protocol'
+} from '@vornrun/shared/protocol'
 
 describe('JSON-RPC protocol helpers', () => {
   describe('createRequest', () => {

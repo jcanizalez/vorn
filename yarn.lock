@@ -4363,12 +4363,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@vorn/desktop@workspace:packages/desktop":
+"@vornrun/desktop@workspace:packages/desktop":
   version: 0.0.0-use.local
-  resolution: "@vorn/desktop@workspace:packages/desktop"
+  resolution: "@vornrun/desktop@workspace:packages/desktop"
   dependencies:
     "@types/ws": "npm:^8.18.1"
-    "@vorn/shared": "workspace:*"
+    "@vornrun/shared": "workspace:*"
     electron: "npm:^41.1.1"
     electron-log: "npm:^5.4.3"
     electron-updater: "npm:^6.8.3"
@@ -4378,13 +4378,13 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@vorn/mcp@workspace:packages/mcp":
+"@vornrun/mcp@workspace:packages/mcp":
   version: 0.0.0-use.local
-  resolution: "@vorn/mcp@workspace:packages/mcp"
+  resolution: "@vornrun/mcp@workspace:packages/mcp"
   dependencies:
     "@modelcontextprotocol/sdk": "npm:^1.28.0"
-    "@vorn/server": "workspace:*"
-    "@vorn/shared": "workspace:*"
+    "@vornrun/server": "workspace:*"
+    "@vornrun/shared": "workspace:*"
     libsql: "npm:^0.5.22"
     pino: "npm:^10.3.1"
     tsup: "npm:^8.5.0"
@@ -4398,16 +4398,16 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@vorn/server@workspace:*, @vorn/server@workspace:packages/server":
+"@vornrun/server@workspace:*, @vornrun/server@workspace:packages/server":
   version: 0.0.0-use.local
-  resolution: "@vorn/server@workspace:packages/server"
+  resolution: "@vornrun/server@workspace:packages/server"
   dependencies:
     "@fastify/static": "npm:^9.0.0"
     "@fastify/websocket": "npm:^11.0.2"
     "@modelcontextprotocol/sdk": "npm:^1.27.1"
     "@types/node-cron": "npm:^3.0.11"
     "@types/ws": "npm:^8.18.1"
-    "@vorn/shared": "workspace:*"
+    "@vornrun/shared": "workspace:*"
     fastify: "npm:^5.3.3"
     libsql: "npm:^0.5.22"
     node-cron: "npm:^3.0.3"
@@ -4420,20 +4420,20 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@vorn/shared@workspace:*, @vorn/shared@workspace:packages/shared":
+"@vornrun/shared@workspace:*, @vornrun/shared@workspace:packages/shared":
   version: 0.0.0-use.local
-  resolution: "@vorn/shared@workspace:packages/shared"
+  resolution: "@vornrun/shared@workspace:packages/shared"
   languageName: unknown
   linkType: soft
 
-"@vorn/web@workspace:packages/web":
+"@vornrun/web@workspace:packages/web":
   version: 0.0.0-use.local
-  resolution: "@vorn/web@workspace:packages/web"
+  resolution: "@vornrun/web@workspace:packages/web"
   dependencies:
     "@types/react": "npm:^19.2.14"
     "@types/react-dom": "npm:^19"
     "@vitejs/plugin-react": "npm:^4.3.0"
-    "@vorn/shared": "workspace:*"
+    "@vornrun/shared": "workspace:*"
     autoprefixer: "npm:^10.4.0"
     postcss: "npm:^8.4.0"
     tailwindcss: "npm:^3.4.0"

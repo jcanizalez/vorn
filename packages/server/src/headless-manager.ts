@@ -8,8 +8,8 @@ import {
   CreateTerminalPayload,
   HeadlessSession,
   IPC
-} from '@vorn/shared/types'
-import { displayNameFromPrompt } from '@vorn/shared/string-utils'
+} from '@vornrun/shared/types'
+import { displayNameFromPrompt } from '@vornrun/shared/string-utils'
 import {
   getGitBranch,
   checkoutBranch,
@@ -19,7 +19,7 @@ import {
 } from './git-utils'
 import { getSafeEnv } from './process-utils'
 import { buildHeadlessSpawnArgs } from './agent-launch'
-import { DEFAULT_AGENT_COMMANDS } from '@vorn/shared/agent-defaults'
+import { DEFAULT_AGENT_COMMANDS } from '@vornrun/shared/agent-defaults'
 import log from './logger'
 
 const MAX_OUTPUT_LINES = 1000

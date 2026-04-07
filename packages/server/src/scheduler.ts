@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { EventEmitter } from 'node:events'
-import { WorkflowDefinition, TriggerConfig, IPC } from '@vorn/shared/types'
+import { WorkflowDefinition, TriggerConfig, IPC } from '@vornrun/shared/types'
 import { configManager } from './config-manager'
 import log from './logger'
 

@@ -3,7 +3,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { execFileSync } from 'node:child_process'
 import { WebSocket } from 'ws'
-import type { RpcResponse } from '@vorn/shared/protocol'
+import type { RpcResponse } from '@vornrun/shared/protocol'
 
 const PORT_FILE = path.join(os.homedir(), '.vorn', 'ws-port')
 const TIMEOUT_MS = 10_000

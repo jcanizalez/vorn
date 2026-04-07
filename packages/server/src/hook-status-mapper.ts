@@ -1,4 +1,4 @@
-import { AgentStatus, HookEvent } from '@vorn/shared/types'
+import { AgentStatus, HookEvent } from '@vornrun/shared/types'
 import { ptyManager } from './pty-manager'
 import log from './logger'
 

@@ -2,7 +2,7 @@ import crypto from 'node:crypto'
 import path from 'node:path'
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import type { TaskConfig, TaskStatus, AgentType } from '@vorn/shared/types'
+import type { TaskConfig, TaskStatus, AgentType } from '@vornrun/shared/types'
 import { V } from '../validation'
 import {
   dbListTasks,
@@ -14,8 +14,8 @@ import {
   dbGetProject,
   dbListProjects,
   dbSignalChange
-} from '@vorn/server/database'
-import type { ProjectConfig } from '@vorn/shared/types'
+} from '@vornrun/server/database'
+import type { ProjectConfig } from '@vornrun/shared/types'
 
 const TASK_STATUSES: TaskStatus[] = ['todo', 'in_progress', 'in_review', 'done', 'cancelled']
 const AGENT_TYPES: [AgentType, ...AgentType[]] = [

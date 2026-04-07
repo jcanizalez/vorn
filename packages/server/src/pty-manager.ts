@@ -13,8 +13,8 @@ import {
   IPC,
   TerminalSession,
   RemoteHost
-} from '@vorn/shared/types'
-import { displayNameFromPrompt } from '@vorn/shared/string-utils'
+} from '@vornrun/shared/types'
+import { displayNameFromPrompt } from '@vornrun/shared/string-utils'
 import {
   getGitBranch,
   checkoutBranch,
@@ -22,7 +22,7 @@ import {
   extractWorktreeName,
   isGitRepo
 } from './git-utils'
-import { DEFAULT_AGENT_COMMANDS } from '@vorn/shared/agent-defaults'
+import { DEFAULT_AGENT_COMMANDS } from '@vornrun/shared/agent-defaults'
 import { buildAgentLaunchLine as buildLaunchLine } from './agent-launch'
 import {
   shellEscape,

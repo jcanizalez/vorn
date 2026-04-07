@@ -1,5 +1,5 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { configManager } from '@vorn/server/config-manager'
+import { configManager } from '@vornrun/server/config-manager'
 
 export function registerConfigTools(server: McpServer): void {
   server.tool(

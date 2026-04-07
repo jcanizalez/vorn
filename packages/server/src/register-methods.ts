@@ -25,7 +25,7 @@ import {
   SessionEventType,
   RemoteHost,
   getProjectRemoteHostId
-} from '@vorn/shared/types'
+} from '@vornrun/shared/types'
 import * as gitUtils from './git-utils'
 import { listDir, readFileContent } from './file-utils'
 import {

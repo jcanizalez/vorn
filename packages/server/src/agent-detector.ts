@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { AgentType, AgentCommandConfig } from '@vorn/shared/types'
-import { DEFAULT_AGENT_COMMANDS } from '@vorn/shared/agent-defaults'
+import { AgentType, AgentCommandConfig } from '@vornrun/shared/types'
+import { DEFAULT_AGENT_COMMANDS } from '@vornrun/shared/agent-defaults'
 import { configManager } from './config-manager'
 import { getSafeEnv } from './process-utils'
 

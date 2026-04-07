@@ -7,7 +7,7 @@ import {
   RecentSession,
   getRecentSessionActivityLabel,
   supportsExactSessionResume
-} from '@vorn/shared/types'
+} from '@vornrun/shared/types'
 import { listWorktrees } from './git-utils'
 import { normalizePath } from './process-utils'
 

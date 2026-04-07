@@ -9,8 +9,8 @@ vi.mock('node:fs', async (importOriginal) => {
 })
 
 import { initTestDatabase, saveConfig, loadConfig } from '../packages/server/src/database'
-import { DEFAULT_AGENT_COMMANDS } from '@vorn/shared/agent-defaults'
-import type { AppConfig } from '@vorn/shared/types'
+import { DEFAULT_AGENT_COMMANDS } from '@vornrun/shared/agent-defaults'
+import type { AppConfig } from '@vornrun/shared/types'
 
 let teardown: () => void
 
