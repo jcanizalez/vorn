@@ -6,6 +6,11 @@ export function supportsExactSessionResume(agentType: AgentType): boolean {
   return agentType !== 'gemini'
 }
 
+/** Can we assign a session ID on fresh launch (e.g. --session-id)? */
+export function supportsSessionIdPinning(agentType: AgentType): boolean {
+  return agentType === 'claude'
+}
+
 export function getRecentSessionActivityLabel(agentType: AgentType): string {
   switch (agentType) {
     case 'claude':
@@ -45,7 +50,7 @@ export interface TerminalSession {
   remoteHostId?: string
   remoteHostLabel?: string
   hookSessionId?: string
-  claudeSessionId?: string
+  agentSessionId?: string
   statusSource?: 'hooks' | 'pattern'
   pinned?: boolean
 }

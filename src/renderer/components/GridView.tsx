@@ -245,7 +245,7 @@ const FLEX_DEFAULT_W = 4
 const FLEX_DEFAULT_H = 3
 
 function getStableKey(session: TerminalState['session']): string {
-  return session.claudeSessionId || session.hookSessionId || ''
+  return session.agentSessionId || session.hookSessionId || ''
 }
 
 function FlexibleGrid({

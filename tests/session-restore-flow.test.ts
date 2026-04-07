@@ -48,12 +48,12 @@ beforeEach(() => {
   mockGetRecentSessions.mockResolvedValue([])
 })
 
-describe('session restore flow: Claude with claudeSessionId', () => {
-  it('claudeSessionId is used as resumeSessionId without scanning history', async () => {
-    const session = makeSession({ claudeSessionId: 'exact-uuid-123' })
+describe('session restore flow: Claude with agentSessionId', () => {
+  it('agentSessionId is used as resumeSessionId without scanning history', async () => {
+    const session = makeSession({ agentSessionId: 'exact-uuid-123' })
     const resumeId = await resolveResumeSessionId(session)
     expect(resumeId).toBe('exact-uuid-123')
-    // Should NOT have called getRecentSessions — claudeSessionId was sufficient
+    // Should NOT have called getRecentSessions — agentSessionId was sufficient
     expect(mockGetRecentSessions).not.toHaveBeenCalled()
   })
 
@@ -66,7 +66,7 @@ describe('session restore flow: Claude with claudeSessionId', () => {
 
   it('buildRestorePayload passes resumeSessionId through', () => {
     const session = makeSession({
-      claudeSessionId: 'exact-uuid-123',
+      agentSessionId: 'exact-uuid-123',
       displayName: 'my session',
       worktreePath: '/test/wt',
       isWorktree: true,
@@ -79,14 +79,14 @@ describe('session restore flow: Claude with claudeSessionId', () => {
     expect(payload.branch).toBe('feat')
   })
 
-  it('buildAgentLaunchLine produces --resume with claudeSessionId', () => {
+  it('buildAgentLaunchLine produces --resume with agentSessionId', () => {
     const payload = makePayload({ resumeSessionId: 'exact-uuid-123' })
     const line = buildAgentLaunchLine(payload, cmds, env)
     expect(line).toBe('claude --resume exact-uuid-123')
   })
 
-  it('full chain: claudeSessionId → restore payload → launch line', async () => {
-    const session = makeSession({ claudeSessionId: 'chain-uuid' })
+  it('full chain: agentSessionId → restore payload → launch line', async () => {
+    const session = makeSession({ agentSessionId: 'chain-uuid' })
 
     // Step 1: resolve
     const resumeId = await resolveResumeSessionId(session)

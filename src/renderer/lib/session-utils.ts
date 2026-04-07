@@ -67,12 +67,11 @@ export async function resolveResumeSessionId(
   claimed: Set<string> = new Set()
 ): Promise<string | undefined> {
   if (!supportsExactSessionResume(s.agentType)) return undefined
-  // Only use claudeSessionId for resume — it's the real agent session ID passed
-  // via --session-id. hookSessionId for copilot is a VibeGrid-internal UUID used
-  // for hook event routing; the copilot CLI doesn't know about it and --resume
-  // with it would always fail. For non-claude agents, fall through to the
-  // history-based scan which finds the agent's own session IDs.
-  const resumeId = s.claudeSessionId
+  // Only use agentSessionId for resume — it's the real agent session ID passed
+  // via --session-id on fresh launch. hookSessionId is a VibeGrid-internal UUID
+  // for hook event routing; the agent CLI doesn't know about it. For agents
+  // without pinning support, fall through to the history-based scan.
+  const resumeId = s.agentSessionId
   if (resumeId && !claimed.has(resumeId)) return resumeId
 
   const isAvailable = (r: RecentSession): boolean =>

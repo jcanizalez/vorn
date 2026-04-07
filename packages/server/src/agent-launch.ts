@@ -3,7 +3,8 @@ import {
   AgentType,
   AgentCommandConfig,
   CreateTerminalPayload,
-  supportsExactSessionResume
+  supportsExactSessionResume,
+  supportsSessionIdPinning
 } from '@vibegrid/shared/types'
 import { DEFAULT_AGENT_COMMANDS } from '@vibegrid/shared/agent-defaults'
 import { shellEscape } from './process-utils'
@@ -76,8 +77,13 @@ export function buildAgentLaunchLine(
     }
   }
 
-  // For fresh Claude sessions, pin the session ID so we can reliably --resume later
-  if (!payload.resumeSessionId && payload.sessionId && payload.agentType === 'claude') {
+  // For agents that support session ID pinning, assign the ID on fresh launch
+  // so we can reliably --resume later
+  if (
+    !payload.resumeSessionId &&
+    payload.sessionId &&
+    supportsSessionIdPinning(payload.agentType)
+  ) {
     launchLine += ` --session-id ${payload.sessionId}`
   }
 

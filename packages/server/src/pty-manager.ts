@@ -6,13 +6,13 @@ import path from 'node:path'
 import { EventEmitter } from 'node:events'
 import log from './logger'
 import {
-  AgentType,
   AgentStatus,
   AgentCommandConfig,
   CreateTerminalPayload,
   IPC,
   TerminalSession,
-  RemoteHost
+  RemoteHost,
+  supportsSessionIdPinning
 } from '@vibegrid/shared/types'
 import { displayNameFromPrompt } from '@vibegrid/shared/string-utils'
 import {
@@ -208,19 +208,16 @@ class PtyManager extends EventEmitter {
       env: getSafeEnv()
     })
 
-    // Per-agent session ID strategy:
-    //   Claude:       generate UUID → pass --session-id for resume. hookSessionId stays
-    //                 unset until tryLink matches on SessionStart hook event.
-    //   Copilot:      UUID injected into hooks.json; forceLink sets hookSessionId
-    //   Codex/OpenCode: no CLI support for session ID pinning; relies on history fallback
-    //   Gemini:       no resume support (supportsExactSessionResume returns false)
-    let claudeSessionId: string | undefined
-    if (payload.agentType === 'claude') {
+    // Session ID pinning: agents that support it (supportsSessionIdPinning) get a
+    // UUID assigned on fresh launch via --session-id, enabling exact --resume later.
+    // Other agents rely on history-based fallback for resume.
+    let agentSessionId: string | undefined
+    if (supportsSessionIdPinning(payload.agentType)) {
       if (payload.resumeSessionId) {
-        claudeSessionId = payload.resumeSessionId
+        agentSessionId = payload.resumeSessionId
       } else {
-        claudeSessionId = crypto.randomUUID()
-        payload.sessionId = claudeSessionId
+        agentSessionId = crypto.randomUUID()
+        payload.sessionId = agentSessionId
       }
     }
 
@@ -250,7 +247,7 @@ class PtyManager extends EventEmitter {
       // when the first hook event actually arrives. This provides graceful
       // degradation: if hooks fail (uninstalled, port conflict, etc.), the
       // pattern-based fallback keeps working instead of leaving status stuck.
-      ...(claudeSessionId ? { claudeSessionId } : {})
+      ...(agentSessionId ? { agentSessionId } : {})
     }
     this.sessions.set(id, session)
     this.sessionOrder.push(id)

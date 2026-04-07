@@ -49,8 +49,8 @@ beforeEach(() => {
 })
 
 describe('resolveResumeSessionId', () => {
-  it('returns claudeSessionId immediately when present', async () => {
-    const session = makeSession({ claudeSessionId: 'claude-abc' })
+  it('returns agentSessionId immediately when present', async () => {
+    const session = makeSession({ agentSessionId: 'claude-abc' })
     const result = await resolveResumeSessionId(session)
     expect(result).toBe('claude-abc')
     expect(mockGetRecentSessions).not.toHaveBeenCalled()
