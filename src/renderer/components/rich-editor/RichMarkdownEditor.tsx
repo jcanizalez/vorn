@@ -38,8 +38,7 @@ export function RichMarkdownEditor({
         horizontalRule: {
           HTMLAttributes: {}
         }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tiptap version mismatch
-      }) as any,
+      }),
       Placeholder.configure({
         placeholder
       }),

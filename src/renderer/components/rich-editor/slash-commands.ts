@@ -19,25 +19,24 @@ export interface SlashCommandItem {
   command: (editor: Editor) => void
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any -- tiptap version mismatch */
 export const slashCommandItems: SlashCommandItem[] = [
   {
     title: 'Heading 1',
     description: 'Large section heading',
     icon: Heading1,
-    command: (editor) => (editor.chain().focus() as any).toggleHeading({ level: 1 }).run()
+    command: (editor) => editor.chain().focus().toggleHeading({ level: 1 }).run()
   },
   {
     title: 'Heading 2',
     description: 'Medium section heading',
     icon: Heading2,
-    command: (editor) => (editor.chain().focus() as any).toggleHeading({ level: 2 }).run()
+    command: (editor) => editor.chain().focus().toggleHeading({ level: 2 }).run()
   },
   {
     title: 'Heading 3',
     description: 'Small section heading',
     icon: Heading3,
-    command: (editor) => (editor.chain().focus() as any).toggleHeading({ level: 3 }).run()
+    command: (editor) => editor.chain().focus().toggleHeading({ level: 3 }).run()
   },
   {
     title: 'Bullet List',
@@ -67,16 +66,15 @@ export const slashCommandItems: SlashCommandItem[] = [
     title: 'Blockquote',
     description: 'Quoted text block',
     icon: Quote,
-    command: (editor) => (editor.chain().focus() as any).toggleBlockquote().run()
+    command: (editor) => editor.chain().focus().toggleBlockquote().run()
   },
   {
     title: 'Divider',
     description: 'Horizontal separator line',
     icon: Minus,
-    command: (editor) => (editor.chain().focus() as any).setHorizontalRule().run()
+    command: (editor) => editor.chain().focus().setHorizontalRule().run()
   }
 ]
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 export function filterSlashCommands(query: string): SlashCommandItem[] {
   if (!query) return slashCommandItems

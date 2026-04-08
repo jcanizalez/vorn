@@ -1,6 +1,8 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+@source "../**/*.{ts,tsx}";
+@source "../index.html";
+@source "../../../src/renderer/**/*.{ts,tsx}";
+@variant dark (&:where(.dark, .dark *));
 
 /* Import the renderer's custom styles (scrollbar, animations, etc.) */
 /* We re-declare here instead of importing to avoid path resolution issues */

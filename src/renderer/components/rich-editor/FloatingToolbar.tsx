@@ -117,29 +117,25 @@ export function FloatingToolbar({ editor }: FloatingToolbarProps) {
         ) : (
           <div className="flex items-center px-0.5 py-0.5 gap-0.5">
             <ToolbarButton
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tiptap version mismatch
-              onClick={() => (editor.chain().focus() as any).toggleBold().run()}
+              onClick={() => editor.chain().focus().toggleBold().run()}
               active={editor.isActive('bold')}
               icon={Bold}
               title="Bold"
             />
             <ToolbarButton
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tiptap version mismatch
-              onClick={() => (editor.chain().focus() as any).toggleItalic().run()}
+              onClick={() => editor.chain().focus().toggleItalic().run()}
               active={editor.isActive('italic')}
               icon={Italic}
               title="Italic"
             />
             <ToolbarButton
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tiptap version mismatch
-              onClick={() => (editor.chain().focus() as any).toggleStrike().run()}
+              onClick={() => editor.chain().focus().toggleStrike().run()}
               active={editor.isActive('strike')}
               icon={Strikethrough}
               title="Strikethrough"
             />
             <ToolbarButton
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tiptap version mismatch
-              onClick={() => (editor.chain().focus() as any).toggleCode().run()}
+              onClick={() => editor.chain().focus().toggleCode().run()}
               active={editor.isActive('code')}
               icon={Code}
               title="Code"

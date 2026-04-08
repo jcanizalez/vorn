@@ -1,6 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+@source "./**/*.{tsx,ts,html}";
 
 html,
 body {
