@@ -712,25 +712,28 @@ class PtyManager extends EventEmitter {
   /** Promote a session to hook-based status detection (disables pattern fallback). */
   promoteToHookStatus(id: string): void {
     const session = this.sessions.get(id)
-    if (session && session.statusSource !== 'hooks') {
+    if (!session) return
+
+    if (session.statusSource !== 'hooks') {
       session.statusSource = 'hooks'
       log.info(`[pty] session ${id} promoted to hook-based status`)
+    }
 
-      // Re-arm idle timer with the longer hook timeout so the old short timer
-      // doesn't prematurely mark the session idle during the transition.
-      const existingTimer = this.idleTimers.get(id)
-      if (existingTimer) {
-        clearTimeout(existingTimer)
-        this.idleTimers.set(
-          id,
-          setTimeout(() => {
-            this.idleTimers.delete(id)
-            if (session.status === 'running') {
-              this.updateSessionStatus(id, 'idle')
-            }
-          }, IDLE_TIMEOUT_HOOKS_MS)
-        )
-      }
+    // Always re-arm idle timer with the longer hook timeout — even if already
+    // promoted — so that repeated hook events keep the timer fresh and the
+    // short pattern-based timer doesn't linger from before promotion.
+    const existingTimer = this.idleTimers.get(id)
+    if (existingTimer) {
+      clearTimeout(existingTimer)
+      this.idleTimers.set(
+        id,
+        setTimeout(() => {
+          this.idleTimers.delete(id)
+          if (session.status === 'running') {
+            this.updateSessionStatus(id, 'idle')
+          }
+        }, IDLE_TIMEOUT_HOOKS_MS)
+      )
     }
   }
 

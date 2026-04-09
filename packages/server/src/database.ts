@@ -471,7 +471,12 @@ function migrateSchema(d: Database.Database): void {
       const sessionCols = d.prepare('PRAGMA table_info(sessions)').all() as Array<{
         name: string
       }>
-      if (!sessionCols.some((c) => c.name === 'claude_session_id')) {
+      // Skip adding claude_session_id if agent_session_id already exists
+      // (fresh DBs create agent_session_id directly via createSchema)
+      if (
+        !sessionCols.some((c) => c.name === 'claude_session_id') &&
+        !sessionCols.some((c) => c.name === 'agent_session_id')
+      ) {
         d.exec('ALTER TABLE sessions ADD COLUMN claude_session_id TEXT')
       }
       d.prepare(
@@ -496,6 +501,13 @@ function migrateSchema(d: Database.Database): void {
           d.exec('ALTER TABLE sessions ADD COLUMN agent_session_id TEXT')
           d.exec('UPDATE sessions SET agent_session_id = claude_session_id')
         }
+      } else if (hasOld && hasNew) {
+        // Both columns exist (e.g. fresh DB ran v6 before v7) — backfill any
+        // data from claude_session_id into agent_session_id so resume IDs
+        // aren't stranded, then drop the redundant column.
+        d.exec(
+          'UPDATE sessions SET agent_session_id = claude_session_id WHERE agent_session_id IS NULL AND claude_session_id IS NOT NULL'
+        )
       } else if (!hasNew) {
         d.exec('ALTER TABLE sessions ADD COLUMN agent_session_id TEXT')
       }

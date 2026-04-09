@@ -598,6 +598,8 @@ export function registerAllMethods(): void {
         if (capturedId) {
           s.agentSessionId = capturedId
           sessionManager.scheduleSave()
+          clientRegistry.broadcast(IPC.SESSION_UPDATED, s)
+          broadcastWidgetUpdate()
           log.info(`[session] captured ${s.agentType} session ID: ${capturedId}`)
         }
       }, 5000)

@@ -23,9 +23,12 @@ function getAgentDbPath(agentType: AgentType): string | undefined {
   }
 }
 
-/** Normalize a cwd for comparison: lowercase, forward slashes, no trailing slash. */
+/** Normalize a cwd for comparison: lowercase, forward slashes, no trailing slash.
+ *  Matches the SQL normalization: rtrim(lower(replace(col, '\\', '/')), '/'). */
 function normalizeCwd(cwd: string): string {
-  return cwd.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+  const normalized = cwd.replace(/\\/g, '/').toLowerCase()
+  // rtrim '/' but preserve root '/' to match SQL rtrim behavior
+  return normalized === '/' ? '/' : normalized.replace(/\/+$/, '')
 }
 
 /**
@@ -33,9 +36,14 @@ function normalizeCwd(cwd: string): string {
  * the given cwd. Returns the agent's real session ID, or undefined.
  *
  * Uses libsql in read-only mode — no sqlite3 CLI dependency, works on Windows.
+ * Pass dbPathOverride for testing to avoid hitting the user's real agent DBs.
  */
-export function captureAgentSessionId(agentType: AgentType, cwd: string): string | undefined {
-  const dbPath = getAgentDbPath(agentType)
+export function captureAgentSessionId(
+  agentType: AgentType,
+  cwd: string,
+  dbPathOverride?: string
+): string | undefined {
+  const dbPath = dbPathOverride ?? getAgentDbPath(agentType)
   if (!dbPath || !fs.existsSync(dbPath)) return undefined
 
   const normalized = normalizeCwd(cwd)

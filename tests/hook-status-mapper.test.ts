@@ -47,7 +47,8 @@ describe('tryLink', () => {
     const result = hookStatusMapper.tryLink('sess-1', '/project')
     expect(result).toBe('term-1')
     expect(session.hookSessionId).toBe('sess-1')
-    expect(session.statusSource).toBe('hooks')
+    // statusSource is set by promoteToHookStatus(), not tryLink()
+    expect(session.statusSource).toBeUndefined()
   })
 
   it('returns cached mapping if already linked', () => {

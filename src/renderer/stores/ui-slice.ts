@@ -319,7 +319,7 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
       projectPath: term.session.projectPath,
       displayName: term.session.displayName,
       branch: term.session.branch,
-      agentSessionId: term.session.agentSessionId,
+      agentSessionId: term.session.agentSessionId, // only real agent ID, never hookSessionId
       archivedAt: Date.now()
     })
     const sessions = await window.api.listArchivedSessions()

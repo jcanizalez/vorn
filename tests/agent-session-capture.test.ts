@@ -18,8 +18,7 @@ afterEach(() => {
 })
 
 function createCopilotDb(sessions: { id: string; cwd: string; updated_at: string }[]): string {
-  const dbPath = path.join(tmpDir, '.copilot', 'session-store.db')
-  fs.mkdirSync(path.dirname(dbPath), { recursive: true })
+  const dbPath = path.join(tmpDir, 'copilot-session-store.db')
   const db = new Database(dbPath)
   db.exec(`CREATE TABLE sessions (
     id TEXT PRIMARY KEY,
@@ -37,8 +36,7 @@ function createCopilotDb(sessions: { id: string; cwd: string; updated_at: string
 function createCodexDb(
   threads: { id: string; cwd: string; updated_at: number; archived?: number }[]
 ): string {
-  const dbPath = path.join(tmpDir, '.codex', 'state_5.sqlite')
-  fs.mkdirSync(path.dirname(dbPath), { recursive: true })
+  const dbPath = path.join(tmpDir, 'codex-state.sqlite')
   const db = new Database(dbPath)
   db.exec(`CREATE TABLE threads (
     id TEXT PRIMARY KEY,
@@ -66,8 +64,7 @@ function createCodexDb(
 function createOpenCodeDb(
   sessions: { id: string; directory: string; time_updated: number; time_archived?: number | null }[]
 ): string {
-  const dbPath = path.join(tmpDir, 'opencode', 'opencode.db')
-  fs.mkdirSync(path.dirname(dbPath), { recursive: true })
+  const dbPath = path.join(tmpDir, 'opencode.db')
   const db = new Database(dbPath)
   db.exec(`CREATE TABLE session (
     id TEXT PRIMARY KEY,
@@ -84,104 +81,67 @@ function createOpenCodeDb(
   return dbPath
 }
 
-// We can't easily override the DB paths used by captureAgentSessionId since
-// they're hardcoded to ~/.copilot etc. Instead, test the real function against
-// whatever exists on the machine, and test the edge cases via the DB directly.
-
 describe('captureAgentSessionId', () => {
   it('returns undefined for unsupported agent types', () => {
     expect(captureAgentSessionId('claude', '/any/path')).toBeUndefined()
     expect(captureAgentSessionId('gemini', '/any/path')).toBeUndefined()
   })
 
-  it('returns undefined for non-existent paths', () => {
-    expect(captureAgentSessionId('copilot', '/this/path/does/not/exist')).toBeUndefined()
-    expect(captureAgentSessionId('codex', '/this/path/does/not/exist')).toBeUndefined()
+  it('returns undefined when DB does not exist', () => {
+    const fakePath = path.join(tmpDir, 'nonexistent.db')
+    expect(captureAgentSessionId('copilot', '/any/path', fakePath)).toBeUndefined()
   })
 
-  it('returns undefined gracefully when agent DB does not exist', () => {
-    // opencode DB typically doesn't exist on dev machines
-    const opencodePath =
-      process.platform === 'win32'
-        ? path.join(process.env.LOCALAPPDATA || '', 'opencode', 'opencode.db')
-        : path.join(
-            process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'),
-            'opencode',
-            'opencode.db'
-          )
-    if (!fs.existsSync(opencodePath)) {
-      expect(captureAgentSessionId('opencode', '/any/path')).toBeUndefined()
-    }
+  it('returns undefined for non-matching cwd', () => {
+    const dbPath = createCopilotDb([
+      { id: 'some-session', cwd: '/other/project', updated_at: '2026-04-01T00:00:00Z' }
+    ])
+    expect(captureAgentSessionId('copilot', '/my/project', dbPath)).toBeUndefined()
   })
 })
 
-describe('copilot DB schema', () => {
-  it('reads most recent session by cwd from a copilot-format DB', () => {
+describe('copilot DB via captureAgentSessionId', () => {
+  it('reads most recent session by cwd', () => {
     const dbPath = createCopilotDb([
       { id: 'old-session', cwd: '/my/project', updated_at: '2026-01-01T00:00:00Z' },
       { id: 'new-session', cwd: '/my/project', updated_at: '2026-04-01T00:00:00Z' },
       { id: 'other-project', cwd: '/other/path', updated_at: '2026-04-02T00:00:00Z' }
     ])
-    const db = new Database(dbPath, { readonly: true })
-    const row = db
-      .prepare(
-        `SELECT id FROM sessions WHERE lower(replace(cwd, '\\', '/')) = ? ORDER BY updated_at DESC LIMIT 1`
-      )
-      .get('/my/project') as { id: string } | undefined
-    db.close()
-    expect(row?.id).toBe('new-session')
+    expect(captureAgentSessionId('copilot', '/my/project', dbPath)).toBe('new-session')
   })
 
   it('handles Windows backslash paths', () => {
     const dbPath = createCopilotDb([
-      {
-        id: 'win-session',
-        cwd: 'C:\\Users\\dev\\project',
-        updated_at: '2026-04-01T00:00:00Z'
-      }
+      { id: 'win-session', cwd: 'C:\\Users\\dev\\project', updated_at: '2026-04-01T00:00:00Z' }
     ])
-    const db = new Database(dbPath, { readonly: true })
-    const row = db
-      .prepare(
-        `SELECT id FROM sessions WHERE lower(replace(cwd, '\\', '/')) = ? ORDER BY updated_at DESC LIMIT 1`
-      )
-      .get('c:/users/dev/project') as { id: string } | undefined
-    db.close()
-    expect(row?.id).toBe('win-session')
+    expect(captureAgentSessionId('copilot', 'C:/Users/dev/project', dbPath)).toBe('win-session')
+  })
+
+  it('handles trailing slashes in cwd', () => {
+    const dbPath = createCopilotDb([
+      { id: 'trailing-slash', cwd: '/my/project/', updated_at: '2026-04-01T00:00:00Z' }
+    ])
+    expect(captureAgentSessionId('copilot', '/my/project', dbPath)).toBe('trailing-slash')
   })
 })
 
-describe('codex DB schema', () => {
+describe('codex DB via captureAgentSessionId', () => {
   it('reads most recent non-archived thread by cwd', () => {
     const dbPath = createCodexDb([
       { id: 'archived-thread', cwd: '/my/project', updated_at: 9999999, archived: 1 },
       { id: 'old-thread', cwd: '/my/project', updated_at: 1000000 },
       { id: 'new-thread', cwd: '/my/project', updated_at: 2000000 }
     ])
-    const db = new Database(dbPath, { readonly: true })
-    const row = db
-      .prepare(
-        `SELECT id FROM threads WHERE archived = 0 AND lower(replace(cwd, '\\', '/')) = ? ORDER BY updated_at DESC LIMIT 1`
-      )
-      .get('/my/project') as { id: string } | undefined
-    db.close()
-    expect(row?.id).toBe('new-thread')
+    expect(captureAgentSessionId('codex', '/my/project', dbPath)).toBe('new-thread')
   })
 })
 
-describe('opencode DB schema', () => {
+describe('opencode DB via captureAgentSessionId', () => {
   it('reads most recent non-archived session by directory', () => {
     const dbPath = createOpenCodeDb([
       { id: 'archived', directory: '/my/project', time_updated: 9999, time_archived: 8888 },
       { id: 'active', directory: '/my/project', time_updated: 5000, time_archived: null }
     ])
-    const db = new Database(dbPath, { readonly: true })
-    const row = db
-      .prepare(
-        `SELECT id FROM session WHERE time_archived IS NULL AND lower(replace(directory, '\\', '/')) = ? ORDER BY time_updated DESC LIMIT 1`
-      )
-      .get('/my/project') as { id: string } | undefined
-    db.close()
-    expect(row?.id).toBe('active')
+    expect(captureAgentSessionId('opencode', '/my/project', dbPath)).toBe('active')
   })
 })
