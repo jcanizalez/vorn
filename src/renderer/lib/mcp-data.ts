@@ -8,22 +8,22 @@ export interface AgentMcpSetup {
 export const AGENT_MCP_SETUPS: AgentMcpSetup[] = [
   {
     agentType: 'claude',
-    command: 'claude mcp add vibegrid -- npx -y @vibegrid/mcp@latest'
+    command: 'claude mcp add vorn -- npx -y @vornrun/mcp@latest'
   },
   {
     agentType: 'copilot',
-    command: 'copilot mcp add vibegrid -- npx -y @vibegrid/mcp@latest'
+    command: 'copilot mcp add vorn -- npx -y @vornrun/mcp@latest'
   },
   {
     agentType: 'codex',
-    command: 'codex mcp add vibegrid -- npx -y @vibegrid/mcp@latest'
+    command: 'codex mcp add vorn -- npx -y @vornrun/mcp@latest'
   },
   {
     agentType: 'opencode',
-    command: 'opencode mcp add vibegrid -- npx -y @vibegrid/mcp@latest'
+    command: 'opencode mcp add vorn -- npx -y @vornrun/mcp@latest'
   },
   {
     agentType: 'gemini',
-    command: 'gemini mcp add vibegrid -- npx -y @vibegrid/mcp@latest'
+    command: 'gemini mcp add vorn -- npx -y @vornrun/mcp@latest'
   }
 ]

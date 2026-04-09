@@ -13,7 +13,7 @@ export interface WorktreeOption {
   activeSessionCount: number
 }
 
-const STORAGE_KEY = 'vibegrid:lastLaunchSettings'
+const STORAGE_KEY = 'vorn:lastLaunchSettings'
 
 interface SavedSettings {
   project?: string

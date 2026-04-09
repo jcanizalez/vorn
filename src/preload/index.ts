@@ -385,4 +385,4 @@ const api = {
 
 contextBridge.exposeInMainWorld('api', api)
 
-export type VibeGridAPI = typeof api
+export type VornAPI = typeof api

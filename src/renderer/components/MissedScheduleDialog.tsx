@@ -68,7 +68,7 @@ export function MissedScheduleDialog() {
             <h2 className="text-base font-medium text-white">Missed Schedules</h2>
           </div>
           <p className="text-sm text-gray-500 mt-1">
-            These workflows were scheduled while VibeGrid was closed.
+            These workflows were scheduled while Vorn was closed.
           </p>
         </div>
 

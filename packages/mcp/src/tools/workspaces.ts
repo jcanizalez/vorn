@@ -1,7 +1,7 @@
 import crypto from 'node:crypto'
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import type { WorkspaceConfig } from '@vibegrid/shared/types'
+import type { WorkspaceConfig } from '@vornrun/shared/types'
 import { V } from '../validation'
 import {
   dbListWorkspaces,
@@ -9,7 +9,7 @@ import {
   dbUpdateWorkspace,
   dbDeleteWorkspace,
   dbSignalChange
-} from '@vibegrid/server/database'
+} from '@vornrun/server/database'
 
 export function registerWorkspaceTools(server: McpServer): void {
   server.tool('list_workspaces', 'List all workspaces', async () => {

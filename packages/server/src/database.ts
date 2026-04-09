@@ -23,11 +23,11 @@ import {
   SessionLog,
   SessionEvent,
   SessionEventType
-} from '@vibegrid/shared/types'
-import { DEFAULT_AGENT_COMMANDS } from '@vibegrid/shared/agent-defaults'
+} from '@vornrun/shared/types'
+import { DEFAULT_AGENT_COMMANDS } from '@vornrun/shared/agent-defaults'
 
-const CONFIG_DIR = path.join(os.homedir(), '.vibegrid')
-const DB_PATH = path.join(CONFIG_DIR, 'vibegrid.db')
+const CONFIG_DIR = path.join(os.homedir(), '.vorn')
+const DB_PATH = path.join(CONFIG_DIR, 'vorn.db')
 const MAX_LOG_ENTRIES = 200
 
 let db: Database.Database | null = null

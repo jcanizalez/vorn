@@ -42,8 +42,8 @@ const mockTerminal = {
   session: {
     id: 'term-1',
     agentType: 'claude' as const,
-    projectName: 'VibeGrid',
-    projectPath: '/tmp/vibegrid',
+    projectName: 'Vorn',
+    projectPath: '/tmp/vorn',
     isWorktree: false,
     branch: 'main'
   },
@@ -56,11 +56,11 @@ const mockWorktreeTerminal = {
   session: {
     id: 'term-2',
     agentType: 'claude' as const,
-    projectName: 'VibeGrid',
-    projectPath: '/tmp/vibegrid',
+    projectName: 'Vorn',
+    projectPath: '/tmp/vorn',
     isWorktree: true,
     branch: 'feature-auth',
-    worktreePath: '/tmp/.vibegrid-worktrees/vibegrid/feature-auth'
+    worktreePath: '/tmp/.vorn-worktrees/vorn/feature-auth'
   },
   status: 'running' as const,
   lastOutputTimestamp: Date.now()
@@ -69,8 +69,8 @@ const mockWorktreeTerminal = {
 const mockConfig = {
   projects: [
     {
-      name: 'VibeGrid',
-      path: '/tmp/vibegrid',
+      name: 'Vorn',
+      path: '/tmp/vorn',
       icon: 'Rocket',
       iconColor: '#ff0000',
       preferredAgents: ['claude' as const]
@@ -96,7 +96,7 @@ beforeEach(() => {
     config: mockConfig as any,
     focusedTerminalId: null,
     worktreeCache: new Map(),
-    activeProject: 'VibeGrid',
+    activeProject: 'Vorn',
     activeWorktreePath: null
   })
 })
@@ -104,17 +104,17 @@ beforeEach(() => {
 describe('CardContextMenu', () => {
   it('renders smart quick-launch with project name', () => {
     render(<CardContextMenu terminalId="term-1" position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
-    expect(screen.getByText('New session in VibeGrid')).toBeInTheDocument()
+    expect(screen.getByText('New session in Vorn')).toBeInTheDocument()
   })
 
   it('renders worktree-aware quick-launch label when terminal is in a worktree', () => {
     render(<CardContextMenu terminalId="term-2" position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
-    expect(screen.getByText('New session in VibeGrid on feature-auth')).toBeInTheDocument()
+    expect(screen.getByText('New session in Vorn on feature-auth')).toBeInTheDocument()
   })
 
   it('renders worktree submenu item with chevron', () => {
     render(<CardContextMenu terminalId="term-1" position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
-    expect(screen.getByText('New session in VibeGrid...')).toBeInTheDocument()
+    expect(screen.getByText('New session in Vorn...')).toBeInTheDocument()
   })
 
   it('does not render old "New session in worktree" flat label', () => {
@@ -126,12 +126,12 @@ describe('CardContextMenu', () => {
   it('shows submenu with worktrees on hover', () => {
     const worktrees = [{ path: '/tmp/wt/feat-a', branch: 'feat-a', isMain: false }]
     const cache = new Map()
-    cache.set('/tmp/vibegrid', worktrees)
+    cache.set('/tmp/vorn', worktrees)
     useAppStore.setState({ worktreeCache: cache })
 
     render(<CardContextMenu terminalId="term-1" position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
 
-    const submenuTrigger = screen.getByText('New session in VibeGrid...')
+    const submenuTrigger = screen.getByText('New session in Vorn...')
     fireEvent.mouseEnter(submenuTrigger.closest('button')!)
 
     expect(screen.getByText('feat-a')).toBeInTheDocument()
@@ -141,18 +141,18 @@ describe('CardContextMenu', () => {
   it('shows session count for worktrees with active sessions', () => {
     const worktrees = [
       {
-        path: '/tmp/.vibegrid-worktrees/vibegrid/feature-auth',
+        path: '/tmp/.vorn-worktrees/vorn/feature-auth',
         branch: 'feature-auth',
         isMain: false
       }
     ]
     const cache = new Map()
-    cache.set('/tmp/vibegrid', worktrees)
+    cache.set('/tmp/vorn', worktrees)
     useAppStore.setState({ worktreeCache: cache })
 
     render(<CardContextMenu terminalId="term-1" position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
 
-    const submenuTrigger = screen.getByText('New session in VibeGrid...')
+    const submenuTrigger = screen.getByText('New session in Vorn...')
     fireEvent.mouseEnter(submenuTrigger.closest('button')!)
 
     // term-2 has worktreePath matching this worktree
@@ -165,8 +165,8 @@ describe('CardContextMenu', () => {
       session: {
         id: 'new-term',
         agentType: 'claude',
-        projectName: 'VibeGrid',
-        projectPath: '/tmp/vibegrid'
+        projectName: 'Vorn',
+        projectPath: '/tmp/vorn'
       },
       status: 'idle',
       lastOutputTimestamp: Date.now()
@@ -175,14 +175,14 @@ describe('CardContextMenu', () => {
     const onClose = vi.fn()
     render(<CardContextMenu terminalId="term-1" position={{ x: 100, y: 100 }} onClose={onClose} />)
 
-    fireEvent.click(screen.getByText('New session in VibeGrid'))
+    fireEvent.click(screen.getByText('New session in Vorn'))
 
     expect(onClose).toHaveBeenCalled()
     expect(mockCreateTerminal).toHaveBeenCalledWith(
       expect.objectContaining({
         agentType: 'claude',
-        projectName: 'VibeGrid',
-        projectPath: '/tmp/vibegrid'
+        projectName: 'Vorn',
+        projectPath: '/tmp/vorn'
       })
     )
   })
@@ -193,8 +193,8 @@ describe('CardContextMenu', () => {
       session: {
         id: 'new-term',
         agentType: 'claude',
-        projectName: 'VibeGrid',
-        projectPath: '/tmp/vibegrid'
+        projectName: 'Vorn',
+        projectPath: '/tmp/vorn'
       },
       status: 'idle',
       lastOutputTimestamp: Date.now()
@@ -203,15 +203,15 @@ describe('CardContextMenu', () => {
     const onClose = vi.fn()
     render(<CardContextMenu terminalId="term-2" position={{ x: 100, y: 100 }} onClose={onClose} />)
 
-    fireEvent.click(screen.getByText('New session in VibeGrid on feature-auth'))
+    fireEvent.click(screen.getByText('New session in Vorn on feature-auth'))
 
     expect(mockCreateTerminal).toHaveBeenCalledWith(
       expect.objectContaining({
         agentType: 'claude',
-        projectName: 'VibeGrid',
-        projectPath: '/tmp/vibegrid',
+        projectName: 'Vorn',
+        projectPath: '/tmp/vorn',
         branch: 'feature-auth',
-        existingWorktreePath: '/tmp/.vibegrid-worktrees/vibegrid/feature-auth'
+        existingWorktreePath: '/tmp/.vorn-worktrees/vorn/feature-auth'
       })
     )
   })

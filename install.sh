@@ -1,8 +1,8 @@
 #!/bin/sh
 set -e
 
-REPO="jcanizalez/vibegrid"
-APP_NAME="VibeGrid"
+REPO="jcanizalez/vorn"
+APP_NAME="Vorn"
 
 # Detect OS and architecture
 OS="$(uname -s)"
@@ -14,11 +14,11 @@ get_latest_version() {
     | sed 's/.*"tag_name": *"//;s/".*//'
 }
 
-VERSION="${VIBEGRID_VERSION:-$(get_latest_version)}"
+VERSION="${VORN_VERSION:-$(get_latest_version)}"
 
 if [ -z "$VERSION" ]; then
   echo "Error: Could not determine latest version."
-  echo "Set VIBEGRID_VERSION=vX.Y.Z to install a specific version."
+  echo "Set VORN_VERSION=vX.Y.Z to install a specific version."
   exit 1
 fi
 
@@ -65,8 +65,8 @@ case "$OS" in
     mkdir -p "$INSTALL_DIR"
 
     echo "Downloading ${ARTIFACT}..."
-    curl -fSL --progress-bar -o "${INSTALL_DIR}/vibegrid" "$URL"
-    chmod +x "${INSTALL_DIR}/vibegrid"
+    curl -fSL --progress-bar -o "${INSTALL_DIR}/vorn" "$URL"
+    chmod +x "${INSTALL_DIR}/vorn"
 
     if ! echo "$PATH" | grep -q "$INSTALL_DIR"; then
       echo ""
@@ -76,7 +76,7 @@ case "$OS" in
       echo "Add this to your ~/.bashrc or ~/.zshrc to make it permanent."
     fi
 
-    echo "${APP_NAME} ${VERSION} installed to ${INSTALL_DIR}/vibegrid"
+    echo "${APP_NAME} ${VERSION} installed to ${INSTALL_DIR}/vorn"
     ;;
 
   *)

@@ -34,7 +34,7 @@ import {
   ArrowUp,
   Lightbulb
 } from 'lucide-react'
-import vibegridLogo from '../assets/vibegrid-logo.png'
+import vornLogo from '../assets/vorn-logo.png'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ICON_MAP: Record<string, any> = {
@@ -518,12 +518,7 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
     return (
       <div className="flex flex-col items-center justify-center w-full h-full px-4">
         <div className="w-full max-w-[800px] flex flex-col items-center">
-          <img
-            src={vibegridLogo}
-            alt="VibeGrid"
-            className="h-8 mb-5 opacity-40"
-            draggable={false}
-          />
+          <img src={vornLogo} alt="Vorn" className="h-8 mb-5 opacity-40" draggable={false} />
           <p className="text-sm text-gray-500 mb-6">Describe a task to start a coding agent</p>
           {promptInput}
         </div>

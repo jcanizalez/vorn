@@ -1,8 +1,8 @@
 /// <reference types="vite/client" />
-import type { VibeGridAPI } from '../preload/index'
+import type { VornAPI } from '../preload/index'
 
 declare global {
   interface Window {
-    api: VibeGridAPI
+    api: VornAPI
   }
 }

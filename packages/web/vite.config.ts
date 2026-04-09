@@ -18,7 +18,7 @@ export default defineConfig({
             urlPattern: /\.(?:js|css|png|jpg|jpeg|svg|gif|woff2?|ttf|eot)$/,
             handler: 'CacheFirst',
             options: {
-              cacheName: 'vibegrid-static',
+              cacheName: 'vorn-static',
               expiration: { maxEntries: 100, maxAgeSeconds: 30 * 24 * 60 * 60 }
             }
           },
@@ -27,7 +27,7 @@ export default defineConfig({
             urlPattern: /\/api\//,
             handler: 'NetworkFirst',
             options: {
-              cacheName: 'vibegrid-api',
+              cacheName: 'vorn-api',
               networkTimeoutSeconds: 10,
               expiration: { maxEntries: 50, maxAgeSeconds: 5 * 60 }
             }
@@ -37,7 +37,7 @@ export default defineConfig({
             urlPattern: /\/health/,
             handler: 'NetworkFirst',
             options: {
-              cacheName: 'vibegrid-health',
+              cacheName: 'vorn-health',
               networkTimeoutSeconds: 5
             }
           }
@@ -51,7 +51,7 @@ export default defineConfig({
   resolve: {
     alias: {
       // The renderer uses relative imports like '../../shared/types'
-      // which resolve to src/shared/ barrel files that re-export @vibegrid/shared.
+      // which resolve to src/shared/ barrel files that re-export @vornrun/shared.
       // We alias them so Vite can resolve from the web package context.
       '@renderer': path.resolve(__dirname, '../../src/renderer'),
       '@shared': path.resolve(__dirname, '../../src/shared')

@@ -7,13 +7,13 @@ const NATIVE_MODULE_PATCH = `
 // so bare require('node-pty') and require('libsql') fail. We intercept Module._load to redirect
 // native module names to their absolute paths in app.asar.unpacked/node_modules/.
 //
-// The parent process passes VIBEGRID_NATIVE_MODULES_PATH as an env var
+// The parent process passes VORN_NATIVE_MODULES_PATH as an env var
 // pointing to the unpacked node_modules directory.
 //
 // @see https://electron-vite.org/guide/assets
 // @see https://github.com/electron/electron/issues/8727
 ;(function() {
-  var nativePath = process.env.VIBEGRID_NATIVE_MODULES_PATH;
+  var nativePath = process.env.VORN_NATIVE_MODULES_PATH;
   if (!nativePath) return;
   try {
     var Module = require('module');

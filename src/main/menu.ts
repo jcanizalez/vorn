@@ -5,10 +5,10 @@ const isMac = process.platform === 'darwin'
 
 export function createMenu(onToggleWidget?: () => void): void {
   app.setAboutPanelOptions({
-    applicationName: 'VibeGrid',
+    applicationName: 'Vorn',
     applicationVersion: app.getVersion(),
     version: '',
-    copyright: 'VibeGrid 2026',
+    copyright: 'Vorn 2026',
     iconPath: path.join(__dirname, '../../resources/icon.png')
   })
 

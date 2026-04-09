@@ -3,11 +3,11 @@ import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { EventEmitter } from 'node:events'
-import { WorkflowDefinition, TriggerConfig, IPC } from '@vibegrid/shared/types'
+import { WorkflowDefinition, TriggerConfig, IPC } from '@vornrun/shared/types'
 import { configManager } from './config-manager'
 import log from './logger'
 
-const LOCK_DIR = path.join(os.homedir(), '.vibegrid')
+const LOCK_DIR = path.join(os.homedir(), '.vorn')
 
 /**
  * Try to acquire an execution lock for a workflow run.

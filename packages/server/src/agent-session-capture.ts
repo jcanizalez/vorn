@@ -2,7 +2,7 @@ import Database from 'libsql'
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
-import { AgentType } from '@vibegrid/shared/types'
+import { AgentType } from '@vornrun/shared/types'
 import log from './logger'
 
 function getAgentDbPath(agentType: AgentType): string | undefined {

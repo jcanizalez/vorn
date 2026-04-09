@@ -131,7 +131,7 @@ describe('configManager', () => {
     cm.onConfigChanged(callback)
     cm.watchDb()
 
-    watchCallback('change', 'vibegrid.db-wal')
+    watchCallback('change', 'vorn.db-wal')
     await vi.advanceTimersByTimeAsync(300)
 
     expect(callback).toHaveBeenCalledWith(config)
@@ -152,7 +152,7 @@ describe('configManager', () => {
     cm.onConfigChanged(callback)
     cm.watchDb()
 
-    watchCallback('change', 'vibegrid.db')
+    watchCallback('change', 'vorn.db')
     await vi.advanceTimersByTimeAsync(300)
 
     expect(callback).toHaveBeenCalledWith(config)
@@ -197,8 +197,8 @@ describe('configManager', () => {
 
     // Fire 5 rapid events — should coalesce into 1 notification
     watchCallback('change', '.db-signal')
-    watchCallback('change', 'vibegrid.db-wal')
-    watchCallback('change', 'vibegrid.db')
+    watchCallback('change', 'vorn.db-wal')
+    watchCallback('change', 'vorn.db')
     watchCallback('change', '.db-signal')
     watchCallback('change', '.db-signal')
     await vi.advanceTimersByTimeAsync(300)

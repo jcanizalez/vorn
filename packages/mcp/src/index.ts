@@ -4,7 +4,7 @@ declare const __MCP_VERSION__: string | undefined
 
 import { createRequire } from 'node:module'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import { configManager } from '@vibegrid/server/config-manager'
+import { configManager } from '@vornrun/server/config-manager'
 import { createMcpServer } from './server'
 
 // Redirect all console methods to stderr (stdout is reserved for JSON-RPC)

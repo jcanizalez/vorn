@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import type { FileEntry, RemoteHost } from '@vibegrid/shared/types'
+import type { FileEntry, RemoteHost } from '@vornrun/shared/types'
 import { sshExecSync, shellEscape } from './process-utils'
 
 const execFileAsync = promisify(execFile)
@@ -91,10 +91,10 @@ function listDirRemote(dirPath: string, remote: RemoteHost): FileEntry[] {
   try {
     // Get directory listing and git-ignored files in one SSH call
     const esc = shellEscape(dirPath, 'posix')
-    const cmd = `ls -1aF ${esc} && echo '__VIBEGRID_SEP__' && (cd ${esc} && git ls-files --others --ignored --exclude-standard --directory 2>/dev/null || true)`
+    const cmd = `ls -1aF ${esc} && echo '__VORN_SEP__' && (cd ${esc} && git ls-files --others --ignored --exclude-standard --directory 2>/dev/null || true)`
     const output = sshExecSync(remote, cmd, { timeout: 10000 })
 
-    const [lsOutput, ignoredOutput] = output.split('__VIBEGRID_SEP__\n')
+    const [lsOutput, ignoredOutput] = output.split('__VORN_SEP__\n')
     if (!lsOutput?.trim()) return []
 
     const ignoredSet = new Set(

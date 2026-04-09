@@ -1,7 +1,7 @@
 {
   "id": "/app/",
-  "name": "VibeGrid",
-  "short_name": "VibeGrid",
+  "name": "Vorn",
+  "short_name": "Vorn",
   "description": "AI Agent Terminal Manager",
   "start_url": "/app/",
   "scope": "/app/",

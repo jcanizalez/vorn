@@ -3,31 +3,31 @@ import path from 'node:path'
 import os from 'node:os'
 import { execFileSync } from 'node:child_process'
 import { WebSocket } from 'ws'
-import type { RpcResponse } from '@vibegrid/shared/protocol'
+import type { RpcResponse } from '@vornrun/shared/protocol'
 
-const PORT_FILE = path.join(os.homedir(), '.vibegrid', 'ws-port')
+const PORT_FILE = path.join(os.homedir(), '.vorn', 'ws-port')
 const TIMEOUT_MS = 10_000
 
 const IS_WIN = process.platform === 'win32'
 
 const PORT_FILE_MISSING_MSG = IS_WIN
-  ? `VibeGrid port file not found (~/.vibegrid/ws-port).
+  ? `Vorn port file not found (~/.vorn/ws-port).
 The app may be running but the port file was deleted (e.g. by another instance shutting down).
-To fix, find the VibeGrid process and its listening port:
-  powershell -c "Get-NetTCPConnection -State Listen -OwningProcess (Get-Process VibeGrid).Id | Select LocalPort"
+To fix, find the Vorn process and its listening port:
+  powershell -c "Get-NetTCPConnection -State Listen -OwningProcess (Get-Process Vorn).Id | Select LocalPort"
 Then write the WS port to the file:
-  echo {"port":<PORT>,"pid":<PID>} > %USERPROFILE%\\.vibegrid\\ws-port
-Or restart VibeGrid to regenerate it.`
-  : `VibeGrid port file not found (~/.vibegrid/ws-port).
+  echo {"port":<PORT>,"pid":<PID>} > %USERPROFILE%\\.vorn\\ws-port
+Or restart Vorn to regenerate it.`
+  : `Vorn port file not found (~/.vorn/ws-port).
 The app may be running but the port file was deleted (e.g. by another instance shutting down).
-To fix, run:  lsof -iTCP -sTCP:LISTEN -P | grep VibeGrid
+To fix, run:  lsof -iTCP -sTCP:LISTEN -P | grep Vorn
 Then write the WS port (the one on *:<port>) to the file:
-  echo '{"port":<PORT>,"pid":<PID>}' > ~/.vibegrid/ws-port
-Or restart VibeGrid to regenerate it.`
+  echo '{"port":<PORT>,"pid":<PID>}' > ~/.vorn/ws-port
+Or restart Vorn to regenerate it.`
 
-const PORT_FILE_INVALID_MSG = `VibeGrid port file exists but contains invalid data (~/.vibegrid/ws-port).
-Delete it and restart VibeGrid, or overwrite it with the correct port:
-  ${IS_WIN ? 'del %USERPROFILE%\\.vibegrid\\ws-port' : 'rm ~/.vibegrid/ws-port'}`
+const PORT_FILE_INVALID_MSG = `Vorn port file exists but contains invalid data (~/.vorn/ws-port).
+Delete it and restart Vorn, or overwrite it with the correct port:
+  ${IS_WIN ? 'del %USERPROFILE%\\.vorn\\ws-port' : 'rm ~/.vorn/ws-port'}`
 
 let rpcId = 0
 
@@ -43,7 +43,7 @@ const EXEC_OPTS = {
 }
 
 /**
- * Try to discover the VibeGrid WS port by querying the OS for listening sockets.
+ * Try to discover the Vorn WS port by querying the OS for listening sockets.
  * Returns the port number if found, null otherwise.
  */
 function discoverPort(): number | null {
@@ -51,10 +51,10 @@ function discoverPort(): number | null {
     if (IS_WIN) {
       const taskOut = execFileSync(
         'tasklist',
-        ['/FI', 'IMAGENAME eq VibeGrid.exe', '/FO', 'CSV', '/NH'],
+        ['/FI', 'IMAGENAME eq Vorn.exe', '/FO', 'CSV', '/NH'],
         EXEC_OPTS
       )
-      const pidMatch = taskOut.match(/"VibeGrid\.exe","(\d+)"/)
+      const pidMatch = taskOut.match(/"Vorn\.exe","(\d+)"/)
       if (!pidMatch) return null
       const pid = pidMatch[1]
 
@@ -74,7 +74,7 @@ function discoverPort(): number | null {
       )
       let fallback: number | null = null
       for (const line of lines) {
-        if (!line.includes('VibeGrid')) continue
+        if (!line.includes('Vorn')) continue
         if (line.includes('*:')) {
           const m = line.match(/\*:(\d+)/)
           if (m) return parseInt(m[1], 10)
@@ -113,7 +113,7 @@ function discoverAndHeal(): { port: number } | { port: null; reason: 'missing' }
 }
 
 /**
- * Read the VibeGrid server port from the well-known file.
+ * Read the Vorn server port from the well-known file.
  * Falls back to OS-level port discovery if the file is missing or stale.
  */
 function readPort(): { port: number } | { port: null; reason: 'missing' | 'invalid' } {
@@ -153,7 +153,7 @@ function readPort(): { port: number } | { port: null; reason: 'missing' | 'inval
 }
 
 /**
- * Send a single JSON-RPC request to the running VibeGrid server over WebSocket.
+ * Send a single JSON-RPC request to the running Vorn server over WebSocket.
  * Opens a connection, sends, waits for the response, then closes.
  */
 export async function rpcCall<T = unknown>(method: string, params?: unknown): Promise<T> {
@@ -193,7 +193,7 @@ export async function rpcCall<T = unknown>(method: string, params?: unknown): Pr
 
     ws.on('error', (err) => {
       clearTimeout(timer)
-      reject(new Error(`Cannot connect to VibeGrid server: ${err.message}. Is the app running?`))
+      reject(new Error(`Cannot connect to Vorn server: ${err.message}. Is the app running?`))
     })
   })
 }
@@ -218,13 +218,13 @@ export async function rpcNotify(method: string, params?: unknown): Promise<void>
     })
 
     ws.on('error', (err) => {
-      reject(new Error(`Cannot connect to VibeGrid server: ${err.message}. Is the app running?`))
+      reject(new Error(`Cannot connect to Vorn server: ${err.message}. Is the app running?`))
     })
   })
 }
 
 /**
- * Check whether the VibeGrid server is reachable.
+ * Check whether the Vorn server is reachable.
  */
 export function isServerRunning(): boolean {
   return readPort().port !== null

@@ -45,7 +45,7 @@ jobs:
 
       - name: Verify server CJS bundle
         run: |
-          yarn workspace @vibegrid/server build
+          yarn workspace @vornrun/server build
           # Fail if import.meta snuck into CJS bundle (causes runtime crash in Electron)
           if grep -q 'import_meta' packages/server/dist/index.cjs; then
             echo "ERROR: import_meta found in CJS bundle — will crash at runtime"

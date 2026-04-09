@@ -1,5 +1,5 @@
 import type { WebSocket } from 'ws'
-import { createNotification } from '@vibegrid/shared/protocol'
+import { createNotification } from '@vornrun/shared/protocol'
 import log from './logger'
 
 export class ClientRegistry {

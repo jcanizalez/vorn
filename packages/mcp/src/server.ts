@@ -7,7 +7,7 @@ import { registerConfigTools } from './tools/config'
 import { registerWorkspaceTools } from './tools/workspaces'
 
 export function createMcpServer(version: string): McpServer {
-  const server = new McpServer({ name: 'vibegrid', version }, { capabilities: { tools: {} } })
+  const server = new McpServer({ name: 'vorn', version }, { capabilities: { tools: {} } })
 
   registerConfigTools(server)
   registerProjectTools(server)

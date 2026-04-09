@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { access, constants } from 'node:fs/promises'
-import type { TailscaleStatus, TailscalePeer } from '@vibegrid/shared/types'
+import type { TailscaleStatus, TailscalePeer } from '@vornrun/shared/types'
 import { getSafeEnv } from './process-utils'
 import log from './logger'
 

@@ -14,8 +14,8 @@ import {
   TerminalSession,
   RemoteHost,
   supportsSessionIdPinning
-} from '@vibegrid/shared/types'
-import { displayNameFromPrompt } from '@vibegrid/shared/string-utils'
+} from '@vornrun/shared/types'
+import { displayNameFromPrompt } from '@vornrun/shared/string-utils'
 import {
   getGitBranch,
   checkoutBranch,
@@ -23,7 +23,7 @@ import {
   extractWorktreeName,
   isGitRepo
 } from './git-utils'
-import { DEFAULT_AGENT_COMMANDS } from '@vibegrid/shared/agent-defaults'
+import { DEFAULT_AGENT_COMMANDS } from '@vornrun/shared/agent-defaults'
 import { buildAgentLaunchLine as buildLaunchLine } from './agent-launch'
 import {
   shellEscape,
@@ -94,7 +94,7 @@ class PtyManager extends EventEmitter {
       const files = fs.readdirSync(tmpDir)
       const now = Date.now()
       for (const f of files) {
-        if (!f.startsWith('vibegrid-key-')) continue
+        if (!f.startsWith('vorn-key-')) continue
         const fullPath = path.join(tmpDir, f)
         try {
           const stat = fs.statSync(fullPath)
@@ -271,7 +271,7 @@ class PtyManager extends EventEmitter {
     })
 
     // Build SSH command based on auth method, with a ready marker for reliable prompt detection
-    const marker = `__VIBEGRID_READY_${id.slice(0, 8)}__`
+    const marker = `__VORN_READY_${id.slice(0, 8)}__`
     const sshParts: string[] = ['ssh', '-t']
     if (host.port !== 22) sshParts.push('-p', String(host.port))
 
@@ -285,7 +285,7 @@ class PtyManager extends EventEmitter {
       )
     } else if (authMethod === 'key-stored' && payload._decryptedKeyContent) {
       // Write decrypted key to a temp file (mode 0600)
-      const tmpKeyPath = path.join(os.tmpdir(), `vibegrid-key-${crypto.randomUUID()}`)
+      const tmpKeyPath = path.join(os.tmpdir(), `vorn-key-${crypto.randomUUID()}`)
       fs.writeFileSync(tmpKeyPath, payload._decryptedKeyContent, { mode: 0o600 })
       this.tempKeyPaths.set(id, tmpKeyPath)
       sshParts.push('-i', tmpKeyPath)

@@ -8,7 +8,7 @@ import type {
   RecentSession,
   ArchivedSession,
   SessionEvent
-} from '@vibegrid/shared/types'
+} from '@vornrun/shared/types'
 import { V } from '../validation'
 import { rpcCall, rpcNotify } from '../ws-client'
 
@@ -70,7 +70,7 @@ export function registerSessionTools(server: McpServer): void {
 
   server.tool(
     'launch_session',
-    'Launch an AI agent session (interactive terminal or headless). Requires the VibeGrid app to be running.',
+    'Launch an AI agent session (interactive terminal or headless). Requires the Vorn app to be running.',
     {
       agent_type: z.enum(AGENT_TYPES).describe('Agent type to launch'),
       project_name: V.name.describe('Project name'),
@@ -131,7 +131,7 @@ export function registerSessionTools(server: McpServer): void {
 
   server.tool(
     'kill_session',
-    'Kill a terminal or headless session. Requires the VibeGrid app to be running.',
+    'Kill a terminal or headless session. Requires the Vorn app to be running.',
     {
       id: V.id.describe('Session ID to kill'),
       headless: z.boolean().optional().describe('Kill a headless session instead of a terminal')
@@ -255,7 +255,7 @@ export function registerSessionTools(server: McpServer): void {
 
   server.tool(
     'write_to_terminal',
-    'Send input to a running terminal session. Requires the VibeGrid app to be running.',
+    'Send input to a running terminal session. Requires the Vorn app to be running.',
     {
       id: V.id.describe('Session ID'),
       data: z

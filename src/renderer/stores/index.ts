@@ -14,6 +14,6 @@ export const useAppStore = create<AppStore>()(
       ...createUISlice(...a),
       ...createTasksSlice(...a)
     }),
-    { name: 'VibeGrid' }
+    { name: 'Vorn' }
   )
 )

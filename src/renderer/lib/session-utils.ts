@@ -30,7 +30,7 @@ function getManagedWorktreePrefix(projectPath: string): string | null {
   const prefix = normalized.startsWith('/') ? '/' : ''
   const parent = parts.slice(0, -1).join('/')
   const parentPath = parent ? `${prefix}${parent}` : prefix || '.'
-  return `${parentPath}/.vibegrid-worktrees/${projectName}`
+  return `${parentPath}/.vorn-worktrees/${projectName}`
 }
 
 function isManagedWorktreePath(candidatePath: string, projectPath: string): boolean {

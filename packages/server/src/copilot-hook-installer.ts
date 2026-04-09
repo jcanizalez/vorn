@@ -15,7 +15,7 @@ export interface CopilotHookInstallation {
 // Track all active installations for bulk cleanup
 const activeInstallations = new Map<string, CopilotHookInstallation>()
 
-// Copilot camelCase -> VibeGrid PascalCase event mapping
+// Copilot camelCase -> Vorn PascalCase event mapping
 const EVENT_MAP: Record<string, string> = {
   sessionStart: 'SessionStart',
   sessionEnd: 'SessionEnd',
@@ -27,8 +27,8 @@ const EVENT_MAP: Record<string, string> = {
 
 // The node script is cross-platform -- only the shell invocation differs
 function buildNodeScript(sessionId: string, eventName: string): string {
-  const portPath = path.join(os.homedir(), '.vibegrid', 'port').replace(/\\/g, '/')
-  const tokenPath = path.join(os.homedir(), '.vibegrid', 'token').replace(/\\/g, '/')
+  const portPath = path.join(os.homedir(), '.vorn', 'port').replace(/\\/g, '/')
+  const tokenPath = path.join(os.homedir(), '.vorn', 'token').replace(/\\/g, '/')
   return [
     `const d=JSON.parse(require('fs').readFileSync(0,'utf8'));`,
     `let port,token;`,
@@ -52,8 +52,8 @@ function buildPowershellCommand(script: string): string {
 function buildHooksJson(sessionId: string): string {
   const hooks: Record<string, unknown[]> = {}
 
-  for (const [copilotEvent, vibeGridEvent] of Object.entries(EVENT_MAP)) {
-    const script = buildNodeScript(sessionId, vibeGridEvent)
+  for (const [copilotEvent, vornEvent] of Object.entries(EVENT_MAP)) {
+    const script = buildNodeScript(sessionId, vornEvent)
     hooks[copilotEvent] = [
       {
         type: 'command',
@@ -63,7 +63,7 @@ function buildHooksJson(sessionId: string): string {
     ]
   }
 
-  return JSON.stringify({ version: 1, _vibegrid: true, hooks }, null, 2)
+  return JSON.stringify({ version: 1, _vorn: true, hooks }, null, 2)
 }
 
 export function installCopilotHooks(projectPath: string, _port: number): CopilotHookInstallation {
@@ -73,13 +73,13 @@ export function installCopilotHooks(projectPath: string, _port: number): Copilot
   let hadExistingFile = false
   let existingContent: string | undefined
 
-  // Back up existing hooks.json if present and not VibeGrid-managed
+  // Back up existing hooks.json if present and not Vorn-managed
   try {
     if (fs.existsSync(hooksJsonPath)) {
       const content = fs.readFileSync(hooksJsonPath, 'utf-8')
       const parsed = JSON.parse(content)
-      if (parsed._vibegrid) {
-        // Already a VibeGrid file -- overwrite without backup
+      if (parsed._vorn) {
+        // Already a Vorn file -- overwrite without backup
         hadExistingFile = false
       } else {
         hadExistingFile = true
@@ -119,7 +119,7 @@ export function uninstallCopilotHooks(installation: CopilotHookInstallation): vo
       if (fs.existsSync(installation.hooksJsonPath)) {
         const content = fs.readFileSync(installation.hooksJsonPath, 'utf-8')
         const parsed = JSON.parse(content)
-        if (parsed._vibegrid) {
+        if (parsed._vorn) {
           fs.unlinkSync(installation.hooksJsonPath)
           log.info(`[copilot-hooks] removed hooks.json at ${installation.hooksJsonPath}`)
         }

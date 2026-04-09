@@ -1,8 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
-import { AppConfig } from '@vibegrid/shared/types'
-import { DEFAULT_AGENT_COMMANDS } from '@vibegrid/shared/agent-defaults'
+import { AppConfig } from '@vornrun/shared/types'
+import { DEFAULT_AGENT_COMMANDS } from '@vornrun/shared/agent-defaults'
 import {
   initDatabase,
   closeDatabase,
@@ -13,7 +13,7 @@ import log from './logger'
 
 type ConfigChangeCallback = (config: AppConfig) => void
 
-const DB_DIR = path.join(os.homedir(), '.vibegrid')
+const DB_DIR = path.join(os.homedir(), '.vorn')
 
 class ConfigManager {
   private changeCallbacks: ConfigChangeCallback[] = []

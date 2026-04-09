@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="docs/vibegrid-logo.png" alt="VibeGrid" width="300" />
+  <img src="docs/vorn-logo.png" alt="Vorn" width="300" />
 </p>
 
 <p align="center">
-  <strong>Your personal space for coding with AI agents</strong>
+  <strong>The agent command center</strong>
 </p>
 
 <p align="center">
@@ -11,9 +11,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/jcanizalez/vibegrid/releases"><img src="https://img.shields.io/github/v/release/jcanizalez/vibegrid?style=flat-square" alt="Release"></a>
-  <a href="https://github.com/jcanizalez/vibegrid/blob/main/LICENSE"><img src="https://img.shields.io/github/license/jcanizalez/vibegrid?style=flat-square" alt="License"></a>
-  <a href="https://github.com/jcanizalez/vibegrid/stargazers"><img src="https://img.shields.io/github/stars/jcanizalez/vibegrid?style=flat-square" alt="Stars"></a>
+  <a href="https://github.com/jcanizalez/vorn/releases"><img src="https://img.shields.io/github/v/release/jcanizalez/vorn?style=flat-square" alt="Release"></a>
+  <a href="https://github.com/jcanizalez/vorn/blob/main/LICENSE"><img src="https://img.shields.io/github/license/jcanizalez/vorn?style=flat-square" alt="License"></a>
+  <a href="https://github.com/jcanizalez/vorn/stargazers"><img src="https://img.shields.io/github/stars/jcanizalez/vorn?style=flat-square" alt="Stars"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue?style=flat-square" alt="Platform">
   <img src="https://img.shields.io/badge/status-alpha-orange?style=flat-square" alt="Alpha">
 </p>
@@ -28,12 +28,12 @@
 ---
 
 <p align="center">
-  <img src="docs/screenshots/hero.png" alt="VibeGrid screenshot" width="800" />
+  <img src="docs/screenshots/hero.png" alt="Vorn screenshot" width="800" />
 </p>
 
-## Why VibeGrid?
+## Why Vorn?
 
-VibeGrid is your personal space for coding with AI agents. How you work is up to you.
+Vorn is the agent command center. How you work is up to you.
 
 **Like vibecoding interactively?** Open multiple terminals and pair with several agents at once — Claude on one task, Copilot on another, Codex on a third. Every agent runs in its own PTY with full native output. No wrappers, no API keys, no reimplementation.
 
@@ -43,33 +43,33 @@ VibeGrid is your personal space for coding with AI agents. How you work is up to
 
 **MCP-powered.** Agents can read and write tasks, trigger workflows, and query project state through the built-in MCP server, no extra configuration needed.
 
-> **Early stages.** VibeGrid is in alpha. The focus right now is stabilizing the core and expanding from there. On the roadmap: SSH remote sessions, shared workspaces for team collaboration, connectors to pull tasks from GitHub Issues, Linear, Jira and more, and a companion web/mobile app so you can monitor your workflows and connect remotely while away from your computer.
+> **Early stages.** Vorn is in alpha. The focus right now is stabilizing the core and expanding from there. On the roadmap: SSH remote sessions, shared workspaces for team collaboration, connectors to pull tasks from GitHub Issues, Linear, Jira and more, and a companion web/mobile app so you can monitor your workflows and connect remotely while away from your computer.
 
 ## Install
 
 **macOS / Linux:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jcanizalez/vibegrid/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/jcanizalez/vorn/main/install.sh | sh
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-irm https://raw.githubusercontent.com/jcanizalez/vibegrid/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/jcanizalez/vorn/main/install.ps1 | iex
 ```
 
 **Homebrew (macOS):**
 
 ```bash
-brew tap jcanizalez/tap && brew install --cask vibegrid
+brew tap jcanizalez/tap && brew install --cask vorn
 ```
 
-Or download directly from [GitHub Releases](https://github.com/jcanizalez/vibegrid/releases).
+Or download directly from [GitHub Releases](https://github.com/jcanizalez/vorn/releases).
 
 ## Features
 
-VibeGrid supports two ways of working. **Interactive**: open a grid of terminals and pair with agents hands-on. **Autonomous**: define tasks and workflows, and let agents run headlessly while you focus on something else. Mix both freely — they share the same projects, tasks, and git integration.
+Vorn supports two ways of working. **Interactive**: open a grid of terminals and pair with agents hands-on. **Autonomous**: define tasks and workflows, and let agents run headlessly while you focus on something else. Mix both freely — they share the same projects, tasks, and git integration.
 
 ### Multi-Agent Grid
 
@@ -113,7 +113,7 @@ Fuzzy search for actions, terminals, recent sessions, projects, and workflows. Q
 
 ### Session Persistence
 
-Restore previous agent sessions on restart. VibeGrid tracks session history and matches agent sessions for accurate resumption, so you can pick up right where you left off.
+Restore previous agent sessions on restart. Vorn tracks session history and matches agent sessions for accurate resumption, so you can pick up right where you left off.
 
 <p align="center">
   <img src="docs/screenshots/resume-sessions.png" alt="Resume sessions" width="700" />
@@ -121,7 +121,7 @@ Restore previous agent sessions on restart. VibeGrid tracks session history and 
 
 ### MCP Server
 
-Agents running inside VibeGrid can access tasks, projects, workflows, sessions, and git state through the built-in MCP server. Create and update tasks, trigger workflows, launch new agents, and query configuration — all from within an agent session.
+Agents running inside Vorn can access tasks, projects, workflows, sessions, and git state through the built-in MCP server. Create and update tasks, trigger workflows, launch new agents, and query configuration — all from within an agent session.
 
 ### More
 
@@ -153,7 +153,7 @@ A minimal always-on-top overlay that stays visible while you work in other apps.
 | OpenCode       | `opencode`   |
 | Google Gemini  | `gemini`     |
 
-Any CLI tool that runs in a terminal works with VibeGrid. These are the agents with built-in status detection and icons.
+Any CLI tool that runs in a terminal works with Vorn. These are the agents with built-in status detection and icons.
 
 ## Development
 

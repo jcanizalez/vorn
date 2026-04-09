@@ -280,7 +280,7 @@ function CompactWidget({
         <button
           className="widget-app-btn"
           onClick={() => window.widgetApi.showApp()}
-          title="Open VibeGrid"
+          title="Open Vorn"
         >
           VG
         </button>
@@ -406,10 +406,10 @@ export function Widget() {
           <button
             className="widget-app-btn"
             onClick={() => window.widgetApi.showApp()}
-            title="Open VibeGrid"
+            title="Open Vorn"
             style={{ fontSize: 13 }}
           >
-            VibeGrid
+            Vorn
           </button>
           {total > 0 && (
             <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>

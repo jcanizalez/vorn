@@ -1,7 +1,7 @@
 import WebSocket from 'ws'
 import { EventEmitter } from 'node:events'
-import type { RpcResponse, RpcNotification } from '@vibegrid/shared/protocol'
-import { createRequest, createNotification } from '@vibegrid/shared/protocol'
+import type { RpcResponse, RpcNotification } from '@vornrun/shared/protocol'
+import { createRequest, createNotification } from '@vornrun/shared/protocol'
 import log from '../logger'
 
 interface PendingRequest {

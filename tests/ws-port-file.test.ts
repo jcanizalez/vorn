@@ -27,7 +27,7 @@ vi.mock('node:child_process', () => ({
   }
 }))
 
-const PORT_FILE = path.join(os.homedir(), '.vibegrid', 'ws-port')
+const PORT_FILE = path.join(os.homedir(), '.vorn', 'ws-port')
 
 describe('ws-port file parsing (readPort via isServerRunning)', () => {
   beforeEach(() => {

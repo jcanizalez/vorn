@@ -5,8 +5,8 @@ import {
   CreateTerminalPayload,
   supportsExactSessionResume,
   supportsSessionIdPinning
-} from '@vibegrid/shared/types'
-import { DEFAULT_AGENT_COMMANDS } from '@vibegrid/shared/agent-defaults'
+} from '@vornrun/shared/types'
+import { DEFAULT_AGENT_COMMANDS } from '@vornrun/shared/agent-defaults'
 import { shellEscape } from './process-utils'
 
 function commandExists(cmd: string, env: Record<string, string>): boolean {

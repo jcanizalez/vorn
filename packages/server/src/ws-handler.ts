@@ -1,6 +1,6 @@
 import type { WebSocket } from 'ws'
-import type { RpcRequest, RequestMethod, RequestMethods } from '@vibegrid/shared/protocol'
-import { createResponse, createErrorResponse } from '@vibegrid/shared/protocol'
+import type { RpcRequest, RequestMethod, RequestMethods } from '@vornrun/shared/protocol'
+import { createResponse, createErrorResponse } from '@vornrun/shared/protocol'
 import { clientRegistry } from './broadcast'
 import log from './logger'
 

@@ -1,17 +1,17 @@
 $ErrorActionPreference = "Stop"
 
-$Repo = "jcanizalez/vibegrid"
-$AppName = "VibeGrid"
+$Repo = "jcanizalez/vorn"
+$AppName = "Vorn"
 
 function Get-LatestVersion {
     $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest"
     return $release.tag_name
 }
 
-$Version = if ($env:VIBEGRID_VERSION) { $env:VIBEGRID_VERSION } else { Get-LatestVersion }
+$Version = if ($env:VORN_VERSION) { $env:VORN_VERSION } else { Get-LatestVersion }
 
 if (-not $Version) {
-    Write-Error "Could not determine latest version. Set VIBEGRID_VERSION=vX.Y.Z to install a specific version."
+    Write-Error "Could not determine latest version. Set VORN_VERSION=vX.Y.Z to install a specific version."
     exit 1
 }
 
@@ -21,7 +21,7 @@ Write-Host "Installing $AppName $Version..."
 
 $Artifact = "$AppName-Setup-$VersionNum.exe"
 $Url = "https://github.com/$Repo/releases/download/$Version/$Artifact"
-$TempDir = Join-Path $env:TEMP "vibegrid-install"
+$TempDir = Join-Path $env:TEMP "vorn-install"
 $InstallerPath = Join-Path $TempDir $Artifact
 
 New-Item -ItemType Directory -Force -Path $TempDir | Out-Null

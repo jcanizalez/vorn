@@ -8,8 +8,8 @@ import type {
   WorkflowEdge,
   TriggerConfig,
   LaunchAgentConfig
-} from '@vibegrid/shared/types'
-import type { ScheduleLogEntry } from '@vibegrid/shared/types'
+} from '@vornrun/shared/types'
+import type { ScheduleLogEntry } from '@vornrun/shared/types'
 import {
   dbListWorkflows,
   dbInsertWorkflow,
@@ -18,7 +18,7 @@ import {
   listWorkflowRuns,
   listWorkflowRunsByTask,
   dbSignalChange
-} from '@vibegrid/server/database'
+} from '@vornrun/server/database'
 import { rpcCall } from '../ws-client'
 
 const launchAgentConfigSchema = z.object({
@@ -283,7 +283,7 @@ export function registerWorkflowTools(server: McpServer): void {
 
   server.tool(
     'get_workflow_schedule',
-    'Get scheduler info for a workflow: execution log or next scheduled run. Requires the VibeGrid app to be running.',
+    'Get scheduler info for a workflow: execution log or next scheduled run. Requires the Vorn app to be running.',
     {
       workflow_id: V.id
         .optional()

@@ -1,11 +1,11 @@
 publish:
   provider: github
   owner: jcanizalez
-  repo: vibegrid
+  repo: vorn
   releaseType: release
 
-appId: com.vibegrid.app
-productName: VibeGrid
+appId: com.vorn.app
+productName: Vorn
 directories:
   buildResources: resources
   output: dist

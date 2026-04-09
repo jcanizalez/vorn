@@ -1,13 +1,13 @@
 {
-  "name": "@vibegrid/mcp",
+  "name": "@vornrun/mcp",
   "version": "0.1.3",
-  "description": "VibeGrid MCP server — task management, git, and workflow tools for AI coding agents",
+  "description": "Vorn MCP server — task management, git, and workflow tools for AI coding agents",
   "type": "module",
   "license": "MIT",
   "author": "Javier Canizalez <javier-canizalez@outlook.com>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jcanizalez/vibegrid.git",
+    "url": "git+https://github.com/jcanizalez/vorn.git",
     "directory": "packages/mcp"
   },
   "keywords": [
@@ -15,12 +15,12 @@
     "model-context-protocol",
     "ai",
     "agent",
-    "vibegrid",
+    "vorn",
     "task-management"
   ],
   "bin": {
     "mcp": "dist/index.js",
-    "vibegrid-mcp": "dist/index.js"
+    "vorn-mcp": "dist/index.js"
   },
   "main": "./dist/index.js",
   "files": [
@@ -31,17 +31,17 @@
     "dev": "tsx src/index.ts"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.28.0",
-    "libsql": "^0.5.22",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "libsql": "^0.5.29",
     "pino": "^10.3.1",
-    "ws": "^8.18.0",
+    "ws": "^8.18.2",
     "zod": "^3.23.0"
   },
   "devDependencies": {
-    "@vibegrid/server": "workspace:*",
-    "@vibegrid/shared": "workspace:*",
+    "@vornrun/server": "workspace:*",
+    "@vornrun/shared": "workspace:*",
     "tsup": "^8.5.0",
     "tsx": "^4.19.4",
-    "typescript": "^5.6.0"
+    "typescript": "^5.8.0"
   }
 }

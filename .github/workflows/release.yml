@@ -261,7 +261,7 @@ jobs:
           cd packages/mcp && npm pkg set version="$VERSION"
 
       - name: Build MCP package
-        run: yarn workspace @vibegrid/mcp build
+        run: yarn workspace @vornrun/mcp build
 
       - name: Publish to npm
         working-directory: packages/mcp
@@ -275,12 +275,12 @@ jobs:
             NPM_TAG="beta"
           fi
 
-          PUBLISHED=$(npm view @vibegrid/mcp version 2>/dev/null || echo "none")
+          PUBLISHED=$(npm view @vornrun/mcp version 2>/dev/null || echo "none")
           if [ "$VERSION" = "$PUBLISHED" ]; then
             echo "Version $VERSION already published, skipping"
           else
             yarn npm publish --access public --tag "$NPM_TAG"
-            echo "Published @vibegrid/mcp@$VERSION with dist-tag '$NPM_TAG'"
+            echo "Published @vornrun/mcp@$VERSION with dist-tag '$NPM_TAG'"
           fi
         env:
           YARN_NPM_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

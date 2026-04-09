@@ -5,8 +5,8 @@ vi.mock('node:child_process', () => ({
 }))
 
 import { buildAgentLaunchLine } from '../packages/server/src/agent-launch'
-import { DEFAULT_AGENT_COMMANDS } from '@vibegrid/shared/agent-defaults'
-import type { AgentType, CreateTerminalPayload, TerminalSession } from '@vibegrid/shared/types'
+import { DEFAULT_AGENT_COMMANDS } from '@vornrun/shared/agent-defaults'
+import type { AgentType, CreateTerminalPayload, TerminalSession } from '@vornrun/shared/types'
 
 // Mock the renderer API for resolveResumeSessionId
 const mockGetRecentSessions = vi.fn()

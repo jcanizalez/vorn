@@ -14,7 +14,7 @@ vi.mock('../packages/server/src/logger', () => ({
 }))
 
 import { hookStatusMapper } from '../packages/server/src/hook-status-mapper'
-import type { HookEvent } from '@vibegrid/shared/types'
+import type { HookEvent } from '@vornrun/shared/types'
 
 function makeEvent(name: string, sessionId = 'sess-1', cwd = '/project'): HookEvent {
   return {

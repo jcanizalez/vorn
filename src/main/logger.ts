@@ -2,9 +2,9 @@ import log from 'electron-log/main'
 
 // Configure electron-log for production use
 // Logs are written to:
-//   macOS: ~/Library/Logs/vibegrid/main.log
-//   Linux: ~/.config/vibegrid/logs/main.log
-//   Windows: %USERPROFILE%\AppData\Roaming\vibegrid\logs\main.log
+//   macOS: ~/Library/Logs/vorn/main.log
+//   Linux: ~/.config/vorn/logs/main.log
+//   Windows: %USERPROFILE%\AppData\Roaming\vorn\logs\main.log
 
 log.transports.file.maxSize = 5 * 1024 * 1024 // 5 MB per file
 log.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}.{ms}] [{level}] {text}'

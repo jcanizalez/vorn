@@ -5,9 +5,9 @@ import { AppStore, UISlice, SidebarViewMode, FlexibleLayoutRect } from './types'
 const EMPTY_SESSIONS: TerminalSession[] = []
 const WORKTREE_CACHE_TTL = 5_000
 const worktreeCacheTimestamps = new Map<string, number>()
-const GRID_STORAGE_KEY = 'vibegrid:gridSettings'
-const SIDEBAR_STORAGE_KEY = 'vibegrid:sidebarSettings'
-const FLEXIBLE_STORAGE_KEY = 'vibegrid:flexibleLayouts'
+const GRID_STORAGE_KEY = 'vorn:gridSettings'
+const SIDEBAR_STORAGE_KEY = 'vorn:sidebarSettings'
+const FLEXIBLE_STORAGE_KEY = 'vorn:flexibleLayouts'
 
 function loadGridSettings(): { gridColumns?: number; sortMode?: string; statusFilter?: string } {
   try {

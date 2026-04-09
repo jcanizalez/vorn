@@ -1,1 +1,1 @@
-export * from '@vibegrid/shared/agent-defaults'
+export * from '@vornrun/shared/agent-defaults'

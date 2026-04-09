@@ -9,7 +9,7 @@ let serverProcess: ChildProcess | UtilityProcess | null = null
 let bridge: ServerBridge | null = null
 
 /**
- * Spawns the @vibegrid/server process and returns a connected ServerBridge.
+ * Spawns the @vornrun/server process and returns a connected ServerBridge.
  *
  * The server writes `{"port": N}` to stdout on startup.
  * We read the port, then connect a WebSocket bridge.
@@ -74,7 +74,7 @@ export async function launchServer(): Promise<ServerBridge> {
       env: {
         ...process.env,
         NODE_ENV: 'production',
-        VIBEGRID_NATIVE_MODULES_PATH: asarUnpacked,
+        VORN_NATIVE_MODULES_PATH: asarUnpacked,
         NODE_PATH: [path.join(app.getAppPath(), 'node_modules'), asarUnpacked].join(path.delimiter)
       }
     })

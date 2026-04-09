@@ -32,8 +32,8 @@ import { GridContextMenu } from '../src/renderer/components/GridContextMenu'
 const mockConfig = {
   projects: [
     {
-      name: 'VibeGrid',
-      path: '/tmp/vibegrid',
+      name: 'Vorn',
+      path: '/tmp/vorn',
       icon: 'Rocket',
       iconColor: '#ff0000',
       preferredAgents: ['claude' as const]
@@ -61,7 +61,7 @@ beforeEach(() => {
     terminals: new Map(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     config: mockConfig as any,
-    activeProject: 'VibeGrid',
+    activeProject: 'Vorn',
     activeWorktreePath: null,
     activeWorkspace: 'personal',
     worktreeCache: new Map()
@@ -71,12 +71,12 @@ beforeEach(() => {
 describe('GridContextMenu', () => {
   it('renders smart quick-launch with active project name', () => {
     render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
-    expect(screen.getByText('New session in VibeGrid')).toBeInTheDocument()
+    expect(screen.getByText('New session in Vorn')).toBeInTheDocument()
   })
 
   it('renders worktree submenu item with project name', () => {
     render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
-    expect(screen.getByText('New session in VibeGrid...')).toBeInTheDocument()
+    expect(screen.getByText('New session in Vorn...')).toBeInTheDocument()
   })
 
   it('renders "New session..." for full dialog', () => {
@@ -95,7 +95,7 @@ describe('GridContextMenu', () => {
     render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
 
     // Quick launch should use first project from resolveActiveProject
-    expect(screen.getByText(/New session in VibeGrid/)).toBeInTheDocument()
+    expect(screen.getByText(/New session in Vorn/)).toBeInTheDocument()
 
     // Should show "New session from..." submenu
     expect(screen.getByText('New session from...')).toBeInTheDocument()
@@ -109,13 +109,13 @@ describe('GridContextMenu', () => {
     const submenuTrigger = screen.getByText('New session from...')
     fireEvent.mouseEnter(submenuTrigger.closest('button')!)
 
-    expect(screen.getByText('VibeGrid')).toBeInTheDocument()
+    expect(screen.getByText('Vorn')).toBeInTheDocument()
     expect(screen.getByText('OtherApp')).toBeInTheDocument()
   })
 
   it('shows worktree submenu with cached worktrees on hover', () => {
     const cache = new Map()
-    cache.set('/tmp/vibegrid', [
+    cache.set('/tmp/vorn', [
       { path: '/tmp/wt/feat-a', branch: 'feat-a', isMain: false },
       { path: '/tmp/wt/feat-b', branch: 'feat-b', isMain: false }
     ])
@@ -123,7 +123,7 @@ describe('GridContextMenu', () => {
 
     render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
 
-    const submenuTrigger = screen.getByText('New session in VibeGrid...')
+    const submenuTrigger = screen.getByText('New session in Vorn...')
     fireEvent.mouseEnter(submenuTrigger.closest('button')!)
 
     expect(screen.getByText('feat-a')).toBeInTheDocument()
@@ -137,8 +137,8 @@ describe('GridContextMenu', () => {
       session: {
         id: 'new-term',
         agentType: 'claude',
-        projectName: 'VibeGrid',
-        projectPath: '/tmp/vibegrid'
+        projectName: 'Vorn',
+        projectPath: '/tmp/vorn'
       },
       status: 'idle',
       lastOutputTimestamp: Date.now()
@@ -147,14 +147,14 @@ describe('GridContextMenu', () => {
     const onClose = vi.fn()
     render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={onClose} />)
 
-    fireEvent.click(screen.getByText('New session in VibeGrid'))
+    fireEvent.click(screen.getByText('New session in Vorn'))
 
     expect(onClose).toHaveBeenCalled()
     expect(mockCreateTerminal).toHaveBeenCalledWith(
       expect.objectContaining({
         agentType: 'claude',
-        projectName: 'VibeGrid',
-        projectPath: '/tmp/vibegrid'
+        projectName: 'Vorn',
+        projectPath: '/tmp/vorn'
       })
     )
   })

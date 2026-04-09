@@ -11,7 +11,7 @@ describe('AGENT_MCP_SETUPS', () => {
     for (const setup of AGENT_MCP_SETUPS) {
       expect(setup.agentType).toBeTruthy()
       expect(setup.command).toBeTruthy()
-      expect(setup.command).toContain('mcp add vibegrid')
+      expect(setup.command).toContain('mcp add vorn')
     }
   })
 

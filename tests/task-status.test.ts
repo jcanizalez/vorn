@@ -21,8 +21,8 @@ describe('formatTaskDate', () => {
 
 describe('getTaskShortId', () => {
   it('uses first 3 alpha chars of project name uppercased', () => {
-    const result = getTaskShortId({ projectName: 'vibegrid', id: 'abc12345' })
-    expect(result).toBe('VIB-ABC1')
+    const result = getTaskShortId({ projectName: 'vorn', id: 'abc12345' })
+    expect(result).toBe('VOR-ABC1')
   })
 
   it('falls back to TSK for non-alpha project name', () => {

@@ -77,12 +77,12 @@ describe('resolveResumeSessionId', () => {
       makeRecent({ sessionId: 'sess-root', projectPath: '/home/user/my-app' }),
       makeRecent({
         sessionId: 'sess-worktree',
-        projectPath: '/home/user/.vibegrid-worktrees/my-app/feature-a'
+        projectPath: '/home/user/.vorn-worktrees/my-app/feature-a'
       })
     ])
     const session = makeSession({
       projectPath: '/home/user/my-app',
-      worktreePath: '/home/user/.vibegrid-worktrees/my-app/feature-a'
+      worktreePath: '/home/user/.vorn-worktrees/my-app/feature-a'
     })
 
     const result = await resolveResumeSessionId(session)
@@ -204,7 +204,7 @@ describe('resolveProjectName', () => {
 
   it('returns project name for managed worktree paths', () => {
     const session = makeRecent({
-      projectPath: '/home/user/.vibegrid-worktrees/my-app/feature-a'
+      projectPath: '/home/user/.vorn-worktrees/my-app/feature-a'
     })
     expect(resolveProjectName(session, projects)).toBe('My App')
   })
@@ -238,11 +238,11 @@ describe('buildRestorePayload', () => {
   it('passes existingWorktreePath for worktree sessions', () => {
     const session = makeSession({
       isWorktree: true,
-      worktreePath: '/home/user/.vibegrid-worktrees/my-app/main-abc123',
+      worktreePath: '/home/user/.vorn-worktrees/my-app/main-abc123',
       branch: 'main-worktree-abc123'
     })
     const payload = buildRestorePayload(session)
-    expect(payload.existingWorktreePath).toBe('/home/user/.vibegrid-worktrees/my-app/main-abc123')
+    expect(payload.existingWorktreePath).toBe('/home/user/.vorn-worktrees/my-app/main-abc123')
     expect(payload.branch).toBe('main-worktree-abc123')
     expect(payload.useWorktree).toBeUndefined()
   })

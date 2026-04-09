@@ -601,7 +601,7 @@ export async function executeWorkflow(
   })
 
   if (Notification.permission === 'granted') {
-    new Notification('VibeGrid', {
+    new Notification('Vorn', {
       body: `Workflow "${workflow.name}" ${execution.status === 'success' ? 'completed' : 'failed'} — ${actionNodeCount} node${actionNodeCount !== 1 ? 's' : ''}`
     })
   }

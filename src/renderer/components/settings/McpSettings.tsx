@@ -27,7 +27,7 @@ export function McpSettings() {
   return (
     <div>
       <h2 className="text-xl font-semibold text-white mb-1">MCP Integration</h2>
-      <p className="text-sm text-gray-500 mb-6">Connect your coding agents to VibeGrid via MCP</p>
+      <p className="text-sm text-gray-500 mb-6">Connect your coding agents to Vorn via MCP</p>
 
       {/* Per-agent commands */}
       <h3 className="text-sm font-medium text-gray-200 mb-3">Agent Setup</h3>

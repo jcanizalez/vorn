@@ -1,4 +1,4 @@
-import { AgentStatus, HookEvent } from '@vibegrid/shared/types'
+import { AgentStatus, HookEvent } from '@vornrun/shared/types'
 import { ptyManager } from './pty-manager'
 import log from './logger'
 
@@ -7,16 +7,16 @@ class HookStatusMapper {
   private sessionMap = new Map<string, string>()
 
   /**
-   * Returns the VibeGrid terminalId for a confirmed Claude session_id.
+   * Returns the Vorn terminalId for a confirmed Claude session_id.
    * Returns undefined if the session has never fired a SessionStart that
-   * matched a VibeGrid terminal.
+   * matched a Vorn terminal.
    */
   getLinkedTerminal(sessionId: string): string | undefined {
     return this.sessionMap.get(sessionId)
   }
 
   /**
-   * Tries to link a Claude session_id to a VibeGrid terminal by cwd.
+   * Tries to link a Claude session_id to a Vorn terminal by cwd.
    * Only matches unlinked terminals to avoid stealing an already-claimed one.
    * Called on SessionStart (preferred) and as a fallback on any event.
    */
@@ -47,7 +47,7 @@ class HookStatusMapper {
   mapEventToStatus(event: HookEvent): { terminalId: string; status: AgentStatus } | null {
     // On SessionStart, always try to link. On other events, check the cache
     // first but fall back to cwd linking in case SessionStart was missed
-    // (e.g. Claude was already running when VibeGrid started).
+    // (e.g. Claude was already running when Vorn started).
     const terminalId =
       event.hook_event_name === 'SessionStart'
         ? this.tryLink(event.session_id, event.cwd)

@@ -12,7 +12,7 @@ export default defineConfig({
     __MCP_VERSION__: JSON.stringify(version)
   },
   // Bundle workspace packages so the npm package is self-contained
-  noExternal: [/@vibegrid\//],
+  noExternal: [/@vorn\//],
   // Native/CJS modules must remain external
   external: ['libsql', 'ws', 'pino']
 })

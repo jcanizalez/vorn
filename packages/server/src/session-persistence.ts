@@ -1,4 +1,4 @@
-import { TerminalSession } from '@vibegrid/shared/types'
+import { TerminalSession } from '@vornrun/shared/types'
 import {
   saveSessions as dbSaveSessions,
   getPreviousSessions as dbGetPreviousSessions,

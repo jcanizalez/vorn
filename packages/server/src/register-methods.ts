@@ -25,7 +25,7 @@ import {
   SessionEventType,
   RemoteHost,
   getProjectRemoteHostId
-} from '@vibegrid/shared/types'
+} from '@vornrun/shared/types'
 import * as gitUtils from './git-utils'
 import { listDir, readFileContent } from './file-utils'
 import {
@@ -61,7 +61,7 @@ import { getTailscaleStatus, clearBinaryCache } from './tailscale'
 import { checkAndRebind } from './server-rebind'
 import { testSshConnection } from './process-utils'
 import { captureAgentSessionId } from './agent-session-capture'
-import { supportsExactSessionResume, supportsSessionIdPinning } from '@vibegrid/shared/types'
+import { supportsExactSessionResume, supportsSessionIdPinning } from '@vornrun/shared/types'
 import log from './logger'
 
 const copilotInstallations = new Map<string, CopilotHookInstallation>()
@@ -221,7 +221,7 @@ export function registerAllMethods(): void {
         return cfg.remoteHosts?.find((h) => h.id === remoteId)
       }
       const parentDir = project.path.replace(/\/[^/]+$/, '')
-      if (anyPath.startsWith(parentDir + '/.vibegrid-worktrees/')) {
+      if (anyPath.startsWith(parentDir + '/.vorn-worktrees/')) {
         const remoteId = getProjectRemoteHostId(project)
         if (!remoteId) return undefined
         return cfg.remoteHosts?.find((h) => h.id === remoteId)

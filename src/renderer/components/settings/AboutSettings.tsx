@@ -5,7 +5,7 @@ export function AboutSettings() {
 
       <div className="space-y-4">
         <div>
-          <p className="text-sm text-gray-300">VibeGrid v{window.api.getAppVersion()}</p>
+          <p className="text-sm text-gray-300">Vorn v{window.api.getAppVersion()}</p>
           <p className="text-xs text-gray-600 mt-1">&copy; 2026 Javier Canizalez</p>
         </div>
       </div>

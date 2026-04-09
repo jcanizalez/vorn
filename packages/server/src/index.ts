@@ -24,7 +24,7 @@ export async function startServer(
   options: { host?: string; port?: number; dataDir?: string } = {}
 ) {
   // Resolve data directory
-  const dataDir = options.dataDir ?? path.join(os.homedir(), '.vibegrid')
+  const dataDir = options.dataDir ?? path.join(os.homedir(), '.vorn')
   setDataDir(dataDir)
 
   // Initialize database + config
@@ -40,7 +40,7 @@ export async function startServer(
 
   // Re-sync managers and broadcast to clients when config changes
   const { clientRegistry } = await import('./broadcast')
-  const { IPC } = await import('@vibegrid/shared/types')
+  const { IPC } = await import('@vornrun/shared/types')
   configManager.onConfigChanged((cfg) => {
     ptyManager.setAgentCommands(cfg.agentCommands)
     ptyManager.setRemoteHosts(cfg.remoteHosts ?? [])
@@ -155,7 +155,7 @@ export async function startServer(
 
   // Write WS port to a well-known file so MCP and other tools can discover it.
   // Use JSON with PID so multiple instances don't clobber each other's port files.
-  const wsPortFile = path.join(os.homedir(), '.vibegrid', 'ws-port')
+  const wsPortFile = path.join(os.homedir(), '.vorn', 'ws-port')
   let ownsPortFile = true
   try {
     fs.mkdirSync(path.dirname(wsPortFile), { recursive: true })

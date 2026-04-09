@@ -438,7 +438,7 @@ export interface CreateTerminalPayload {
   initialPrompt?: string
   promptDelayMs?: number
   headless?: boolean
-  /** Task ID — when set, the main process writes a .vibegrid/context.md file before agent spawn */
+  /** Task ID — when set, the main process writes a .vorn/context.md file before agent spawn */
   taskId?: string
   /** Workflow metadata — for tagging headless sessions launched by workflows */
   workflowId?: string

@@ -117,7 +117,7 @@ describe('process-utils (server package)', () => {
           _opts: unknown,
           cb: (err: Error | null, stdout: string, stderr: string) => void
         ) => {
-          cb(null, '__VIBEGRID_OK__\n', '')
+          cb(null, '__VORN_OK__\n', '')
           return { kill: vi.fn() }
         }
       )
@@ -180,7 +180,7 @@ describe('process-utils (server package)', () => {
           _opts: unknown,
           cb: (err: Error | null, stdout: string, stderr: string) => void
         ) => {
-          cb(null, '__VIBEGRID_OK__\n', '')
+          cb(null, '__VORN_OK__\n', '')
           return { kill: vi.fn() }
         }
       )

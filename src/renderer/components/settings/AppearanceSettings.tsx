@@ -31,7 +31,7 @@ export function AppearanceSettings() {
 
   return (
     <div>
-      <SettingsPageHeader title="Appearance" description="Customize how VibeGrid looks" />
+      <SettingsPageHeader title="Appearance" description="Customize how Vorn looks" />
 
       <div className="space-y-1">
         {/* Font Size */}

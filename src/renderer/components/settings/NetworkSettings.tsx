@@ -181,7 +181,7 @@ function PrerequisitesCard({
               </div>
               <p className="text-xs text-gray-400 mb-3">
                 Tailscale creates a secure private network between your devices. Install it to
-                access VibeGrid from your phone, tablet, or other computers.
+                access Vorn from your phone, tablet, or other computers.
               </p>
               <a
                 href="https://tailscale.com/download"
@@ -419,7 +419,7 @@ export function NetworkSettings() {
     <div>
       <SettingsPageHeader
         title="Remote Access"
-        description="Access VibeGrid from other devices on your Tailscale network"
+        description="Access Vorn from other devices on your Tailscale network"
       />
 
       {/* Loading state */}
@@ -451,7 +451,7 @@ export function NetworkSettings() {
         <div className="space-y-1">
           <SettingRow
             label="Enable Remote Access"
-            description="Allow other devices on your Tailscale network to access VibeGrid"
+            description="Allow other devices on your Tailscale network to access Vorn"
           >
             <ToggleSwitch
               checked={enabled}
@@ -478,7 +478,7 @@ export function NetworkSettings() {
           <div className="text-xs text-gray-600 space-y-1.5">
             <p>
               Tailscale creates an encrypted mesh network between your devices. When remote access
-              is enabled, other devices on your tailnet can connect to VibeGrid.
+              is enabled, other devices on your tailnet can connect to Vorn.
             </p>
             <p>
               Only devices signed into your Tailscale account can reach this address. No passwords,

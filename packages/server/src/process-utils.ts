@@ -1,7 +1,7 @@
 import { execFileSync, execFile, type ExecFileSyncOptions } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import type { RemoteHost } from '@vibegrid/shared/types'
+import type { RemoteHost } from '@vornrun/shared/types'
 
 function getUserShellEnv(): Record<string, string> {
   if (process.platform === 'win32') return { ...process.env } as Record<string, string>
@@ -122,7 +122,7 @@ export function testSshConnection(host: RemoteHost): Promise<SshTestResult> {
   return new Promise((resolve) => {
     const start = Date.now()
     const args = buildSshArgs(host, { connectTimeout: 5 })
-    args.push('echo', '__VIBEGRID_OK__')
+    args.push('echo', '__VORN_OK__')
 
     const safetyTimer = setTimeout(() => {
       try {
@@ -139,7 +139,7 @@ export function testSshConnection(host: RemoteHost): Promise<SshTestResult> {
       (err, stdout, stderr) => {
         clearTimeout(safetyTimer)
         const durationMs = Date.now() - start
-        if (!err && stdout.includes('__VIBEGRID_OK__')) {
+        if (!err && stdout.includes('__VORN_OK__')) {
           resolve({ success: true, message: `Connected in ${durationMs}ms`, durationMs })
         } else {
           // Strip SSH warnings (e.g. "Warning: Permanently added ... to known hosts")
@@ -181,7 +181,7 @@ export function buildSshArgs(host: RemoteHost, opts?: { connectTimeout?: number 
       '-o',
       'ControlMaster=auto',
       '-o',
-      `ControlPath=${tmpDir}/vibegrid-ssh-%h-%p`,
+      `ControlPath=${tmpDir}/vorn-ssh-%h-%p`,
       '-o',
       'ControlPersist=60'
     )

@@ -4,11 +4,11 @@ import path from 'node:path'
 import os from 'node:os'
 import crypto from 'node:crypto'
 import { EventEmitter } from 'node:events'
-import { HookEvent } from '@vibegrid/shared/types'
+import { HookEvent } from '@vornrun/shared/types'
 import log from './logger'
 
-const PORT_FILE = path.join(os.homedir(), '.vibegrid', 'port')
-const TOKEN_FILE = path.join(os.homedir(), '.vibegrid', 'token')
+const PORT_FILE = path.join(os.homedir(), '.vorn', 'port')
+const TOKEN_FILE = path.join(os.homedir(), '.vorn', 'token')
 const MAX_BODY_SIZE = 1024 * 1024 // 1 MB
 
 export interface PendingPermission {

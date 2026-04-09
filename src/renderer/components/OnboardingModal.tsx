@@ -161,7 +161,7 @@ function StepAgents() {
   return (
     <div className="space-y-3">
       <p className="text-[13px] text-gray-400 leading-relaxed">
-        VibeGrid works with multiple AI coding agents. We detected which ones you have installed.
+        Vorn works with multiple AI coding agents. We detected which ones you have installed.
       </p>
 
       {installed.length > 0 && (

@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import fs from 'node:fs'
 import crypto from 'node:crypto'
-import type { RemoteHost } from '@vibegrid/shared/types'
+import type { RemoteHost } from '@vornrun/shared/types'
 import { sshExecSync, shellEscape } from './process-utils'
 
 /**
@@ -199,7 +199,7 @@ export function createWorktree(
   const parentDir = remote
     ? projectPath.split('/').slice(0, -1).join('/')
     : path.dirname(projectPath)
-  const baseDir = `${parentDir}${sep}.vibegrid-worktrees${sep}${projectName}`
+  const baseDir = `${parentDir}${sep}.vorn-worktrees${sep}${projectName}`
   const worktreeDir = `${baseDir}${sep}${name}-${shortId}`
 
   if (remote) {

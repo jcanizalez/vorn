@@ -1,1 +1,1 @@
-export * from '@vibegrid/shared/types'
+export * from '@vornrun/shared/types'

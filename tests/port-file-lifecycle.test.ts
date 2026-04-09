@@ -64,7 +64,7 @@ function readPortFile(): { port: number; pid: number } | null {
 // --- Tests ---
 
 beforeEach(() => {
-  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vibegrid-port-test-'))
+  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vorn-port-test-'))
   portFile = path.join(tmpDir, 'ws-port')
 })
 

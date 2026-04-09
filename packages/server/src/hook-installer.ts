@@ -3,7 +3,7 @@ import path from 'node:path'
 import os from 'node:os'
 
 const CLAUDE_SETTINGS_PATH = path.join(os.homedir(), '.claude', 'settings.json')
-const VIBEGRID_HEADER = 'X-VibeGrid'
+const VORN_HEADER = 'X-Vorn'
 
 const HOOK_EVENTS = [
   'PreToolUse',
@@ -20,14 +20,14 @@ function makeHookEntry(port: number, token: string) {
   return {
     type: 'http',
     url: `http://localhost:${port}/hooks`,
-    headers: { [VIBEGRID_HEADER]: 'true', Authorization: `Bearer ${token}` },
+    headers: { [VORN_HEADER]: 'true', Authorization: `Bearer ${token}` },
     timeout: 30
   }
 }
 
-function isVibeGridHook(hook: Record<string, unknown>): boolean {
+function isVornHook(hook: Record<string, unknown>): boolean {
   const headers = hook.headers as Record<string, string> | undefined
-  return headers?.[VIBEGRID_HEADER] === 'true'
+  return headers?.[VORN_HEADER] === 'true'
 }
 
 export function installHooks(port: number, token: string): void {
@@ -48,18 +48,18 @@ export function installHooks(port: number, token: string): void {
   for (const event of HOOK_EVENTS) {
     const existing = (hooks[event] ?? []) as Record<string, unknown>[]
 
-    // Remove old VibeGrid hooks
+    // Remove old Vorn hooks
     const filtered = existing.filter((entry) => {
       const entryHooks = (entry.hooks ?? []) as Record<string, unknown>[]
-      const nonVG = entryHooks.filter((h) => !isVibeGridHook(h))
-      if (nonVG.length === 0 && entryHooks.some((h) => isVibeGridHook(h))) {
+      const nonVG = entryHooks.filter((h) => !isVornHook(h))
+      if (nonVG.length === 0 && entryHooks.some((h) => isVornHook(h))) {
         return false // Remove entire entry if it only had VG hooks
       }
       entry.hooks = nonVG
       return true
     })
 
-    // Add new VibeGrid hook
+    // Add new Vorn hook
     filtered.push({
       hooks: [makeHookEntry(port, token)]
     })
@@ -77,7 +77,7 @@ export function installHooks(port: number, token: string): void {
   fs.writeFileSync(CLAUDE_SETTINGS_PATH, JSON.stringify(settings, null, 2), 'utf-8')
 }
 
-const PORT_FILE = path.join(os.homedir(), '.vibegrid', 'port')
+const PORT_FILE = path.join(os.homedir(), '.vorn', 'port')
 
 let installedPort: number | null = null
 
@@ -104,7 +104,7 @@ export function uninstallHooks(): void {
       const existing = (hooks[event] ?? []) as Record<string, unknown>[]
       hooks[event] = existing.filter((entry) => {
         const entryHooks = (entry.hooks ?? []) as Record<string, unknown>[]
-        const nonVG = entryHooks.filter((h) => !isVibeGridHook(h))
+        const nonVG = entryHooks.filter((h) => !isVornHook(h))
         if (nonVG.length === 0) return false
         entry.hooks = nonVG
         return true

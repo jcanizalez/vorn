@@ -96,7 +96,7 @@ export function buildTaskPrompt(ctx: TaskPromptContext): string {
   // --- MCP instructions ---
   lines.push('## Available Tools')
   lines.push('')
-  lines.push('You are managed by VibeGrid. You have access to MCP tools for project management:')
+  lines.push('You are managed by Vorn. You have access to MCP tools for project management:')
   lines.push('- `get_my_context` — Get your current task and project context')
   lines.push('- `list_tasks` — List tasks in this project')
   lines.push('- `update_task` — Update task status/description when done')
@@ -133,7 +133,7 @@ export function buildWorkflowPrompt(ctx: WorkflowPromptContext): string {
 
   lines.push('## Available Tools')
   lines.push('')
-  lines.push('You are managed by VibeGrid. You have access to MCP tools:')
+  lines.push('You are managed by Vorn. You have access to MCP tools:')
   lines.push('- `get_my_context` — Get your current project context')
   lines.push(
     `- \`list_workflow_runs\` — See previous runs for this workflow (workflow_id: "${workflow.id}")`

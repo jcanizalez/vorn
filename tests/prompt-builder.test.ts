@@ -3,13 +3,13 @@ import {
   buildTaskPrompt,
   buildFeedbackPrompt,
   buildWorkflowPrompt
-} from '@vibegrid/shared/prompt-builder'
-import type { TaskConfig, ProjectConfig, WorkflowDefinition } from '@vibegrid/shared/types'
+} from '@vornrun/shared/prompt-builder'
+import type { TaskConfig, ProjectConfig, WorkflowDefinition } from '@vornrun/shared/types'
 
 function makeTask(overrides: Partial<TaskConfig> = {}): TaskConfig {
   return {
     id: 'task-001',
-    projectName: 'vibegrid',
+    projectName: 'vorn',
     title: 'Fix login bug',
     description: 'Users cannot log in on Safari',
     status: 'in_progress',
@@ -22,8 +22,8 @@ function makeTask(overrides: Partial<TaskConfig> = {}): TaskConfig {
 
 function makeProject(overrides: Partial<ProjectConfig> = {}): ProjectConfig {
   return {
-    name: 'vibegrid',
-    path: '/Users/dev/vibegrid',
+    name: 'vorn',
+    path: '/Users/dev/vorn',
     preferredAgents: ['claude'],
     ...overrides
   }
@@ -37,8 +37,8 @@ describe('buildTaskPrompt', () => {
 
   it('includes project name and path', () => {
     const result = buildTaskPrompt({ task: makeTask(), project: makeProject() })
-    expect(result).toContain('**Project:** vibegrid')
-    expect(result).toContain('**Project Path:** /Users/dev/vibegrid')
+    expect(result).toContain('**Project:** vorn')
+    expect(result).toContain('**Project Path:** /Users/dev/vorn')
   })
 
   it('includes branch when present on task', () => {
@@ -124,7 +124,7 @@ describe('buildFeedbackPrompt', () => {
   it('includes task title and project', () => {
     const result = buildFeedbackPrompt('Please fix tests', makeTask(), makeProject())
     expect(result).toContain('# Review Feedback for: Fix login bug')
-    expect(result).toContain('**Project:** vibegrid')
+    expect(result).toContain('**Project:** vorn')
   })
 
   it('includes feedback text', () => {

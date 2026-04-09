@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { ScriptConfig } from '@vibegrid/shared/types'
+import { ScriptConfig } from '@vornrun/shared/types'
 import { getSafeEnv } from './process-utils'
 import log from './logger'
 
