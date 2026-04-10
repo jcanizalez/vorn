@@ -1,6 +1,11 @@
 @import 'tailwindcss';
 @source "./**/*.{tsx,ts,html}";
 
+@theme {
+  --color-bronzo: #c9972a;
+  --color-bronzo-dark: #b8862a;
+}
+
 html,
 body {
   margin: 0;
