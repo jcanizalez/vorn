@@ -3,7 +3,12 @@ import type { WorkflowDefinition, WorkflowNode, TriggerConfig } from '../src/sha
 
 // Mock dependencies before importing
 vi.mock('node-cron', () => ({
-  default: { schedule: vi.fn(() => ({ stop: vi.fn() })) }
+  default: {
+    schedule: vi.fn(() => ({ stop: vi.fn(), start: vi.fn(), destroy: vi.fn() })),
+    validate: vi.fn(() => true),
+    createTask: vi.fn(() => ({ stop: vi.fn(), start: vi.fn(), destroy: vi.fn() })),
+    getTasks: vi.fn(() => new Map())
+  }
 }))
 vi.mock('../packages/server/src/config-manager', () => ({
   configManager: { loadConfig: vi.fn(), saveConfig: vi.fn() }

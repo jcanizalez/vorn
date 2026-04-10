@@ -1,4 +1,4 @@
-import cron from 'node-cron'
+import cron, { type ScheduledTask } from 'node-cron'
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
@@ -57,7 +57,7 @@ function getTriggerConfig(wf: WorkflowDefinition): TriggerConfig | null {
 }
 
 class Scheduler extends EventEmitter {
-  private cronJobs = new Map<string, cron.ScheduledTask>()
+  private cronJobs = new Map<string, ScheduledTask>()
   private timeouts = new Map<string, NodeJS.Timeout>()
 
   syncSchedules(workflows: WorkflowDefinition[]): void {
