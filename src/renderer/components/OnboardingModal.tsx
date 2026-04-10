@@ -468,7 +468,7 @@ function StepWorkspace() {
                   key={t}
                   className="text-[9px] px-1.5 py-0.5 rounded"
                   style={{
-                    background: i === 0 ? 'rgba(0,255,212,0.08)' : 'rgba(255,255,255,0.03)',
+                    background: i === 0 ? 'rgba(201,151,42,0.08)' : 'rgba(255,255,255,0.03)',
                     color: i === 0 ? '#c9972a' : '#555'
                   }}
                 >
