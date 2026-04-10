@@ -50,10 +50,7 @@ export function SessionRestoredBanner() {
         <button
           onClick={handleRestore}
           disabled={restoring}
-          className="px-3 py-1 text-xs font-medium text-black rounded-md transition-colors"
-          style={{ background: '#00FFD4' }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = '#00e6be')}
-          onMouseLeave={(e) => (e.currentTarget.style.background = '#00FFD4')}
+          className="px-3 py-1 text-xs font-medium text-black rounded-md transition-colors bg-bronzo hover:bg-bronzo-dark"
         >
           {restoring ? 'Restoring...' : 'Restore'}
         </button>

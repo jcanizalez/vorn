@@ -457,16 +457,9 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
         disabled={!canLaunch || launching}
         className={`p-1.5 rounded-full transition-colors ${
           canLaunch
-            ? 'text-black cursor-pointer'
+            ? 'bg-bronzo hover:bg-bronzo-dark text-black cursor-pointer'
             : 'bg-white/[0.06] text-gray-600 cursor-not-allowed'
         }`}
-        style={canLaunch ? { background: '#00FFD4' } : undefined}
-        onMouseEnter={(e) => {
-          if (canLaunch) e.currentTarget.style.background = '#00e6be'
-        }}
-        onMouseLeave={(e) => {
-          if (canLaunch) e.currentTarget.style.background = '#00FFD4'
-        }}
         title="Launch (Enter)"
       >
         <ArrowUp size={14} strokeWidth={2.5} />
@@ -518,8 +511,7 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
     return (
       <div className="flex flex-col items-center justify-center w-full h-full px-4">
         <div className="w-full max-w-[800px] flex flex-col items-center">
-          <img src={vornLogo} alt="Vorn" className="h-8 mb-5 opacity-40" draggable={false} />
-          <p className="text-sm text-gray-500 mb-6">Describe a task to start a coding agent</p>
+          <img src={vornLogo} alt="Vorn" className="h-8 mb-6 opacity-50" draggable={false} />
           {promptInput}
         </div>
       </div>

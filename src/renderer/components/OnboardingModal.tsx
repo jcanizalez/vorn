@@ -133,7 +133,7 @@ function AccentButton({
     <button
       onClick={onClick}
       className="flex items-center gap-2 px-3.5 py-1.5 text-[12px] font-medium rounded-lg
-                 text-[#00FFD4] bg-[#00FFD4]/[0.04] border border-white/[0.08] hover:border-white/[0.14] transition-all"
+                 text-bronzo bg-bronzo/[0.04] border border-white/[0.08] hover:border-white/[0.14] transition-all"
     >
       <Icon size={13} />
       {label}
@@ -226,9 +226,9 @@ function StepAgents() {
           onClick={() => setMcpOpen(!mcpOpen)}
           className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-white/[0.02] transition-colors"
         >
-          <Plug size={13} className="text-[#00FFD4]" />
+          <Plug size={13} className="text-bronzo" />
           <span className="text-[12px] font-medium text-gray-200 flex-1">Connect MCP Server</span>
-          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded text-[#00FFD4] bg-[#00FFD4]/[0.08]">
+          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded text-bronzo bg-bronzo/[0.08]">
             Recommended
           </span>
           {mcpOpen ? (
@@ -468,8 +468,8 @@ function StepWorkspace() {
                   key={t}
                   className="text-[9px] px-1.5 py-0.5 rounded"
                   style={{
-                    background: i === 0 ? 'rgba(0,255,212,0.08)' : 'rgba(255,255,255,0.03)',
-                    color: i === 0 ? '#00FFD4' : '#555'
+                    background: i === 0 ? 'rgba(201,151,42,0.08)' : 'rgba(255,255,255,0.03)',
+                    color: i === 0 ? '#c9972a' : '#555'
                   }}
                 >
                   {t}
@@ -723,7 +723,7 @@ export function OnboardingModal() {
                 className="relative h-1 rounded-full transition-all duration-300"
                 style={{
                   width: i === currentStep ? 32 : 16,
-                  background: i <= currentStep ? '#00FFD4' : 'rgba(255,255,255,0.08)'
+                  background: i <= currentStep ? '#c9972a' : 'rgba(255,255,255,0.08)'
                 }}
                 aria-label={`Go to step ${i + 1}: ${s.title}`}
               />
@@ -742,8 +742,8 @@ export function OnboardingModal() {
               transition={{ duration: 0.15 }}
               className="flex items-center gap-3"
             >
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-[#00FFD4]/[0.06]">
-                {StepIcon && <StepIcon size={20} className="text-[#00FFD4]" />}
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-bronzo/[0.06]">
+                {StepIcon && <StepIcon size={20} className="text-bronzo" />}
               </div>
               <div>
                 <h2 className="text-base font-semibold text-white">{step.title}</h2>
@@ -791,7 +791,7 @@ export function OnboardingModal() {
           <button
             onClick={isLast ? close : () => setCurrentStep((s) => s + 1)}
             className="flex items-center gap-1.5 px-4 py-1.5 text-[13px] font-medium text-black
-                       rounded-lg bg-[#00FFD4] hover:bg-[#00e6be] transition-colors"
+                       rounded-lg bg-bronzo hover:bg-bronzo-dark transition-colors"
           >
             {isLast ? 'Get Started' : 'Next'}
             <ArrowRight size={13} />

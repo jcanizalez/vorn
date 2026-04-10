@@ -68,7 +68,7 @@ export async function resolveResumeSessionId(
 ): Promise<string | undefined> {
   if (!supportsExactSessionResume(s.agentType)) return undefined
   // Only use agentSessionId for resume — it's the real agent session ID passed
-  // via --session-id on fresh launch. hookSessionId is a VibeGrid-internal UUID
+  // via --session-id on fresh launch. hookSessionId is a Vorn-internal UUID
   // for hook event routing; the agent CLI doesn't know about it. For agents
   // without pinning support, fall through to the history-based scan.
   const resumeId = s.agentSessionId

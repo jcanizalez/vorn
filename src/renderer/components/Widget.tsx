@@ -282,7 +282,7 @@ function CompactWidget({
           onClick={() => window.widgetApi.showApp()}
           title="Open Vorn"
         >
-          VG
+          V_
         </button>
         <div className="widget-compact-dots">
           {running > 0 && (
