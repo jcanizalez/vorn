@@ -84,6 +84,14 @@ jobs:
       - name: Install dependencies
         run: yarn install
 
+      - name: Sync version from tag
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+            npm pkg set version="$VERSION"
+            echo "Set version to $VERSION"
+          fi
+
       - name: Build
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -149,6 +157,14 @@ jobs:
       - name: Install dependencies
         run: yarn install
 
+      - name: Sync version from tag
+        run: |
+          if ($env:GITHUB_REF -match '^refs/tags/') {
+            $version = $env:GITHUB_REF_NAME -replace '^v', ''
+            npm pkg set version="$version"
+            Write-Output "Set version to $version"
+          }
+
       - name: Build
         run: |
           yarn build
@@ -201,6 +217,14 @@ jobs:
 
       - name: Install dependencies
         run: yarn install
+
+      - name: Sync version from tag
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+            npm pkg set version="$VERSION"
+            echo "Set version to $VERSION"
+          fi
 
       - name: Build
         run: |
