@@ -482,6 +482,17 @@
         text-indent: 0.25em;
       }
 
+      @media (max-width: 768px) {
+        .hero-vitruvian {
+          top: 8%;
+          width: min(78vw, 440px);
+          opacity: 0.22;
+        }
+        .hero-title {
+          font-size: clamp(4.5rem, 19vw, 6.5rem);
+        }
+      }
+
       .hero-subtitle {
         font-family: var(--serif);
         font-size: clamp(18px, 2.5vw, 26px);
