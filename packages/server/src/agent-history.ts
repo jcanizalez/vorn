@@ -30,7 +30,11 @@ function querySqlite(dbPath: string, sql: string): Record<string, unknown>[] {
     try {
       return db.prepare(sql).all() as Record<string, unknown>[]
     } finally {
-      db.close()
+      try {
+        db.close()
+      } catch {
+        // Swallow close errors so a successful query result isn't discarded.
+      }
     }
   } catch {
     return []
