@@ -9,20 +9,36 @@ vi.mock('node:fs', () => ({
     realpathSync: vi.fn((p: string) => p)
   }
 }))
-vi.mock('node:child_process', () => ({
-  execFileSync: vi.fn(() => '')
-}))
+
+const libsqlRowsQueue: Record<string, unknown>[][] = []
+const libsqlSqlCalls: string[] = []
+
+vi.mock('libsql', () => {
+  class MockDatabase {
+    constructor(_path: string, _opts?: unknown) {}
+    prepare(sql: string) {
+      libsqlSqlCalls.push(sql)
+      return {
+        all: () => libsqlRowsQueue.shift() ?? []
+      }
+    }
+    close() {}
+  }
+  return { default: MockDatabase }
+})
+
 vi.mock('../packages/server/src/git-utils', () => ({
   listWorktrees: vi.fn(() => [])
 }))
 
 import fs from 'node:fs'
-import { execFileSync } from 'node:child_process'
 import { listWorktrees } from '../packages/server/src/git-utils'
 import { getRecentSessions } from '../packages/server/src/agent-history'
 
 beforeEach(() => {
   vi.clearAllMocks()
+  libsqlRowsQueue.length = 0
+  libsqlSqlCalls.length = 0
 })
 
 describe('getRecentSessions', () => {
@@ -104,15 +120,13 @@ describe('Claude provider', () => {
 })
 
 describe('Codex provider', () => {
-  it('returns sessions from sqlite3 query', () => {
+  it('returns sessions from sqlite query', () => {
     vi.mocked(fs.existsSync).mockImplementation((p) => {
       return String(p).includes('.codex/state_5.sqlite')
     })
-    vi.mocked(execFileSync).mockReturnValueOnce(
-      JSON.stringify([
-        { id: 'c1', cwd: '/app', title: 'Test', updated_at: 1700000000, first_user_message: '' }
-      ])
-    )
+    libsqlRowsQueue.push([
+      { id: 'c1', cwd: '/app', title: 'Test', updated_at: 1700000000, first_user_message: '' }
+    ])
 
     const sessions = getRecentSessions()
     const codex = sessions.filter((s) => s.agentType === 'codex')
@@ -128,24 +142,22 @@ describe('Codex provider', () => {
 
   it('matches Windows project paths after normalization', () => {
     vi.mocked(fs.existsSync).mockImplementation((p) => String(p).includes('.codex/state_5.sqlite'))
-    vi.mocked(execFileSync).mockReturnValueOnce(
-      JSON.stringify([
-        {
-          id: 'c1',
-          cwd: 'c:/Users/Javier/App',
-          title: 'Matching',
-          updated_at: 1700000001,
-          first_user_message: ''
-        },
-        {
-          id: 'c2',
-          cwd: 'D:/Elsewhere',
-          title: 'Other',
-          updated_at: 1700000000,
-          first_user_message: ''
-        }
-      ])
-    )
+    libsqlRowsQueue.push([
+      {
+        id: 'c1',
+        cwd: 'c:/Users/Javier/App',
+        title: 'Matching',
+        updated_at: 1700000001,
+        first_user_message: ''
+      },
+      {
+        id: 'c2',
+        cwd: 'D:/Elsewhere',
+        title: 'Other',
+        updated_at: 1700000000,
+        first_user_message: ''
+      }
+    ])
 
     const sessions = getRecentSessions('C:\\Users\\Javier\\App\\')
     const codex = sessions.filter((s) => s.agentType === 'codex')
@@ -158,45 +170,41 @@ describe('Codex provider', () => {
     vi.mocked(listWorktrees).mockReturnValue([
       { path: '/worktrees/my-app/feature-a', branch: 'feature-a', isMain: false }
     ])
-    vi.mocked(execFileSync).mockReturnValueOnce(
-      JSON.stringify([
-        {
-          id: 'c1',
-          cwd: '/worktrees/my-app/feature-a',
-          title: 'Worktree session',
-          updated_at: 1700000001,
-          first_user_message: ''
-        }
-      ])
-    )
+    libsqlRowsQueue.push([
+      {
+        id: 'c1',
+        cwd: '/worktrees/my-app/feature-a',
+        title: 'Worktree session',
+        updated_at: 1700000001,
+        first_user_message: ''
+      }
+    ])
 
     const sessions = getRecentSessions('/app')
     const codex = sessions.filter((s) => s.agentType === 'codex')
     expect(codex).toHaveLength(1)
     expect(codex[0].sessionId).toBe('c1')
 
-    const sql = vi.mocked(execFileSync).mock.calls[0]?.[1]?.[3]
+    const sql = libsqlSqlCalls[0]
     expect(String(sql)).toContain('/app')
     expect(String(sql)).toContain('/worktrees/my-app/feature-a')
   })
 
   it('lowercases scoped SQL path literals for uppercase POSIX paths', () => {
     vi.mocked(fs.existsSync).mockImplementation((p) => String(p).includes('.codex/state_5.sqlite'))
-    vi.mocked(execFileSync).mockReturnValueOnce(
-      JSON.stringify([
-        {
-          id: 'c1',
-          cwd: '/Users/Javier/App',
-          title: 'Matching',
-          updated_at: 1700000001,
-          first_user_message: ''
-        }
-      ])
-    )
+    libsqlRowsQueue.push([
+      {
+        id: 'c1',
+        cwd: '/Users/Javier/App',
+        title: 'Matching',
+        updated_at: 1700000001,
+        first_user_message: ''
+      }
+    ])
 
     getRecentSessions('/Users/Javier/App')
 
-    const sql = vi.mocked(execFileSync).mock.calls[0]?.[1]?.[3]
+    const sql = libsqlSqlCalls[0]
     expect(String(sql)).toContain('/users/javier/app')
   })
 })
@@ -206,24 +214,22 @@ describe('Copilot provider', () => {
     vi.mocked(fs.existsSync).mockImplementation((p) =>
       String(p).includes('.copilot/session-store.db')
     )
-    vi.mocked(execFileSync).mockReturnValueOnce(
-      JSON.stringify([
-        {
-          id: 'p1',
-          cwd: 'c:/Users/Javier/App',
-          summary: 'Matching',
-          updated_at: '2026-03-25T00:00:00.000Z',
-          turn_count: 4
-        },
-        {
-          id: 'p2',
-          cwd: 'D:/Elsewhere',
-          summary: 'Other',
-          updated_at: '2026-03-24T00:00:00.000Z',
-          turn_count: 2
-        }
-      ])
-    )
+    libsqlRowsQueue.push([
+      {
+        id: 'p1',
+        cwd: 'c:/Users/Javier/App',
+        summary: 'Matching',
+        updated_at: '2026-03-25T00:00:00.000Z',
+        turn_count: 4
+      },
+      {
+        id: 'p2',
+        cwd: 'D:/Elsewhere',
+        summary: 'Other',
+        updated_at: '2026-03-24T00:00:00.000Z',
+        turn_count: 2
+      }
+    ])
 
     const sessions = getRecentSessions('C:\\Users\\Javier\\App\\')
     const copilot = sessions.filter((s) => s.agentType === 'copilot')
@@ -235,17 +241,15 @@ describe('Copilot provider', () => {
 describe('OpenCode provider', () => {
   it('returns sessions from the OpenCode database', () => {
     vi.mocked(fs.existsSync).mockImplementation((p) => String(p).includes('opencode/opencode.db'))
-    vi.mocked(execFileSync).mockReturnValueOnce(
-      JSON.stringify([
-        {
-          id: 'o1',
-          directory: '/app',
-          title: 'OpenCode session',
-          time_updated: 1700000001000,
-          message_count: 7
-        }
-      ])
-    )
+    libsqlRowsQueue.push([
+      {
+        id: 'o1',
+        directory: '/app',
+        title: 'OpenCode session',
+        time_updated: 1700000001000,
+        message_count: 7
+      }
+    ])
 
     const sessions = getRecentSessions()
     const opencode = sessions.filter((s) => s.agentType === 'opencode')
@@ -262,23 +266,21 @@ describe('OpenCode provider', () => {
 
   it('filters OpenCode sessions by project path', () => {
     vi.mocked(fs.existsSync).mockImplementation((p) => String(p).includes('opencode/opencode.db'))
-    vi.mocked(execFileSync).mockReturnValueOnce(
-      JSON.stringify([
-        {
-          id: 'o1',
-          directory: '/app',
-          title: 'OpenCode session',
-          time_updated: 1700000001000,
-          message_count: 7
-        }
-      ])
-    )
+    libsqlRowsQueue.push([
+      {
+        id: 'o1',
+        directory: '/app',
+        title: 'OpenCode session',
+        time_updated: 1700000001000,
+        message_count: 7
+      }
+    ])
 
     const sessions = getRecentSessions('/app')
     const opencode = sessions.filter((s) => s.agentType === 'opencode')
     expect(opencode).toHaveLength(1)
 
-    const sql = vi.mocked(execFileSync).mock.calls[0]?.[1]?.[3]
+    const sql = libsqlSqlCalls[0]
     expect(String(sql)).toContain('s.directory')
   })
 })
@@ -295,11 +297,9 @@ describe('aggregate', () => {
       JSON.stringify({ sessionId: 's1', display: 'Claude', project: '/app', timestamp: 3000 })
     )
     // Codex
-    vi.mocked(execFileSync).mockReturnValueOnce(
-      JSON.stringify([
-        { id: 'c1', cwd: '/app', title: 'Codex', updated_at: 4, first_user_message: '' }
-      ])
-    )
+    libsqlRowsQueue.push([
+      { id: 'c1', cwd: '/app', title: 'Codex', updated_at: 4, first_user_message: '' }
+    ])
 
     const sessions = getRecentSessions(undefined, 2)
     expect(sessions.length).toBeLessThanOrEqual(2)
