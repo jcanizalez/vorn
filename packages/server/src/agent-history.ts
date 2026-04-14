@@ -1,7 +1,7 @@
+import Database from 'libsql'
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
-import { execFileSync } from 'node:child_process'
 import {
   AgentType,
   RecentSession,
@@ -21,19 +21,17 @@ interface ProjectScope {
 }
 
 // ---------------------------------------------------------------------------
-// Shared helper -- run a read-only SQLite query via the system sqlite3 CLI
+// Shared helper -- run a read-only SQLite query via libsql (works on Windows)
 // ---------------------------------------------------------------------------
 
 function querySqlite(dbPath: string, sql: string): Record<string, unknown>[] {
   try {
-    const output = execFileSync('sqlite3', ['-json', '-readonly', dbPath, sql], {
-      encoding: 'utf-8' as const,
-      stdio: ['pipe', 'pipe', 'pipe'] as const,
-      timeout: 5000
-    })
-    const trimmed = output.trim()
-    if (!trimmed) return []
-    return JSON.parse(trimmed)
+    const db = new Database(dbPath, { readonly: true })
+    try {
+      return db.prepare(sql).all() as Record<string, unknown>[]
+    } finally {
+      db.close()
+    }
   } catch {
     return []
   }
