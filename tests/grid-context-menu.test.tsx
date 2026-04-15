@@ -204,6 +204,42 @@ describe('GridContextMenu', () => {
     )
   })
 
+  it('clicking a project item creates a plain session in that project', async () => {
+    mockCreateTerminal.mockResolvedValue({
+      id: 'plain-term',
+      session: {
+        id: 'plain-term',
+        agentType: 'claude',
+        projectName: 'OtherApp',
+        projectPath: '/tmp/otherapp'
+      },
+      status: 'idle',
+      lastOutputTimestamp: Date.now()
+    })
+
+    const onClose = vi.fn()
+    render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={onClose} />)
+
+    fireEvent.click(screen.getByText('OtherApp'))
+
+    expect(onClose).toHaveBeenCalled()
+    const call = mockCreateTerminal.mock.calls[0][0]
+    expect(call.projectName).toBe('OtherApp')
+    expect(call.branch).toBeUndefined()
+    expect(call.existingWorktreePath).toBeUndefined()
+  })
+
+  it('non-git project hover does not render a worktree submenu', () => {
+    // No worktreeCache entry for OtherApp → buildWorktreeSubmenu returns null.
+    render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
+
+    const otherItem = screen.getByText('OtherApp')
+    fireEvent.mouseEnter(otherItem.closest('button')!)
+
+    // "New worktree" would indicate a git-flavored submenu opened; it should not.
+    expect(screen.queryByText('New worktree')).not.toBeInTheDocument()
+  })
+
   it('falls back to opening dialog when no project is resolved', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     useAppStore.setState({ config: { ...mockConfig, projects: [] } as any, activeProject: null })

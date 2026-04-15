@@ -136,7 +136,6 @@ export const AgentCard = memo(
     return (
       <motion.div
         ref={ref}
-        data-agent-card
         layout={!flexible}
         layoutId={flexible ? undefined : terminalId}
         className={`relative rounded-lg border overflow-hidden flex flex-col

@@ -123,14 +123,19 @@ export function GridContextMenu({ position, onClose }: Props) {
     state.addTerminal(session)
   }
 
-  const buildWorktreeSubmenu = (p: ProjectConfig): SubmenuItem[] => {
-    const worktrees = worktreeCache.get(p.path) ?? []
+  // Returns null for non-git projects (whose worktreeCache entry is never
+  // populated because listWorktrees fails). The main worktree is filtered out
+  // because plain sessions are reachable by clicking the parent project item.
+  const buildWorktreeSubmenu = (p: ProjectConfig): SubmenuItem[] | null => {
+    const worktrees = worktreeCache.get(p.path)
+    if (!worktrees || worktrees.length === 0) return null
+    const nonMain = worktrees.filter((wt) => !wt.isMain)
     const sessionCountByPath = new Map<string, number>()
     for (const [, t] of terminals) {
       const wtPath = t.session.worktreePath
       if (wtPath) sessionCountByPath.set(wtPath, (sessionCountByPath.get(wtPath) ?? 0) + 1)
     }
-    const subs: SubmenuItem[] = worktrees.map((wt) => {
+    const subs: SubmenuItem[] = nonMain.map((wt) => {
       const count = sessionCountByPath.get(wt.path) ?? 0
       return {
         iconElement: <FolderGit2 size={12} className="text-amber-400/70" />,
@@ -191,6 +196,9 @@ export function GridContextMenu({ position, onClose }: Props) {
       iconElement: <ProjectIcon icon={p.icon} color={p.iconColor} size={14} />,
       label: p.name,
       separator: i === 0 && shouldSeparateProjects,
+      // Click creates a plain session in the project (main worktree).
+      // Hover opens the worktree submenu if the project is a git repo.
+      onClick: () => createSession(p),
       submenuProject: p,
       onSubmenuEnter: () => loadWorktrees(p.path)
     })
@@ -257,12 +265,12 @@ export function GridContextMenu({ position, onClose }: Props) {
                 }}
                 onClick={(e) => {
                   e.stopPropagation()
-                  if (itemHasSubmenu) {
+                  if (item.onClick) {
+                    item.onClick()
+                  } else if (itemHasSubmenu) {
                     clearHideTimeout()
                     setHoveredSubmenu(hoveredSubmenu === i ? null : i)
                     item.onSubmenuEnter?.()
-                  } else {
-                    item.onClick?.()
                   }
                 }}
                 onMouseEnter={() => {
