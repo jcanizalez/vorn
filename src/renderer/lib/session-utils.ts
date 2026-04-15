@@ -1,8 +1,11 @@
 import {
   supportsExactSessionResume,
+  getProjectRemoteHostId,
   type TerminalSession,
   type RecentSession,
-  type CreateTerminalPayload
+  type CreateTerminalPayload,
+  type ProjectConfig,
+  type AgentType
 } from '../../shared/types'
 import { useAppStore } from '../stores'
 
@@ -148,6 +151,40 @@ export function buildRestorePayload(
     remoteHostId: s.remoteHostId,
     resumeSessionId
   }
+}
+
+/**
+ * Create a terminal session in a project. Handles agent defaults, remote host
+ * resolution, and the worktree branch lookup so callers (grid context menu,
+ * command palette, project sidebar) share one code path.
+ */
+export async function createSessionFromProject(
+  p: ProjectConfig,
+  opts: {
+    agentType?: AgentType
+    branch?: string
+    existingWorktreePath?: string
+    useWorktree?: boolean
+  } = {}
+): Promise<void> {
+  const state = useAppStore.getState()
+  const agentType = opts.agentType ?? state.config?.defaults.defaultAgent ?? 'claude'
+  const remoteHostId = getProjectRemoteHostId(p)
+  let branch = opts.branch
+  if (opts.useWorktree && !branch) {
+    const branchResult = await window.api.listBranches(p.path)
+    branch = branchResult.current || 'main'
+  }
+  const session = await window.api.createTerminal({
+    agentType,
+    projectName: p.name,
+    projectPath: p.path,
+    branch,
+    existingWorktreePath: opts.existingWorktreePath,
+    useWorktree: opts.useWorktree,
+    remoteHostId
+  })
+  state.addTerminal(session)
 }
 
 /**

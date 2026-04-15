@@ -6,7 +6,11 @@ import { SortMode, StatusFilter } from '../stores/types'
 import { AGENT_DEFINITIONS, AGENT_LIST } from '../lib/agent-definitions'
 import { AgentIcon } from './AgentIcon'
 import { getDisplayName } from '../lib/terminal-display'
-import { formatRecentSessionActivity, resolveProjectName } from '../lib/session-utils'
+import {
+  formatRecentSessionActivity,
+  resolveProjectName,
+  createSessionFromProject
+} from '../lib/session-utils'
 import { executeWorkflow } from '../lib/workflow-execution'
 import { useAgentInstallStatus } from '../hooks/useAgentInstallStatus'
 import {
@@ -110,6 +114,7 @@ function useCommands(
 ): Command[] {
   const config = useAppStore((s) => s.config)
   const terminals = useAppStore((s) => s.terminals)
+  const worktreeCache = useAppStore((s) => s.worktreeCache)
   const addTerminal = useAppStore((s) => s.addTerminal)
   const setFocusedTerminal = useAppStore((s) => s.setFocusedTerminal)
   const setActiveProject = useAppStore((s) => s.setActiveProject)
@@ -358,42 +363,40 @@ function useCommands(
           category: 'quicklaunch',
           icon: <AgentIcon agentType={agent.type} size={14} />,
           keywords: ['launch', 'start', 'run'],
-          onExecute: async () => {
-            const remoteHostId = getProjectRemoteHostId(project)
-            const session = await window.api.createTerminal({
-              agentType: agent.type,
-              projectName: project.name,
-              projectPath: project.path,
-              remoteHostId
-            })
-            addTerminal(session)
-          }
+          onExecute: () => createSessionFromProject(project, { agentType: agent.type })
         })
-        // Worktree variant — only for confirmed git repos
-        if (gitRepoStatus[project.path] === true) {
+        if (gitRepoStatus[project.path] !== true) continue
+
+        // Existing worktrees — one command per cached worktree
+        const worktrees = (worktreeCache.get(project.path) ?? []).filter((wt) => !wt.isMain)
+        for (const wt of worktrees) {
           commands.push({
-            id: `quicklaunch:${agent.type}:${project.name}:worktree`,
-            label: `${agent.displayName} on ${project.name} (worktree)`,
-            sublabel: 'Isolated worktree from current branch',
+            id: `quicklaunch:${agent.type}:${project.name}:wt:${wt.path}`,
+            label: `${agent.displayName} on ${project.name} on ${wt.branch}`,
+            sublabel: 'Existing worktree',
             category: 'quicklaunch',
             icon: <AgentIcon agentType={agent.type} size={14} />,
-            keywords: ['launch', 'start', 'run', 'worktree', 'branch', 'isolated', 'fork'],
-            onExecute: async () => {
-              const remoteHostId = getProjectRemoteHostId(project)
-              const branchResult = await window.api.listBranches(project.path)
-              const branch = branchResult.current || 'main'
-              const session = await window.api.createTerminal({
+            keywords: ['launch', 'start', 'run', 'worktree', 'branch', wt.branch],
+            onExecute: () =>
+              createSessionFromProject(project, {
                 agentType: agent.type,
-                projectName: project.name,
-                projectPath: project.path,
-                branch,
-                useWorktree: true,
-                remoteHostId
+                branch: wt.branch,
+                existingWorktreePath: wt.path
               })
-              addTerminal(session)
-            }
           })
         }
+
+        // New worktree from current branch
+        commands.push({
+          id: `quicklaunch:${agent.type}:${project.name}:worktree`,
+          label: `${agent.displayName} on ${project.name} (new worktree)`,
+          sublabel: 'Isolated worktree from current branch',
+          category: 'quicklaunch',
+          icon: <AgentIcon agentType={agent.type} size={14} />,
+          keywords: ['launch', 'start', 'run', 'worktree', 'branch', 'isolated', 'fork', 'new'],
+          onExecute: () =>
+            createSessionFromProject(project, { agentType: agent.type, useWorktree: true })
+        })
       }
     }
 
@@ -439,6 +442,7 @@ function useCommands(
     recentSessions,
     installStatus,
     gitRepoStatus,
+    worktreeCache,
     addTerminal,
     setFocusedTerminal,
     setActiveProject,
@@ -463,6 +467,7 @@ export function CommandPalette() {
   const setOpen = useAppStore((s) => s.setCommandPaletteOpen)
 
   const config = useAppStore((s) => s.config)
+  const loadWorktrees = useAppStore((s) => s.loadWorktrees)
   const [query, setQuery] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([])
@@ -484,6 +489,7 @@ export function CommandPalette() {
       Promise.allSettled(
         localProjects.map(async (p) => {
           const isRepo = await window.api.isGitRepo(p.path)
+          if (isRepo) loadWorktrees(p.path)
           return [p.path, isRepo] as const
         })
       ).then((results) => {
@@ -493,7 +499,7 @@ export function CommandPalette() {
         setGitRepoStatus(Object.fromEntries(entries))
       })
     }
-  }, [isOpen, config?.projects])
+  }, [isOpen, config?.projects, loadWorktrees])
 
   const commands = useCommands(recentSessions, installStatus, gitRepoStatus)
 
