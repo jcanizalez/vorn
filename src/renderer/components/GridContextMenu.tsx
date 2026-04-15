@@ -3,9 +3,10 @@ import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Play, FolderGit2, Plus, ChevronRight } from 'lucide-react'
 import { useAppStore } from '../stores'
-import { getProjectRemoteHostId } from '../../shared/types'
+import { getProjectRemoteHostId, type ProjectConfig } from '../../shared/types'
 import { ProjectIcon } from './project-sidebar/ProjectIcon'
 import { resolveActiveProject } from '../lib/session-utils'
+import { useWorkspaceProjects } from '../hooks/useWorkspaceProjects'
 
 interface Props {
   position: { x: number; y: number }
@@ -28,7 +29,16 @@ interface MenuItem {
   className?: string
   separator?: boolean
   submenu?: SubmenuItem[]
+  submenuProject?: ProjectConfig
   onSubmenuEnter?: () => void
+}
+
+const MENU_WIDTH = 220
+const SUBMENU_WIDTH = 220
+
+function estimatePanelHeight(items: { separator?: boolean }[]): number {
+  const seps = items.filter((i) => i.separator).length
+  return items.length * 32 + seps * 9 + 16
 }
 
 export function GridContextMenu({ position, onClose }: Props) {
@@ -37,12 +47,10 @@ export function GridContextMenu({ position, onClose }: Props) {
   const itemRefs = useRef<Map<number, HTMLButtonElement>>(new Map())
   const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const config = useAppStore((s) => s.config)
-  const activeProjectName = useAppStore((s) => s.activeProject)
   const activeWorktreePath = useAppStore((s) => s.activeWorktreePath)
   const worktreeCache = useAppStore((s) => s.worktreeCache)
   const loadWorktrees = useAppStore((s) => s.loadWorktrees)
-  const activeWorkspace = useAppStore((s) => s.activeWorkspace)
+  const workspaceProjects = useWorkspaceProjects()
 
   const [hoveredSubmenu, setHoveredSubmenu] = useState<number | null>(null)
 
@@ -60,12 +68,9 @@ export function GridContextMenu({ position, onClose }: Props) {
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (
-        menuRef.current &&
-        !menuRef.current.contains(e.target as Node) &&
-        (!submenuRef.current || !submenuRef.current.contains(e.target as Node))
-      )
-        onClose()
+      const target = e.target as Node
+      if (menuRef.current?.contains(target) || submenuRef.current?.contains(target)) return
+      onClose()
     }
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
@@ -89,6 +94,60 @@ export function GridContextMenu({ position, onClose }: Props) {
     activeWorktreeBranch = activeWt?.branch
   }
 
+  const createSession = async (
+    p: ProjectConfig,
+    opts: {
+      branch?: string
+      existingWorktreePath?: string
+      useWorktree?: boolean
+    } = {}
+  ) => {
+    onClose()
+    const state = useAppStore.getState()
+    const agentType = state.config?.defaults.defaultAgent || 'claude'
+    const remoteHostId = getProjectRemoteHostId(p)
+    let branch = opts.branch
+    if (opts.useWorktree && !branch) {
+      const branchResult = await window.api.listBranches(p.path)
+      branch = branchResult.current || 'main'
+    }
+    const session = await window.api.createTerminal({
+      agentType,
+      projectName: p.name,
+      projectPath: p.path,
+      branch,
+      existingWorktreePath: opts.existingWorktreePath,
+      useWorktree: opts.useWorktree,
+      remoteHostId
+    })
+    state.addTerminal(session)
+  }
+
+  const buildWorktreeSubmenu = (p: ProjectConfig): SubmenuItem[] => {
+    const worktrees = worktreeCache.get(p.path) ?? []
+    const sessionCountByPath = new Map<string, number>()
+    for (const [, t] of terminals) {
+      const wtPath = t.session.worktreePath
+      if (wtPath) sessionCountByPath.set(wtPath, (sessionCountByPath.get(wtPath) ?? 0) + 1)
+    }
+    const subs: SubmenuItem[] = worktrees.map((wt) => {
+      const count = sessionCountByPath.get(wt.path) ?? 0
+      return {
+        iconElement: <FolderGit2 size={12} className="text-amber-400/70" />,
+        label: wt.branch,
+        detail: count > 0 ? `${count} session${count > 1 ? 's' : ''}` : 'idle',
+        onClick: () => createSession(p, { branch: wt.branch, existingWorktreePath: wt.path })
+      }
+    })
+    subs.push({
+      iconElement: <Plus size={12} className="text-amber-400/70" />,
+      label: 'New worktree',
+      onClick: () => createSession(p, { useWorktree: true }),
+      separator: subs.length > 0
+    })
+    return subs
+  }
+
   const items: MenuItem[] = []
 
   if (project) {
@@ -105,38 +164,20 @@ export function GridContextMenu({ position, onClose }: Props) {
         <ProjectIcon icon={project.icon} color={project.iconColor} size={14} />
       ),
       label: quickLabel,
-      className: 'text-green-400',
-      onClick: async () => {
-        onClose()
-        const state = useAppStore.getState()
-        const agentType = state.config?.defaults.defaultAgent || 'claude'
-        const remoteHostId = getProjectRemoteHostId(project)
-        if (activeWorktreePath) {
-          const session = await window.api.createTerminal({
-            agentType,
-            projectName: project.name,
-            projectPath: project.path,
-            branch: activeWorktreeBranch,
-            existingWorktreePath: activeWorktreePath,
-            remoteHostId
-          })
-          state.addTerminal(session)
-        } else {
-          const session = await window.api.createTerminal({
-            agentType,
-            projectName: project.name,
-            projectPath: project.path,
-            remoteHostId
-          })
-          state.addTerminal(session)
-        }
-      }
+      className: 'text-white font-medium',
+      onClick: () =>
+        activeWorktreePath
+          ? createSession(project, {
+              branch: activeWorktreeBranch,
+              existingWorktreePath: activeWorktreePath
+            })
+          : createSession(project)
     })
   } else {
     items.push({
       icon: Play,
       label: 'New session',
-      className: 'text-green-400',
+      className: 'text-white font-medium',
       onClick: () => {
         onClose()
         useAppStore.getState().setNewAgentDialogOpen(true)
@@ -144,97 +185,16 @@ export function GridContextMenu({ position, onClose }: Props) {
     })
   }
 
-  if (project && activeProjectName) {
-    const worktrees = worktreeCache.get(project.path) ?? []
-    const worktreeSubmenuItems: SubmenuItem[] = []
-
-    for (const wt of worktrees) {
-      let sessionCount = 0
-      for (const [, t] of terminals) {
-        if (t.session.worktreePath === wt.path) sessionCount++
-      }
-      worktreeSubmenuItems.push({
-        iconElement: <FolderGit2 size={12} className="text-amber-400/70" />,
-        label: wt.branch,
-        detail: sessionCount > 0 ? `${sessionCount} session${sessionCount > 1 ? 's' : ''}` : 'idle',
-        onClick: async () => {
-          onClose()
-          const state = useAppStore.getState()
-          const agentType = state.config?.defaults.defaultAgent || 'claude'
-          const remoteHostId = getProjectRemoteHostId(project)
-          const session = await window.api.createTerminal({
-            agentType,
-            projectName: project.name,
-            projectPath: project.path,
-            branch: wt.branch,
-            existingWorktreePath: wt.path,
-            remoteHostId
-          })
-          state.addTerminal(session)
-        }
-      })
-    }
-
-    worktreeSubmenuItems.push({
-      iconElement: <Plus size={12} className="text-amber-400/70" />,
-      label: 'New worktree',
-      onClick: async () => {
-        onClose()
-        const state = useAppStore.getState()
-        const agentType = state.config?.defaults.defaultAgent || 'claude'
-        const branchResult = await window.api.listBranches(project.path)
-        const branchName = branchResult.current || 'main'
-        const remoteHostId = getProjectRemoteHostId(project)
-        const session = await window.api.createTerminal({
-          agentType,
-          projectName: project.name,
-          projectPath: project.path,
-          branch: branchName,
-          useWorktree: true,
-          remoteHostId
-        })
-        state.addTerminal(session)
-      },
-      separator: worktreeSubmenuItems.length > 0
-    })
-
+  const shouldSeparateProjects = items.length > 0 && workspaceProjects.length > 0
+  workspaceProjects.forEach((p, i) => {
     items.push({
-      iconElement: <FolderGit2 size={14} className="text-amber-400" />,
-      label: `New session in ${project.name}...`,
-      submenu: worktreeSubmenuItems,
-      onSubmenuEnter: () => loadWorktrees(project.path)
+      iconElement: <ProjectIcon icon={p.icon} color={p.iconColor} size={14} />,
+      label: p.name,
+      separator: i === 0 && shouldSeparateProjects,
+      submenuProject: p,
+      onSubmenuEnter: () => loadWorktrees(p.path)
     })
-  } else if (!activeProjectName && config?.projects) {
-    const workspaceProjects = config.projects.filter(
-      (p) => (p.workspaceId ?? 'personal') === activeWorkspace
-    )
-
-    if (workspaceProjects.length > 0) {
-      const projectSubmenuItems: SubmenuItem[] = workspaceProjects.map((p) => ({
-        iconElement: <ProjectIcon icon={p.icon} color={p.iconColor} size={12} />,
-        label: p.name,
-        onClick: async () => {
-          onClose()
-          const state = useAppStore.getState()
-          const agentType = state.config?.defaults.defaultAgent || 'claude'
-          const remoteHostId = getProjectRemoteHostId(p)
-          const session = await window.api.createTerminal({
-            agentType,
-            projectName: p.name,
-            projectPath: p.path,
-            remoteHostId
-          })
-          state.addTerminal(session)
-        }
-      }))
-
-      items.push({
-        icon: Plus,
-        label: 'New session from...',
-        submenu: projectSubmenuItems
-      })
-    }
-  }
+  })
 
   items.push({
     icon: Plus,
@@ -246,28 +206,30 @@ export function GridContextMenu({ position, onClose }: Props) {
     separator: true
   })
 
-  const menuWidth = 220
-  const separators = items.filter((i) => i.separator).length
-  const menuHeight = items.length * 32 + separators * 9 + 16
-  const left = Math.max(8, Math.min(position.x, window.innerWidth - menuWidth - 8))
+  const hasSubmenu = (item: MenuItem): boolean =>
+    item.submenuProject !== undefined || item.submenu !== undefined
+
+  const menuHeight = estimatePanelHeight(items)
+  const left = Math.max(8, Math.min(position.x, window.innerWidth - MENU_WIDTH - 8))
   const top = Math.max(8, Math.min(position.y, window.innerHeight - menuHeight - 8))
 
-  const activeSubmenu = hoveredSubmenu !== null ? items[hoveredSubmenu]?.submenu : null
+  const hoveredItem = hoveredSubmenu !== null ? items[hoveredSubmenu] : null
+  const activeSubmenu = hoveredItem
+    ? hoveredItem.submenuProject
+      ? buildWorktreeSubmenu(hoveredItem.submenuProject)
+      : (hoveredItem.submenu ?? null)
+    : null
 
-  let submenuLeft = left + menuWidth + 4
+  let submenuLeft = left + MENU_WIDTH + 4
   let submenuTop = top
-  const submenuWidth = 220
   if (hoveredSubmenu !== null) {
     const itemEl = itemRefs.current.get(hoveredSubmenu)
-    if (itemEl) {
-      submenuTop = itemEl.getBoundingClientRect().top
-    }
-    if (submenuLeft + submenuWidth > window.innerWidth - 8) {
-      submenuLeft = left - submenuWidth - 4
+    if (itemEl) submenuTop = itemEl.getBoundingClientRect().top
+    if (submenuLeft + SUBMENU_WIDTH > window.innerWidth - 8) {
+      submenuLeft = left - SUBMENU_WIDTH - 4
     }
     if (activeSubmenu) {
-      const subSeps = activeSubmenu.filter((s) => s.separator).length
-      const subHeight = activeSubmenu.length * 32 + subSeps * 9 + 16
+      const subHeight = estimatePanelHeight(activeSubmenu)
       submenuTop = Math.max(8, Math.min(submenuTop, window.innerHeight - subHeight - 8))
     }
   }
@@ -281,56 +243,58 @@ export function GridContextMenu({ position, onClose }: Props) {
         exit={{ opacity: 0, y: -4, scale: 0.96 }}
         transition={{ type: 'spring', stiffness: 500, damping: 30 }}
         className="fixed z-[150] rounded-lg border border-white/[0.1] shadow-2xl py-1"
-        style={{ top, left, background: '#1e1e22', minWidth: menuWidth }}
+        style={{ top, left, background: '#1e1e22', minWidth: MENU_WIDTH }}
       >
-        {items.map((item, i) => (
-          <div key={i}>
-            {item.separator && <div className="border-t border-white/[0.06] my-1" />}
-            <button
-              ref={(el) => {
-                if (el) itemRefs.current.set(i, el)
-                else itemRefs.current.delete(i)
-              }}
-              onClick={(e) => {
-                e.stopPropagation()
-                if (item.submenu) {
-                  clearHideTimeout()
-                  setHoveredSubmenu(hoveredSubmenu === i ? null : i)
-                  item.onSubmenuEnter?.()
-                } else {
-                  item.onClick?.()
-                }
-              }}
-              onMouseEnter={() => {
-                if (item.submenu) {
-                  clearHideTimeout()
-                  setHoveredSubmenu(i)
-                  item.onSubmenuEnter?.()
-                } else {
-                  scheduleHide()
-                }
-              }}
-              onMouseLeave={() => {
-                if (item.submenu) scheduleHide()
-              }}
-              aria-haspopup={item.submenu ? 'menu' : undefined}
-              aria-expanded={item.submenu ? hoveredSubmenu === i : undefined}
-              className="w-full flex items-center gap-2.5 px-3 py-1.5 text-xs text-gray-300 hover:bg-white/[0.06] transition-colors"
-            >
-              {item.iconElement ??
-                (item.icon && (
-                  <item.icon size={14} className={item.className ?? 'text-gray-500'} />
-                ))}
-              <span className="flex-1 text-left truncate">{item.label}</span>
-              {item.submenu && (
-                <ChevronRight size={11} className="text-gray-600 ml-auto shrink-0" />
-              )}
-            </button>
-          </div>
-        ))}
+        {items.map((item, i) => {
+          const itemHasSubmenu = hasSubmenu(item)
+          return (
+            <div key={i}>
+              {item.separator && <div className="border-t border-white/[0.06] my-1" />}
+              <button
+                ref={(el) => {
+                  if (el) itemRefs.current.set(i, el)
+                  else itemRefs.current.delete(i)
+                }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (itemHasSubmenu) {
+                    clearHideTimeout()
+                    setHoveredSubmenu(hoveredSubmenu === i ? null : i)
+                    item.onSubmenuEnter?.()
+                  } else {
+                    item.onClick?.()
+                  }
+                }}
+                onMouseEnter={() => {
+                  if (itemHasSubmenu) {
+                    clearHideTimeout()
+                    setHoveredSubmenu(i)
+                    item.onSubmenuEnter?.()
+                  } else {
+                    scheduleHide()
+                  }
+                }}
+                onMouseLeave={() => {
+                  if (itemHasSubmenu) scheduleHide()
+                }}
+                aria-haspopup={itemHasSubmenu ? 'menu' : undefined}
+                aria-expanded={itemHasSubmenu ? hoveredSubmenu === i : undefined}
+                className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-xs ${item.className ?? 'text-gray-300'} hover:bg-white/[0.06] transition-colors`}
+              >
+                {item.iconElement ??
+                  (item.icon && (
+                    <item.icon size={14} className={item.className ?? 'text-gray-500'} />
+                  ))}
+                <span className="flex-1 text-left truncate">{item.label}</span>
+                {itemHasSubmenu && (
+                  <ChevronRight size={11} className="text-gray-600 ml-auto shrink-0" />
+                )}
+              </button>
+            </div>
+          )
+        })}
       </motion.div>
 
-      {/* Hover submenu */}
       {activeSubmenu && (
         <motion.div
           ref={submenuRef}
@@ -344,7 +308,7 @@ export function GridContextMenu({ position, onClose }: Props) {
             top: submenuTop,
             left: submenuLeft,
             background: '#1e1e22',
-            minWidth: submenuWidth
+            minWidth: SUBMENU_WIDTH
           }}
           onMouseEnter={clearHideTimeout}
           onMouseLeave={scheduleHide}

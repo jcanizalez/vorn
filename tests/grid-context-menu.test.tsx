@@ -74,9 +74,11 @@ describe('GridContextMenu', () => {
     expect(screen.getByText('New session in Vorn')).toBeInTheDocument()
   })
 
-  it('renders worktree submenu item with project name', () => {
+  it('renders every workspace project as a top-level item', () => {
     render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
-    expect(screen.getByText('New session in Vorn...')).toBeInTheDocument()
+    // Active project still appears in Projects section in addition to the quick-launch row.
+    expect(screen.getByText('Vorn')).toBeInTheDocument()
+    expect(screen.getByText('OtherApp')).toBeInTheDocument()
   })
 
   it('renders "New session..." for full dialog', () => {
@@ -89,7 +91,7 @@ describe('GridContextMenu', () => {
     expect(screen.queryByText('New session in worktree')).not.toBeInTheDocument()
   })
 
-  it('shows "New session from..." with project list in All Projects view', () => {
+  it('shows projects list in All Projects view', () => {
     useAppStore.setState({ activeProject: null })
 
     render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
@@ -97,23 +99,13 @@ describe('GridContextMenu', () => {
     // Quick launch should use first project from resolveActiveProject
     expect(screen.getByText(/New session in Vorn/)).toBeInTheDocument()
 
-    // Should show "New session from..." submenu
-    expect(screen.getByText('New session from...')).toBeInTheDocument()
-  })
-
-  it('shows all workspace projects in submenu when in All Projects view', () => {
-    useAppStore.setState({ activeProject: null })
-
-    render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
-
-    const submenuTrigger = screen.getByText('New session from...')
-    fireEvent.mouseEnter(submenuTrigger.closest('button')!)
-
+    // Projects are now top-level items, no "New session from..." wrapper
+    expect(screen.queryByText('New session from...')).not.toBeInTheDocument()
     expect(screen.getByText('Vorn')).toBeInTheDocument()
     expect(screen.getByText('OtherApp')).toBeInTheDocument()
   })
 
-  it('shows worktree submenu with cached worktrees on hover', () => {
+  it('shows worktree submenu on hover over project item', () => {
     const cache = new Map()
     cache.set('/tmp/vorn', [
       { path: '/tmp/wt/feat-a', branch: 'feat-a', isMain: false },
@@ -123,12 +115,65 @@ describe('GridContextMenu', () => {
 
     render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
 
-    const submenuTrigger = screen.getByText('New session in Vorn...')
-    fireEvent.mouseEnter(submenuTrigger.closest('button')!)
+    const vornItem = screen.getByText('Vorn')
+    fireEvent.mouseEnter(vornItem.closest('button')!)
 
     expect(screen.getByText('feat-a')).toBeInTheDocument()
     expect(screen.getByText('feat-b')).toBeInTheDocument()
     expect(screen.getByText('New worktree')).toBeInTheDocument()
+  })
+
+  it('shows worktree submenu on hover over non-active project', () => {
+    const cache = new Map()
+    cache.set('/tmp/otherapp', [
+      { path: '/tmp/wt/experiment', branch: 'experiment', isMain: false }
+    ])
+    useAppStore.setState({ worktreeCache: cache })
+
+    render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
+
+    // The Projects section still lists OtherApp when we're inside Vorn.
+    const otherItem = screen.getByText('OtherApp')
+    fireEvent.mouseEnter(otherItem.closest('button')!)
+
+    expect(screen.getByText('experiment')).toBeInTheDocument()
+  })
+
+  it('clicking a worktree in the submenu creates terminal on that worktree', async () => {
+    const cache = new Map()
+    cache.set('/tmp/vorn', [{ path: '/tmp/wt/feat-a', branch: 'feat-a', isMain: false }])
+    useAppStore.setState({ worktreeCache: cache })
+
+    mockCreateTerminal.mockResolvedValue({
+      id: 'wt-term',
+      session: {
+        id: 'wt-term',
+        agentType: 'claude',
+        projectName: 'Vorn',
+        projectPath: '/tmp/vorn',
+        branch: 'feat-a',
+        worktreePath: '/tmp/wt/feat-a'
+      },
+      status: 'idle',
+      lastOutputTimestamp: Date.now()
+    })
+
+    const onClose = vi.fn()
+    render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={onClose} />)
+
+    fireEvent.mouseEnter(screen.getByText('Vorn').closest('button')!)
+    fireEvent.click(screen.getByText('feat-a'))
+
+    expect(onClose).toHaveBeenCalled()
+    expect(mockCreateTerminal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agentType: 'claude',
+        projectName: 'Vorn',
+        projectPath: '/tmp/vorn',
+        branch: 'feat-a',
+        existingWorktreePath: '/tmp/wt/feat-a'
+      })
+    )
   })
 
   it('quick-launch creates terminal with active project', async () => {

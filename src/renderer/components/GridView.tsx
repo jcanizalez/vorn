@@ -143,14 +143,14 @@ export const GridView = memo(function GridView() {
 
   const handleGridDoubleClick = useCallback(
     (e: React.MouseEvent) => {
-      if (e.target !== e.currentTarget) return
+      if ((e.target as HTMLElement).closest('[data-agent-card]')) return
       createNewSession()
     },
     [createNewSession]
   )
 
   const handleGridContextMenu = useCallback((e: React.MouseEvent) => {
-    if (e.target !== e.currentTarget) return
+    if ((e.target as HTMLElement).closest('[data-agent-card]')) return
     e.preventDefault()
     setGridContextMenu({ x: e.clientX, y: e.clientY })
   }, [])
