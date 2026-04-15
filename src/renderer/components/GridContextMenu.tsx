@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Play, FolderGit2, Plus, ChevronRight } from 'lucide-react'
+import { Play, FolderGit2, GitBranch, Plus, ChevronRight } from 'lucide-react'
 import { useAppStore } from '../stores'
 import { type ProjectConfig } from '../../shared/types'
 import { ProjectIcon } from './project-sidebar/ProjectIcon'
@@ -105,26 +105,44 @@ export function GridContextMenu({ position, onClose }: Props) {
   }
 
   // Returns null for non-git projects (whose worktreeCache entry is never
-  // populated because listWorktrees fails). The main worktree is filtered out
-  // because plain sessions are reachable by clicking the parent project item.
+  // populated because listWorktrees fails). The main worktree is surfaced as
+  // its own entry (with a GitBranch icon) so users don't have to know they
+  // can click the parent project row to launch on main.
   const buildWorktreeSubmenu = (p: ProjectConfig): SubmenuItem[] | null => {
     const worktrees = worktreeCache.get(p.path)
     if (!worktrees || worktrees.length === 0) return null
+    const mainWt = worktrees.find((wt) => wt.isMain)
     const nonMain = worktrees.filter((wt) => !wt.isMain)
     const sessionCountByPath = new Map<string, number>()
     for (const [, t] of terminals) {
       const wtPath = t.session.worktreePath
       if (wtPath) sessionCountByPath.set(wtPath, (sessionCountByPath.get(wtPath) ?? 0) + 1)
     }
-    const subs: SubmenuItem[] = nonMain.map((wt) => {
-      const count = sessionCountByPath.get(wt.path) ?? 0
-      const label = wt.name === wt.branch ? wt.name : `${wt.name} (${wt.branch})`
-      return {
+    const formatDetail = (path: string): string => {
+      const count = sessionCountByPath.get(path) ?? 0
+      return count > 0 ? `${count} session${count > 1 ? 's' : ''}` : 'idle'
+    }
+    const formatLabel = (wt: { name: string; branch: string }): string =>
+      wt.name === wt.branch ? wt.name : `${wt.name} (${wt.branch})`
+
+    const subs: SubmenuItem[] = []
+    if (mainWt) {
+      subs.push({
+        iconElement: <GitBranch size={12} className="text-gray-400" />,
+        label: mainWt.branch,
+        detail: formatDetail(mainWt.path),
+        onClick: () =>
+          createSession(p, { branch: mainWt.branch, existingWorktreePath: mainWt.path })
+      })
+    }
+    nonMain.forEach((wt, i) => {
+      subs.push({
         iconElement: <FolderGit2 size={12} className="text-amber-400/70" />,
-        label,
-        detail: count > 0 ? `${count} session${count > 1 ? 's' : ''}` : 'idle',
-        onClick: () => createSession(p, { branch: wt.branch, existingWorktreePath: wt.path })
-      }
+        label: formatLabel(wt),
+        detail: formatDetail(wt.path),
+        onClick: () => createSession(p, { branch: wt.branch, existingWorktreePath: wt.path }),
+        separator: i === 0 && mainWt !== undefined
+      })
     })
     subs.push({
       iconElement: <Plus size={12} className="text-amber-400/70" />,

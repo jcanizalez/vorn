@@ -139,6 +139,63 @@ describe('GridContextMenu', () => {
     expect(screen.getByText('experiment')).toBeInTheDocument()
   })
 
+  it('shows the main branch as a first entry in the worktree submenu', () => {
+    const cache = new Map()
+    cache.set('/tmp/vorn', [
+      { path: '/tmp/vorn', branch: 'main', isMain: true, name: 'vorn' },
+      { path: '/tmp/wt/feat-a', branch: 'feat-a', isMain: false, name: 'feat-a' }
+    ])
+    useAppStore.setState({ worktreeCache: cache })
+
+    render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
+
+    fireEvent.mouseEnter(screen.getByText('Vorn').closest('button')!)
+
+    expect(screen.getByText('main')).toBeInTheDocument()
+    expect(screen.getByText('feat-a')).toBeInTheDocument()
+    expect(screen.getByText('New worktree')).toBeInTheDocument()
+  })
+
+  it('clicking the main branch entry creates a terminal pinned to the main worktree', async () => {
+    const cache = new Map()
+    cache.set('/tmp/vorn', [
+      { path: '/tmp/vorn', branch: 'main', isMain: true, name: 'vorn' },
+      { path: '/tmp/wt/feat-a', branch: 'feat-a', isMain: false, name: 'feat-a' }
+    ])
+    useAppStore.setState({ worktreeCache: cache })
+
+    mockCreateTerminal.mockResolvedValue({
+      id: 'main-term',
+      session: {
+        id: 'main-term',
+        agentType: 'claude',
+        projectName: 'Vorn',
+        projectPath: '/tmp/vorn',
+        branch: 'main',
+        worktreePath: '/tmp/vorn'
+      },
+      status: 'idle',
+      lastOutputTimestamp: Date.now()
+    })
+
+    const onClose = vi.fn()
+    render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={onClose} />)
+
+    fireEvent.mouseEnter(screen.getByText('Vorn').closest('button')!)
+    fireEvent.click(screen.getByText('main'))
+
+    expect(onClose).toHaveBeenCalled()
+    expect(mockCreateTerminal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agentType: 'claude',
+        projectName: 'Vorn',
+        projectPath: '/tmp/vorn',
+        branch: 'main',
+        existingWorktreePath: '/tmp/vorn'
+      })
+    )
+  })
+
   it('clicking a worktree in the submenu creates terminal on that worktree', async () => {
     const cache = new Map()
     cache.set('/tmp/vorn', [
