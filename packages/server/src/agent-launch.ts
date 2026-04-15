@@ -62,18 +62,19 @@ export function buildAgentLaunchLine(
   let launchLine = [cmd.command, ...effectiveArgs.map((a) => shellEscape(a))].join(' ')
 
   if (payload.resumeSessionId && supportsExactSessionResume(payload.agentType)) {
+    const escapedResumeId = shellEscape(payload.resumeSessionId)
     switch (payload.agentType) {
       case 'claude':
-        launchLine += ` --resume ${payload.resumeSessionId}`
+        launchLine += ` --resume ${escapedResumeId}`
         break
       case 'copilot':
-        launchLine += ` --resume ${payload.resumeSessionId}`
+        launchLine += ` --resume ${escapedResumeId}`
         break
       case 'codex':
-        launchLine = `${cmd.command} resume ${payload.resumeSessionId}`
+        launchLine = `${cmd.command} resume ${escapedResumeId}`
         break
       case 'opencode':
-        launchLine += ` --session ${payload.resumeSessionId}`
+        launchLine += ` --session ${escapedResumeId}`
         break
     }
   }
@@ -85,7 +86,7 @@ export function buildAgentLaunchLine(
     payload.sessionId &&
     supportsSessionIdPinning(payload.agentType)
   ) {
-    launchLine += ` ${getSessionIdPinningFlag(payload.agentType)} ${payload.sessionId}`
+    launchLine += ` ${getSessionIdPinningFlag(payload.agentType)} ${shellEscape(payload.sessionId)}`
   }
 
   if (payload.initialPrompt) {
