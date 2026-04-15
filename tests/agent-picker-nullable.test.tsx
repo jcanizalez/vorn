@@ -139,3 +139,102 @@ describe('AgentPicker with allowNone', () => {
     expect(checkIcon).toBeInTheDocument()
   })
 })
+
+describe('AgentPicker with allowFromTask', () => {
+  let onChange: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    onChange = vi.fn()
+  })
+
+  it('renders "From Task" as the selected label when currentAgent is "fromTask"', () => {
+    const { getByText } = render(
+      <AgentPicker
+        currentAgent="fromTask"
+        onChange={onChange}
+        installStatus={ALL_INSTALLED}
+        allowFromTask
+      />
+    )
+    expect(getByText('From Task')).toBeInTheDocument()
+  })
+
+  it('shows "From Task" option in the dropdown when allowFromTask is true', () => {
+    const { getAllByText, getAllByRole } = render(
+      <AgentPicker
+        currentAgent="claude"
+        onChange={onChange}
+        installStatus={ALL_INSTALLED}
+        allowFromTask
+      />
+    )
+    // Open dropdown
+    fireEvent.click(getAllByRole('button')[0])
+    // "From Task" appears once in the menu (button renders Claude in the trigger)
+    expect(getAllByText('From Task').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('does not show "From Task" option when allowFromTask is false', () => {
+    const { queryByText, getAllByRole } = render(
+      <AgentPicker currentAgent="claude" onChange={onChange} installStatus={ALL_INSTALLED} />
+    )
+    fireEvent.click(getAllByRole('button')[0])
+    expect(queryByText('From Task')).not.toBeInTheDocument()
+  })
+
+  it('calls onChange("fromTask") when the "From Task" item is clicked', () => {
+    const { getByText, getAllByRole } = render(
+      <AgentPicker
+        currentAgent="claude"
+        onChange={onChange}
+        installStatus={ALL_INSTALLED}
+        allowFromTask
+      />
+    )
+    fireEvent.click(getAllByRole('button')[0])
+    fireEvent.click(getByText('From Task'))
+    expect(onChange).toHaveBeenCalledWith('fromTask')
+  })
+
+  it('keeps "From Task" enabled even when no agents are installed', () => {
+    const none: Record<AgentType, boolean> = {
+      claude: false,
+      copilot: false,
+      codex: false,
+      opencode: false,
+      gemini: false
+    }
+    const { getByText, getAllByRole } = render(
+      <AgentPicker
+        currentAgent={null}
+        onChange={onChange}
+        installStatus={none}
+        allowFromTask
+        allowNone
+      />
+    )
+    fireEvent.click(getAllByRole('button')[0])
+    fireEvent.click(getByText('From Task'))
+    expect(onChange).toHaveBeenCalledWith('fromTask')
+  })
+
+  it('shows a check mark next to "From Task" when it is the current value', () => {
+    const { getByText } = render(
+      <AgentPicker
+        currentAgent="fromTask"
+        onChange={onChange}
+        installStatus={ALL_INSTALLED}
+        allowFromTask
+      />
+    )
+    // Open dropdown
+    fireEvent.click(getByText('From Task'))
+    // Find the button with "From Task" label that contains a Check icon
+    const fromTaskMenuItems = Array.from(document.querySelectorAll('button')).filter(
+      (b) => b.textContent?.trim() === 'From Task'
+    )
+    // At least the dropdown item should have a trailing check (svg with class containing "text-gray-400")
+    const hasCheck = fromTaskMenuItems.some((b) => !!b.querySelector('svg.lucide-check'))
+    expect(hasCheck).toBe(true)
+  })
+})

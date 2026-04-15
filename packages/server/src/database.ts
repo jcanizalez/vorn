@@ -72,8 +72,11 @@ export function initDatabase(): void {
  * `hasSeededDefaultTaskWorkflow` defaults flag: once the user has seen (and
  * possibly deleted) the seeded workflow, we never re-seed. This means delete
  * sticks, and users upgrading from a pre-seed version will get it once.
+ *
+ * Exported so tests can exercise the seeding flow against an in-memory
+ * database via `initTestDatabase` without spinning up the full init path.
  */
-function seedSystemDefaults(): void {
+export function seedSystemDefaults(): void {
   const d = getDb()
 
   const flagRow = d

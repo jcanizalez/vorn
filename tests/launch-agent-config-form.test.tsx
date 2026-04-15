@@ -1,0 +1,187 @@
+// @vitest-environment jsdom
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render } from '@testing-library/react'
+import '@testing-library/jest-dom/vitest'
+
+// Mocks must be hoisted before imports that use them
+vi.mock('react-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-dom')>('react-dom')
+  return { ...actual, createPortal: (node: React.ReactNode) => node }
+})
+vi.mock('framer-motion', () => ({
+  motion: {
+    div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => (
+      <div {...props}>{children}</div>
+    )
+  },
+  AnimatePresence: ({ children }: React.PropsWithChildren) => <>{children}</>
+}))
+
+// Spy on the props every AgentPicker render receives so tests can read
+// `allowFromTask` for each re-render without mounting the real component.
+const agentPickerProps: Array<Record<string, unknown>> = []
+vi.mock('../src/renderer/components/AgentPicker', () => ({
+  AgentPicker: (props: Record<string, unknown>) => {
+    agentPickerProps.push(props)
+    return (
+      <div data-testid="agent-picker-mock" data-allow-from-task={String(props.allowFromTask)} />
+    )
+  }
+}))
+
+// Stub the heavier unrelated children so we don't need to mount them.
+vi.mock('../src/renderer/components/ProjectPicker', () => ({
+  ProjectPicker: () => <div data-testid="project-picker" />
+}))
+vi.mock('../src/renderer/components/rich-editor/RichMarkdownEditor', () => ({
+  RichMarkdownEditor: () => <div data-testid="rich-md" />
+}))
+vi.mock('../src/renderer/components/workflow-editor/panels/VariableAutocomplete', () => ({
+  VariableAutocomplete: () => <div data-testid="variable-autocomplete" />
+}))
+vi.mock('../src/renderer/components/Tooltip', () => ({
+  Tooltip: ({ children }: React.PropsWithChildren) => <>{children}</>
+}))
+vi.mock('../src/renderer/hooks/useAgentInstallStatus', () => ({
+  useAgentInstallStatus: () => ({
+    status: {
+      claude: true,
+      copilot: true,
+      codex: true,
+      opencode: true,
+      gemini: true
+    }
+  })
+}))
+
+// Minimal zustand-style store mock — LaunchAgentConfigForm reads projects,
+// tasks, and defaults.defaultAgent via useAppStore selectors.
+const mockConfig = {
+  projects: [],
+  tasks: [],
+  defaults: { defaultAgent: 'claude' as const }
+}
+vi.mock('../src/renderer/stores', () => ({
+  useAppStore: (selector?: (state: unknown) => unknown) => {
+    const state = { config: mockConfig }
+    return selector ? selector(state) : state
+  }
+}))
+
+// window.api shim — LaunchAgentConfigForm only calls isGitRepo + listWorktrees
+// in an effect that's harmless if we stub them as resolved empty arrays.
+beforeEach(() => {
+  agentPickerProps.length = 0
+  ;(globalThis as unknown as { window: { api: Record<string, unknown> } }).window = {
+    api: {
+      isGitRepo: vi.fn().mockResolvedValue(true),
+      listWorktrees: vi.fn().mockResolvedValue([])
+    }
+  }
+})
+
+const { LaunchAgentConfigForm } =
+  await import('../src/renderer/components/workflow-editor/panels/LaunchAgentConfigForm')
+
+import type { LaunchAgentConfig } from '../src/shared/types'
+
+function baseConfig(overrides: Partial<LaunchAgentConfig> = {}): LaunchAgentConfig {
+  return {
+    agentType: 'claude',
+    projectName: '',
+    projectPath: '',
+    ...overrides
+  }
+}
+
+describe('LaunchAgentConfigForm — canUseFromTask visibility', () => {
+  it('passes allowFromTask=true when trigger is taskStatusChanged', () => {
+    render(
+      <LaunchAgentConfigForm
+        config={baseConfig()}
+        onChange={vi.fn()}
+        triggerType="taskStatusChanged"
+      />
+    )
+    const last = agentPickerProps.at(-1)!
+    expect(last.allowFromTask).toBe(true)
+  })
+
+  it('passes allowFromTask=true when trigger is taskCreated', () => {
+    render(
+      <LaunchAgentConfigForm config={baseConfig()} onChange={vi.fn()} triggerType="taskCreated" />
+    )
+    expect(agentPickerProps.at(-1)!.allowFromTask).toBe(true)
+  })
+
+  it('passes allowFromTask=false when trigger is manual and prompt source is inline', () => {
+    render(<LaunchAgentConfigForm config={baseConfig()} onChange={vi.fn()} triggerType="manual" />)
+    expect(agentPickerProps.at(-1)!.allowFromTask).toBe(false)
+  })
+
+  it('passes allowFromTask=true when prompt source is queue, even without a task trigger', () => {
+    render(
+      <LaunchAgentConfigForm
+        config={baseConfig({ taskFromQueue: true })}
+        onChange={vi.fn()}
+        triggerType="manual"
+      />
+    )
+    expect(agentPickerProps.at(-1)!.allowFromTask).toBe(true)
+  })
+
+  it('passes allowFromTask=true when prompt source is task (static taskId)', () => {
+    render(
+      <LaunchAgentConfigForm
+        config={baseConfig({ taskId: 't1' })}
+        onChange={vi.fn()}
+        triggerType="manual"
+      />
+    )
+    expect(agentPickerProps.at(-1)!.allowFromTask).toBe(true)
+  })
+})
+
+describe('LaunchAgentConfigForm — auto-revert on context loss', () => {
+  it('reverts agentType from "fromTask" to the default agent when canUseFromTask flips to false', async () => {
+    const onChange = vi.fn()
+    const { rerender } = render(
+      <LaunchAgentConfigForm
+        config={baseConfig({ agentType: 'fromTask' })}
+        onChange={onChange}
+        triggerType="taskStatusChanged"
+      />
+    )
+
+    // Simulate the user clearing the task trigger — rerender with a
+    // non-task trigger. The form's useEffect should fire onChange with a
+    // concrete agent.
+    rerender(
+      <LaunchAgentConfigForm
+        config={baseConfig({ agentType: 'fromTask' })}
+        onChange={onChange}
+        triggerType="manual"
+      />
+    )
+
+    const reverted = onChange.mock.calls.find(
+      ([c]: [LaunchAgentConfig]) => c.agentType !== 'fromTask'
+    )
+    expect(reverted).toBeDefined()
+    const [nextConfig] = reverted as [LaunchAgentConfig]
+    expect(nextConfig.agentType).toBe('claude')
+  })
+
+  it('does not revert when the user selects a concrete agent with a task trigger still active', () => {
+    const onChange = vi.fn()
+    render(
+      <LaunchAgentConfigForm
+        config={baseConfig({ agentType: 'codex' })}
+        onChange={onChange}
+        triggerType="taskStatusChanged"
+      />
+    )
+    // Initial render must not call onChange (no revert needed).
+    expect(onChange).not.toHaveBeenCalled()
+  })
+})
