@@ -108,8 +108,8 @@ describe('GridContextMenu', () => {
   it('shows worktree submenu on hover over project item', () => {
     const cache = new Map()
     cache.set('/tmp/vorn', [
-      { path: '/tmp/wt/feat-a', branch: 'feat-a', isMain: false },
-      { path: '/tmp/wt/feat-b', branch: 'feat-b', isMain: false }
+      { path: '/tmp/wt/feat-a', branch: 'feat-a', isMain: false, name: 'feat-a' },
+      { path: '/tmp/wt/feat-b', branch: 'feat-b', isMain: false, name: 'feat-b' }
     ])
     useAppStore.setState({ worktreeCache: cache })
 
@@ -126,7 +126,7 @@ describe('GridContextMenu', () => {
   it('shows worktree submenu on hover over non-active project', () => {
     const cache = new Map()
     cache.set('/tmp/otherapp', [
-      { path: '/tmp/wt/experiment', branch: 'experiment', isMain: false }
+      { path: '/tmp/wt/experiment', branch: 'experiment', isMain: false, name: 'experiment' }
     ])
     useAppStore.setState({ worktreeCache: cache })
 
@@ -141,7 +141,9 @@ describe('GridContextMenu', () => {
 
   it('clicking a worktree in the submenu creates terminal on that worktree', async () => {
     const cache = new Map()
-    cache.set('/tmp/vorn', [{ path: '/tmp/wt/feat-a', branch: 'feat-a', isMain: false }])
+    cache.set('/tmp/vorn', [
+      { path: '/tmp/wt/feat-a', branch: 'feat-a', isMain: false, name: 'feat-a' }
+    ])
     useAppStore.setState({ worktreeCache: cache })
 
     mockCreateTerminal.mockResolvedValue({

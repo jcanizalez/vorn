@@ -87,12 +87,10 @@ export function GridContextMenu({ position, onClose }: Props) {
   const project = resolveActiveProject()
   const terminals = useAppStore.getState().terminals
 
-  let activeWorktreeBranch: string | undefined
-  if (activeWorktreePath && project) {
-    const cachedWts = worktreeCache.get(project.path)
-    const activeWt = cachedWts?.find((wt) => wt.path === activeWorktreePath)
-    activeWorktreeBranch = activeWt?.branch
-  }
+  const activeWt =
+    activeWorktreePath && project
+      ? worktreeCache.get(project.path)?.find((wt) => wt.path === activeWorktreePath)
+      : undefined
 
   const createSession = (
     p: ProjectConfig,
@@ -120,9 +118,10 @@ export function GridContextMenu({ position, onClose }: Props) {
     }
     const subs: SubmenuItem[] = nonMain.map((wt) => {
       const count = sessionCountByPath.get(wt.path) ?? 0
+      const label = wt.name === wt.branch ? wt.name : `${wt.name} (${wt.branch})`
       return {
         iconElement: <FolderGit2 size={12} className="text-amber-400/70" />,
-        label: wt.branch,
+        label,
         detail: count > 0 ? `${count} session${count > 1 ? 's' : ''}` : 'idle',
         onClick: () => createSession(p, { branch: wt.branch, existingWorktreePath: wt.path })
       }
@@ -140,8 +139,8 @@ export function GridContextMenu({ position, onClose }: Props) {
 
   if (project) {
     const quickLabel = activeWorktreePath
-      ? activeWorktreeBranch
-        ? `New session in ${project.name} on ${activeWorktreeBranch}`
+      ? activeWt
+        ? `New session in ${project.name} / ${activeWt.name}`
         : `New session in ${project.name} (worktree)`
       : `New session in ${project.name}`
 
@@ -156,7 +155,7 @@ export function GridContextMenu({ position, onClose }: Props) {
       onClick: () =>
         activeWorktreePath
           ? createSession(project, {
-              branch: activeWorktreeBranch,
+              branch: activeWt?.branch,
               existingWorktreePath: activeWorktreePath
             })
           : createSession(project)

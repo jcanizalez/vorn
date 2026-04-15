@@ -372,11 +372,11 @@ function useCommands(
         for (const wt of worktrees) {
           commands.push({
             id: `quicklaunch:${agent.type}:${project.name}:wt:${wt.path}`,
-            label: `${agent.displayName} on ${project.name} on ${wt.branch}`,
-            sublabel: 'Existing worktree',
+            label: `${agent.displayName} on ${project.name} / ${wt.name}`,
+            sublabel: wt.branch === wt.name ? 'Existing worktree' : `Branch: ${wt.branch}`,
             category: 'quicklaunch',
             icon: <AgentIcon agentType={agent.type} size={14} />,
-            keywords: ['launch', 'start', 'run', 'worktree', 'branch', wt.branch],
+            keywords: ['launch', 'start', 'run', 'worktree', 'branch', wt.name, wt.branch],
             onExecute: () =>
               createSessionFromProject(project, {
                 agentType: agent.type,
