@@ -1,7 +1,7 @@
 import { memo, useRef, useState, useCallback, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useShallow } from 'zustand/react/shallow'
-import { AnimatePresence, LayoutGroup, motion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { GridLayout, noCompactor, type EventCallback, type Layout } from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
@@ -203,30 +203,26 @@ export const GridView = memo(function GridView() {
             onShowContextMenu={setGridContextMenu}
           />
         ) : (
-          <LayoutGroup>
-            <div
-              className="grid gap-4"
-              style={gridStyle}
-              onDoubleClick={handleGridDoubleClick}
-              onContextMenu={handleGridContextMenu}
-            >
-              <AnimatePresence>
-                {orderedIds.map((id, index) => (
-                  <AgentCard
-                    key={id}
-                    ref={(el) => {
-                      if (el) cardRefs.current.set(id, el)
-                      else cardRefs.current.delete(id)
-                    }}
-                    terminalId={id}
-                    index={index}
-                    isDragTarget={dragState?.isDragging === true && dropTargetIndex === index}
-                    onDragStart={sortMode === 'manual' ? handleDragStart : undefined}
-                  />
-                ))}
-              </AnimatePresence>
-            </div>
-          </LayoutGroup>
+          <div
+            className="grid gap-4"
+            style={gridStyle}
+            onDoubleClick={handleGridDoubleClick}
+            onContextMenu={handleGridContextMenu}
+          >
+            {orderedIds.map((id, index) => (
+              <AgentCard
+                key={id}
+                ref={(el) => {
+                  if (el) cardRefs.current.set(id, el)
+                  else cardRefs.current.delete(id)
+                }}
+                terminalId={id}
+                index={index}
+                isDragTarget={dragState?.isDragging === true && dropTargetIndex === index}
+                onDragStart={sortMode === 'manual' ? handleDragStart : undefined}
+              />
+            ))}
+          </div>
         )
       ) : null}
       {gridContextMenu && (

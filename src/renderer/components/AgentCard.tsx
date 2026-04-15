@@ -1,6 +1,5 @@
 import { useState, memo, forwardRef } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { motion } from 'framer-motion'
 import { useAppStore } from '../stores'
 import { AgentIcon } from './AgentIcon'
 import { StatusBadge } from './StatusBadge'
@@ -134,10 +133,8 @@ export const AgentCard = memo(
     }
 
     return (
-      <motion.div
+      <div
         ref={ref}
-        layout={!flexible}
-        layoutId={flexible ? undefined : terminalId}
         className={`relative rounded-lg border overflow-hidden flex flex-col
                    transition-colors
                    ${flexible ? 'h-full' : ''}
@@ -154,7 +151,6 @@ export const AgentCard = memo(
           background: '#1a1a1e',
           ...(isIdlePinned ? { opacity: 0.55 } : {})
         }}
-        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
         onPointerDown={() => {
           if (!isSelected && !isFocused) setSelected(terminalId)
         }}
@@ -419,7 +415,7 @@ export const AgentCard = memo(
             onClose={() => setContextMenu(null)}
           />
         )}
-      </motion.div>
+      </div>
     )
   })
 )
