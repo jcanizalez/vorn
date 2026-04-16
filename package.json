@@ -24,6 +24,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "ci:local": "bash scripts/ci-local.sh",
     "prepare": "simple-git-hooks"
   },
   "simple-git-hooks": {

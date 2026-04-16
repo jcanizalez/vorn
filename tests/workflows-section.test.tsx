@@ -145,4 +145,29 @@ describe('WorkflowsSection', () => {
     expect(screen.queryByText('Workflows')).not.toBeInTheDocument()
     expect(screen.queryByText('Flow a')).not.toBeInTheDocument()
   })
+
+  it('Edit Workflow menu item opens the editor for the right workflow', () => {
+    const workflows = [makeWorkflow('a')]
+    render(<WorkflowsSection isCollapsed={false} workspaceWorkflows={workflows} />)
+    fireEvent.contextMenu(screen.getByText('Flow a'))
+    fireEvent.click(screen.getByText('Edit Workflow'))
+    expect(mockStore.setEditingWorkflowId).toHaveBeenCalledWith('a')
+    expect(mockStore.setWorkflowEditorOpen).toHaveBeenCalledWith(true)
+  })
+
+  it('Delete Workflow menu item removes the workflow', () => {
+    const workflows = [makeWorkflow('a')]
+    render(<WorkflowsSection isCollapsed={false} workspaceWorkflows={workflows} />)
+    fireEvent.contextMenu(screen.getByText('Flow a'))
+    fireEvent.click(screen.getByText('Delete Workflow'))
+    expect(mockStore.removeWorkflow).toHaveBeenCalledWith('a')
+  })
+
+  it('toggles Enable/Disable for scheduled workflows from the menu', () => {
+    const workflows = [makeWorkflow('s', true)]
+    render(<WorkflowsSection isCollapsed={false} workspaceWorkflows={workflows} />)
+    fireEvent.contextMenu(screen.getByText('Flow s'))
+    fireEvent.click(screen.getByText(/Disable Schedule|Enable Schedule/))
+    expect(mockStore.updateWorkflow).toHaveBeenCalled()
+  })
 })

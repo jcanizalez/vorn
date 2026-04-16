@@ -66,4 +66,21 @@ describe('TriggerConfigForm', () => {
       expect.objectContaining({ timezone: 'America/Los_Angeles' })
     )
   })
+
+  it('updates the runAt input', () => {
+    const onChange = vi.fn()
+    const config: TriggerConfig = { triggerType: 'once', runAt: new Date().toISOString() }
+    const { container } = render(<TriggerConfigForm config={config} onChange={onChange} />)
+    const input = container.querySelector('input[type="datetime-local"]') as HTMLInputElement
+    fireEvent.change(input, { target: { value: '2026-12-31T10:30' } })
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ triggerType: 'once' }))
+  })
+
+  it('switches trigger type via the picker', () => {
+    const onChange = vi.fn()
+    render(<TriggerConfigForm config={{ triggerType: 'manual' }} onChange={onChange} />)
+    fireEvent.click(screen.getByText('Manual'))
+    fireEvent.mouseDown(screen.getByText('Recurring'))
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ triggerType: 'recurring' }))
+  })
 })

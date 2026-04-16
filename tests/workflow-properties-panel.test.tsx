@@ -125,4 +125,50 @@ describe('WorkflowPropertiesPanel', () => {
     fireEvent.change(input, { target: { value: '' } })
     expect(onStaggerChange).toHaveBeenCalledWith(undefined)
   })
+
+  it('renders summary for once trigger', () => {
+    const node = {
+      id: 't1',
+      type: 'trigger' as const,
+      label: 'T',
+      config: { triggerType: 'once' as const, runAt: new Date('2026-01-01').toISOString() },
+      position: { x: 0, y: 0 }
+    }
+    render(<WorkflowPropertiesPanel {...baseProps} triggerNode={node} />)
+    expect(screen.getByText(/Once/)).toBeInTheDocument()
+  })
+
+  it('renders summary for taskCreated trigger', () => {
+    const node = {
+      id: 't1',
+      type: 'trigger' as const,
+      label: 'T',
+      config: { triggerType: 'taskCreated' as const },
+      position: { x: 0, y: 0 }
+    }
+    render(<WorkflowPropertiesPanel {...baseProps} triggerNode={node} />)
+    expect(screen.getByText('Task created')).toBeInTheDocument()
+  })
+
+  it('renders summary for taskStatusChanged trigger', () => {
+    const node = {
+      id: 't1',
+      type: 'trigger' as const,
+      label: 'T',
+      config: { triggerType: 'taskStatusChanged' as const },
+      position: { x: 0, y: 0 }
+    }
+    render(<WorkflowPropertiesPanel {...baseProps} triggerNode={node} />)
+    expect(screen.getByText('Task status changed')).toBeInTheDocument()
+  })
+
+  it('toggles enabled when the switch is clicked', () => {
+    const onEnabledChange = vi.fn()
+    const { container } = render(
+      <WorkflowPropertiesPanel {...baseProps} onEnabledChange={onEnabledChange} />
+    )
+    const switchButton = container.querySelector('button[role="switch"]') as HTMLButtonElement
+    if (switchButton) fireEvent.click(switchButton)
+    expect(onEnabledChange).toHaveBeenCalled()
+  })
 })

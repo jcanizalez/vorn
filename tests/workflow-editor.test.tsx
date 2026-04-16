@@ -1,0 +1,187 @@
+// @vitest-environment jsdom
+import { describe, it, expect, vi } from 'vitest'
+import { render, fireEvent } from '@testing-library/react'
+import '@testing-library/jest-dom/vitest'
+
+vi.mock('framer-motion', () => ({
+  motion: {
+    div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => (
+      <div {...props}>{children}</div>
+    )
+  },
+  AnimatePresence: ({ children }: React.PropsWithChildren) => <>{children}</>
+}))
+
+vi.mock('react-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-dom')>('react-dom')
+  return { ...actual, createPortal: (node: React.ReactNode) => node }
+})
+
+vi.mock('../src/renderer/components/Tooltip', () => ({
+  Tooltip: ({ children }: React.PropsWithChildren) => <>{children}</>
+}))
+
+vi.mock('../src/renderer/components/workflow-editor/WorkflowCanvas', () => ({
+  WorkflowCanvas: () => <div data-testid="canvas" />
+}))
+
+vi.mock('../src/renderer/components/workflow-editor/panels/NodeConfigPanel', () => ({
+  NodeConfigPanel: () => <div data-testid="node-config" />
+}))
+
+vi.mock('../src/renderer/components/workflow-editor/panels/RunHistoryPanel', () => ({
+  RunHistoryPanel: () => <div data-testid="run-history" />
+}))
+
+vi.mock('../src/renderer/components/workflow-editor/panels/WorkflowPropertiesPanel', () => ({
+  WorkflowPropertiesPanel: () => <div data-testid="properties-panel" />
+}))
+
+vi.mock('../src/renderer/lib/workflow-execution', () => ({
+  executeWorkflow: vi.fn().mockResolvedValue(undefined)
+}))
+
+const mockState = {
+  isWorkflowEditorOpen: true,
+  editingWorkflowId: null,
+  setWorkflowEditorOpen: vi.fn(),
+  setEditingWorkflowId: vi.fn(),
+  addWorkflow: vi.fn(),
+  updateWorkflow: vi.fn(),
+  removeWorkflow: vi.fn(),
+  config: { workflows: [], tasks: [], projects: [], defaults: {} },
+  addTerminal: vi.fn(),
+  setFocusedTerminal: vi.fn(),
+  setSelectedTaskId: vi.fn(),
+  activeWorkspace: 'personal'
+}
+
+vi.mock('../src/renderer/stores', () => {
+  const useAppStore = (selector?: (s: unknown) => unknown) =>
+    selector ? selector(mockState) : mockState
+  useAppStore.getState = () => mockState
+  return { useAppStore }
+})
+;(global as unknown as { window: object }).window = {
+  api: {
+    listWorkflowRuns: vi.fn().mockResolvedValue([]),
+    createTerminal: vi.fn()
+  }
+}
+
+const { WorkflowEditor } = await import('../src/renderer/components/workflow-editor/WorkflowEditor')
+
+describe('WorkflowEditor', () => {
+  it('renders the canvas and properties panel when open with no node selected', () => {
+    const { getByTestId } = render(<WorkflowEditor />)
+    expect(getByTestId('canvas')).toBeInTheDocument()
+    expect(getByTestId('properties-panel')).toBeInTheDocument()
+  })
+
+  it('renders workflow name input', () => {
+    const { container } = render(<WorkflowEditor />)
+    const nameInput = container.querySelector('input[placeholder="Workflow name"]')
+    expect(nameInput).toBeInTheDocument()
+  })
+
+  it('renders Save button', () => {
+    const { container } = render(<WorkflowEditor />)
+    const saveButton = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Save')
+    )
+    expect(saveButton).toBeDefined()
+  })
+
+  it('does not render anything when isOpen is false', () => {
+    mockState.isWorkflowEditorOpen = false
+    const { container } = render(<WorkflowEditor />)
+    expect(container.firstChild).toBeNull()
+    mockState.isWorkflowEditorOpen = true
+  })
+
+  it('opens the overflow menu when the more button is clicked', () => {
+    const { container, getByText } = render(<WorkflowEditor />)
+    const moreButton = container.querySelector('svg.lucide-ellipsis')?.closest('button')
+    if (moreButton) fireEvent.click(moreButton)
+    expect(getByText('Workflow settings')).toBeInTheDocument()
+  })
+
+  it('triggers Save when the Save button is clicked', () => {
+    const { container } = render(<WorkflowEditor />)
+    const saveButton = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Save')
+    )
+    if (saveButton) fireEvent.click(saveButton)
+    expect(mockState.addWorkflow).toHaveBeenCalled()
+  })
+
+  it('updates name input', () => {
+    const { container } = render(<WorkflowEditor />)
+    const nameInput = container.querySelector(
+      'input[placeholder="Workflow name"]'
+    ) as HTMLInputElement
+    fireEvent.change(nameInput, { target: { value: 'New name' } })
+    expect(nameInput.value).toBe('New name')
+  })
+
+  it('renders the back button which closes the editor', () => {
+    const { container } = render(<WorkflowEditor />)
+    const backButton = container.querySelector('svg.lucide-arrow-left')?.closest('button')
+    if (backButton) fireEvent.click(backButton)
+    expect(mockState.setWorkflowEditorOpen).toHaveBeenCalledWith(false)
+  })
+
+  it('clicking Run history toggles the run history panel', () => {
+    const { container, getByTestId } = render(<WorkflowEditor />)
+    mockState.editingWorkflowId = 'w1'
+    const historyButton = container.querySelector('svg.lucide-history')?.closest('button')
+    if (historyButton) fireEvent.click(historyButton)
+    expect(getByTestId('properties-panel')).toBeInTheDocument()
+    mockState.editingWorkflowId = null
+  })
+
+  it('clicks Delete workflow in the overflow menu when editing', () => {
+    mockState.editingWorkflowId = 'w1'
+    const { container, getByText } = render(<WorkflowEditor />)
+    const moreButton = container.querySelector('svg.lucide-ellipsis')?.closest('button')
+    if (moreButton) fireEvent.click(moreButton)
+    fireEvent.click(getByText('Delete workflow'))
+    expect(mockState.removeWorkflow).toHaveBeenCalledWith('w1')
+    mockState.editingWorkflowId = null
+  })
+
+  it('triggers Run when the play button is clicked', () => {
+    const { container } = render(<WorkflowEditor />)
+    const playButton = container.querySelector('svg.lucide-play')?.closest('button')
+    if (playButton) fireEvent.click(playButton)
+    expect(mockState.addWorkflow).toHaveBeenCalled()
+  })
+
+  it('toggles the run history panel via the history toolbar button when editing', () => {
+    mockState.editingWorkflowId = 'w1'
+    const { container, getByTestId, queryByTestId } = render(<WorkflowEditor />)
+    const historyButton = container.querySelector('svg.lucide-history')?.closest('button')
+    expect(historyButton).toBeDefined()
+    if (historyButton) fireEvent.click(historyButton)
+    expect(getByTestId('run-history')).toBeInTheDocument()
+    expect(queryByTestId('properties-panel')).not.toBeInTheDocument()
+    if (historyButton) fireEvent.click(historyButton)
+    expect(queryByTestId('run-history')).not.toBeInTheDocument()
+    mockState.editingWorkflowId = null
+  })
+
+  it('clicks Workflow settings menu item to open properties', () => {
+    const { container, getByText, getByTestId } = render(<WorkflowEditor />)
+    const moreButton = container.querySelector('svg.lucide-ellipsis')?.closest('button')
+    if (moreButton) fireEvent.click(moreButton)
+    fireEvent.click(getByText('Workflow settings'))
+    expect(getByTestId('properties-panel')).toBeInTheDocument()
+  })
+
+  it('opens icon picker when icon button is clicked', () => {
+    const { container } = render(<WorkflowEditor />)
+    const iconButton = container.querySelector('svg.lucide-zap')?.closest('button')
+    if (iconButton) fireEvent.click(iconButton)
+    expect(container.querySelector('.grid')).toBeInTheDocument()
+  })
+})

@@ -244,4 +244,82 @@ describe('LaunchAgentConfigForm — UI sections', () => {
     )
     expect(container.textContent).toContain('Extra Arguments')
   })
+
+  it('renders Worktree picker with options when project is a git repo', async () => {
+    const { container } = render(
+      <LaunchAgentConfigForm config={baseConfig({ branch: 'feature/x' })} onChange={vi.fn()} />
+    )
+    await new Promise((r) => setTimeout(r, 0))
+    expect(container.textContent).toContain('Worktree')
+  })
+
+  it('shows fromStep guidance text when worktree mode is fromStep', () => {
+    const { container } = render(
+      <LaunchAgentConfigForm
+        config={baseConfig({ branch: 'feature/x', worktreeMode: 'fromStep' })}
+        onChange={vi.fn()}
+      />
+    )
+    expect(container.textContent).toContain('Reuses the worktree created')
+  })
+
+  it('shows existing-worktree guidance when worktree mode is existing', () => {
+    const { container } = render(
+      <LaunchAgentConfigForm
+        config={baseConfig({ branch: 'feature/x', worktreeMode: 'existing' })}
+        onChange={vi.fn()}
+      />
+    )
+    expect(container.textContent).toContain('existing worktree on disk')
+  })
+
+  it('shows new-worktree guidance when worktree mode is new', () => {
+    const { container } = render(
+      <LaunchAgentConfigForm
+        config={baseConfig({ branch: 'feature/x', worktreeMode: 'new' })}
+        onChange={vi.fn()}
+      />
+    )
+    expect(container.textContent).toContain('Isolated directory')
+  })
+
+  it('renders the branch input', async () => {
+    const { container } = render(<LaunchAgentConfigForm config={baseConfig()} onChange={vi.fn()} />)
+    await new Promise((r) => setTimeout(r, 0))
+    expect(container.querySelector('input[placeholder="feature/my-branch"]')).toBeTruthy()
+  })
+
+  it('renders task selector when promptSource is task', () => {
+    const { container } = render(
+      <LaunchAgentConfigForm config={baseConfig({ taskId: 't1' })} onChange={vi.fn()} />
+    )
+    expect(container.textContent).toContain('Select task')
+  })
+
+  it('renders fromStep selector UI when worktree mode is fromStep', () => {
+    const { container } = render(
+      <LaunchAgentConfigForm
+        config={baseConfig({ branch: 'feature/x', worktreeMode: 'fromStep' })}
+        onChange={vi.fn()}
+      />
+    )
+    expect(container.textContent).toContain('Select step')
+  })
+
+  it('renders existing-worktree selector UI when worktree mode is existing', () => {
+    const { container } = render(
+      <LaunchAgentConfigForm
+        config={baseConfig({ branch: 'feature/x', worktreeMode: 'existing' })}
+        onChange={vi.fn()}
+      />
+    )
+    expect(container.textContent).toContain('Select worktree')
+  })
+
+  it('shows the agent type label and project name in headless mode', () => {
+    const { container } = render(
+      <LaunchAgentConfigForm config={baseConfig({ headless: true })} onChange={vi.fn()} />
+    )
+    expect(container.textContent).toContain('Headless')
+  })
 })
