@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, act } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 import type { ReactNode } from 'react'
 
@@ -101,19 +101,23 @@ const initialState = useAppStore.getState()
 beforeEach(() => {
   const terminals = new Map()
   terminals.set('term-1', mockTerminal)
-  useAppStore.setState({
-    terminals,
-    activeTabId: 'term-1',
-    focusedTerminalId: null,
-    previewTerminalId: null,
-    statusFilter: 'all',
-    sortMode: 'manual',
-    renamingTerminalId: null
+  act(() => {
+    useAppStore.setState({
+      terminals,
+      activeTabId: 'term-1',
+      focusedTerminalId: null,
+      previewTerminalId: null,
+      statusFilter: 'all',
+      sortMode: 'manual',
+      renamingTerminalId: null
+    })
   })
 })
 
 afterEach(() => {
-  useAppStore.setState(initialState)
+  act(() => {
+    useAppStore.setState(initialState)
+  })
 })
 
 describe('SessionStatusBar (homologated bottom bar)', () => {
@@ -141,7 +145,9 @@ describe('SessionStatusBar (homologated bottom bar)', () => {
       status: 'running' as const,
       lastOutputTimestamp: Date.now()
     })
-    useAppStore.setState({ terminals })
+    act(() => {
+      useAppStore.setState({ terminals })
+    })
     render(<SessionStatusBar terminalId="wt-1" />)
     expect(screen.getByText('worktree')).toBeInTheDocument()
   })
@@ -163,7 +169,9 @@ describe('TabView mounts SessionStatusBar at the bottom', () => {
 
 describe('FocusedTerminal mounts SessionStatusBar at the bottom on desktop', () => {
   it('moves branch, git changes, and open-in into the shared bottom bar', () => {
-    useAppStore.setState({ focusedTerminalId: 'term-1' })
+    act(() => {
+      useAppStore.setState({ focusedTerminalId: 'term-1' })
+    })
     render(<FocusedTerminal />)
     const gitChanges = screen.getByTestId('git-changes')
     const bar = gitChanges.closest('div.border-t') as HTMLElement | null
