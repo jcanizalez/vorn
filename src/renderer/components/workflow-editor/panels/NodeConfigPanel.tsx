@@ -1,4 +1,5 @@
-import { X, Trash2, Zap, Play, Terminal, GitFork } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { X, Zap, Play, Terminal, GitFork, MoreHorizontal, Trash2 } from 'lucide-react'
 import {
   WorkflowNode,
   TriggerConfig,
@@ -6,6 +7,11 @@ import {
   ScriptConfig,
   ConditionConfig
 } from '../../../../shared/types'
+import { TriggerConfigForm } from './TriggerConfigForm'
+import { LaunchAgentConfigForm } from './LaunchAgentConfigForm'
+import { ScriptConfigForm } from './ScriptConfigForm'
+import { ConditionConfigForm } from './ConditionConfigForm'
+import type { StepVariableGroup } from '../../../lib/template-vars'
 
 const NODE_TYPE_CONFIG: Record<
   WorkflowNode['type'],
@@ -16,11 +22,6 @@ const NODE_TYPE_CONFIG: Record<
   script: { icon: Terminal, label: 'Script', color: 'text-amber-400', bg: 'bg-amber-500/10' },
   condition: { icon: GitFork, label: 'Condition', color: 'text-purple-400', bg: 'bg-purple-500/10' }
 }
-import { TriggerConfigForm } from './TriggerConfigForm'
-import { LaunchAgentConfigForm } from './LaunchAgentConfigForm'
-import { ScriptConfigForm } from './ScriptConfigForm'
-import { ConditionConfigForm } from './ConditionConfigForm'
-import type { StepVariableGroup } from '../../../lib/template-vars'
 
 interface Props {
   node: WorkflowNode
@@ -43,48 +44,82 @@ export function NodeConfigPanel({
   triggerType,
   stepGroups
 }: Props) {
+  const [showMenu, setShowMenu] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!showMenu) return
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false)
+      }
+    }
+    document.addEventListener('pointerdown', handler)
+    return () => document.removeEventListener('pointerdown', handler)
+  }, [showMenu])
+
+  const tc = NODE_TYPE_CONFIG[node.type]
+  const Icon = tc.icon
+  const canDelete = node.type !== 'trigger'
+
   return (
     <div className="w-[420px] border-l border-white/[0.08] bg-[#1e1e22] flex flex-col h-full overflow-hidden titlebar-no-drag">
-      <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.08]">
-        {(() => {
-          const tc = NODE_TYPE_CONFIG[node.type]
-          const Icon = tc.icon
-          return (
-            <div className="flex items-center gap-2">
-              <div className={`w-6 h-6 rounded flex items-center justify-center ${tc.bg}`}>
-                <Icon size={13} className={tc.color} />
-              </div>
-              <span className="text-[13px] font-medium text-white">{tc.label} Config</span>
+      <div className="flex items-center gap-2 px-5 py-3 border-b border-white/[0.08]">
+        <Icon size={14} className={`${tc.color} shrink-0`} />
+        <input
+          type="text"
+          value={node.label}
+          onChange={(e) => onLabelChange(node.id, e.target.value)}
+          className="flex-1 min-w-0 text-[13px] font-medium text-white bg-transparent border-none outline-none
+                     hover:bg-white/[0.04] focus:bg-white/[0.06] px-1.5 py-0.5 rounded transition-colors -ml-1.5"
+          placeholder="Label"
+        />
+        <div className="flex items-center gap-0.5 shrink-0">
+          {canDelete && (
+            <div className="relative">
+              <button
+                onClick={() => setShowMenu(!showMenu)}
+                className="text-gray-500 hover:text-white p-1 rounded-md transition-colors"
+              >
+                <MoreHorizontal size={14} />
+              </button>
+              {showMenu && (
+                <div
+                  ref={menuRef}
+                  className="absolute right-0 top-full mt-1 z-50 min-w-[160px] py-1 border border-white/[0.08] rounded-lg shadow-xl"
+                  style={{ background: '#141416' }}
+                >
+                  <button
+                    onClick={() => {
+                      setShowMenu(false)
+                      onDelete(node.id)
+                    }}
+                    className="w-full px-3 py-2 text-left text-[12px] text-red-400 hover:text-red-300
+                               hover:bg-white/[0.06] flex items-center gap-2 transition-colors"
+                  >
+                    <Trash2 size={12} strokeWidth={1.5} />
+                    Remove action
+                  </button>
+                </div>
+              )}
             </div>
-          )
-        })()}
-        <button
-          onClick={onClose}
-          className="text-gray-500 hover:text-white p-1 rounded-md transition-colors"
-        >
-          <X size={14} />
-        </button>
+          )}
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-white p-1 rounded-md transition-colors"
+          >
+            <X size={14} />
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 space-y-5">
-        {/* Label */}
-        <div>
-          <label className="text-[13px] text-gray-400 font-medium block mb-2">Label</label>
-          <input
-            type="text"
-            value={node.label}
-            onChange={(e) => onLabelChange(node.id, e.target.value)}
-            className="w-full px-3 py-2 text-[13px] bg-white/[0.06] border border-white/[0.1] rounded-md
-                       text-white focus:outline-none focus:border-blue-500/50"
-          />
-          {node.slug && node.type !== 'trigger' && (
-            <p className="text-[10px] text-gray-600 mt-1 font-mono">
-              Ref: {`{{steps.${node.slug}.output}}`}
-            </p>
-          )}
-        </div>
+        {node.slug && node.type !== 'trigger' && (
+          <p className="text-[10px] text-gray-600 font-mono -mt-2 mb-3">
+            Ref: {`{{steps.${node.slug}.output}}`}
+          </p>
+        )}
 
-        {/* Type-specific config */}
         {node.type === 'trigger' && (
           <TriggerConfigForm
             config={node.config as TriggerConfig}
@@ -121,21 +156,6 @@ export function NodeConfigPanel({
           />
         )}
       </div>
-
-      {/* Delete button (not for trigger) */}
-      {node.type !== 'trigger' && (
-        <div className="px-5 py-4 border-t border-white/[0.08]">
-          <button
-            onClick={() => onDelete(node.id)}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-[12px]
-                       text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20
-                       rounded-md transition-colors"
-          >
-            <Trash2 size={13} />
-            Remove Action
-          </button>
-        </div>
-      )}
     </div>
   )
 }

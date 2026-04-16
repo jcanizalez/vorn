@@ -35,12 +35,12 @@ export function ConnectorButton({
           e.stopPropagation()
           setOpen(!open)
         }}
-        className={`w-[26px] h-[26px] rounded-full flex items-center justify-center
+        className={`w-[22px] h-[22px] rounded-full flex items-center justify-center
                     border transition-all z-10
                     ${
                       open
-                        ? 'bg-blue-600 border-blue-500 text-white scale-110'
-                        : 'bg-[#2a2a2e] border-white/[0.15] text-gray-500 hover:border-blue-500/60 hover:text-blue-400 hover:bg-blue-500/10'
+                        ? 'bg-white/[0.08] border-blue-500/40 text-white'
+                        : 'bg-[#1d1d20] border-white/[0.1] text-gray-500 hover:border-white/[0.2] hover:text-white'
                     }`}
       >
         <Plus size={13} strokeWidth={2.5} />

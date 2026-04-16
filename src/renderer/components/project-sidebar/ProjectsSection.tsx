@@ -112,7 +112,7 @@ export function ProjectsSection({
   return (
     <>
       {!isCollapsed && (
-        <div className="group/section px-3 pt-3 pb-1.5 flex items-center justify-between">
+        <div className="group/section pt-3 pb-1.5 flex items-center justify-between">
           <button
             onClick={() => setSectionCollapsed(!sectionCollapsed)}
             className="flex items-center gap-1.5 hover:text-gray-300 transition-colors"

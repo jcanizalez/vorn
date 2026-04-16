@@ -1,95 +1,114 @@
+import { useRef } from 'react'
 import type { WorkflowDefinition } from '../../../shared/types'
 import { ICON_MAP } from './icon-map'
-import { WorkflowContextMenu } from './WorkflowContextMenu'
 import { useAppStore } from '../../stores'
 import { isScheduledWorkflow } from '../../lib/workflow-helpers'
 import { executeWorkflow } from '../../lib/workflow-execution'
-import { Clock, Zap, Play, MoreHorizontal } from 'lucide-react'
+import { Zap, Play, MoreHorizontal } from 'lucide-react'
+import { Tooltip } from '../Tooltip'
+
+type DotColor = 'blue' | 'gray' | 'red' | null
+
+function statusDotColor(workflow: WorkflowDefinition, scheduled: boolean): DotColor {
+  if (scheduled) return workflow.enabled ? 'blue' : 'gray'
+  if (workflow.lastRunStatus === 'error') return 'red'
+  return null
+}
+
+const DOT_CLASSES: Record<Exclude<DotColor, null>, string> = {
+  blue: 'bg-blue-400',
+  gray: 'bg-gray-600',
+  red: 'bg-red-500'
+}
 
 export function WorkflowItem({
   workflow,
   isCollapsed,
   iconSize,
-  openMenuId,
-  setOpenMenuId
+  onContextMenu
 }: {
   workflow: WorkflowDefinition
   isCollapsed: boolean
   iconSize: number
-  openMenuId: string | null
-  setOpenMenuId: (id: string | null) => void
+  onContextMenu: (e: React.MouseEvent, workflowId: string) => void
 }) {
   const setEditingWorkflowId = useAppStore((s) => s.setEditingWorkflowId)
   const setWorkflowEditorOpen = useAppStore((s) => s.setWorkflowEditorOpen)
-  const removeWorkflow = useAppStore((s) => s.removeWorkflow)
-  const updateWorkflow = useAppStore((s) => s.updateWorkflow)
+  const moreRef = useRef<HTMLButtonElement>(null)
 
-  const wf = workflow
-  const WfIcon = ICON_MAP[wf.icon] || Zap
-  const isScheduled = isScheduledWorkflow(wf)
-  const isDisabled = isScheduled && !wf.enabled
+  const WfIcon = ICON_MAP[workflow.icon] || Zap
+  const isScheduled = isScheduledWorkflow(workflow)
+  const isDisabled = isScheduled && !workflow.enabled
+  const dot = statusDotColor(workflow, isScheduled)
 
   const handleEdit = () => {
-    setEditingWorkflowId(wf.id)
+    setEditingWorkflowId(workflow.id)
     setWorkflowEditorOpen(true)
   }
 
+  const handleMoreClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (moreRef.current) {
+      const rect = moreRef.current.getBoundingClientRect()
+      const syntheticEvent = {
+        ...e,
+        clientX: rect.right,
+        clientY: rect.bottom
+      } as React.MouseEvent
+      onContextMenu(syntheticEvent, workflow.id)
+    }
+  }
+
   return (
-    <div className={`group relative flex items-center ${isDisabled ? 'opacity-40' : ''}`}>
-      <button
-        onClick={handleEdit}
-        className={`flex-1 text-left px-2.5 py-1.5 rounded-md text-[13px] transition-colors
-                   flex items-center gap-2 text-gray-300 hover:text-white hover:bg-white/[0.04]
-                   min-w-0 ${isCollapsed ? 'justify-center px-0' : ''}`}
-        title={isCollapsed ? wf.name : undefined}
-      >
-        <span className="relative shrink-0">
-          <WfIcon size={iconSize} color={wf.iconColor || '#6b7280'} strokeWidth={1.5} />
-          {isScheduled && !isCollapsed && (
-            <Clock
-              size={7}
-              className="absolute -top-1 -right-1.5 text-blue-400"
-              strokeWidth={2.5}
-            />
-          )}
-        </span>
-        {!isCollapsed && <span className="truncate">{wf.name}</span>}
-      </button>
+    <button
+      onClick={handleEdit}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        onContextMenu(e, workflow.id)
+      }}
+      title={isCollapsed ? workflow.name : undefined}
+      className={`group/wf w-full text-left px-2 py-1.5 rounded-md text-[13px] flex items-center gap-2 min-w-0 transition-colors text-gray-300 hover:text-white hover:bg-white/[0.04] ${
+        isDisabled ? 'opacity-40' : ''
+      } ${isCollapsed ? 'justify-center px-0' : ''}`}
+    >
+      <span className="relative shrink-0">
+        <WfIcon size={iconSize} color={workflow.iconColor || '#6b7280'} strokeWidth={1.5} />
+        {dot && !isCollapsed && (
+          <span
+            className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-[#1a1a2e] ${DOT_CLASSES[dot]}`}
+            aria-hidden="true"
+          />
+        )}
+      </span>
       {!isCollapsed && (
-        <div className="flex items-center shrink-0">
-          {!isScheduled && (
+        <>
+          <span className="min-w-0 flex-1 truncate">{workflow.name}</span>
+          <Tooltip label="Run" position="top">
             <button
-              onClick={() => executeWorkflow(wf)}
-              className="opacity-0 group-hover:opacity-100 text-green-500 hover:text-green-400
-                         p-1 transition-all shrink-0"
-              title="Run workflow"
+              type="button"
+              aria-label={`Run workflow ${workflow.name}`}
+              onClick={(e) => {
+                e.stopPropagation()
+                executeWorkflow(workflow)
+              }}
+              className="opacity-0 group-hover/wf:opacity-100 focus:opacity-100 text-gray-500 hover:text-white p-0.5 rounded hover:bg-white/[0.08] transition-colors shrink-0"
             >
-              <Play size={11} strokeWidth={2.5} />
+              <Play size={11} strokeWidth={2} />
             </button>
-          )}
-          <div className="relative">
+          </Tooltip>
+          <Tooltip label="More" position="top">
             <button
-              onClick={() => setOpenMenuId(openMenuId === wf.id ? null : wf.id)}
-              className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-white
-                       p-1 transition-all shrink-0"
+              ref={moreRef}
+              type="button"
+              aria-label={`More options for ${workflow.name}`}
+              onClick={handleMoreClick}
+              className="opacity-0 group-hover/wf:opacity-100 focus:opacity-100 text-gray-500 hover:text-white p-0.5 rounded hover:bg-white/[0.08] transition-colors shrink-0"
             >
               <MoreHorizontal size={12} strokeWidth={2} />
             </button>
-            {openMenuId === wf.id && (
-              <WorkflowContextMenu
-                onEdit={handleEdit}
-                onDelete={() => removeWorkflow(wf.id)}
-                isScheduled={isScheduled}
-                isEnabled={wf.enabled}
-                onToggleEnabled={() => {
-                  updateWorkflow(wf.id, { ...wf, enabled: !wf.enabled })
-                }}
-                onClose={() => setOpenMenuId(null)}
-              />
-            )}
-          </div>
-        </div>
+          </Tooltip>
+        </>
       )}
-    </div>
+    </button>
   )
 }

@@ -1,17 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import {
-  ChevronRight,
-  Settings2,
-  FileText,
-  ClipboardList,
-  ListOrdered,
-  GitBranch,
-  FolderGit2,
-  Folder,
-  EyeOff
-} from 'lucide-react'
-import { Tooltip } from '../../Tooltip'
+import { ChevronRight, Settings2, GitBranch, EyeOff } from 'lucide-react'
 import {
   LaunchAgentConfig,
   TriggerConfig,
@@ -24,6 +13,7 @@ import { useAgentInstallStatus } from '../../../hooks/useAgentInstallStatus'
 import { VariableAutocomplete } from './VariableAutocomplete'
 import { ProjectPicker } from '../../ProjectPicker'
 import { AgentPicker } from '../../AgentPicker'
+import { SelectPicker } from '../../SelectPicker'
 import { RichMarkdownEditor } from '../../rich-editor/RichMarkdownEditor'
 
 interface Props {
@@ -39,9 +29,9 @@ const EMPTY_PROJECTS: import('../../../../shared/types').ProjectConfig[] = []
 const EMPTY_TASKS: import('../../../../shared/types').TaskConfig[] = []
 
 const PROMPT_SOURCES = [
-  { key: 'inline' as const, label: 'Inline', icon: FileText },
-  { key: 'task' as const, label: 'Task', icon: ClipboardList },
-  { key: 'queue' as const, label: 'Queue', icon: ListOrdered }
+  { value: 'inline', label: 'Inline' },
+  { value: 'task', label: 'Task' },
+  { value: 'queue', label: 'Queue' }
 ]
 
 export function LaunchAgentConfigForm({
@@ -65,7 +55,6 @@ export function LaunchAgentConfigForm({
   >([])
   const [isGitRepo, setIsGitRepo] = useState(true)
 
-  // Remote host is now derived from the project's hostIds
   const selectedProject = projects.find((p) => p.name === config.projectName)
   const isRemote = !!selectedProject && !!getProjectRemoteHostId(selectedProject)
 
@@ -98,20 +87,14 @@ export function LaunchAgentConfigForm({
   )
 
   const worktreeMode = config.worktreeMode ?? (config.useWorktree ? 'new' : 'none')
-
   const promptSource = config.taskId ? 'task' : config.taskFromQueue ? 'queue' : 'inline'
   const isTaskTrigger = triggerType === 'taskCreated' || triggerType === 'taskStatusChanged'
   const hasTemplateVars = stepGroups.length > 0 || isTaskTrigger
   const hasBranch = !isRemote && !!(config.branch && config.branch.trim())
   const isHeadless = !!config.headless
-
   const canUseFromTask = isTaskTrigger || promptSource === 'task' || promptSource === 'queue'
   const defaultAgentFallback = useAppStore((s) => s.config?.defaults.defaultAgent) ?? 'claude'
 
-  // Auto-revert: if the user selected "From Task" and then removes the task
-  // context (switches trigger to schedule, switches prompt source to inline),
-  // replace the invalid value with a concrete default rather than leaving a
-  // stale config that can't resolve at run time.
   useEffect(() => {
     if (!canUseFromTask && config.agentType === 'fromTask') {
       onChange({ ...config, agentType: defaultAgentFallback })
@@ -128,9 +111,6 @@ export function LaunchAgentConfigForm({
 
   return (
     <div className="space-y-5">
-      {/* ── What to Run ── */}
-
-      {/* Agent */}
       <div>
         <label className="text-[13px] text-gray-400 font-medium block mb-2">Agent</label>
         <AgentPicker
@@ -140,15 +120,8 @@ export function LaunchAgentConfigForm({
           variant="form"
           allowFromTask={canUseFromTask}
         />
-        {config.agentType === 'fromTask' && (
-          <p className="mt-1.5 text-[11px] text-gray-500 leading-snug">
-            Resolved at run time from the task&apos;s assigned agent. Falls back to the default
-            agent if the task has none.
-          </p>
-        )}
       </div>
 
-      {/* Project */}
       <div>
         <label className="text-[13px] text-gray-400 font-medium block mb-2">Project</label>
         <ProjectPicker
@@ -162,37 +135,27 @@ export function LaunchAgentConfigForm({
         />
       </div>
 
-      {/* Prompt Source */}
       <div>
         <label className="text-[13px] text-gray-400 font-medium block mb-2">Prompt</label>
-        <div className="flex gap-1.5 mb-2">
-          {PROMPT_SOURCES.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              onClick={() => {
-                if (key === 'inline')
-                  onChange({ ...config, taskId: undefined, taskFromQueue: undefined })
-                else if (key === 'task')
-                  onChange({
-                    ...config,
-                    prompt: undefined,
-                    taskFromQueue: undefined,
-                    taskId: projectTasks[0]?.id
-                  })
-                else
-                  onChange({ ...config, prompt: undefined, taskId: undefined, taskFromQueue: true })
-              }}
-              className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-md transition-colors
-                         ${
-                           promptSource === key
-                             ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                             : 'bg-white/[0.06] text-gray-400 border border-white/[0.08] hover:bg-white/[0.1]'
-                         }`}
-            >
-              <Icon size={12} />
-              {label}
-            </button>
-          ))}
+        <div className="mb-2">
+          <SelectPicker
+            value={promptSource}
+            options={PROMPT_SOURCES}
+            onChange={(v) => {
+              if (v === 'inline')
+                onChange({ ...config, taskId: undefined, taskFromQueue: undefined })
+              else if (v === 'task')
+                onChange({
+                  ...config,
+                  prompt: undefined,
+                  taskFromQueue: undefined,
+                  taskId: projectTasks[0]?.id
+                })
+              else
+                onChange({ ...config, prompt: undefined, taskId: undefined, taskFromQueue: true })
+            }}
+            variant="form"
+          />
         </div>
 
         {promptSource === 'inline' && (
@@ -218,19 +181,16 @@ export function LaunchAgentConfigForm({
         )}
 
         {promptSource === 'task' && (
-          <select
+          <SelectPicker
             value={config.taskId || ''}
-            onChange={(e) => onChange({ ...config, taskId: e.target.value || undefined })}
-            className="w-full px-3 py-2 text-[13px] bg-white/[0.06] border border-white/[0.1] rounded-md
-                       text-white focus:outline-none focus:border-blue-500/50 appearance-none"
-          >
-            <option value="">Select task...</option>
-            {projectTasks.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.title}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: '', label: 'Select task...' },
+              ...projectTasks.map((t) => ({ value: t.id, label: t.title }))
+            ]}
+            onChange={(v) => onChange({ ...config, taskId: v || undefined })}
+            placeholder="Select task..."
+            variant="form"
+          />
         )}
 
         {promptSource === 'queue' && (
@@ -241,7 +201,6 @@ export function LaunchAgentConfigForm({
         )}
       </div>
 
-      {/* ── Git & Branch — hidden for remote hosts and non-git projects ── */}
       {!isRemote && isGitRepo && (
         <div className="border border-white/[0.06] rounded-lg p-3 space-y-3">
           <div className="text-[13px] text-gray-400 font-medium flex items-center gap-1.5">
@@ -249,7 +208,6 @@ export function LaunchAgentConfigForm({
             Git &amp; Branch
           </div>
 
-          {/* Branch input */}
           <div>
             <div className="flex items-center gap-1.5 px-3 py-2 bg-white/[0.06] border border-white/[0.1] rounded-md">
               <GitBranch size={12} strokeWidth={2} className="text-gray-500 shrink-0" />
@@ -272,64 +230,42 @@ export function LaunchAgentConfigForm({
             </p>
           </div>
 
-          {/* Worktree mode selector */}
           <div>
             <div className="text-[11px] text-gray-500 mb-1.5">Worktree</div>
-            <div className="flex flex-wrap gap-1.5">
-              {(
-                [
-                  { key: 'none', label: 'None', icon: null },
-                  { key: 'new', label: 'New', icon: FolderGit2 },
-                  { key: 'fromStep', label: 'From step', icon: GitBranch },
-                  { key: 'existing', label: 'Existing', icon: Folder }
-                ] as const
-              ).map(({ key, label, icon: Icon }) => {
-                const disabled =
-                  (key === 'new' && !hasBranch) ||
-                  (key === 'fromStep' && priorWorktreeSteps.length === 0)
-                const disabledReason =
-                  key === 'new' && !hasBranch
-                    ? 'Enter a branch name first'
-                    : key === 'fromStep' && priorWorktreeSteps.length === 0
-                      ? 'No prior worktree steps in this workflow'
-                      : undefined
-                const btn = (
-                  <button
-                    key={key}
-                    onClick={() => {
-                      const updates: Partial<LaunchAgentConfig> = {
-                        worktreeMode: key,
-                        useWorktree: key === 'new' ? true : undefined,
-                        worktreeFromStepSlug: undefined,
-                        existingWorktreePath: undefined
-                      }
-                      if (key === 'none') {
-                        updates.branch = undefined
-                        updates.useWorktree = undefined
-                      }
-                      onChange({ ...config, ...updates })
-                    }}
-                    disabled={disabled}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-md transition-colors
-                               disabled:opacity-40 disabled:cursor-not-allowed ${
-                                 worktreeMode === key
-                                   ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                                   : 'bg-white/[0.06] text-gray-400 border border-white/[0.08] hover:bg-white/[0.1]'
-                               }`}
-                  >
-                    {Icon && <Icon size={12} />}
-                    {label}
-                  </button>
-                )
-                return disabledReason ? (
-                  <Tooltip key={key} label={disabledReason} position="top" delay={200}>
-                    {btn}
-                  </Tooltip>
-                ) : (
-                  btn
-                )
-              })}
-            </div>
+            <SelectPicker
+              value={worktreeMode}
+              options={[
+                { value: 'none', label: 'None' },
+                {
+                  value: 'new',
+                  label: 'New worktree',
+                  hint: !hasBranch ? 'needs branch' : undefined
+                },
+                {
+                  value: 'fromStep',
+                  label: 'From step',
+                  hint: priorWorktreeSteps.length === 0 ? 'no steps' : undefined
+                },
+                { value: 'existing', label: 'Existing worktree' }
+              ]}
+              onChange={(v) => {
+                const key = v as 'none' | 'new' | 'fromStep' | 'existing'
+                if (key === 'new' && !hasBranch) return
+                if (key === 'fromStep' && priorWorktreeSteps.length === 0) return
+                const updates: Partial<LaunchAgentConfig> = {
+                  worktreeMode: key,
+                  useWorktree: key === 'new' ? true : undefined,
+                  worktreeFromStepSlug: undefined,
+                  existingWorktreePath: undefined
+                }
+                if (key === 'none') {
+                  updates.branch = undefined
+                  updates.useWorktree = undefined
+                }
+                onChange({ ...config, ...updates })
+              }}
+              variant="form"
+            />
             <p className="text-[11px] text-gray-500 mt-1.5">
               {worktreeMode === 'none' && 'Agent runs in the project directory'}
               {worktreeMode === 'new' && "Isolated directory — won't affect the main working tree"}
@@ -338,53 +274,44 @@ export function LaunchAgentConfigForm({
             </p>
           </div>
 
-          {/* From step sub-selector */}
           {worktreeMode === 'fromStep' && (
-            <select
+            <SelectPicker
               value={config.worktreeFromStepSlug || ''}
-              onChange={(e) =>
-                onChange({ ...config, worktreeFromStepSlug: e.target.value || undefined })
-              }
-              className="w-full px-3 py-2 text-[13px] bg-white/[0.06] border border-white/[0.1] rounded-md
-                         text-white focus:outline-none focus:border-blue-500/50 appearance-none"
-            >
-              <option value="">Select step...</option>
-              {priorWorktreeSteps.map((step) => (
-                <option key={step.id} value={step.slug || step.id}>
-                  {step.label || step.slug || step.id}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: 'Select step...' },
+                ...priorWorktreeSteps.map((step) => ({
+                  value: step.slug || step.id,
+                  label: step.label || step.slug || step.id
+                }))
+              ]}
+              onChange={(v) => onChange({ ...config, worktreeFromStepSlug: v || undefined })}
+              placeholder="Select step..."
+              variant="form"
+            />
           )}
 
-          {/* Existing worktree sub-selector */}
           {worktreeMode === 'existing' && (
-            <select
+            <SelectPicker
               value={config.existingWorktreePath || ''}
-              onChange={(e) =>
-                onChange({ ...config, existingWorktreePath: e.target.value || undefined })
-              }
-              className="w-full px-3 py-2 text-[13px] bg-white/[0.06] border border-white/[0.1] rounded-md
-                         text-white focus:outline-none focus:border-blue-500/50 appearance-none"
-            >
-              <option value="">Select worktree...</option>
-              {existingWorktrees.map((wt) => (
-                <option key={wt.path} value={wt.path}>
-                  {wt.name} ({wt.branch})
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: 'Select worktree...' },
+                ...existingWorktrees.map((wt) => ({
+                  value: wt.path,
+                  label: wt.name,
+                  hint: wt.branch
+                }))
+              ]}
+              onChange={(v) => onChange({ ...config, existingWorktreePath: v || undefined })}
+              placeholder="Select worktree..."
+              variant="form"
+            />
           )}
         </div>
       )}
 
-      {/* ── Execution ── */}
       <div className="border border-white/[0.06] rounded-lg p-3 space-y-3">
-        <div className="text-[13px] text-gray-400 font-medium flex items-center gap-1.5">
-          Execution
-        </div>
+        <div className="text-[13px] text-gray-400 font-medium">Execution</div>
 
-        {/* Headless toggle */}
         <button
           role="switch"
           aria-checked={isHeadless}
@@ -394,13 +321,13 @@ export function LaunchAgentConfigForm({
             isRemote
               ? 'border-white/[0.04] bg-white/[0.01] opacity-50 cursor-not-allowed'
               : isHeadless
-                ? 'border-blue-500/20 bg-blue-500/[0.06]'
+                ? 'border-white/[0.1] bg-white/[0.04]'
                 : 'border-white/[0.04] bg-white/[0.02] hover:border-white/[0.1]'
           }`}
         >
           <div
             className={`w-7 h-[16px] rounded-full transition-colors relative shrink-0 ${
-              isHeadless ? 'bg-blue-500' : 'bg-white/[0.1]'
+              isHeadless ? 'bg-gray-400' : 'bg-white/[0.1]'
             }`}
           >
             <div
@@ -411,8 +338,8 @@ export function LaunchAgentConfigForm({
           </div>
           <div className="text-left min-w-0">
             <div className="flex items-center gap-1.5">
-              <EyeOff size={12} className={isHeadless ? 'text-blue-400' : 'text-gray-500'} />
-              <span className={`text-[12px] ${isHeadless ? 'text-blue-300' : 'text-gray-300'}`}>
+              <EyeOff size={12} className={isHeadless ? 'text-gray-300' : 'text-gray-500'} />
+              <span className={`text-[12px] ${isHeadless ? 'text-gray-200' : 'text-gray-400'}`}>
                 Headless
               </span>
             </div>
@@ -424,7 +351,6 @@ export function LaunchAgentConfigForm({
           </div>
         </button>
 
-        {/* Tab Name — only when not headless */}
         {!isHeadless && (
           <div>
             <label className="text-[13px] text-gray-400 font-medium block mb-2">Tab Name</label>
@@ -434,14 +360,12 @@ export function LaunchAgentConfigForm({
               onChange={(e) => onChange({ ...config, displayName: e.target.value || undefined })}
               placeholder={config.projectName || 'Uses project name'}
               className="w-full px-3 py-2 text-[13px] bg-white/[0.06] border border-white/[0.1] rounded-md
-                         text-white placeholder:text-gray-600 focus:outline-none focus:border-blue-500/50"
+                         text-white placeholder:text-gray-600 focus:outline-none focus:border-white/[0.2]"
             />
-            <p className="text-[11px] text-gray-500 mt-1">Label for the terminal tab</p>
           </div>
         )}
       </div>
 
-      {/* ── Advanced (collapsed) ── */}
       <div>
         <button
           onClick={() => setAdvancedOpen(!advancedOpen)}
@@ -466,7 +390,6 @@ export function LaunchAgentConfigForm({
               className="overflow-hidden"
             >
               <div className="space-y-4 pt-3">
-                {/* Extra Arguments */}
                 <div>
                   <label className="text-[13px] text-gray-400 font-medium block mb-2">
                     Extra Arguments
@@ -482,11 +405,8 @@ export function LaunchAgentConfigForm({
                     }}
                     placeholder="e.g. --dangerously-skip-permissions"
                     className="w-full px-3 py-2 text-[13px] bg-white/[0.06] border border-white/[0.1] rounded-md
-                               text-white placeholder:text-gray-600 focus:outline-none focus:border-blue-500/50 font-mono"
+                               text-white placeholder:text-gray-600 focus:outline-none focus:border-white/[0.2] font-mono"
                   />
-                  <p className="text-[11px] text-gray-500 mt-1">
-                    CLI flags passed to the agent, replacing project defaults
-                  </p>
                 </div>
               </div>
             </motion.div>

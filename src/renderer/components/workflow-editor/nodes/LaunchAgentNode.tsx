@@ -1,29 +1,19 @@
 import { AgentIcon } from '../../AgentIcon'
-import type { LaunchAgentConfig, AgentType } from '../../../../shared/types'
+import type { LaunchAgentConfig, AgentType, NodeExecutionStatus } from '../../../../shared/types'
 import { useAppStore } from '../../../stores'
 import { ClipboardList, Server } from 'lucide-react'
+import { STATUS_DOT_CLASSES } from '../statusDot'
 
 interface Props {
   label: string
   config: LaunchAgentConfig
   selected?: boolean
-  executionStatus?: string
+  executionStatus?: NodeExecutionStatus
   onClick: () => void
-}
-
-const AGENT_COLORS: Record<AgentType, string> = {
-  claude: '#D97757',
-  copilot: '#FFFFFF',
-  codex: '#7A9DFF',
-  opencode: '#FFFFFF',
-  gemini: '#3186FF'
 }
 
 export function LaunchAgentNode({ label, config, selected, executionStatus, onClick }: Props) {
   const isFromTask = config.agentType === 'fromTask'
-  const agentColor = isFromTask
-    ? '#60a5fa'
-    : AGENT_COLORS[config.agentType as AgentType] || '#6b7280'
   const remoteHosts = useAppStore((s) => s.config?.remoteHosts)
   const remoteHost = config.remoteHostId
     ? remoteHosts?.find((h) => h.id === config.remoteHostId)
@@ -39,49 +29,29 @@ export function LaunchAgentNode({ label, config, selected, executionStatus, onCl
         ? 'From task'
         : undefined
 
-  const statusColor =
-    executionStatus === 'running'
-      ? 'border-yellow-500'
-      : executionStatus === 'success'
-        ? 'border-green-500'
-        : executionStatus === 'error'
-          ? 'border-red-500'
-          : selected
-            ? 'border-blue-500'
-            : 'border-white/[0.12]'
-
-  const statusBg =
-    executionStatus === 'running'
-      ? 'bg-yellow-500/10'
-      : executionStatus === 'success'
-        ? 'bg-green-500/10'
-        : executionStatus === 'error'
-          ? 'bg-red-500/10'
-          : selected
-            ? 'bg-blue-500/10'
-            : 'bg-[#232328]'
-
   return (
     <div
       onClick={(e) => {
         e.stopPropagation()
         onClick()
       }}
-      className={`px-4 py-3 rounded-lg border-2 w-[280px] transition-colors cursor-pointer
-                  ${statusColor} ${statusBg}
-                  hover:border-white/[0.2]`}
+      className={`relative px-3 py-2.5 rounded-md border w-[280px] transition-all cursor-pointer
+                  ${selected ? 'border-blue-500/60 shadow-[0_0_0_3px_rgba(59,130,246,0.08)]' : 'border-white/[0.08]'}
+                  bg-[#1d1d20] hover:bg-white/[0.02]`}
     >
-      <div className="flex items-center gap-2.5">
-        <div
-          className="w-8 h-8 rounded-md flex items-center justify-center"
-          style={{ backgroundColor: `${agentColor}20` }}
-        >
+      {executionStatus && STATUS_DOT_CLASSES[executionStatus] && (
+        <span
+          className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full ${STATUS_DOT_CLASSES[executionStatus]}`}
+        />
+      )}
+      <div className="flex items-center gap-2">
+        <span className="shrink-0">
           {isFromTask ? (
-            <ClipboardList size={16} className="text-blue-400" />
+            <ClipboardList size={14} className="text-blue-400" />
           ) : (
-            <AgentIcon agentType={config.agentType as AgentType} size={16} />
+            <AgentIcon agentType={config.agentType as AgentType} size={14} />
           )}
-        </div>
+        </span>
         <div className="min-w-0 flex-1">
           <div className="text-[13px] font-medium text-white truncate">{label}</div>
           <div className="text-[11px] text-gray-500 truncate">

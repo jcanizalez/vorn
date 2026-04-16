@@ -31,7 +31,7 @@ function VerticalLine({ dashed, height }: { dashed?: boolean; height?: number })
   return (
     <div
       className={`w-px shrink-0 ${
-        dashed ? 'border-l border-dashed border-white/[0.12]' : 'bg-white/[0.15]'
+        dashed ? 'border-l border-dashed border-white/[0.08]' : 'bg-white/[0.08]'
       }`}
       style={{ height: height ?? 24 }}
     />
@@ -189,9 +189,9 @@ function HorizontalBar({ branchCount }: { branchCount: number }) {
     <div className="flex w-full">
       {Array.from({ length: branchCount }, (_, i) => (
         <div key={i} className="flex-1 relative h-px">
-          {i > 0 && <div className="absolute left-0 right-1/2 top-0 h-px bg-white/[0.15]" />}
+          {i > 0 && <div className="absolute left-0 right-1/2 top-0 h-px bg-white/[0.08]" />}
           {i < branchCount - 1 && (
-            <div className="absolute left-1/2 right-0 top-0 h-px bg-white/[0.15]" />
+            <div className="absolute left-1/2 right-0 top-0 h-px bg-white/[0.08]" />
           )}
         </div>
       ))}
@@ -305,7 +305,7 @@ export function WorkflowCanvas({
 
   return (
     <div className="flex-1 h-full overflow-auto" onClick={() => onNodeClick('')}>
-      <div className="flex flex-col items-center py-12 min-h-full px-8">
+      <div className="flex flex-col items-center py-8 min-h-full px-6">
         <FlowRowRenderer
           rows={flowLayout}
           edges={edges}

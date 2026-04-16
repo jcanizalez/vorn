@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useAppStore } from '../../stores'
 import { SessionItem } from './SessionItem'
 import { ProjectsSectionToolbar } from './ProjectsSectionToolbar'
@@ -19,6 +19,8 @@ export function FlatSessionsSection({
   const activeProject = useAppStore((s) => s.activeProject)
   const setActiveProject = useAppStore((s) => s.setActiveProject)
   const setFocusedTerminal = useAppStore((s) => s.setFocusedTerminal)
+
+  const [sectionCollapsed, setSectionCollapsed] = useState(false)
 
   const sessions = useMemo(() => {
     const effectiveProject =
@@ -46,39 +48,48 @@ export function FlatSessionsSection({
   return (
     <>
       {!isCollapsed && (
-        <div className="group/section px-3 pt-3 pb-1.5 flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <ChevronRight size={10} strokeWidth={2} className="text-gray-600 rotate-90" />
+        <div className="group/section pt-3 pb-1.5 flex items-center justify-between">
+          <button
+            onClick={() => setSectionCollapsed(!sectionCollapsed)}
+            className="flex items-center gap-1.5 hover:text-gray-300 transition-colors"
+          >
+            <ChevronRight
+              size={10}
+              strokeWidth={2}
+              className={`text-gray-600 transition-transform ${sectionCollapsed ? '' : 'rotate-90'}`}
+            />
             <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">
               Sessions
             </span>
-          </div>
+          </button>
           <ProjectsSectionToolbar />
         </div>
       )}
 
-      <button
-        onClick={() => {
-          setActiveProject(null)
-          setFocusedTerminal(null)
-        }}
-        className={`w-full text-left px-2.5 py-1.5 rounded-md text-[13px] transition-colors flex items-center gap-2 ${
-          activeProject === null
-            ? 'bg-white/[0.08] text-white'
-            : 'text-gray-300 hover:text-white hover:bg-white/[0.04]'
-        } ${isCollapsed ? 'justify-center px-0' : ''}`}
-        title={isCollapsed ? 'All Projects' : undefined}
-      >
-        <Monitor size={isCollapsed ? 22 : 14} strokeWidth={1.5} className="shrink-0" />
-        {!isCollapsed && (
-          <>
-            All Projects
-            <span className="text-gray-500 text-xs ml-auto">{workspaceTerminalCount}</span>
-          </>
-        )}
-      </button>
+      {!sectionCollapsed && (
+        <button
+          onClick={() => {
+            setActiveProject(null)
+            setFocusedTerminal(null)
+          }}
+          className={`w-full text-left px-2.5 py-1.5 rounded-md text-[13px] transition-colors flex items-center gap-2 ${
+            activeProject === null
+              ? 'bg-white/[0.08] text-white'
+              : 'text-gray-300 hover:text-white hover:bg-white/[0.04]'
+          } ${isCollapsed ? 'justify-center px-0' : ''}`}
+          title={isCollapsed ? 'All Projects' : undefined}
+        >
+          <Monitor size={isCollapsed ? 22 : 14} strokeWidth={1.5} className="shrink-0" />
+          {!isCollapsed && (
+            <>
+              All Projects
+              <span className="text-gray-500 text-xs ml-auto">{workspaceTerminalCount}</span>
+            </>
+          )}
+        </button>
+      )}
 
-      {!isCollapsed && (
+      {!isCollapsed && !sectionCollapsed && (
         <div className="space-y-0.5 mt-1">
           {sessions.length > 0 ? (
             sessions.map((s) => <SessionItem key={s.id} session={s} showBranch={true} />)

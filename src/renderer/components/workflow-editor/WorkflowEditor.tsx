@@ -1,9 +1,9 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Save, Play, Trash2, History, Zap } from 'lucide-react'
+import { ArrowLeft, Save, Play, Trash2, History, Zap, MoreHorizontal, Settings } from 'lucide-react'
 import { ICON_MAP } from '../project-sidebar/icon-map'
 import { PROJECT_ICON_OPTIONS, ICON_COLOR_PALETTE } from '../../lib/project-icons'
-import { ToggleSwitch } from '../settings/ToggleSwitch'
+import { Tooltip } from '../Tooltip'
 import { useAppStore } from '../../stores'
 import {
   WorkflowDefinition,
@@ -15,15 +15,14 @@ import {
   getProjectRemoteHostId
 } from '../../../shared/types'
 import { WorkflowCanvas } from './WorkflowCanvas'
-import { NodePalette } from './panels/NodePalette'
 import { NodeConfigPanel } from './panels/NodeConfigPanel'
 import { RunHistoryPanel } from './panels/RunHistoryPanel'
+import { WorkflowPropertiesPanel } from './panels/WorkflowPropertiesPanel'
 import {
   createTriggerNode,
   createLaunchAgentNode,
   createScriptNode,
   createConditionNode,
-  appendNode,
   appendNodeAfter,
   insertNodeBetween,
   insertBeforeFork,
@@ -67,8 +66,11 @@ export function WorkflowEditor() {
   const [autoCleanupWorktrees, setAutoCleanupWorktrees] = useState(false)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [showRunHistory, setShowRunHistory] = useState(false)
+  const [showProperties, setShowProperties] = useState(true)
   const [showIconPicker, setShowIconPicker] = useState(false)
+  const [showOverflowMenu, setShowOverflowMenu] = useState(false)
   const iconPickerRef = useRef<HTMLDivElement>(null)
+  const overflowMenuRef = useRef<HTMLDivElement>(null)
   const [executionHistory, setExecutionHistory] = useState<
     import('../../../shared/types').WorkflowExecution[]
   >([])
@@ -79,9 +81,6 @@ export function WorkflowEditor() {
     [nodes, selectedNodeId]
   )
 
-  const hasTrigger = nodes.some((n) => n.type === 'trigger')
-
-  // Compute the current trigger type from nodes
   const triggerType = useMemo(() => {
     const triggerNode = nodes.find((n) => n.type === 'trigger')
     if (!triggerNode) return undefined
@@ -160,6 +159,17 @@ export function WorkflowEditor() {
     document.addEventListener('pointerdown', handler)
     return () => document.removeEventListener('pointerdown', handler)
   }, [showIconPicker])
+
+  useEffect(() => {
+    if (!showOverflowMenu) return
+    const handler = (e: MouseEvent) => {
+      if (overflowMenuRef.current && !overflowMenuRef.current.contains(e.target as Node)) {
+        setShowOverflowMenu(false)
+      }
+    }
+    document.addEventListener('pointerdown', handler)
+    return () => document.removeEventListener('pointerdown', handler)
+  }, [showOverflowMenu])
 
   const handleClose = useCallback(() => {
     setOpen(false)
@@ -254,51 +264,6 @@ export function WorkflowEditor() {
     handleClose()
   }, [editingId, removeWorkflowFromStore, handleClose])
 
-  // Node management
-  const handleAddTrigger = useCallback(
-    (type: TriggerConfig['triggerType']) => {
-      const configMap: Record<TriggerConfig['triggerType'], TriggerConfig> = {
-        manual: { triggerType: 'manual' },
-        once: { triggerType: 'once', runAt: new Date().toISOString() },
-        recurring: { triggerType: 'recurring', cron: '0 9 * * *' },
-        taskCreated: { triggerType: 'taskCreated' },
-        taskStatusChanged: { triggerType: 'taskStatusChanged' }
-      }
-      const trigger = createTriggerNode(configMap[type])
-
-      if (nodes.length === 0) {
-        setNodes([trigger])
-      } else {
-        const result = appendNode(nodes, edges, trigger)
-        setNodes(result.nodes)
-        setEdges(result.edges)
-      }
-      setSelectedNodeId(trigger.id)
-    },
-    [nodes, edges]
-  )
-
-  const handleAddLaunchAgent = useCallback(() => {
-    const projects = useAppStore.getState().config?.projects || []
-    const firstProject = projects[0]
-    const agent = createLaunchAgentNode(
-      firstProject ? { projectName: firstProject.name, projectPath: firstProject.path } : {}
-    )
-
-    const result = appendNode(nodes, edges, agent)
-    setNodes(result.nodes)
-    setEdges(result.edges)
-    setSelectedNodeId(agent.id)
-  }, [nodes, edges])
-
-  const handleAddScript = useCallback(() => {
-    const script = createScriptNode()
-    const result = appendNode(nodes, edges, script)
-    setNodes(result.nodes)
-    setEdges(result.edges)
-    setSelectedNodeId(script.id)
-  }, [nodes, edges])
-
   // Helper: create a node with a unique slug
   const createNodeWithUniqueSlug = useCallback(
     (type: 'agent' | 'script' | 'condition') => {
@@ -323,7 +288,6 @@ export function WorkflowEditor() {
     [nodes]
   )
 
-  // Canvas "+" button handlers — insert between nodes or append at end
   const handleInsertNode = useCallback(
     (afterNodeId: string, beforeNodeId: string | null, type: 'agent' | 'script' | 'condition') => {
       // Condition nodes use a special insertion that creates true/false branches
@@ -362,7 +326,6 @@ export function WorkflowEditor() {
     [nodes, edges, createNodeWithUniqueSlug]
   )
 
-  // Canvas "+" button handler — add a parallel branch
   const handleAddParallelBranch = useCallback(
     (forkFromId: string, type: 'agent' | 'script') => {
       const newNode = createNodeWithUniqueSlug(type)
@@ -377,6 +340,7 @@ export function WorkflowEditor() {
   const handleNodeClick = useCallback((nodeId: string) => {
     setSelectedNodeId(nodeId || null)
     setShowRunHistory(false)
+    if (!nodeId) setShowProperties(true)
   }, [])
 
   const handleNodeConfigChange = useCallback((nodeId: string, config: WorkflowNode['config']) => {
@@ -550,98 +514,102 @@ export function WorkflowEditor() {
           />
         </div>
 
-        <div className="flex items-center gap-2 titlebar-no-drag">
-          {/* Stagger delay */}
-          <div className="flex items-center gap-1.5 mr-2">
-            <label className="text-[11px] text-gray-500">Stagger</label>
-            <input
-              type="number"
-              value={staggerDelayMs || ''}
-              onChange={(e) =>
-                setStaggerDelayMs(e.target.value ? parseInt(e.target.value) : undefined)
-              }
-              placeholder="0ms"
-              className="w-[70px] px-2 py-1 text-[12px] bg-white/[0.06] border border-white/[0.08] rounded-md
-                         text-gray-300 focus:outline-none focus:border-blue-500/50"
-            />
-          </div>
-
-          <div className="flex items-center gap-1.5 mr-2">
-            <span
-              className="text-[11px] text-gray-500"
-              title="Auto-remove worktrees created during this run (skips dirty)"
+        <div className="flex items-center gap-1 titlebar-no-drag">
+          <Tooltip label="Run workflow" position="bottom">
+            <button
+              onClick={handleRun}
+              className="text-gray-400 hover:text-white p-1.5 rounded-md hover:bg-white/[0.06] transition-colors"
             >
-              Cleanup worktrees
-            </span>
-            <ToggleSwitch checked={autoCleanupWorktrees} onChange={setAutoCleanupWorktrees} />
-          </div>
-
-          <div className="flex items-center gap-1.5 mr-2">
-            <span className="text-[12px] text-gray-400">Enabled</span>
-            <ToggleSwitch checked={enabled} onChange={setEnabled} />
-          </div>
+              <Play size={15} />
+            </button>
+          </Tooltip>
 
           {editingId && (
-            <button
-              onClick={handleDelete}
-              className="px-3 py-1.5 text-[12px] text-red-400 hover:text-red-300
-                         bg-red-500/10 hover:bg-red-500/20 rounded-md transition-colors
-                         flex items-center gap-1.5"
+            <Tooltip
+              label={`Run history${executionHistory.length > 0 ? ` (${executionHistory.length})` : ''}`}
+              position="bottom"
             >
-              <Trash2 size={13} />
-              Delete
-            </button>
+              <button
+                onClick={() => {
+                  setShowRunHistory(!showRunHistory)
+                  if (!showRunHistory) setSelectedNodeId(null)
+                }}
+                className={`p-1.5 rounded-md transition-colors ${
+                  showRunHistory
+                    ? 'text-white bg-white/[0.08]'
+                    : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
+                }`}
+              >
+                <History size={15} />
+              </button>
+            </Tooltip>
           )}
 
-          {/* Run History toggle */}
-          {editingId && executionHistory.length > 0 && (
-            <button
-              onClick={() => {
-                setShowRunHistory(!showRunHistory)
-                if (!showRunHistory) setSelectedNodeId(null)
-              }}
-              className={`px-3 py-1.5 text-[12px] rounded-md transition-colors flex items-center gap-1.5
-                         ${
-                           showRunHistory
-                             ? 'text-purple-400 bg-purple-500/20 hover:bg-purple-500/30'
-                             : 'text-gray-400 hover:text-gray-300 bg-white/[0.06] hover:bg-white/[0.1]'
-                         }`}
-            >
-              <History size={13} />
-              Runs ({executionHistory.length})
-            </button>
-          )}
-
-          <button
-            onClick={handleRun}
-            className="px-3 py-1.5 text-[12px] text-green-400 hover:text-green-300
-                       bg-green-500/10 hover:bg-green-500/20 rounded-md transition-colors
-                       flex items-center gap-1.5"
-          >
-            <Play size={13} />
-            Run
-          </button>
           <button
             onClick={handleSave}
-            className="px-4 py-1.5 text-[12px] font-medium text-white
-                       bg-blue-600 hover:bg-blue-500 rounded-md transition-colors
+            className="px-3 py-1.5 text-[12px] font-medium text-white
+                       bg-white/[0.12] hover:bg-white/[0.18] rounded-md transition-colors ml-1
                        flex items-center gap-1.5"
           >
-            <Save size={13} />
+            <Save size={13} strokeWidth={1.5} />
             Save
           </button>
+
+          <div className="relative ml-0.5">
+            <Tooltip label="More options" position="bottom">
+              <button
+                onClick={() => setShowOverflowMenu(!showOverflowMenu)}
+                className={`p-1.5 rounded-md transition-colors ${
+                  showOverflowMenu
+                    ? 'text-white bg-white/[0.08]'
+                    : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
+                }`}
+              >
+                <MoreHorizontal size={15} />
+              </button>
+            </Tooltip>
+            {showOverflowMenu && (
+              <div
+                ref={overflowMenuRef}
+                className="absolute right-0 top-full mt-1 z-50 min-w-[180px] py-1 border border-white/[0.08] rounded-lg shadow-xl"
+                style={{ background: '#141416' }}
+              >
+                <button
+                  onClick={() => {
+                    setSelectedNodeId(null)
+                    setShowRunHistory(false)
+                    setShowProperties(true)
+                    setShowOverflowMenu(false)
+                  }}
+                  className="w-full px-3 py-2 text-left text-[12px] text-gray-300 hover:text-white
+                             hover:bg-white/[0.06] flex items-center gap-2 transition-colors"
+                >
+                  <Settings size={12} strokeWidth={1.5} />
+                  Workflow settings
+                </button>
+                {editingId && (
+                  <>
+                    <div className="my-1 border-t border-white/[0.06]" />
+                    <button
+                      onClick={() => {
+                        setShowOverflowMenu(false)
+                        handleDelete()
+                      }}
+                      className="w-full px-3 py-2 text-left text-[12px] text-red-400 hover:text-red-300
+                                 hover:bg-white/[0.06] flex items-center gap-2 transition-colors"
+                    >
+                      <Trash2 size={12} strokeWidth={1.5} />
+                      Delete workflow
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Main content: palette + canvas + config/history panel */}
       <div className="flex-1 flex overflow-hidden titlebar-no-drag">
-        <NodePalette
-          onAddTrigger={handleAddTrigger}
-          onAddLaunchAgent={handleAddLaunchAgent}
-          onAddScript={handleAddScript}
-          hasTrigger={hasTrigger}
-        />
-
         <WorkflowCanvas
           nodes={nodes}
           edges={edges}
@@ -672,6 +640,24 @@ export function WorkflowEditor() {
             onClose={() => setSelectedNodeId(null)}
             triggerType={triggerType}
             stepGroups={stepGroups}
+          />
+        )}
+
+        {!selectedNode && !showRunHistory && showProperties && (
+          <WorkflowPropertiesPanel
+            enabled={enabled}
+            onEnabledChange={setEnabled}
+            staggerDelayMs={staggerDelayMs}
+            onStaggerChange={setStaggerDelayMs}
+            autoCleanupWorktrees={autoCleanupWorktrees}
+            onCleanupChange={setAutoCleanupWorktrees}
+            triggerNode={nodes.find((n) => n.type === 'trigger') ?? null}
+            onSelectTrigger={() => {
+              const t = nodes.find((n) => n.type === 'trigger')
+              if (t) setSelectedNodeId(t.id)
+            }}
+            lastRun={executionHistory[0] ?? null}
+            onClose={() => setShowProperties(false)}
           />
         )}
       </div>

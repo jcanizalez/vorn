@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { XCircle, ChevronDown, ChevronRight, Maximize2, Play } from 'lucide-react'
 import type { SessionLog, AgentType } from '../../shared/types'
-import { StatusIcon } from './workflow-editor/RunEntry'
+import { StatusDot } from './workflow-editor/RunEntry'
 
 function formatRunTime(iso: string): string {
   const d = new Date(iso)
@@ -146,7 +146,7 @@ export function SessionActivityLog({
               ) : (
                 <ChevronRight size={12} className="text-gray-500" />
               )}
-              <StatusIcon status={entry.status} />
+              <StatusDot status={entry.status} />
               <span className="text-[12px] text-gray-300 flex-1 min-w-0 truncate">
                 {formatRunTime(entry.startedAt)}
                 {entry.agentType && (

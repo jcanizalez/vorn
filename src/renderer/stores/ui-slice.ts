@@ -430,5 +430,31 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
       const updated = { ...state.config, projects }
       window.api.saveConfig(updated)
       return { config: updated }
+    }),
+
+  sidebarWorkflowFilter: (savedSidebar.workflowFilter as 'all' | 'manual' | 'scheduled') ?? 'all',
+  setSidebarWorkflowFilter: (filter) => {
+    saveSidebarSettings({ workflowFilter: filter })
+    set({ sidebarWorkflowFilter: filter })
+  },
+
+  reorderWorkflows: (fromIndex, toIndex) =>
+    set((state) => {
+      if (!state.config || fromIndex === toIndex) return {}
+      const activeWs = state.activeWorkspace
+      const wsWorkflows = (state.config.workflows ?? []).filter(
+        (w) => (w.workspaceId ?? 'personal') === activeWs
+      )
+      const reordered = [...wsWorkflows]
+      const [moved] = reordered.splice(fromIndex, 1)
+      reordered.splice(toIndex, 0, moved)
+      let wsIdx = 0
+      const workflows = (state.config.workflows ?? []).map((w) => {
+        if ((w.workspaceId ?? 'personal') === activeWs) return reordered[wsIdx++]
+        return w
+      })
+      const updated = { ...state.config, workflows }
+      window.api.saveConfig(updated)
+      return { config: updated }
     })
 })

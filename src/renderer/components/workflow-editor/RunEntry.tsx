@@ -1,13 +1,5 @@
 import { useState } from 'react'
-import {
-  CheckCircle,
-  XCircle,
-  Clock,
-  ChevronDown,
-  ChevronRight,
-  Maximize2,
-  Play
-} from 'lucide-react'
+import { ChevronDown, ChevronRight, Maximize2, Play } from 'lucide-react'
 import {
   WorkflowExecution,
   WorkflowNode,
@@ -17,16 +9,8 @@ import {
   supportsExactSessionResume
 } from '../../../shared/types'
 
-function formatRunTime(iso: string): string {
-  const d = new Date(iso)
-  return d.toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  })
-}
+import { formatRelativeTime } from '../../lib/format-time'
+import { STATUS_DOT_CLASSES as SHARED_STATUS_DOTS } from './statusDot'
 
 function formatDuration(start: string, end?: string): string {
   if (!end) return 'running...'
@@ -36,24 +20,16 @@ function formatDuration(start: string, end?: string): string {
   return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`
 }
 
-export function StatusIcon({
+export function StatusDot({
   status
 }: {
   status: WorkflowExecution['status'] | NodeExecutionState['status']
 }) {
-  switch (status) {
-    case 'success':
-      return <CheckCircle size={14} className="text-green-400 shrink-0" />
-    case 'error':
-      return <XCircle size={14} className="text-red-400 shrink-0" />
-    case 'running':
-      return <Clock size={14} className="text-blue-400 shrink-0 animate-pulse" />
-    case 'pending':
-    case 'skipped':
-      return <Clock size={14} className="text-gray-500 shrink-0" />
-    default:
-      return <Clock size={14} className="text-gray-500 shrink-0" />
-  }
+  return (
+    <span
+      className={`w-2 h-2 rounded-full shrink-0 ${SHARED_STATUS_DOTS[status] ?? 'bg-gray-600'}`}
+    />
+  )
 }
 
 function NodeLabel({ nodeId, nodes }: { nodeId: string; nodes: WorkflowNode[] }) {
@@ -113,10 +89,10 @@ export function RunEntry({
         ) : (
           <ChevronRight size={12} className="text-gray-500" />
         )}
-        <StatusIcon status={execution.status} />
+        <StatusDot status={execution.status} />
         <span className="text-[12px] text-gray-300 flex-1 min-w-0 truncate">
           {workflowName && <span className="text-gray-500 mr-1.5">{workflowName}</span>}
-          {formatRunTime(execution.startedAt)}
+          {formatRelativeTime(execution.startedAt)}
         </span>
         {triggerTask && (
           <span
@@ -159,7 +135,7 @@ export function RunEntry({
                   className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-white/[0.03] transition-colors"
                 >
                   <div className="flex flex-col items-center w-4 shrink-0">
-                    <StatusIcon status={ns.status} />
+                    <StatusDot status={ns.status} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">

@@ -1,11 +1,12 @@
 import { Terminal, Code2 } from 'lucide-react'
-import type { ScriptConfig } from '../../../../shared/types'
+import type { ScriptConfig, NodeExecutionStatus } from '../../../../shared/types'
+import { STATUS_DOT_CLASSES } from '../statusDot'
 
 interface Props {
   label: string
   config: ScriptConfig
   selected?: boolean
-  executionStatus?: string
+  executionStatus?: NodeExecutionStatus
   onClick: () => void
 }
 
@@ -34,45 +35,23 @@ export function ScriptNode({ label, config, selected, executionStatus, onClick }
         ?.trim()
     : undefined
 
-  const statusColor =
-    executionStatus === 'running'
-      ? 'border-yellow-500'
-      : executionStatus === 'success'
-        ? 'border-green-500'
-        : executionStatus === 'error'
-          ? 'border-red-500'
-          : selected
-            ? 'border-blue-500'
-            : 'border-white/[0.12]'
-
-  const statusBg =
-    executionStatus === 'running'
-      ? 'bg-yellow-500/10'
-      : executionStatus === 'success'
-        ? 'bg-green-500/10'
-        : executionStatus === 'error'
-          ? 'bg-red-500/10'
-          : selected
-            ? 'bg-blue-500/10'
-            : 'bg-[#232328]'
-
   return (
     <div
       onClick={(e) => {
         e.stopPropagation()
         onClick()
       }}
-      className={`px-4 py-3 rounded-lg border-2 w-[280px] transition-colors cursor-pointer
-                  ${statusColor} ${statusBg}
-                  hover:border-white/[0.2]`}
+      className={`relative px-3 py-2.5 rounded-md border w-[280px] transition-all cursor-pointer
+                  ${selected ? 'border-blue-500/60 shadow-[0_0_0_3px_rgba(59,130,246,0.08)]' : 'border-white/[0.08]'}
+                  bg-[#1d1d20] hover:bg-white/[0.02]`}
     >
-      <div className="flex items-center gap-2.5">
-        <div
-          className="w-8 h-8 rounded-md flex items-center justify-center"
-          style={{ backgroundColor: `${color}20` }}
-        >
-          <Icon size={16} style={{ color }} strokeWidth={2} />
-        </div>
+      {executionStatus && STATUS_DOT_CLASSES[executionStatus] && (
+        <span
+          className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full ${STATUS_DOT_CLASSES[executionStatus]}`}
+        />
+      )}
+      <div className="flex items-center gap-2">
+        <Icon size={14} style={{ color }} strokeWidth={2} className="shrink-0" />
         <div className="min-w-0 flex-1">
           <div className="text-[13px] font-medium text-white truncate">{label}</div>
           <div className="text-[11px] text-gray-500 truncate">

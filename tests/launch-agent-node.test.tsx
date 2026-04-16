@@ -69,20 +69,18 @@ describe('LaunchAgentNode rendering', () => {
     expect(iconSvg).toBeInTheDocument()
   })
 
-  it('uses a distinct blue background tint for the fromTask node', () => {
-    const { container: fromTaskContainer } = render(
+  it('renders ClipboardList icon for fromTask without crashing', () => {
+    const { container } = render(
       <LaunchAgentNode
         label="Launch task agent"
         config={makeConfig({ agentType: 'fromTask' })}
         onClick={vi.fn()}
       />
     )
-    const iconWrapper = fromTaskContainer.querySelector('div[style*="background"]') as HTMLElement
-    expect(iconWrapper?.style.backgroundColor).toContain('96')
-    // 0x60 = 96 → the #60a5fa color starts with 0x60, which rgb() renders as 96
+    expect(container.querySelector('svg.lucide-clipboard-list')).toBeInTheDocument()
   })
 
-  it('falls back to a neutral swatch when agentType is an unknown string', () => {
+  it('renders without crashing for an unknown agentType', () => {
     const { container } = render(
       <LaunchAgentNode
         label="Weird agent"
@@ -91,11 +89,7 @@ describe('LaunchAgentNode rendering', () => {
         onClick={vi.fn()}
       />
     )
-    // The fallback color is #6b7280; the wrapper style should contain the hex
-    // prefix via rgba-ish rendering. We just assert the node mounted with a
-    // background style rather than throwing on the missing lookup.
-    const iconWrapper = container.querySelector('div[style*="background"]')
-    expect(iconWrapper).toBeInTheDocument()
+    expect(container.firstChild).toBeInTheDocument()
   })
 
   it('fires onClick and stops propagation when the node is clicked', () => {

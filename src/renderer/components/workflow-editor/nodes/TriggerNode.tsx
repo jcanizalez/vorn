@@ -47,14 +47,12 @@ export function TriggerNode({ label, config, selected, onClick }: Props) {
         e.stopPropagation()
         onClick()
       }}
-      className={`px-4 py-3 rounded-lg border-2 w-[280px] transition-colors cursor-pointer
-                  ${selected ? 'border-blue-500 bg-blue-500/10' : 'border-white/[0.12] bg-[#232328]'}
-                  hover:border-white/[0.2]`}
+      className={`px-3 py-2.5 rounded-md border w-[280px] transition-all cursor-pointer
+                  ${selected ? 'border-blue-500/60 shadow-[0_0_0_3px_rgba(59,130,246,0.08)]' : 'border-white/[0.08]'}
+                  bg-[#1d1d20] hover:bg-white/[0.02]`}
     >
-      <div className="flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-md bg-blue-500/20 flex items-center justify-center">
-          <Icon size={16} className="text-blue-400" strokeWidth={2} />
-        </div>
+      <div className="flex items-center gap-2">
+        <Icon size={14} className="text-blue-400 shrink-0" strokeWidth={2} />
         <div className="min-w-0">
           <div className="text-[13px] font-medium text-white truncate">{label}</div>
           <div className="text-[11px] text-gray-500 truncate">{getSubtitle(config)}</div>

@@ -74,14 +74,14 @@ describe('SessionActivityLog', () => {
     expect(getByText('5m 0s')).toBeInTheDocument()
   })
 
-  it('shows success icon for completed session', () => {
-    const { getByTestId } = render(
+  it('shows success dot for completed session', () => {
+    const { container } = render(
       <SessionActivityLog
         logs={[makeLog({ status: 'success' })]}
         onViewFullOutput={onViewFullOutput}
       />
     )
-    expect(getByTestId('check-icon')).toBeInTheDocument()
+    expect(container.querySelector('.bg-green-400')).toBeInTheDocument()
   })
 
   it('shows error icon for errored session', () => {
@@ -95,14 +95,14 @@ describe('SessionActivityLog', () => {
     expect(getAllByTestId('x-icon').length).toBeGreaterThanOrEqual(1)
   })
 
-  it('shows clock icon for running session', () => {
-    const { getByTestId } = render(
+  it('shows running dot for running session', () => {
+    const { container } = render(
       <SessionActivityLog
         logs={[makeLog({ status: 'running', completedAt: undefined })]}
         onViewFullOutput={onViewFullOutput}
       />
     )
-    expect(getByTestId('clock-icon')).toBeInTheDocument()
+    expect(container.querySelector('.bg-yellow-400')).toBeInTheDocument()
   })
 
   it('auto-expands first session and errored sessions', () => {

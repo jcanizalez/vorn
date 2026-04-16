@@ -31,6 +31,7 @@ export type SortMode = 'manual' | 'created' | 'recent'
 export type StatusFilter = AgentStatus | 'all'
 export type TaskStatusFilter = 'all' | 'todo' | 'in_progress' | 'in_review' | 'done' | 'cancelled'
 export type ProjectSortMode = 'manual' | 'name' | 'recent'
+export type WorkflowFilter = 'all' | 'manual' | 'scheduled'
 export type WorktreeSortMode = 'name' | 'recent'
 export type WorktreeFilter = 'all' | 'active'
 export type SidebarViewMode = 'worktrees' | 'worktrees-sessions' | 'sessions' | 'sessions-flat'
@@ -217,6 +218,9 @@ export interface UISlice {
   sidebarViewMode: SidebarViewMode
   setSidebarViewMode: (mode: SidebarViewMode) => void
   reorderProjects: (fromIndex: number, toIndex: number) => void
+  sidebarWorkflowFilter: WorkflowFilter
+  setSidebarWorkflowFilter: (filter: WorkflowFilter) => void
+  reorderWorkflows: (fromIndex: number, toIndex: number) => void
 }
 
 export interface TasksSlice {
