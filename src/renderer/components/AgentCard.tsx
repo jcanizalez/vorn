@@ -3,7 +3,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../stores'
 import { AgentIcon } from './AgentIcon'
 import { StatusBadge } from './StatusBadge'
-import { TerminalInstance } from './TerminalInstance'
+import { TerminalSlot } from './TerminalSlot'
 import { InlineRename } from './InlineRename'
 import { GitChangesIndicator, BrowseFilesButton } from './GitChangesIndicator'
 import { closeTerminalSession } from '../lib/terminal-close'
@@ -357,7 +357,13 @@ export const AgentCard = memo(
 
         {/* Terminal */}
         <div className="relative flex-1 min-h-0" style={{ background: '#141416' }}>
-          {!isFocused && <TerminalInstance terminalId={terminalId} isFocused={isSelected} />}
+          {!isFocused && (
+            <TerminalSlot
+              terminalId={terminalId}
+              isFocused={isSelected}
+              className="w-full h-full"
+            />
+          )}
           {isFocused && (
             <div className="flex items-center justify-center h-full text-gray-600 text-xs">
               Expanded

@@ -1,69 +1,12 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
 import { useAppStore } from '../stores'
-import {
-  attachTerminal,
-  detachTerminal,
-  fitTerminal,
-  focusTerminal,
-  destroyTerminal
-} from '../lib/terminal-registry'
+import { destroyTerminal } from '../lib/terminal-registry'
 import { InlineRename } from './InlineRename'
-import { TerminalContextMenu } from './TerminalContextMenu'
+import { TerminalSlot } from './TerminalSlot'
 import { Pencil } from 'lucide-react'
 
 const MIN_HEIGHT = 120
 const MAX_HEIGHT_RATIO = 0.7
-
-function ShellTerminal({ terminalId }: { terminalId: string }) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const panelHeight = useAppStore((s) => s.terminalPanelHeight)
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
-
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    attachTerminal(terminalId, el)
-
-    const handleContextMenu = (e: MouseEvent) => {
-      e.preventDefault()
-      setContextMenu({ x: e.clientX, y: e.clientY })
-    }
-    el.addEventListener('contextmenu', handleContextMenu)
-
-    requestAnimationFrame(() => {
-      fitTerminal(terminalId)
-      focusTerminal(terminalId)
-    })
-    return () => {
-      el.removeEventListener('contextmenu', handleContextMenu)
-      if (el) detachTerminal(terminalId, el)
-    }
-  }, [terminalId])
-
-  useEffect(() => {
-    const timer = setTimeout(() => fitTerminal(terminalId), 50)
-    return () => clearTimeout(timer)
-  }, [panelHeight, terminalId])
-
-  useEffect(() => {
-    const onResize = (): void => fitTerminal(terminalId)
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [terminalId])
-
-  return (
-    <>
-      <div ref={containerRef} className="w-full h-full" />
-      {contextMenu && (
-        <TerminalContextMenu
-          terminalId={terminalId}
-          position={contextMenu}
-          onClose={() => setContextMenu(null)}
-        />
-      )}
-    </>
-  )
-}
 
 export function TerminalPanel() {
   const isOpen = useAppStore((s) => s.isTerminalPanelOpen)
@@ -268,7 +211,14 @@ export function TerminalPanel() {
 
       {/* Terminal area */}
       <div className="flex-1 overflow-hidden">
-        {activeTab && <ShellTerminal key={activeTab} terminalId={activeTab} />}
+        {activeTab && (
+          <TerminalSlot
+            key={activeTab}
+            terminalId={activeTab}
+            isFocused={true}
+            className="w-full h-full"
+          />
+        )}
       </div>
     </div>
   )

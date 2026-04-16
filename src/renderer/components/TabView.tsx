@@ -6,7 +6,7 @@ import { getProjectRemoteHostId } from '../../shared/types'
 import { useVisibleTerminals } from '../hooks/useVisibleTerminals'
 import { useFilteredHeadless } from '../hooks/useFilteredHeadless'
 import { AgentIcon } from './AgentIcon'
-import { TerminalInstance } from './TerminalInstance'
+import { TerminalSlot } from './TerminalSlot'
 import { PromptLauncher } from './PromptLauncher'
 import { InlineRename } from './InlineRename'
 import { CardContextMenu } from './CardContextMenu'
@@ -497,7 +497,12 @@ export function TabView() {
       {/* Terminal content */}
       <div className="relative flex-1 min-h-0" style={{ background: '#141416' }}>
         {activeTabId && activeTerminal && (
-          <TerminalInstance key={activeTabId} terminalId={activeTabId} isFocused={true} />
+          <TerminalSlot
+            key={activeTabId}
+            terminalId={activeTabId}
+            isFocused={true}
+            className="w-full h-full"
+          />
         )}
         {activeTabId && activeTerminal && activeTerminal.lastOutputTimestamp === 0 && (
           <div

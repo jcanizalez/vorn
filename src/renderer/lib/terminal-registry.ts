@@ -6,15 +6,17 @@ import '@xterm/xterm/css/xterm.css'
 interface TerminalEntry {
   term: Terminal
   fitAddon: FitAddon
-  currentContainer: HTMLDivElement | null
+  persistentWrapper: HTMLDivElement | null
+  activeSlot: HTMLElement | null
+  lastAppliedRect: { top: number; left: number; width: number; height: number } | null
+  lastSyncedCols: number
+  lastSyncedRows: number
   _loadRenderer?: (() => void) | null
   _gpuAddon?: { dispose(): void } | null
 }
 
-export interface TerminalViewportState {
-  line: number
-  atBottom: boolean
-}
+/** data attribute on the persistent wrapper, read by TerminalHost for event delegation. */
+export const TERMINAL_ID_ATTR = 'data-terminal-id'
 
 const registry = new Map<string, TerminalEntry>()
 const readyCallbacks = new Map<string, Set<() => void>>()
@@ -101,7 +103,7 @@ const TERM_OPTIONS = {
     brightCyan: '#22d3ee',
     brightWhite: '#fafafa'
   },
-  scrollback: 5000,
+  scrollback: 2000,
   allowProposedApi: true
 }
 
@@ -171,11 +173,11 @@ function createTerminalEntry(terminalId: string): TerminalEntry {
   })
 
   const mountAddon = (make: () => ITerminalAddon): void => {
-    // Re-check under the await — the terminal may have been destroyed or
-    // detached while the dynamic import was in flight, and a concurrent
-    // load may have already installed an addon.
+    // Re-check under the await — the terminal may have been destroyed
+    // while the dynamic import was in flight, and a concurrent load may
+    // have already installed an addon.
     const e = registry.get(terminalId)
-    if (!e || !e.currentContainer || e._gpuAddon) return
+    if (!e || !e.term.element || e._gpuAddon) return
     const addon = make()
     term.loadAddon(addon)
     e._gpuAddon = addon
@@ -213,7 +215,11 @@ function createTerminalEntry(terminalId: string): TerminalEntry {
   const entry: TerminalEntry = {
     term,
     fitAddon,
-    currentContainer: null
+    persistentWrapper: null,
+    activeSlot: null,
+    lastAppliedRect: null,
+    lastSyncedCols: 0,
+    lastSyncedRows: 0
   }
 
   entry._loadRenderer = loadRenderer
@@ -226,83 +232,207 @@ function createTerminalEntry(terminalId: string): TerminalEntry {
     readyCallbacks.delete(terminalId)
   }
 
+  notifyRegistryChange()
+
   return entry
 }
 
-/**
- * Attach a terminal to a container. If the terminal doesn't exist yet,
- * it's created. If it's already attached elsewhere, its DOM is moved.
- */
-export function attachTerminal(terminalId: string, container: HTMLDivElement): TerminalEntry {
-  let entry = registry.get(terminalId)
+// Every xterm is opened into a persistent wrapper div that lives in the
+// singleton TerminalHost and never moves — reparenting would interrupt
+// the WebGL context and produce flicker on view switches.
 
-  if (!entry) {
-    entry = createTerminalEntry(terminalId)
-    // First time — open into this container
-    entry.term.open(container)
-    entry.currentContainer = container
-    // Load GPU renderer after open
-    entry._loadRenderer?.()
-    setTimeout(() => entry!.fitAddon.fit(), 0)
-    return entry
-  }
+let hostRoot: HTMLElement | null = null
+const registryChangeListeners = new Set<() => void>()
+let cachedTerminalIds: string[] | null = null
 
-  // Already exists — skip if already attached to the same container
-  if (entry.currentContainer === container) {
-    return entry
-  }
-
-  // Move the DOM element to a different container
-  const termEl = entry.term.element
-  if (termEl) {
-    container.innerHTML = ''
-    container.appendChild(termEl)
-  }
-  entry.currentContainer = container
-  if (!entry._gpuAddon) {
-    entry._loadRenderer?.()
-  }
-  return entry
-}
-
-/**
- * Detach a terminal from its current container (e.g. on component unmount).
- * Does NOT dispose the Terminal — it stays alive in the registry and its
- * buffer keeps receiving pty data. Releases the active renderer addon
- * (WebGL or canvas fallback) since there's no visible surface for it to
- * draw to. The renderer is rebuilt by attachTerminal on re-attach.
- */
-export function detachTerminal(terminalId: string, container: HTMLDivElement): void {
-  const entry = registry.get(terminalId)
-  if (!entry || entry.currentContainer !== container) return
-  entry.currentContainer = null
-  if (entry._gpuAddon) {
+function notifyRegistryChange(): void {
+  cachedTerminalIds = null
+  for (const cb of registryChangeListeners) {
     try {
-      entry._gpuAddon.dispose()
+      cb()
     } catch {
-      // GL context may already be lost
+      // listener threw — isolate to not block other subscribers
     }
-    entry._gpuAddon = null
+  }
+}
+
+function ensurePersistentWrapper(entry: TerminalEntry, terminalId: string): HTMLDivElement {
+  if (entry.persistentWrapper) return entry.persistentWrapper
+  const wrapper = document.createElement('div')
+  wrapper.setAttribute(TERMINAL_ID_ATTR, terminalId)
+  wrapper.style.position = 'fixed'
+  wrapper.style.top = '0'
+  wrapper.style.left = '0'
+  wrapper.style.width = '0'
+  wrapper.style.height = '0'
+  wrapper.style.visibility = 'hidden'
+  wrapper.style.pointerEvents = 'none'
+  entry.persistentWrapper = wrapper
+  if (hostRoot) {
+    hostRoot.appendChild(wrapper)
+    openIntoPersistentWrapper(entry)
+  }
+  return wrapper
+}
+
+function openIntoPersistentWrapper(entry: TerminalEntry): void {
+  if (entry.term.element) return
+  const wrapper = entry.persistentWrapper
+  if (!wrapper || !wrapper.parentElement) return
+  entry.term.open(wrapper)
+  entry._loadRenderer?.()
+}
+
+/**
+ * Attach the singleton TerminalHost's root element. Wrappers are appended
+ * here; passing null detaches (wrappers remain in the DOM until destroy).
+ */
+export function setHostRoot(root: HTMLElement | null): void {
+  hostRoot = root
+  if (!root) return
+  for (const [id, entry] of registry) {
+    const wrapper = entry.persistentWrapper
+    if (wrapper && wrapper.parentElement !== root) {
+      root.appendChild(wrapper)
+      openIntoPersistentWrapper(entry)
+      // Re-sync after adoption — registerSlot may have run before the host
+      // mounted, setting geometry on a detached wrapper. Now that it's in the
+      // DOM and xterm has opened, position + fit correctly.
+      syncTerminalOverlay(id)
+    }
   }
 }
 
 /**
- * Fit the terminal to its current container and notify the pty of new size.
+ * Register a slot element for a terminal. The wrapper is created (lazily)
+ * and will track this slot's bounding rect via syncTerminalOverlay.
+ * Last-registered slot wins if multiple slots register for the same id.
  */
-export function fitTerminal(terminalId: string, preState?: TerminalViewportState | null): void {
+export function registerSlot(terminalId: string, slotEl: HTMLElement): void {
+  let entry = registry.get(terminalId)
+  if (!entry) entry = createTerminalEntry(terminalId)
+  entry.activeSlot = slotEl
+  ensurePersistentWrapper(entry, terminalId)
+  openIntoPersistentWrapper(entry)
+  syncTerminalOverlay(terminalId)
+}
+
+/**
+ * Unregister a slot. No-op if the current active slot is not this element
+ * (protects against out-of-order unmounts during rapid view swaps).
+ */
+export function unregisterSlot(terminalId: string, slotEl: HTMLElement): void {
   const entry = registry.get(terminalId)
-  if (!entry || !entry.currentContainer) return
-  // Only capture/restore viewport state if we were given one (e.g. after a DOM move).
-  // Otherwise let xterm.js handle scroll naturally — it already auto-scrolls when at bottom
-  // and holds position when the user has scrolled up.
-  const viewportState = preState !== undefined ? preState : null
+  if (!entry || entry.activeSlot !== slotEl) return
+  entry.activeSlot = null
+  syncTerminalOverlay(terminalId)
+}
+
+export function getPersistentWrapper(terminalId: string): HTMLDivElement | null {
+  return registry.get(terminalId)?.persistentWrapper ?? null
+}
+
+function hideWrapper(wrapper: HTMLDivElement, entry: TerminalEntry): void {
+  if (wrapper.style.visibility !== 'hidden') {
+    wrapper.style.visibility = 'hidden'
+    wrapper.style.pointerEvents = 'none'
+  }
+  entry.lastAppliedRect = null
+}
+
+/**
+ * Position the persistent wrapper to overlay the active slot. Called every
+ * frame by TerminalHost, so the function is aggressively guarded:
+ * rect is rounded to integer pixels so subpixel spring jitter doesn't
+ * trigger a fit+IPC each frame, and pty resize IPC only fires when the
+ * integer cols/rows actually change. visibility is used (not display:none)
+ * because xterm needs nonzero layout metrics to fit correctly.
+ */
+export function syncTerminalOverlay(terminalId: string): void {
+  const entry = registry.get(terminalId)
+  const wrapper = entry?.persistentWrapper
+  if (!entry || !wrapper) return
+  const slot = entry.activeSlot
+  if (!slot) {
+    hideWrapper(wrapper, entry)
+    return
+  }
+  const raw = slot.getBoundingClientRect()
+  if (raw.width <= 0 || raw.height <= 0) {
+    hideWrapper(wrapper, entry)
+    return
+  }
+  const rect = {
+    top: Math.round(raw.top),
+    left: Math.round(raw.left),
+    width: Math.round(raw.width),
+    height: Math.round(raw.height)
+  }
+  const last = entry.lastAppliedRect
+  if (
+    last !== null &&
+    last.top === rect.top &&
+    last.left === rect.left &&
+    last.width === rect.width &&
+    last.height === rect.height
+  ) {
+    return
+  }
+  // Size-changed matters for fit (cols/rows depend on width/height); position-
+  // only changes (Framer Motion springs move cards via translate) just need a
+  // style update and skip the layout-reading fitAddon.fit() call.
+  const sizeChanged = last === null || last.width !== rect.width || last.height !== rect.height
+  wrapper.style.top = `${rect.top}px`
+  wrapper.style.left = `${rect.left}px`
+  if (sizeChanged) {
+    wrapper.style.width = `${rect.width}px`
+    wrapper.style.height = `${rect.height}px`
+  }
+  wrapper.style.visibility = 'visible'
+  wrapper.style.pointerEvents = 'auto'
+  entry.lastAppliedRect = rect
+  if (!sizeChanged || !entry.term.element) return
   try {
     entry.fitAddon.fit()
-    if (viewportState) restoreViewportState(terminalId, viewportState)
-    const { cols, rows } = entry.term
-    window.api.resizeTerminal({ id: terminalId, cols, rows })
   } catch {
-    // fit can throw if container has 0 dimensions
+    return
+  }
+  const { cols, rows } = entry.term
+  if (cols !== entry.lastSyncedCols || rows !== entry.lastSyncedRows) {
+    entry.lastSyncedCols = cols
+    entry.lastSyncedRows = rows
+    window.api.resizeTerminal({ id: terminalId, cols, rows })
+  }
+}
+
+export function onRegistryChange(cb: () => void): () => void {
+  registryChangeListeners.add(cb)
+  return () => {
+    registryChangeListeners.delete(cb)
+  }
+}
+
+export function getRegisteredTerminalIds(): string[] {
+  if (!cachedTerminalIds) cachedTerminalIds = Array.from(registry.keys())
+  return cachedTerminalIds
+}
+
+/**
+ * Fit the terminal to its persistent wrapper and notify the pty of new size.
+ */
+export function fitTerminal(terminalId: string): void {
+  const entry = registry.get(terminalId)
+  if (!entry || !entry.term.element) return
+  try {
+    entry.fitAddon.fit()
+  } catch {
+    return
+  }
+  const { cols, rows } = entry.term
+  if (cols !== entry.lastSyncedCols || rows !== entry.lastSyncedRows) {
+    entry.lastSyncedCols = cols
+    entry.lastSyncedRows = rows
+    window.api.resizeTerminal({ id: terminalId, cols, rows })
   }
 }
 
@@ -325,26 +455,6 @@ export function clearTerminalSelection(terminalId: string): void {
 
 export function pasteToTerminal(terminalId: string, text: string): void {
   registry.get(terminalId)?.term.paste(text)
-}
-
-export function getViewportState(terminalId: string): TerminalViewportState | null {
-  const entry = registry.get(terminalId)
-  if (!entry) return null
-  const buf = entry.term.buffer.active
-  return {
-    line: buf.viewportY,
-    atBottom: buf.viewportY >= buf.baseY
-  }
-}
-
-export function restoreViewportState(terminalId: string, state: TerminalViewportState): void {
-  const entry = registry.get(terminalId)
-  if (!entry) return
-  if (state.atBottom) {
-    entry.term.scrollToBottom()
-    return
-  }
-  entry.term.scrollToLine(Math.max(0, state.line))
 }
 
 export function scrollToBottom(terminalId: string): void {
@@ -418,8 +528,14 @@ export function destroyTerminal(terminalId: string): void {
     entry._gpuAddon = null
   }
   entry.term.dispose()
+  if (entry.persistentWrapper) {
+    entry.persistentWrapper.remove()
+    entry.persistentWrapper = null
+  }
+  entry.activeSlot = null
   registry.delete(terminalId)
   readyCallbacks.delete(terminalId)
+  notifyRegistryChange()
 }
 
 /**
@@ -445,11 +561,11 @@ export function getCurrentTerminalFontSize(): number {
 }
 
 /**
- * Re-fit all terminals that have a current container (i.e. are mounted).
+ * Re-fit all terminals that are currently overlaying an active slot.
  * Used when the virtual keyboard changes viewport geometry.
  */
 export function fitAllTerminals(): void {
   for (const [id, entry] of registry) {
-    if (entry.currentContainer) fitTerminal(id)
+    if (entry.activeSlot) fitTerminal(id)
   }
 }

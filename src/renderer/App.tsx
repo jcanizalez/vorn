@@ -6,6 +6,7 @@ import { GridView } from './components/GridView'
 import { TabView } from './components/TabView'
 import { MobileSinglePane } from './components/MobileSinglePane'
 import { FocusedTerminal } from './components/FocusedTerminal'
+import { TerminalHost } from './components/TerminalHost'
 import { ProjectSidebar } from './components/project-sidebar/ProjectSidebar'
 import { PromptLauncher } from './components/PromptLauncher'
 import { AddProjectDialog } from './components/AddProjectDialog'
@@ -646,6 +647,8 @@ export function App() {
 
       {/* Focus overlay — mobile only (desktop renders inline in content area) */}
       {isMobile && focusedId && <FocusedTerminal />}
+
+      <TerminalHost />
 
       <PromptLauncher mode="overlay" onClose={() => setDialogOpen(false)} />
       <AddProjectDialog />

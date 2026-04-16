@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useAppStore } from '../stores'
-import { TerminalInstance } from './TerminalInstance'
+import { TerminalSlot } from './TerminalSlot'
 import { AgentIcon } from './AgentIcon'
 import { InlineRename } from './InlineRename'
 import { Tooltip } from './Tooltip'
@@ -217,7 +217,11 @@ export function FocusedTerminal() {
           className="relative flex-1 p-1 min-h-0"
           style={{ background: 'rgba(0, 0, 0, 0.3)' }}
         >
-          <TerminalInstance terminalId={effectiveId} isFocused={!isRenaming && !isPreview} />
+          <TerminalSlot
+            terminalId={effectiveId}
+            isFocused={!isRenaming && !isPreview}
+            className="w-full h-full"
+          />
           {/* Mobile: floating controls (font size + scroll) */}
           <div className="absolute bottom-4 right-4 flex flex-col items-end gap-2 z-10">
             {isMobile && <MobileFontSizeControl />}

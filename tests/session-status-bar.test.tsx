@@ -4,8 +4,8 @@ import { render, screen, within, act } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 import type { ReactNode } from 'react'
 
-vi.mock('../src/renderer/components/TerminalInstance', () => ({
-  TerminalInstance: () => <div data-testid="terminal-instance" />
+vi.mock('../src/renderer/components/TerminalSlot', () => ({
+  TerminalSlot: () => <div data-testid="terminal-instance" />
 }))
 vi.mock('../src/renderer/components/PromptLauncher', () => ({
   PromptLauncher: () => null

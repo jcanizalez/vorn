@@ -7,7 +7,7 @@ import { fitAllTerminals } from '../lib/terminal-registry'
  * Strategy:
  * 1. `interactive-widget=resizes-content` in the viewport meta makes Chrome/Android
  *    resize the layout viewport when the keyboard opens, which triggers the normal
- *    window resize flow (TerminalInstance already listens to this).
+ *    window resize flow (the TerminalHost rAF loop already picks this up).
  *
  * 2. Safari/iOS does NOT support `interactive-widget`. Instead, it resizes the
  *    `visualViewport` without changing the layout viewport. We listen to
