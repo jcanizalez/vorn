@@ -56,7 +56,7 @@ describe('TerminalHost', () => {
 
   it('renders a fixed-position root div with pointer-events disabled', () => {
     const { container } = render(<TerminalHost />)
-    const root = container.querySelector('div[aria-hidden="true"]') as HTMLElement
+    const root = container.querySelector('div.fixed.inset-0') as HTMLElement
     expect(root).not.toBeNull()
     expect(root.className).toContain('fixed')
     expect(root.className).toContain('pointer-events-none')
@@ -88,7 +88,7 @@ describe('TerminalHost', () => {
 
   it('opens the context menu on right-click and closes it via onClose', () => {
     const { container, getByTestId, queryByTestId } = render(<TerminalHost />)
-    const root = container.querySelector('div[aria-hidden="true"]') as HTMLElement
+    const root = container.querySelector('div.fixed.inset-0') as HTMLElement
     const wrapper = document.createElement('div')
     wrapper.dataset.terminalId = 'my-term'
     root.appendChild(wrapper)
@@ -101,7 +101,7 @@ describe('TerminalHost', () => {
 
   it('ignores right-clicks on elements without data-terminal-id', () => {
     const { container, queryByTestId } = render(<TerminalHost />)
-    const root = container.querySelector('div[aria-hidden="true"]') as HTMLElement
+    const root = container.querySelector('div.fixed.inset-0') as HTMLElement
     const stray = document.createElement('div')
     root.appendChild(stray)
     fireEvent.contextMenu(stray, { clientX: 0, clientY: 0 })

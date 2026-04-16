@@ -243,8 +243,10 @@ function createTerminalEntry(terminalId: string): TerminalEntry {
 
 let hostRoot: HTMLElement | null = null
 const registryChangeListeners = new Set<() => void>()
+let cachedTerminalIds: string[] | null = null
 
 function notifyRegistryChange(): void {
+  cachedTerminalIds = null
   for (const cb of registryChangeListeners) {
     try {
       cb()
@@ -288,11 +290,15 @@ function openIntoPersistentWrapper(entry: TerminalEntry): void {
 export function setHostRoot(root: HTMLElement | null): void {
   hostRoot = root
   if (!root) return
-  for (const entry of registry.values()) {
+  for (const [id, entry] of registry) {
     const wrapper = entry.persistentWrapper
     if (wrapper && wrapper.parentElement !== root) {
       root.appendChild(wrapper)
       openIntoPersistentWrapper(entry)
+      // Re-sync after adoption — registerSlot may have run before the host
+      // mounted, setting geometry on a detached wrapper. Now that it's in the
+      // DOM and xterm has opened, position + fit correctly.
+      syncTerminalOverlay(id)
     }
   }
 }
@@ -372,14 +378,20 @@ export function syncTerminalOverlay(terminalId: string): void {
   ) {
     return
   }
+  // Size-changed matters for fit (cols/rows depend on width/height); position-
+  // only changes (Framer Motion springs move cards via translate) just need a
+  // style update and skip the layout-reading fitAddon.fit() call.
+  const sizeChanged = last === null || last.width !== rect.width || last.height !== rect.height
   wrapper.style.top = `${rect.top}px`
   wrapper.style.left = `${rect.left}px`
-  wrapper.style.width = `${rect.width}px`
-  wrapper.style.height = `${rect.height}px`
+  if (sizeChanged) {
+    wrapper.style.width = `${rect.width}px`
+    wrapper.style.height = `${rect.height}px`
+  }
   wrapper.style.visibility = 'visible'
   wrapper.style.pointerEvents = 'auto'
   entry.lastAppliedRect = rect
-  if (!entry.term.element) return
+  if (!sizeChanged || !entry.term.element) return
   try {
     entry.fitAddon.fit()
   } catch {
@@ -401,7 +413,8 @@ export function onRegistryChange(cb: () => void): () => void {
 }
 
 export function getRegisteredTerminalIds(): string[] {
-  return Array.from(registry.keys())
+  if (!cachedTerminalIds) cachedTerminalIds = Array.from(registry.keys())
+  return cachedTerminalIds
 }
 
 /**

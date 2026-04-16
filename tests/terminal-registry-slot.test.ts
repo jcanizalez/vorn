@@ -219,4 +219,42 @@ describe('terminal-registry: slot / persistent-host API', () => {
     expect(getRegisteredTerminalIds()).not.toContain('term-a')
     destroyTerminal('term-b')
   })
+
+  it('getRegisteredTerminalIds returns the same reference until the registry mutates', () => {
+    const slot = makeSlot({ width: 100, height: 100 })
+    registerSlot('term-cache-a', slot)
+    const first = getRegisteredTerminalIds()
+    const second = getRegisteredTerminalIds()
+    expect(first).toBe(second)
+    registerSlot('term-cache-b', slot)
+    const third = getRegisteredTerminalIds()
+    expect(third).not.toBe(first)
+  })
+
+  it('rounds slot rect to integer pixels so subpixel jitter is ignored', () => {
+    const el = document.createElement('div')
+    let rect: DOMRect = {
+      top: 50.2,
+      left: 100.7,
+      width: 400.4,
+      height: 300.6,
+      right: 500,
+      bottom: 350,
+      x: 0,
+      y: 0,
+      toJSON: () => ({})
+    } as DOMRect
+    el.getBoundingClientRect = () => rect
+    registerSlot('term-round', el)
+    const wrapper = getPersistentWrapper('term-round')!
+    expect(wrapper.style.top).toBe('50px')
+    expect(wrapper.style.left).toBe('101px')
+    expect(wrapper.style.width).toBe('400px')
+    expect(wrapper.style.height).toBe('301px')
+    // Subpixel jitter within the same integer — wrapper styles should stay put.
+    rect = { ...rect, top: 49.9, left: 101.3 } as DOMRect
+    syncTerminalOverlay('term-round')
+    expect(wrapper.style.top).toBe('50px')
+    expect(wrapper.style.left).toBe('101px')
+  })
 })
