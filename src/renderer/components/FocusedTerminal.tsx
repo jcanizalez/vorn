@@ -7,14 +7,15 @@ import { InlineRename } from './InlineRename'
 import { Tooltip } from './Tooltip'
 import { ConfirmPopover } from './ConfirmPopover'
 import { SessionStatusBar } from './SessionStatusBar'
+import { StatusBadge } from './StatusBadge'
 import { MobileFontSizeControl } from './MobileFontSizeControl'
 import { MobileTerminalKeybar } from './MobileTerminalKeybar'
-import { getDisplayName } from '../lib/terminal-display'
+import { getDisplayName, getBranchLabel } from '../lib/terminal-display'
 import { closeTerminalSession } from '../lib/terminal-close'
 import { useTerminalScrollButton } from '../hooks/useTerminalScrollButton'
 import { useTerminalPinchZoom } from '../hooks/useTerminalPinchZoom'
 import { useIsMobile } from '../hooks/useIsMobile'
-import { ArrowDown, Minimize2, X, Pencil } from 'lucide-react'
+import { ArrowDown, FolderGit2, GitBranch, Minimize2, X, Pencil } from 'lucide-react'
 
 const isMac = navigator.platform.toUpperCase().includes('MAC')
 const MOD = isMac ? '⌘' : 'Ctrl+'
@@ -128,7 +129,25 @@ export function FocusedTerminal() {
                 </button>
               </span>
             )}
+            {isMobile && terminal.session.branch && (
+              <span className="flex items-center gap-1 mt-0.5">
+                {terminal.session.isWorktree ? (
+                  <FolderGit2 size={11} className="text-amber-500" strokeWidth={1.5} />
+                ) : (
+                  <GitBranch size={11} className="text-gray-600" strokeWidth={1.5} />
+                )}
+                <span
+                  className={`text-[11px] font-mono truncate ${
+                    terminal.session.isWorktree ? 'text-amber-400' : 'text-gray-500'
+                  }`}
+                >
+                  {getBranchLabel(terminal.session)}
+                </span>
+              </span>
+            )}
           </div>
+
+          {isMobile && <StatusBadge status={terminal.status} />}
 
           {/* Keyboard shortcut hints (desktop only) */}
           {!isMobile && (
