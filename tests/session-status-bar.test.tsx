@@ -32,8 +32,9 @@ vi.mock('../src/renderer/components/GitChangesIndicator', () => ({
 vi.mock('../src/renderer/components/GridContextMenu', () => ({
   GridContextMenu: () => null
 }))
+let mockIsMobile = false
 vi.mock('../src/renderer/hooks/useIsMobile', () => ({
-  useIsMobile: () => false
+  useIsMobile: () => mockIsMobile
 }))
 vi.mock('../src/renderer/hooks/useTerminalScrollButton', () => ({
   useTerminalScrollButton: () => ({ showScrollBtn: false, handleScrollToBottom: vi.fn() })
@@ -99,6 +100,7 @@ const mockTerminal = {
 const initialState = useAppStore.getState()
 
 beforeEach(() => {
+  mockIsMobile = false
   const terminals = new Map()
   terminals.set('term-1', mockTerminal)
   act(() => {
@@ -179,5 +181,62 @@ describe('FocusedTerminal mounts SessionStatusBar at the bottom on desktop', () 
     expect(within(bar!).getByText('main')).toBeInTheDocument()
     expect(within(bar!).getByTestId('open-in')).toBeInTheDocument()
     expect(within(bar!).getByTestId('browse-files')).toBeInTheDocument()
+  })
+
+  it('renders the assigned-task pill inside the shared bar', () => {
+    const task = {
+      id: 'task-1',
+      title: 'Ship the homologation',
+      status: 'in_progress' as const,
+      assignedSessionId: 'term-1'
+    }
+    act(() => {
+      useAppStore.setState({
+        focusedTerminalId: 'term-1',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        config: { tasks: [task] } as any
+      })
+    })
+    render(<FocusedTerminal />)
+    const pill = screen.getByRole('button', { name: /Ship the homologation/ })
+    expect(pill).toBeInTheDocument()
+    const bar = pill.closest('div.border-t')
+    expect(bar).not.toBeNull()
+  })
+})
+
+describe('FocusedTerminal on mobile keeps branch + StatusBadge in the title bar', () => {
+  it('renders branch label for a non-worktree session in the mobile title bar', () => {
+    mockIsMobile = true
+    act(() => {
+      useAppStore.setState({ focusedTerminalId: 'term-1' })
+    })
+    render(<FocusedTerminal />)
+    expect(screen.getByText('main')).toBeInTheDocument()
+    expect(screen.queryByText('worktree')).not.toBeInTheDocument()
+    // SessionStatusBar (desktop) should not be mounted
+    expect(screen.queryByTestId('git-changes')).not.toBeInTheDocument()
+  })
+
+  it('renders the "worktree" label on mobile for worktree sessions', () => {
+    mockIsMobile = true
+    const terminals = new Map()
+    terminals.set('wt-1', {
+      id: 'wt-1',
+      session: {
+        ...mockTerminal.session,
+        id: 'wt-1',
+        branch: 'feature-x',
+        isWorktree: true,
+        worktreePath: '/tmp/wt/feature-x'
+      },
+      status: 'running' as const,
+      lastOutputTimestamp: Date.now()
+    })
+    act(() => {
+      useAppStore.setState({ terminals, focusedTerminalId: 'wt-1' })
+    })
+    render(<FocusedTerminal />)
+    expect(screen.getByText('worktree')).toBeInTheDocument()
   })
 })

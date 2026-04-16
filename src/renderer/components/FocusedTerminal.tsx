@@ -143,6 +143,9 @@ export function FocusedTerminal() {
                 >
                   {getBranchLabel(terminal.session)}
                 </span>
+                {terminal.session.isWorktree && (
+                  <span className="text-[10px] text-amber-500/60">worktree</span>
+                )}
               </span>
             )}
           </div>
