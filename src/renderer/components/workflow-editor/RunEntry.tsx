@@ -20,13 +20,25 @@ function formatDuration(start: string, end?: string): string {
   return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  success: 'Success',
+  error: 'Error',
+  running: 'Running',
+  pending: 'Pending',
+  skipped: 'Skipped'
+}
+
 export function StatusDot({
   status
 }: {
   status: WorkflowExecution['status'] | NodeExecutionState['status']
 }) {
+  const label = STATUS_LABELS[status] ?? 'Unknown'
   return (
     <span
+      role="img"
+      aria-label={label}
+      title={label}
       className={`w-2 h-2 rounded-full shrink-0 ${SHARED_STATUS_DOTS[status] ?? 'bg-gray-600'}`}
     />
   )

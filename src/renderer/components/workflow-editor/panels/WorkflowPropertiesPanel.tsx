@@ -72,7 +72,7 @@ export function WorkflowPropertiesPanel({
         <PropertyRow label="Stagger delay">
           <input
             type="number"
-            value={staggerDelayMs || ''}
+            value={staggerDelayMs ?? ''}
             onChange={(e) => onStaggerChange(e.target.value ? parseInt(e.target.value) : undefined)}
             placeholder="0ms"
             className="w-[80px] px-2 py-0.5 text-[12px] bg-white/[0.06] border border-white/[0.08] rounded

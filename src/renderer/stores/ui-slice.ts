@@ -432,7 +432,10 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
       return { config: updated }
     }),
 
-  sidebarWorkflowFilter: (savedSidebar.workflowFilter as 'all' | 'manual' | 'scheduled') ?? 'all',
+  sidebarWorkflowFilter: (() => {
+    const v = savedSidebar.workflowFilter
+    return v === 'all' || v === 'manual' || v === 'scheduled' ? v : 'all'
+  })(),
   setSidebarWorkflowFilter: (filter) => {
     saveSidebarSettings({ workflowFilter: filter })
     set({ sidebarWorkflowFilter: filter })

@@ -116,26 +116,32 @@ export function WorkflowsSection({
 
       {!isCollapsed &&
         !sectionCollapsed &&
-        filteredWorkflows.map((wf, index) => (
-          <div
-            key={wf.id}
-            draggable={!isCollapsed}
-            onDragStart={(e) => handleDragStart(e, index)}
-            onDragOver={(e) => handleDragOver(e, index)}
-            onDrop={(e) => handleDrop(e, index)}
-            onDragEnd={handleDragEnd}
-            className={`cursor-grab active:cursor-grabbing ${
-              dragOverIndex === index && dragSourceIndex !== index ? 'border-t border-blue-500' : ''
-            }`}
-          >
-            <WorkflowItem
-              workflow={wf}
-              isCollapsed={isCollapsed}
-              iconSize={iconSize}
-              onContextMenu={handleContextMenu}
-            />
-          </div>
-        ))}
+        filteredWorkflows.map((wf) => {
+          const fullIndex = workspaceWorkflows.findIndex((w) => w.id === wf.id)
+          const canReorder = workflowFilter === 'all'
+          return (
+            <div
+              key={wf.id}
+              draggable={canReorder && !isCollapsed}
+              onDragStart={canReorder ? (e) => handleDragStart(e, fullIndex) : undefined}
+              onDragOver={canReorder ? (e) => handleDragOver(e, fullIndex) : undefined}
+              onDrop={canReorder ? (e) => handleDrop(e, fullIndex) : undefined}
+              onDragEnd={canReorder ? handleDragEnd : undefined}
+              className={`${canReorder ? 'cursor-grab active:cursor-grabbing' : ''} ${
+                dragOverIndex === fullIndex && dragSourceIndex !== fullIndex
+                  ? 'border-t border-blue-500'
+                  : ''
+              }`}
+            >
+              <WorkflowItem
+                workflow={wf}
+                isCollapsed={isCollapsed}
+                iconSize={iconSize}
+                onContextMenu={handleContextMenu}
+              />
+            </div>
+          )
+        })}
 
       {isCollapsed &&
         filteredWorkflows.map((wf) => (

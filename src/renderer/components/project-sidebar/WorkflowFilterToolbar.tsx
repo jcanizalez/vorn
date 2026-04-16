@@ -87,7 +87,10 @@ export function WorkflowFilterToolbar() {
                 key={opt.value}
                 selected={filter === opt.value}
                 label={opt.label}
-                onClick={() => setFilter(opt.value)}
+                onClick={() => {
+                  setFilter(opt.value)
+                  setOpen(false)
+                }}
               />
             ))}
           </div>
