@@ -103,7 +103,7 @@ const TERM_OPTIONS = {
     brightCyan: '#22d3ee',
     brightWhite: '#fafafa'
   },
-  scrollback: 5000,
+  scrollback: 2000,
   allowProposedApi: true
 }
 
@@ -417,6 +417,13 @@ export function attachTerminal(terminalId: string, container: HTMLDivElement): T
   if (!entry._gpuAddon) {
     entry._loadRenderer?.()
   }
+
+  // Fit synchronously so the terminal renders at the correct size on the very
+  // first paint in the new container. Without this, the caller's rAF-scheduled
+  // fit produces a visible frame at the old size before the resized frame lands,
+  // which shows up as a flicker when switching focused ↔ grid.
+  fitTerminal(terminalId)
+
   return entry
 }
 
