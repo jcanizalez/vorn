@@ -7,35 +7,38 @@ const hoisted = vi.hoisted(() => ({
   registerSlot: vi.fn(),
   unregisterSlot: vi.fn(),
   focusTerminal: vi.fn(),
-  fitTerminal: vi.fn(),
   registerStatusHandler: vi.fn().mockReturnValue(() => {})
 }))
 
 vi.mock('../src/renderer/lib/terminal-registry', () => hoisted)
 
-vi.mock('../src/renderer/stores', () => ({
-  useAppStore: Object.assign(vi.fn().mockReturnValue(60), {
-    getState: () => ({
-      terminals: new Map(),
-      config: {},
-      setFocusedTerminal: vi.fn()
-    })
-  })
+vi.mock('../src/renderer/hooks/useStatusDetection', () => ({
+  useStatusDetection: () => {}
 }))
 
-const { registerSlot, unregisterSlot, focusTerminal, fitTerminal } = hoisted
+const { registerSlot, unregisterSlot, focusTerminal } = hoisted
 
 import { TerminalSlot } from '../src/renderer/components/TerminalSlot'
 
 describe('TerminalSlot', () => {
+  let rafCallbacks: Array<() => void> = []
+
   beforeEach(() => {
-    vi.useFakeTimers()
+    rafCallbacks = []
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn((cb: () => void) => {
+        rafCallbacks.push(cb)
+        return rafCallbacks.length
+      })
+    )
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
   })
 
   afterEach(() => {
-    vi.useRealTimers()
     cleanup()
     vi.clearAllMocks()
+    vi.unstubAllGlobals()
   })
 
   it('registers with the registry on mount and unregisters on unmount', () => {
@@ -58,24 +61,16 @@ describe('TerminalSlot', () => {
     expect(div).toHaveClass('my-slot')
   })
 
-  it('calls focusTerminal and fitTerminal after a short delay when isFocused is true', () => {
+  it('focuses the terminal on the next animation frame when isFocused is true', () => {
     render(<TerminalSlot terminalId="xyz" isFocused={true} />)
     expect(focusTerminal).not.toHaveBeenCalled()
-    vi.advanceTimersByTime(100)
+    rafCallbacks.forEach((cb) => cb())
     expect(focusTerminal).toHaveBeenCalledWith('xyz')
-    expect(fitTerminal).toHaveBeenCalledWith('xyz')
   })
 
   it('does not call focusTerminal when isFocused is false', () => {
     render(<TerminalSlot terminalId="xyz" isFocused={false} />)
-    vi.advanceTimersByTime(100)
+    rafCallbacks.forEach((cb) => cb())
     expect(focusTerminal).not.toHaveBeenCalled()
-  })
-
-  it('re-fits after a rowHeight change', () => {
-    render(<TerminalSlot terminalId="xyz" isFocused={false} />)
-    vi.advanceTimersByTime(100)
-    // initial rowHeight effect schedules one fit
-    expect(fitTerminal).toHaveBeenCalled()
   })
 })

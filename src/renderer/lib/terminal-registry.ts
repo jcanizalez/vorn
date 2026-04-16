@@ -9,14 +9,14 @@ interface TerminalEntry {
   persistentWrapper: HTMLDivElement | null
   activeSlot: HTMLElement | null
   lastAppliedRect: { top: number; left: number; width: number; height: number } | null
+  lastSyncedCols: number
+  lastSyncedRows: number
   _loadRenderer?: (() => void) | null
   _gpuAddon?: { dispose(): void } | null
 }
 
-export interface TerminalViewportState {
-  line: number
-  atBottom: boolean
-}
+/** data attribute on the persistent wrapper, read by TerminalHost for event delegation. */
+export const TERMINAL_ID_ATTR = 'data-terminal-id'
 
 const registry = new Map<string, TerminalEntry>()
 const readyCallbacks = new Map<string, Set<() => void>>()
@@ -217,7 +217,9 @@ function createTerminalEntry(terminalId: string): TerminalEntry {
     fitAddon,
     persistentWrapper: null,
     activeSlot: null,
-    lastAppliedRect: null
+    lastAppliedRect: null,
+    lastSyncedCols: 0,
+    lastSyncedRows: 0
   }
 
   entry._loadRenderer = loadRenderer
@@ -235,20 +237,9 @@ function createTerminalEntry(terminalId: string): TerminalEntry {
   return entry
 }
 
-// ────────────────────────────────────────────────────────────────────
-// Persistent-host / slot API (PR A — no consumer wired up yet).
-//
-// The old model reparents the xterm DOM into whichever container is mounted
-// (TerminalInstance, ShellTerminal, etc). Reparenting interrupts the WebGL
-// context and produces flicker on focused ↔ grid switching.
-//
-// The new model: every xterm is opened into a "persistent wrapper" div that
-// lives in a singleton TerminalHost at the app root and never moves. Each
-// consumer renders a thin "slot" div; the host positions the wrapper to
-// overlay the active slot via fixed-position CSS. DOM never moves → no
-// flicker. The TerminalHost component (PR B) owns ResizeObserver and calls
-// syncTerminalOverlay on each observed rect change.
-// ────────────────────────────────────────────────────────────────────
+// Every xterm is opened into a persistent wrapper div that lives in the
+// singleton TerminalHost and never moves — reparenting would interrupt
+// the WebGL context and produce flicker on view switches.
 
 let hostRoot: HTMLElement | null = null
 const registryChangeListeners = new Set<() => void>()
@@ -266,7 +257,7 @@ function notifyRegistryChange(): void {
 function ensurePersistentWrapper(entry: TerminalEntry, terminalId: string): HTMLDivElement {
   if (entry.persistentWrapper) return entry.persistentWrapper
   const wrapper = document.createElement('div')
-  wrapper.dataset.terminalId = terminalId
+  wrapper.setAttribute(TERMINAL_ID_ATTR, terminalId)
   wrapper.style.position = 'fixed'
   wrapper.style.top = '0'
   wrapper.style.left = '0'
@@ -335,10 +326,21 @@ export function getPersistentWrapper(terminalId: string): HTMLDivElement | null 
   return registry.get(terminalId)?.persistentWrapper ?? null
 }
 
+function hideWrapper(wrapper: HTMLDivElement, entry: TerminalEntry): void {
+  if (wrapper.style.visibility !== 'hidden') {
+    wrapper.style.visibility = 'hidden'
+    wrapper.style.pointerEvents = 'none'
+  }
+  entry.lastAppliedRect = null
+}
+
 /**
- * Position the persistent wrapper to overlay the active slot. If no slot
- * is active or the slot has zero dimensions, the wrapper is hidden via
- * visibility (not display:none — xterm needs nonzero layout metrics).
+ * Position the persistent wrapper to overlay the active slot. Called every
+ * frame by TerminalHost, so the function is aggressively guarded:
+ * rect is rounded to integer pixels so subpixel spring jitter doesn't
+ * trigger a fit+IPC each frame, and pty resize IPC only fires when the
+ * integer cols/rows actually change. visibility is used (not display:none)
+ * because xterm needs nonzero layout metrics to fit correctly.
  */
 export function syncTerminalOverlay(terminalId: string): void {
   const entry = registry.get(terminalId)
@@ -346,53 +348,48 @@ export function syncTerminalOverlay(terminalId: string): void {
   if (!entry || !wrapper) return
   const slot = entry.activeSlot
   if (!slot) {
-    if (wrapper.style.visibility !== 'hidden') {
-      wrapper.style.visibility = 'hidden'
-      wrapper.style.pointerEvents = 'none'
-    }
-    entry.lastAppliedRect = null
+    hideWrapper(wrapper, entry)
     return
   }
-  const rect = slot.getBoundingClientRect()
-  if (rect.width <= 0 || rect.height <= 0) {
-    if (wrapper.style.visibility !== 'hidden') {
-      wrapper.style.visibility = 'hidden'
-      wrapper.style.pointerEvents = 'none'
-    }
-    entry.lastAppliedRect = null
+  const raw = slot.getBoundingClientRect()
+  if (raw.width <= 0 || raw.height <= 0) {
+    hideWrapper(wrapper, entry)
     return
   }
-  // Skip style writes + fit when the rect hasn't changed — this function
-  // runs on every animation frame for every terminal, so avoiding redundant
-  // style mutations is the difference between smooth 60fps and layout thrash.
+  const rect = {
+    top: Math.round(raw.top),
+    left: Math.round(raw.left),
+    width: Math.round(raw.width),
+    height: Math.round(raw.height)
+  }
   const last = entry.lastAppliedRect
-  const unchanged =
+  if (
     last !== null &&
     last.top === rect.top &&
     last.left === rect.left &&
     last.width === rect.width &&
     last.height === rect.height
-  if (unchanged) return
+  ) {
+    return
+  }
   wrapper.style.top = `${rect.top}px`
   wrapper.style.left = `${rect.left}px`
   wrapper.style.width = `${rect.width}px`
   wrapper.style.height = `${rect.height}px`
   wrapper.style.visibility = 'visible'
   wrapper.style.pointerEvents = 'auto'
-  entry.lastAppliedRect = {
-    top: rect.top,
-    left: rect.left,
-    width: rect.width,
-    height: rect.height
+  entry.lastAppliedRect = rect
+  if (!entry.term.element) return
+  try {
+    entry.fitAddon.fit()
+  } catch {
+    return
   }
-  if (entry.term.element) {
-    try {
-      entry.fitAddon.fit()
-      const { cols, rows } = entry.term
-      window.api.resizeTerminal({ id: terminalId, cols, rows })
-    } catch {
-      // fit can throw if wrapper has 0 dimensions
-    }
+  const { cols, rows } = entry.term
+  if (cols !== entry.lastSyncedCols || rows !== entry.lastSyncedRows) {
+    entry.lastSyncedCols = cols
+    entry.lastSyncedRows = rows
+    window.api.resizeTerminal({ id: terminalId, cols, rows })
   }
 }
 
@@ -410,20 +407,19 @@ export function getRegisteredTerminalIds(): string[] {
 /**
  * Fit the terminal to its persistent wrapper and notify the pty of new size.
  */
-export function fitTerminal(terminalId: string, preState?: TerminalViewportState | null): void {
+export function fitTerminal(terminalId: string): void {
   const entry = registry.get(terminalId)
   if (!entry || !entry.term.element) return
-  // Only capture/restore viewport state if we were given one (e.g. after a DOM move).
-  // Otherwise let xterm.js handle scroll naturally — it already auto-scrolls when at bottom
-  // and holds position when the user has scrolled up.
-  const viewportState = preState !== undefined ? preState : null
   try {
     entry.fitAddon.fit()
-    if (viewportState) restoreViewportState(terminalId, viewportState)
-    const { cols, rows } = entry.term
-    window.api.resizeTerminal({ id: terminalId, cols, rows })
   } catch {
-    // fit can throw if container has 0 dimensions
+    return
+  }
+  const { cols, rows } = entry.term
+  if (cols !== entry.lastSyncedCols || rows !== entry.lastSyncedRows) {
+    entry.lastSyncedCols = cols
+    entry.lastSyncedRows = rows
+    window.api.resizeTerminal({ id: terminalId, cols, rows })
   }
 }
 
@@ -446,26 +442,6 @@ export function clearTerminalSelection(terminalId: string): void {
 
 export function pasteToTerminal(terminalId: string, text: string): void {
   registry.get(terminalId)?.term.paste(text)
-}
-
-export function getViewportState(terminalId: string): TerminalViewportState | null {
-  const entry = registry.get(terminalId)
-  if (!entry) return null
-  const buf = entry.term.buffer.active
-  return {
-    line: buf.viewportY,
-    atBottom: buf.viewportY >= buf.baseY
-  }
-}
-
-export function restoreViewportState(terminalId: string, state: TerminalViewportState): void {
-  const entry = registry.get(terminalId)
-  if (!entry) return
-  if (state.atBottom) {
-    entry.term.scrollToBottom()
-    return
-  }
-  entry.term.scrollToLine(Math.max(0, state.line))
 }
 
 export function scrollToBottom(terminalId: string): void {

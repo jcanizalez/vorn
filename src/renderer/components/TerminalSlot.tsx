@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { registerSlot, unregisterSlot, focusTerminal, fitTerminal } from '../lib/terminal-registry'
+import { registerSlot, unregisterSlot, focusTerminal } from '../lib/terminal-registry'
 import { useStatusDetection } from '../hooks/useStatusDetection'
-import { useAppStore } from '../stores'
 
 interface Props {
   terminalId: string
@@ -31,18 +30,12 @@ export function TerminalSlot({ terminalId, isFocused, className }: Props) {
 
   useEffect(() => {
     if (!isFocused) return
-    const timer = setTimeout(() => {
-      fitTerminal(terminalId)
-      focusTerminal(terminalId)
-    }, 50)
-    return () => clearTimeout(timer)
+    // Defer focus by one frame so the slot has been positioned and the
+    // browser has applied the overlay's visibility:visible before we try
+    // to move the keyboard focus onto it.
+    const rafId = requestAnimationFrame(() => focusTerminal(terminalId))
+    return () => cancelAnimationFrame(rafId)
   }, [isFocused, terminalId])
-
-  const rowHeight = useAppStore((s) => s.rowHeight)
-  useEffect(() => {
-    const timer = setTimeout(() => fitTerminal(terminalId), 50)
-    return () => clearTimeout(timer)
-  }, [rowHeight, terminalId])
 
   return <div ref={ref} className={className} />
 }

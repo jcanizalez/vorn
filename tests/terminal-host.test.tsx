@@ -7,7 +7,8 @@ const hoisted = vi.hoisted(() => ({
   setHostRoot: vi.fn(),
   syncTerminalOverlay: vi.fn(),
   getRegisteredTerminalIds: vi.fn().mockReturnValue([]),
-  onRegistryChange: vi.fn().mockReturnValue(() => {})
+  onRegistryChange: vi.fn().mockReturnValue(() => {}),
+  TERMINAL_ID_ATTR: 'data-terminal-id'
 }))
 
 vi.mock('../src/renderer/lib/terminal-registry', () => hoisted)
@@ -57,8 +58,8 @@ describe('TerminalHost', () => {
     const { container } = render(<TerminalHost />)
     const root = container.querySelector('div[aria-hidden="true"]') as HTMLElement
     expect(root).not.toBeNull()
-    expect(root.style.position).toBe('fixed')
-    expect(root.style.pointerEvents).toBe('none')
+    expect(root.className).toContain('fixed')
+    expect(root.className).toContain('pointer-events-none')
   })
 
   it('subscribes to registry changes and re-syncs all terminals on fire', () => {
