@@ -59,10 +59,10 @@ export function TerminalHost() {
 
   return (
     <>
-      {/* Sits above FocusedTerminal's mobile panel (z-50) so the overlay is
-          visible there, below popovers and context menus (z-[150]+). Pointer
-          events disabled on the root — wrappers opt back in when active. */}
-      <div ref={rootRef} className="fixed inset-0 pointer-events-none z-[60]" />
+      {/* Sits above FocusedTerminal's mobile panel (z-40) and below popovers
+          (z-50+) so every popover renders on top of the terminal overlay.
+          Pointer events disabled on the root — wrappers opt back in when active. */}
+      <div ref={rootRef} className="fixed inset-0 pointer-events-none z-[45]" />
       {ctxMenu && (
         <TerminalContextMenu
           terminalId={ctxMenu.terminalId}

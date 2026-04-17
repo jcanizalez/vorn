@@ -1,5 +1,15 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import {
+  useState,
+  useMemo,
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  RefObject
+} from 'react'
+import { createPortal } from 'react-dom'
 import { GitBranch, Loader2, RefreshCw } from 'lucide-react'
+import { AnchorRect, calculatePopoverPosition } from '../lib/popover-position'
 
 interface BranchPickerProps {
   projectPath: string
@@ -7,8 +17,20 @@ interface BranchPickerProps {
   selectedBranch?: string
   onSelect: (branch: string) => void
   onClose: () => void
-  position?: 'above' | 'below'
   minWidth?: number
+  anchorRef: RefObject<HTMLElement | null>
+}
+
+function readAnchorRect(el: HTMLElement): AnchorRect {
+  const r = el.getBoundingClientRect()
+  return {
+    top: r.top,
+    left: r.left,
+    right: r.right,
+    bottom: r.bottom,
+    width: r.width,
+    height: r.height
+  }
 }
 
 export function BranchPicker({
@@ -17,8 +39,8 @@ export function BranchPicker({
   selectedBranch,
   onSelect,
   onClose,
-  position = 'below',
-  minWidth = 220
+  minWidth = 220,
+  anchorRef
 }: BranchPickerProps) {
   const [localBranches, setLocalBranches] = useState<string[]>([])
   const [remoteBranches, setRemoteBranches] = useState<string[]>([])
@@ -27,6 +49,42 @@ export function BranchPicker({
   const [loadingRemotes, setLoadingRemotes] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
+
+  useLayoutEffect(() => {
+    const updatePosition = () => {
+      const anchor = anchorRef.current
+      if (!anchor) return
+      const popoverRect = ref.current?.getBoundingClientRect()
+      const next = calculatePopoverPosition(
+        readAnchorRect(anchor),
+        { width: popoverRect?.width ?? minWidth, height: popoverRect?.height ?? 200 },
+        { width: window.innerWidth, height: window.innerHeight }
+      )
+      setPosition((prev) =>
+        prev && prev.top === next.top && prev.left === next.left
+          ? prev
+          : { top: next.top, left: next.left }
+      )
+    }
+    updatePosition()
+
+    let frame = 0
+    const scheduleUpdate = () => {
+      if (frame) return
+      frame = window.requestAnimationFrame(() => {
+        frame = 0
+        updatePosition()
+      })
+    }
+    window.addEventListener('resize', scheduleUpdate)
+    window.addEventListener('scroll', scheduleUpdate, true)
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame)
+      window.removeEventListener('resize', scheduleUpdate)
+      window.removeEventListener('scroll', scheduleUpdate, true)
+    }
+  }, [anchorRef, minWidth])
 
   useEffect(() => {
     setLoadingLocal(true)
@@ -41,7 +99,9 @@ export function BranchPicker({
 
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+      const target = e.target as Node
+      if (anchorRef.current?.contains(target)) return
+      if (ref.current && !ref.current.contains(target)) onClose()
     }
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
@@ -52,7 +112,7 @@ export function BranchPicker({
       document.removeEventListener('mousedown', handleMouseDown)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [onClose])
+  }, [onClose, anchorRef])
 
   useEffect(() => {
     setTimeout(() => inputRef.current?.focus(), 0)
@@ -88,13 +148,18 @@ export function BranchPicker({
   )
 
   const active = selectedBranch ?? currentBranch
-  const positionClass = position === 'above' ? 'bottom-full mb-1' : 'top-full mt-1'
 
-  return (
+  return createPortal(
     <div
       ref={ref}
-      className={`absolute ${positionClass} left-1/2 -translate-x-1/2 border border-white/[0.08] rounded-lg shadow-xl z-50 max-h-[280px] overflow-hidden flex flex-col`}
-      style={{ background: '#1e1e22', minWidth }}
+      className="fixed border border-white/[0.08] rounded-lg shadow-xl z-[150] max-h-[280px] overflow-hidden flex flex-col"
+      style={{
+        background: '#1e1e22',
+        minWidth,
+        top: position?.top ?? 0,
+        left: position?.left ?? 0,
+        visibility: position ? 'visible' : 'hidden'
+      }}
     >
       <div className="p-2 border-b border-white/[0.06] flex items-center gap-1">
         <input
@@ -144,6 +209,7 @@ export function BranchPicker({
           ))
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
