@@ -205,7 +205,7 @@ export function FocusedTerminal() {
             className="w-full h-full"
           />
           {/* Mobile: floating controls (font size + scroll) */}
-          <div className="absolute bottom-4 right-4 flex flex-col items-end gap-2 z-10">
+          <div className="absolute bottom-4 right-4 flex flex-col items-end gap-2 z-50">
             {isMobile && <MobileFontSizeControl />}
             {showScrollBtn && (
               <button
