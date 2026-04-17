@@ -51,7 +51,7 @@ export function MobileBottomTabs({ hidden }: Props) {
 
   return (
     <nav
-      className="fixed left-3 right-3 flex items-stretch rounded-[32px] z-50"
+      className="fixed left-3 right-3 flex items-stretch rounded-[32px] z-[35]"
       style={{
         bottom: 'calc(12px + var(--safe-bottom, 0px))',
         background: 'var(--glass-bg, #141416)',

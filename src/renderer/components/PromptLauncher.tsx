@@ -86,6 +86,7 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
   const agentPickerRef = useRef<HTMLDivElement>(null)
   const projectPickerRef = useRef<HTMLDivElement>(null)
   const worktreePickerRef = useRef<HTMLDivElement>(null)
+  const branchButtonRef = useRef<HTMLButtonElement>(null)
 
   const settings = useLaunchSettings()
   const selectedProjectConfig = config?.projects.find((p) => p.name === settings.selectedProject)
@@ -413,6 +414,7 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
       {settings.activeProjectPath && settings.isGitRepo && (
         <div className="relative" ref={settings.dropdownRef}>
           <button
+            ref={branchButtonRef}
             onClick={() => settings.setShowBranchDropdown(!settings.showBranchDropdown)}
             className="flex items-center gap-1.5 px-2 py-1 rounded-md
                        hover:bg-white/[0.06] transition-colors text-gray-400"
@@ -433,7 +435,7 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
                 settings.setShowBranchDropdown(false)
               }}
               onClose={() => settings.setShowBranchDropdown(false)}
-              position="above"
+              anchorRef={branchButtonRef}
             />
           )}
           {settings.branchWarning && (

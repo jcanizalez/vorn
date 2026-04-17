@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { useAppStore } from '../stores'
 import { useShallow } from 'zustand/react/shallow'
 import { StatusBadge } from './StatusBadge'
@@ -24,6 +25,7 @@ export function SessionStatusBar({ terminalId }: Props) {
   const session = terminal?.session
   const branchCwd = session && (session.worktreePath ?? session.projectPath)
 
+  const branchButtonRef = useRef<HTMLButtonElement>(null)
   const { showPicker, togglePicker, closePicker, isSwitching, selectBranch } = useBranchSwitcher({
     projectPath: session?.projectPath,
     branchCwd,
@@ -59,6 +61,7 @@ export function SessionStatusBar({ terminalId }: Props) {
             )}
             <div className="relative">
               <button
+                ref={branchButtonRef}
                 type="button"
                 onClick={togglePicker}
                 disabled={isSwitching}
@@ -78,7 +81,7 @@ export function SessionStatusBar({ terminalId }: Props) {
                   currentBranch={branchName}
                   onSelect={selectBranch}
                   onClose={closePicker}
-                  position="above"
+                  anchorRef={branchButtonRef}
                 />
               )}
             </div>

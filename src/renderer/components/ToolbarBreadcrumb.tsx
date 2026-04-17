@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { useAppStore } from '../stores'
 import { MAIN_WORKTREE_SENTINEL } from '../stores/types'
 import type { WorktreeInfo } from '../stores/types'
@@ -29,6 +30,7 @@ export function ToolbarBreadcrumb() {
   const branchName = activeWorktree?.branch
   const branchCwd = isMainWorktree ? projectPath : (activeWorktreePath ?? undefined)
 
+  const branchButtonRef = useRef<HTMLButtonElement>(null)
   const { showPicker, togglePicker, closePicker, isSwitching, selectBranch } = useBranchSwitcher({
     projectPath,
     branchCwd,
@@ -60,6 +62,7 @@ export function ToolbarBreadcrumb() {
               <ChevronRight size={10} className="text-gray-600 shrink-0 mx-0.5" />
               <div className="relative shrink-0">
                 <button
+                  ref={branchButtonRef}
                   onClick={togglePicker}
                   className={`flex items-center gap-1 transition-colors rounded px-1 -mx-1 ${
                     showPicker ? 'text-white bg-white/[0.08]' : 'text-white hover:bg-white/[0.06]'
@@ -75,6 +78,7 @@ export function ToolbarBreadcrumb() {
                     currentBranch={branchName}
                     onSelect={selectBranch}
                     onClose={closePicker}
+                    anchorRef={branchButtonRef}
                   />
                 )}
               </div>

@@ -49,7 +49,7 @@ export function FocusedTerminal() {
       {/* Backdrop — mobile only */}
       {isMobile && (
         <motion.div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           onClick={handleContract}
@@ -60,7 +60,7 @@ export function FocusedTerminal() {
       <motion.div
         className={
           isMobile
-            ? 'fixed inset-0 z-50 shadow-2xl flex flex-col overflow-hidden'
+            ? 'fixed inset-0 z-40 shadow-2xl flex flex-col overflow-hidden'
             : 'flex-1 flex flex-col min-h-0 overflow-hidden'
         }
         style={{
@@ -205,7 +205,7 @@ export function FocusedTerminal() {
             className="w-full h-full"
           />
           {/* Mobile: floating controls (font size + scroll) */}
-          <div className="absolute bottom-4 right-4 flex flex-col items-end gap-2 z-10">
+          <div className="absolute bottom-4 right-4 flex flex-col items-end gap-2 z-50">
             {isMobile && <MobileFontSizeControl />}
             {showScrollBtn && (
               <button

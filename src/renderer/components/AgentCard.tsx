@@ -393,7 +393,7 @@ export const AgentCard = memo(
             <button
               className="absolute bottom-2 right-2 w-8 h-8 flex items-center justify-center
                            rounded bg-white/[0.08] hover:bg-white/[0.15] active:bg-white/[0.2]
-                           text-gray-400 hover:text-white transition-colors z-10"
+                           text-gray-400 hover:text-white transition-colors z-50"
               onClick={handleScrollToBottom}
               title="Scroll to bottom"
             >
