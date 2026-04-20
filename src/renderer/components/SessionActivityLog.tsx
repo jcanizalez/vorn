@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { XCircle, ChevronDown, ChevronRight, Maximize2, Play } from 'lucide-react'
+import { XCircle, ChevronDown, ChevronRight, Maximize2, RotateCcw } from 'lucide-react'
 import type { SessionLog, AgentType } from '../../shared/types'
 import { StatusDot } from './workflow-editor/RunEntry'
+import { Tooltip } from './Tooltip'
 
 function formatRunTime(iso: string): string {
   const d = new Date(iso)
@@ -194,32 +195,36 @@ export function SessionActivityLog({
                   )}
                 </div>
 
-                <div className="flex items-center gap-3 px-3 pb-2.5">
+                <div className="flex items-center gap-1 px-3 pb-2.5">
                   {onViewFullOutput && entry.logs && (
-                    <button
-                      onClick={() => onViewFullOutput(entry.logs!)}
-                      className="flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300 transition-colors"
-                    >
-                      <Maximize2 size={11} strokeWidth={2} />
-                      View Full Output
-                    </button>
+                    <Tooltip label="View full output">
+                      <button
+                        onClick={() => onViewFullOutput(entry.logs!)}
+                        aria-label="View full output"
+                        className="p-1 rounded text-gray-500 hover:text-white hover:bg-white/[0.06] transition-colors"
+                      >
+                        <Maximize2 size={12} strokeWidth={2} />
+                      </button>
+                    </Tooltip>
                   )}
                   {canResume && projectPath && (
-                    <button
-                      onClick={() =>
-                        onResumeSession!(
-                          agentSessionId!,
-                          (entry.agentType as AgentType) || 'claude',
-                          entry.projectName || '',
-                          projectPath,
-                          entry.branch
-                        )
-                      }
-                      className="flex items-center gap-1 text-[11px] text-amber-400 hover:text-amber-300 transition-colors"
-                    >
-                      <Play size={11} strokeWidth={2} />
-                      Resume Session
-                    </button>
+                    <Tooltip label="Resume session">
+                      <button
+                        onClick={() =>
+                          onResumeSession!(
+                            agentSessionId!,
+                            (entry.agentType as AgentType) || 'claude',
+                            entry.projectName || '',
+                            projectPath,
+                            entry.branch
+                          )
+                        }
+                        aria-label="Resume session"
+                        className="p-1 rounded text-gray-500 hover:text-white hover:bg-white/[0.06] transition-colors"
+                      >
+                        <RotateCcw size={12} strokeWidth={2} />
+                      </button>
+                    </Tooltip>
                   )}
                 </div>
               </div>

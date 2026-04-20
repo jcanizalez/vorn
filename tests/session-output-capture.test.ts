@@ -167,9 +167,13 @@ vi.mock('../packages/server/src/task-images', () => ({
   cleanupTaskImages: vi.fn()
 }))
 
-vi.mock('../packages/server/src/script-runner', () => ({
-  executeScript: vi.fn()
-}))
+vi.mock('../packages/server/src/script-runner', async () => {
+  const { EventEmitter } = await import('node:events')
+  return {
+    executeScript: vi.fn(),
+    scriptRunnerEvents: new EventEmitter()
+  }
+})
 
 vi.mock('../packages/server/src/tailscale', () => ({
   getTailscaleStatus: vi.fn(),

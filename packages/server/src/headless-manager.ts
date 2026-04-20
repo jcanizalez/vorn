@@ -7,7 +7,8 @@ import {
   AgentCommandConfig,
   CreateTerminalPayload,
   HeadlessSession,
-  IPC
+  IPC,
+  supportsSessionIdPinning
 } from '@vornrun/shared/types'
 import { displayNameFromPrompt } from '@vornrun/shared/string-utils'
 import {
@@ -84,6 +85,18 @@ class HeadlessManager extends EventEmitter {
       }
     }
 
+    // Pre-generate the session id before buildHeadlessSpawnArgs so the --session-id
+    // flag can be injected; keeps parity with the interactive PTY path.
+    let agentSessionId: string | undefined
+    if (supportsSessionIdPinning(payload.agentType)) {
+      if (payload.resumeSessionId) {
+        agentSessionId = payload.resumeSessionId
+      } else {
+        agentSessionId = crypto.randomUUID()
+        payload.sessionId = agentSessionId
+      }
+    }
+
     const env = getSafeEnv()
     const spawnArgs = buildHeadlessSpawnArgs(payload, this.agentCommands, env)
     log.info(
@@ -126,7 +139,8 @@ class HeadlessManager extends EventEmitter {
       startedAt: Date.now(),
       ...(payload.workflowId != null && { workflowId: payload.workflowId }),
       ...(payload.workflowName != null && { workflowName: payload.workflowName }),
-      ...(payload.taskId != null && { taskId: payload.taskId })
+      ...(payload.taskId != null && { taskId: payload.taskId }),
+      ...(agentSessionId ? { agentSessionId } : {})
     }
     this.sessions.set(id, session)
 

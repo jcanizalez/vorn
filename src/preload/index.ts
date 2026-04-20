@@ -240,6 +240,26 @@ const api = {
   ): Promise<{ success: boolean; output: string; error?: string; exitCode?: number }> =>
     ipcRenderer.invoke(IPC.SCRIPT_EXECUTE, config),
 
+  onScriptData: (callback: (event: { runId: string; data: string }) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, event: { runId: string; data: string }): void =>
+      callback(event)
+    ipcRenderer.on(IPC.SCRIPT_DATA, listener)
+    return () => {
+      ipcRenderer.removeListener(IPC.SCRIPT_DATA, listener)
+    }
+  },
+
+  onScriptExit: (callback: (event: { runId: string; exitCode: number }) => void) => {
+    const listener = (
+      _: Electron.IpcRendererEvent,
+      event: { runId: string; exitCode: number }
+    ): void => callback(event)
+    ipcRenderer.on(IPC.SCRIPT_EXIT, listener)
+    return () => {
+      ipcRenderer.removeListener(IPC.SCRIPT_EXIT, listener)
+    }
+  },
+
   onSessionUpdated: (callback: (session: TerminalSession) => void) => {
     const listener = (_: Electron.IpcRendererEvent, session: TerminalSession): void =>
       callback(session)

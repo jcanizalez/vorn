@@ -56,7 +56,7 @@ import {
   listSessionEventsBySession
 } from './database'
 import { stripAnsi } from './ansi-strip'
-import { executeScript } from './script-runner'
+import { executeScript, scriptRunnerEvents } from './script-runner'
 import { getTailscaleStatus, clearBinaryCache } from './tailscale'
 import { checkAndRebind } from './server-rebind'
 import { testSshConnection } from './process-utils'
@@ -539,6 +539,13 @@ export function registerAllMethods(): void {
   })
   scheduler.on('client-message', (channel: string, payload: unknown) => {
     clientRegistry.broadcast(channel, payload)
+  })
+
+  scriptRunnerEvents.on(IPC.SCRIPT_DATA, (payload) => {
+    clientRegistry.broadcast(IPC.SCRIPT_DATA, payload)
+  })
+  scriptRunnerEvents.on(IPC.SCRIPT_EXIT, (payload) => {
+    clientRegistry.broadcast(IPC.SCRIPT_EXIT, payload)
   })
 
   // ─── Persistent session auto-save ──────────────────────────────

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, Maximize2, Play } from 'lucide-react'
+import { ChevronDown, ChevronRight, Maximize2, RotateCcw } from 'lucide-react'
 import {
   WorkflowExecution,
   WorkflowNode,
@@ -11,6 +11,7 @@ import {
 
 import { formatRelativeTime } from '../../lib/format-time'
 import { STATUS_DOT_CLASSES as SHARED_STATUS_DOTS } from './statusDot'
+import { Tooltip } from '../Tooltip'
 
 function formatDuration(start: string, end?: string): string {
   if (!end) return 'running...'
@@ -139,6 +140,26 @@ export function RunEntry({
                 }
               | undefined
 
+            const resumeProjectName =
+              nodeConfig?.projectName || nodeTask?.projectName || triggerTask?.projectName || ''
+            const resumeBranch = nodeConfig?.branch ?? nodeTask?.branch ?? triggerTask?.branch
+            const resumeUseWorktree =
+              nodeConfig?.useWorktree ?? nodeTask?.useWorktree ?? triggerTask?.useWorktree
+            const canResume =
+              !!ns.agentSessionId &&
+              !!onResumeSession &&
+              !!nodeConfig &&
+              supportsExactSessionResume(nodeConfig.agentType || 'claude')
+            const handleResume = (): void =>
+              onResumeSession!(
+                ns.agentSessionId!,
+                nodeConfig!.agentType || 'claude',
+                resumeProjectName,
+                nodeConfig!.projectPath || '',
+                resumeBranch,
+                resumeUseWorktree
+              )
+
             return (
               <div key={ns.nodeId} className="border-b border-white/[0.04] last:border-b-0">
                 {/* Step header */}
@@ -190,37 +211,29 @@ export function RunEntry({
                     >
                       {ns.logs.length > 2000 ? ns.logs.slice(0, 2000) + '\n...' : ns.logs}
                     </pre>
-                    <div className="flex items-center gap-2 mt-1.5">
+                    <div className="flex items-center gap-1 mt-1.5">
                       {onViewFullOutput && (
-                        <button
-                          onClick={() => onViewFullOutput(ns.logs!)}
-                          className="flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300 transition-colors"
-                        >
-                          <Maximize2 size={11} strokeWidth={2} />
-                          View Full Output
-                        </button>
-                      )}
-                      {ns.agentSessionId &&
-                        onResumeSession &&
-                        nodeConfig &&
-                        supportsExactSessionResume(nodeConfig.agentType || 'claude') && (
+                        <Tooltip label="View full output">
                           <button
-                            onClick={() =>
-                              onResumeSession(
-                                ns.agentSessionId!,
-                                nodeConfig.agentType || 'claude',
-                                nodeConfig.projectName || '',
-                                nodeConfig.projectPath || '',
-                                nodeConfig.branch,
-                                nodeConfig.useWorktree
-                              )
-                            }
-                            className="flex items-center gap-1 text-[11px] text-amber-400 hover:text-amber-300 transition-colors"
+                            onClick={() => onViewFullOutput(ns.logs!)}
+                            aria-label="View full output"
+                            className="p-1 rounded text-gray-500 hover:text-white hover:bg-white/[0.06] transition-colors"
                           >
-                            <Play size={11} strokeWidth={2} />
-                            Resume Session
+                            <Maximize2 size={12} strokeWidth={2} />
                           </button>
-                        )}
+                        </Tooltip>
+                      )}
+                      {canResume && (
+                        <Tooltip label="Resume session">
+                          <button
+                            onClick={handleResume}
+                            aria-label="Resume session"
+                            className="p-1 rounded text-gray-500 hover:text-white hover:bg-white/[0.06] transition-colors"
+                          >
+                            <RotateCcw size={12} strokeWidth={2} />
+                          </button>
+                        </Tooltip>
+                      )}
                     </div>
                     {ns.error && <p className="text-[11px] text-red-400 mt-1">{ns.error}</p>}
                   </div>
@@ -230,27 +243,19 @@ export function RunEntry({
                 {expandedNodeId === ns.nodeId && !ns.logs && ns.error && (
                   <div className="px-4 pb-2">
                     <p className="text-[11px] text-red-400">{ns.error}</p>
-                    {ns.agentSessionId &&
-                      onResumeSession &&
-                      nodeConfig &&
-                      supportsExactSessionResume(nodeConfig.agentType || 'claude') && (
-                        <button
-                          onClick={() =>
-                            onResumeSession(
-                              ns.agentSessionId!,
-                              nodeConfig.agentType || 'claude',
-                              nodeConfig.projectName || '',
-                              nodeConfig.projectPath || '',
-                              nodeConfig.branch,
-                              nodeConfig.useWorktree
-                            )
-                          }
-                          className="flex items-center gap-1 mt-1.5 text-[11px] text-amber-400 hover:text-amber-300 transition-colors"
-                        >
-                          <Play size={11} strokeWidth={2} />
-                          Resume Session
-                        </button>
-                      )}
+                    {canResume && (
+                      <div className="mt-1.5">
+                        <Tooltip label="Resume session">
+                          <button
+                            onClick={handleResume}
+                            aria-label="Resume session"
+                            className="p-1 rounded text-gray-500 hover:text-white hover:bg-white/[0.06] transition-colors"
+                          >
+                            <RotateCcw size={12} strokeWidth={2} />
+                          </button>
+                        </Tooltip>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

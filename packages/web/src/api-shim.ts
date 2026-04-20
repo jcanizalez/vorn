@@ -353,6 +353,10 @@ export function createApiShim(wsUrl: string) {
 
     // ── Script Execution ──
     executeScript: (config: unknown) => rpc.invoke('script:execute', config),
+    onScriptData: (callback: (event: { runId: string; data: string }) => void) =>
+      rpc.on('script:data', callback as (p: unknown) => void),
+    onScriptExit: (callback: (event: { runId: string; exitCode: number }) => void) =>
+      rpc.on('script:exit', callback as (p: unknown) => void),
 
     // ── Worktree Cleanup ──
     onSessionUpdated: (callback: (session: unknown) => void) =>

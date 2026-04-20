@@ -397,10 +397,11 @@ export function WorkflowEditor() {
       const cfg = useAppStore.getState().config
       const proj = cfg?.projects.find((p) => p.name === projectName)
       const remoteHostId = proj ? getProjectRemoteHostId(proj) : undefined
+      const effectiveProjectPath = projectPath || proj?.path || ''
       const session = await window.api.createTerminal({
         agentType,
         projectName,
-        projectPath,
+        projectPath: effectiveProjectPath,
         branch,
         useWorktree,
         resumeSessionId: agentSessionId,

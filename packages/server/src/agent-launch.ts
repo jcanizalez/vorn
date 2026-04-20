@@ -166,7 +166,17 @@ export function buildHeadlessSpawnArgs(
   const cmdConfig = agentCommands[payload.agentType] || DEFAULT_AGENT_COMMANDS[payload.agentType]
   const cmd = resolveAgentCommand(cmdConfig, env)
   const prompt = payload.initialPrompt || ''
-  const extraArgs = resolveHeadlessArgs(payload, cmdConfig, cmd.args)
+  const extraArgs = [...resolveHeadlessArgs(payload, cmdConfig, cmd.args)]
+
+  if (
+    payload.resumeSessionId &&
+    supportsExactSessionResume(payload.agentType) &&
+    (payload.agentType === 'claude' || payload.agentType === 'copilot')
+  ) {
+    extraArgs.push('--resume', payload.resumeSessionId)
+  } else if (payload.sessionId && supportsSessionIdPinning(payload.agentType)) {
+    extraArgs.push(getSessionIdPinningFlag(payload.agentType), payload.sessionId)
+  }
 
   switch (payload.agentType) {
     case 'claude':

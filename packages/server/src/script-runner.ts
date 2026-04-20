@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
-import { ScriptConfig } from '@vornrun/shared/types'
+import { EventEmitter } from 'node:events'
+import { ScriptConfig, IPC } from '@vornrun/shared/types'
 import { getSafeEnv } from './process-utils'
 import log from './logger'
 
@@ -9,6 +10,8 @@ export interface ScriptExecutionResult {
   error?: string
   exitCode?: number
 }
+
+export const scriptRunnerEvents = new EventEmitter()
 
 export async function executeScript(config: ScriptConfig): Promise<ScriptExecutionResult> {
   return new Promise((resolve) => {
@@ -50,6 +53,7 @@ export async function executeScript(config: ScriptConfig): Promise<ScriptExecuti
     }
 
     const cwd = config.cwd || config.projectPath || process.cwd()
+    const runId = config.runId
 
     log.info(`[script-runner] executing ${config.scriptType} script in ${cwd}`)
 
@@ -64,15 +68,23 @@ export async function executeScript(config: ScriptConfig): Promise<ScriptExecuti
     let stderr = ''
 
     child.stdout.on('data', (data) => {
-      stdout += data.toString()
+      const chunk = data.toString()
+      stdout += chunk
+      if (runId) scriptRunnerEvents.emit(IPC.SCRIPT_DATA, { runId, data: chunk })
     })
 
     child.stderr.on('data', (data) => {
-      stderr += data.toString()
+      const chunk = data.toString()
+      stderr += chunk
+      if (runId) scriptRunnerEvents.emit(IPC.SCRIPT_DATA, { runId, data: chunk })
     })
 
     child.on('error', (err) => {
       log.error(`[script-runner] spawn error: ${err.message}`)
+      if (runId) {
+        scriptRunnerEvents.emit(IPC.SCRIPT_DATA, { runId, data: `Error: ${err.message}\n` })
+        scriptRunnerEvents.emit(IPC.SCRIPT_EXIT, { runId, exitCode: 1 })
+      }
       resolve({
         success: false,
         output: stdout,
@@ -82,6 +94,7 @@ export async function executeScript(config: ScriptConfig): Promise<ScriptExecuti
 
     child.on('close', (code) => {
       log.info(`[script-runner] exited with code ${code}`)
+      if (runId) scriptRunnerEvents.emit(IPC.SCRIPT_EXIT, { runId, exitCode: code ?? 1 })
       resolve({
         success: code === 0,
         output: stdout,

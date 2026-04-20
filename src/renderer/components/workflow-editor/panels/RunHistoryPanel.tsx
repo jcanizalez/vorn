@@ -28,7 +28,6 @@ export function RunHistoryPanel({
   onClickTask,
   onResumeSession
 }: Props) {
-  const sorted = [...executions].reverse()
   const [fullOutputLogs, setFullOutputLogs] = useState<string | null>(null)
 
   return (
@@ -45,10 +44,10 @@ export function RunHistoryPanel({
         </div>
 
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
-          {sorted.length === 0 ? (
+          {executions.length === 0 ? (
             <p className="text-[12px] text-gray-600 text-center py-8">No runs yet</p>
           ) : (
-            sorted.map((exec, i) => (
+            executions.map((exec, i) => (
               <RunEntry
                 key={`${exec.workflowId}-${exec.startedAt}-${i}`}
                 execution={exec}

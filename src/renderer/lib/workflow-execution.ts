@@ -160,19 +160,35 @@ async function executeNode(
     const config = node.config as ScriptConfig
     console.log(`[workflow] executing script: ${config.scriptType}`)
 
-    const resolvedConfig = {
+    const runId = crypto.randomUUID()
+    const resolvedConfig: ScriptConfig = {
       ...config,
-      scriptContent: resolveTemplateVars(config.scriptContent, context, stepOutputs)
+      scriptContent: resolveTemplateVars(config.scriptContent, context, stepOutputs),
+      runId
     }
+
+    let streamedLogs = ''
+    const removeScriptDataListener = window.api.onScriptData(
+      ({ runId: id, data }: { runId: string; data: string }) => {
+        if (id !== runId) return
+        streamedLogs += data
+        if (streamedLogs.length > 100000) {
+          streamedLogs = streamedLogs.slice(-80000)
+        }
+        updateNodeState(execution, node.id, { logs: streamedLogs })
+        useAppStore.getState().setWorkflowExecution(workflow.id, { ...execution })
+      }
+    )
 
     try {
       const result = await window.api.executeScript(resolvedConfig)
 
+      const finalLogs = streamedLogs || result.output
       updateNodeState(execution, node.id, {
         status: result.success ? 'success' : 'error',
         completedAt: new Date().toISOString(),
         output: result.output,
-        logs: result.output + (result.error ? `\nError: ${result.error}` : ''),
+        logs: finalLogs + (result.error ? `\nError: ${result.error}` : ''),
         error: result.error
       })
     } catch (err) {
@@ -182,6 +198,8 @@ async function executeNode(
         completedAt: new Date().toISOString(),
         error: err instanceof Error ? err.message : String(err)
       })
+    } finally {
+      removeScriptDataListener()
     }
     persistExecution(workflow.id, execution)
     return
@@ -363,7 +381,10 @@ async function executeNode(
         sessionId: headlessSession.id,
         taskId: resolvedTaskId,
         worktreePath: headlessSession.worktreePath,
-        worktreeName: headlessSession.worktreeName
+        worktreeName: headlessSession.worktreeName,
+        ...(headlessSession.agentSessionId
+          ? { agentSessionId: headlessSession.agentSessionId }
+          : {})
       })
       persistExecution(workflow.id, execution)
 
@@ -609,11 +630,14 @@ export async function executeWorkflow(
     runningWorkflows.delete(workflow.id)
   }
 
-  const terminals = useAppStore.getState().terminals
+  const state = useAppStore.getState()
+  const terminals = state.terminals
+  const headlessById = new Map(state.headlessSessions.map((s) => [s.id, s]))
   for (const ns of execution.nodeStates) {
     if (ns.sessionId && !ns.agentSessionId) {
-      const terminal = terminals.get(ns.sessionId)
-      const agentSid = terminal?.session.agentSessionId
+      const agentSid =
+        terminals.get(ns.sessionId)?.session.agentSessionId ??
+        headlessById.get(ns.sessionId)?.agentSessionId
       if (agentSid) {
         ns.agentSessionId = agentSid
       }

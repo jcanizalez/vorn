@@ -214,6 +214,8 @@ function wireServerNotifications(bridge: ServerBridge): void {
       case IPC.TERMINAL_EXIT:
       case IPC.HEADLESS_DATA:
       case IPC.HEADLESS_EXIT:
+      case IPC.SCRIPT_DATA:
+      case IPC.SCRIPT_EXIT:
       case IPC.WORKTREE_CONFIRM_CLEANUP:
       case IPC.SESSION_UPDATED:
       case IPC.SESSION_REORDERED:
