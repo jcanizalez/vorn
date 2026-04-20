@@ -220,4 +220,60 @@ describe('buildHeadlessSpawnArgs', () => {
     const result = buildHeadlessSpawnArgs(makePayload(), cmds, env)
     expect(result.args).toContain('')
   })
+
+  it('pins claude headless session via --session-id', () => {
+    const result = buildHeadlessSpawnArgs(
+      makePayload({ sessionId: 'uuid-head', initialPrompt: 'go' }),
+      cmds,
+      env
+    )
+    const idx = result.args.indexOf('--session-id')
+    expect(idx).toBeGreaterThanOrEqual(0)
+    expect(result.args[idx + 1]).toBe('uuid-head')
+  })
+
+  it('pins copilot headless session via --resume (pinning flag is --resume for copilot)', () => {
+    const result = buildHeadlessSpawnArgs(
+      makePayload({ agentType: 'copilot', sessionId: 'uuid-head', initialPrompt: 'go' }),
+      cmds,
+      env
+    )
+    const idx = result.args.indexOf('--resume')
+    expect(idx).toBeGreaterThanOrEqual(0)
+    expect(result.args[idx + 1]).toBe('uuid-head')
+  })
+
+  it('resumes claude headless via --resume', () => {
+    const result = buildHeadlessSpawnArgs(
+      makePayload({ resumeSessionId: 'sess-prev', initialPrompt: 'go' }),
+      cmds,
+      env
+    )
+    const idx = result.args.indexOf('--resume')
+    expect(idx).toBeGreaterThanOrEqual(0)
+    expect(result.args[idx + 1]).toBe('sess-prev')
+  })
+
+  it('resume wins over session-id pinning', () => {
+    const result = buildHeadlessSpawnArgs(
+      makePayload({ sessionId: 'uuid-head', resumeSessionId: 'sess-prev', initialPrompt: 'go' }),
+      cmds,
+      env
+    )
+    expect(result.args).toContain('--resume')
+    expect(result.args).toContain('sess-prev')
+    expect(result.args).not.toContain('--session-id')
+  })
+
+  it('does not inject session-id or resume flags for codex/opencode/gemini headless', () => {
+    for (const agentType of ['codex', 'opencode', 'gemini'] as const) {
+      const result = buildHeadlessSpawnArgs(
+        makePayload({ agentType, sessionId: 'uuid-head', resumeSessionId: 'sess-prev' }),
+        cmds,
+        env
+      )
+      expect(result.args).not.toContain('--session-id')
+      expect(result.args).not.toContain('--resume')
+    }
+  })
 })

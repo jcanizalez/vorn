@@ -230,4 +230,27 @@ describe('SessionActivityLog', () => {
     )
     expect(getByLabelText('Resume session')).toBeInTheDocument()
   })
+
+  it('clicking Resume Session fires the callback with session + project info', () => {
+    const onResume = vi.fn()
+    const { getByLabelText } = render(
+      <SessionActivityLog
+        logs={[
+          makeLog({
+            status: 'error',
+            exitCode: 1,
+            logs: 'Error: failed',
+            projectName: 'proj',
+            branch: 'feat/x'
+          })
+        ]}
+        onViewFullOutput={onViewFullOutput}
+        onResumeSession={onResume}
+        agentSessionId="agent-xyz"
+        projectPath="/abs/path"
+      />
+    )
+    fireEvent.click(getByLabelText('Resume session'))
+    expect(onResume).toHaveBeenCalledWith('agent-xyz', 'claude', 'proj', '/abs/path', 'feat/x')
+  })
 })
