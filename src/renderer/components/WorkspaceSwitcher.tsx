@@ -227,7 +227,7 @@ export function WorkspaceSwitcher() {
       {/* Backdrop — titlebar-no-drag so clicks on Electron drag regions still close */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-40 titlebar-no-drag"
+          className="fixed inset-0 z-50 titlebar-no-drag"
           onClick={() => {
             setIsOpen(false)
             resetForm()

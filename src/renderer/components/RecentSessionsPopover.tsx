@@ -67,7 +67,7 @@ export function RecentSessionsPopover({ isOpen, onClose }: Props) {
       {isOpen && (
         <>
           {/* Backdrop — titlebar-no-drag so clicks on Electron drag regions still close */}
-          <div className="fixed inset-0 z-40 titlebar-no-drag" onClick={onClose} />
+          <div className="fixed inset-0 z-50 titlebar-no-drag" onClick={onClose} />
           <motion.div
             className="absolute top-full right-0 mt-2 z-50 w-[380px] max-h-[400px]
                        border border-white/[0.08] rounded-xl shadow-2xl overflow-hidden flex flex-col"

@@ -159,7 +159,7 @@ export function SettingsPage() {
 
   return (
     <motion.div
-      className="fixed inset-0 z-40 flex"
+      className="fixed inset-0 z-50 flex"
       style={{
         background: '#1a1a1e',
         paddingTop: 'var(--safe-top, 0px)',
