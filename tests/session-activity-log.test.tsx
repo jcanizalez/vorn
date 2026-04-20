@@ -253,4 +253,27 @@ describe('SessionActivityLog', () => {
     fireEvent.click(getByLabelText('Resume session'))
     expect(onResume).toHaveBeenCalledWith('agent-xyz', 'claude', 'proj', '/abs/path', 'feat/x')
   })
+
+  it('falls back to claude / empty project name when log fields are missing', () => {
+    const onResume = vi.fn()
+    const { getByLabelText } = render(
+      <SessionActivityLog
+        logs={[
+          makeLog({
+            status: 'error',
+            agentType: undefined,
+            projectName: undefined,
+            exitCode: 1,
+            logs: 'boom'
+          })
+        ]}
+        onViewFullOutput={onViewFullOutput}
+        onResumeSession={onResume}
+        agentSessionId="agent-2"
+        projectPath="/p"
+      />
+    )
+    fireEvent.click(getByLabelText('Resume session'))
+    expect(onResume).toHaveBeenCalledWith('agent-2', 'claude', '', '/p', 'main')
+  })
 })

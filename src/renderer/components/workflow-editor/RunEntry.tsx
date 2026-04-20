@@ -132,7 +132,7 @@ export function RunEntry({
             const node = nodes.find((n) => n.id === ns.nodeId)
             const nodeConfig = node?.config as
               | {
-                  agentType?: AgentType
+                  agentType?: AgentType | 'fromTask'
                   projectName?: string
                   projectPath?: string
                   branch?: string
@@ -140,22 +140,36 @@ export function RunEntry({
                 }
               | undefined
 
+            // Prefer the concrete values the engine recorded at launch
+            // (ns.agentType/projectName/projectPath) over node config, which
+            // may hold the 'fromTask' sentinel or be blank for task-driven nodes.
+            const configAgent =
+              nodeConfig?.agentType && nodeConfig.agentType !== 'fromTask'
+                ? nodeConfig.agentType
+                : undefined
+            const resumeAgentType: AgentType | undefined = ns.agentType ?? configAgent
             const resumeProjectName =
-              nodeConfig?.projectName || nodeTask?.projectName || triggerTask?.projectName || ''
+              ns.projectName ||
+              nodeConfig?.projectName ||
+              nodeTask?.projectName ||
+              triggerTask?.projectName ||
+              ''
+            const resumeProjectPath = ns.projectPath || nodeConfig?.projectPath || ''
             const resumeBranch = nodeConfig?.branch ?? nodeTask?.branch ?? triggerTask?.branch
             const resumeUseWorktree =
               nodeConfig?.useWorktree ?? nodeTask?.useWorktree ?? triggerTask?.useWorktree
             const canResume =
               !!ns.agentSessionId &&
               !!onResumeSession &&
-              !!nodeConfig &&
-              supportsExactSessionResume(nodeConfig.agentType || 'claude')
+              !!resumeAgentType &&
+              !!resumeProjectName &&
+              supportsExactSessionResume(resumeAgentType)
             const handleResume = (): void =>
               onResumeSession!(
                 ns.agentSessionId!,
-                nodeConfig!.agentType || 'claude',
+                resumeAgentType!,
                 resumeProjectName,
-                nodeConfig!.projectPath || '',
+                resumeProjectPath,
                 resumeBranch,
                 resumeUseWorktree
               )

@@ -184,11 +184,14 @@ async function executeNode(
       const result = await window.api.executeScript(resolvedConfig)
 
       const finalLogs = streamedLogs || result.output
+      // Streamed logs already include stderr, so only surface result.error
+      // when we fell through the non-streaming path (finalLogs === result.output).
+      const errorTrailer = result.error && !streamedLogs ? `\nError: ${result.error}` : ''
       updateNodeState(execution, node.id, {
         status: result.success ? 'success' : 'error',
         completedAt: new Date().toISOString(),
         output: result.output,
-        logs: finalLogs + (result.error ? `\nError: ${result.error}` : ''),
+        logs: finalLogs + errorTrailer,
         error: result.error
       })
     } catch (err) {
@@ -382,6 +385,9 @@ async function executeNode(
         taskId: resolvedTaskId,
         worktreePath: headlessSession.worktreePath,
         worktreeName: headlessSession.worktreeName,
+        agentType: effectiveAgent,
+        projectName: effectiveProjectName,
+        projectPath: effectiveProjectPath,
         ...(headlessSession.agentSessionId
           ? { agentSessionId: headlessSession.agentSessionId }
           : {})
@@ -446,7 +452,10 @@ async function executeNode(
       logs: `Terminal session created: ${session.id}`,
       taskId: resolvedTaskId,
       worktreePath: session.worktreePath,
-      worktreeName: session.worktreeName
+      worktreeName: session.worktreeName,
+      agentType: effectiveAgent,
+      projectName: effectiveProjectName,
+      projectPath: effectiveProjectPath
     })
     persistExecution(workflow.id, execution)
   }

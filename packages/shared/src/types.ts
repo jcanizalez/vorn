@@ -345,6 +345,13 @@ export interface NodeExecutionState {
   output?: string
   taskId?: string
   agentSessionId?: string
+  /** Concrete agent type resolved at launch time. Distinct from the node's
+   *  configured agentType, which may be the 'fromTask' sentinel. */
+  agentType?: AgentType
+  /** Project name captured at launch so resume works for task-agnostic nodes. */
+  projectName?: string
+  /** Project path captured at launch. */
+  projectPath?: string
   worktreePath?: string
   worktreeName?: string
 }

@@ -25,12 +25,7 @@ vi.mock('lucide-react', () => ({
 }))
 
 import { RunEntry } from '../src/renderer/components/workflow-editor/RunEntry'
-import type {
-  WorkflowExecution,
-  WorkflowNode,
-  NodeExecutionState,
-  TaskConfig
-} from '../src/shared/types'
+import type { WorkflowExecution, WorkflowNode, NodeExecutionState } from '../src/shared/types'
 
 function makeExec(overrides: Partial<WorkflowExecution> = {}): WorkflowExecution {
   return {
@@ -105,36 +100,31 @@ describe('RunEntry', () => {
     expect(onView).toHaveBeenCalledWith('some streaming logs')
   })
 
-  it('falls back to the triggering task project when node config is blank', () => {
+  it('uses the resolved agent/project captured in node state (fromTask sentinel)', () => {
     const onResume = vi.fn()
     const exec = makeExec({
       triggerTaskId: 'task-1',
-      nodeStates: [makeState({ agentSessionId: 'agent-abc', taskId: 'task-1' })]
+      nodeStates: [
+        makeState({
+          agentSessionId: 'agent-abc',
+          agentType: 'claude',
+          projectName: 'from-task',
+          projectPath: '/abs/from-task',
+          taskId: 'task-1'
+        })
+      ]
     })
-    const blankNode = makeNode({
+    const fromTaskNode = makeNode({
       config: {
-        agentType: 'claude',
+        agentType: 'fromTask',
         projectName: '',
         projectPath: '',
         headless: true,
         prompt: 'hi'
       }
     })
-    const task: TaskConfig = {
-      id: 'task-1',
-      title: 'My task',
-      description: '',
-      status: 'in_progress',
-      priority: 'normal',
-      projectName: 'from-task',
-      branch: 'feature/x',
-      useWorktree: false,
-      assignedAgent: 'claude',
-      createdAt: '2026-04-20T09:00:00Z',
-      updatedAt: '2026-04-20T09:00:00Z'
-    }
     const { getByText, getByLabelText } = render(
-      <RunEntry execution={exec} nodes={[blankNode]} tasks={[task]} onResumeSession={onResume} />
+      <RunEntry execution={exec} nodes={[fromTaskNode]} onResumeSession={onResume} />
     )
     fireEvent.click(getByText(/ago|just now|seconds/i).closest('button')!)
     fireEvent.click(getByText('Run Claude').closest('button')!)
@@ -143,10 +133,29 @@ describe('RunEntry', () => {
       'agent-abc',
       'claude',
       'from-task',
-      '',
-      'feature/x',
-      false
+      '/abs/from-task',
+      undefined,
+      undefined
     )
+  })
+
+  it('hides Resume when project cannot be resolved (fromTask node without recorded state)', () => {
+    const fromTaskNode = makeNode({
+      config: {
+        agentType: 'fromTask',
+        projectName: '',
+        projectPath: '',
+        headless: true,
+        prompt: 'hi'
+      }
+    })
+    const exec = makeExec({ nodeStates: [makeState({ agentSessionId: 'agent-abc' })] })
+    const { getByText, queryByLabelText } = render(
+      <RunEntry execution={exec} nodes={[fromTaskNode]} onResumeSession={vi.fn()} />
+    )
+    fireEvent.click(getByText(/ago|just now|seconds/i).closest('button')!)
+    fireEvent.click(getByText('Run Claude').closest('button')!)
+    expect(queryByLabelText('Resume session')).not.toBeInTheDocument()
   })
 
   it('hides Resume button for unsupported agents (gemini)', () => {

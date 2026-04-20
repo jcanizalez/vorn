@@ -364,6 +364,9 @@ function createSchema(): void {
       logs TEXT,
       task_id TEXT,
       agent_session_id TEXT,
+      agent_type TEXT,
+      project_name TEXT,
+      project_path TEXT,
       FOREIGN KEY (run_id) REFERENCES workflow_runs(id) ON DELETE CASCADE
     );
 
@@ -620,6 +623,14 @@ function verifySchema(d: Database.Database): void {
         column: 'headless_args',
         ddl: 'ALTER TABLE agent_commands ADD COLUMN headless_args TEXT'
       }
+    ],
+    workflow_run_nodes: [
+      { column: 'agent_type', ddl: 'ALTER TABLE workflow_run_nodes ADD COLUMN agent_type TEXT' },
+      {
+        column: 'project_name',
+        ddl: 'ALTER TABLE workflow_run_nodes ADD COLUMN project_name TEXT'
+      },
+      { column: 'project_path', ddl: 'ALTER TABLE workflow_run_nodes ADD COLUMN project_path TEXT' }
     ]
   }
 
@@ -1798,8 +1809,8 @@ export function saveWorkflowRun(execution: WorkflowExecution): void {
     d.prepare('DELETE FROM workflow_run_nodes WHERE run_id = ?').run(runId)
 
     const insertNode = d.prepare(
-      `INSERT INTO workflow_run_nodes (run_id, node_id, status, started_at, completed_at, session_id, error, logs, task_id, agent_session_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO workflow_run_nodes (run_id, node_id, status, started_at, completed_at, session_id, error, logs, task_id, agent_session_id, agent_type, project_name, project_path)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     for (const ns of execution.nodeStates) {
       insertNode.run(
@@ -1812,7 +1823,10 @@ export function saveWorkflowRun(execution: WorkflowExecution): void {
         ns.error ?? null,
         ns.logs ?? null,
         ns.taskId ?? null,
-        ns.agentSessionId ?? null
+        ns.agentSessionId ?? null,
+        ns.agentType ?? null,
+        ns.projectName ?? null,
+        ns.projectPath ?? null
       )
     }
 
@@ -1861,6 +1875,9 @@ export function listWorkflowRuns(workflowId: string, limit = 20): WorkflowExecut
       logs: string | null
       task_id: string | null
       agent_session_id: string | null
+      agent_type: string | null
+      project_name: string | null
+      project_path: string | null
     }>
 
     return {
@@ -1878,7 +1895,10 @@ export function listWorkflowRuns(workflowId: string, limit = 20): WorkflowExecut
         ...(n.error != null && { error: n.error }),
         ...(n.logs != null && { logs: n.logs }),
         ...(n.task_id != null && { taskId: n.task_id }),
-        ...(n.agent_session_id != null && { agentSessionId: n.agent_session_id })
+        ...(n.agent_session_id != null && { agentSessionId: n.agent_session_id }),
+        ...(n.agent_type != null && { agentType: n.agent_type as NodeExecutionState['agentType'] }),
+        ...(n.project_name != null && { projectName: n.project_name }),
+        ...(n.project_path != null && { projectPath: n.project_path })
       }))
     }
   })

@@ -31,6 +31,7 @@ import {
   removeNode
 } from '../../lib/workflow-helpers'
 import { executeWorkflow } from '../../lib/workflow-execution'
+import { toast } from '../Toast'
 import {
   slugify,
   ensureUniqueSlug,
@@ -397,7 +398,11 @@ export function WorkflowEditor() {
       const cfg = useAppStore.getState().config
       const proj = cfg?.projects.find((p) => p.name === projectName)
       const remoteHostId = proj ? getProjectRemoteHostId(proj) : undefined
-      const effectiveProjectPath = projectPath || proj?.path || ''
+      const effectiveProjectPath = projectPath || proj?.path
+      if (!effectiveProjectPath) {
+        toast.error(`Can't resume: project "${projectName}" not found`)
+        return
+      }
       const session = await window.api.createTerminal({
         agentType,
         projectName,
