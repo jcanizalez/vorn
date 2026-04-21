@@ -15,9 +15,9 @@ vi.mock('../src/renderer/components/Tooltip', () => ({
 }))
 
 describe('StatusBadge', () => {
-  it('renders the shimmer glyph for running', () => {
+  it('renders the running glyph for running', () => {
     const { container } = render(<StatusBadge status="running" />)
-    const glyph = container.querySelector('[data-component="shimmer-glyph"]')
+    const glyph = container.querySelector('[data-component="running-glyph"]')
     expect(glyph).toBeInTheDocument()
     expect(glyph).toHaveClass('text-green-400')
     expect(screen.getByRole('img', { name: 'Running' })).toBeInTheDocument()

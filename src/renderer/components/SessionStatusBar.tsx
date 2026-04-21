@@ -1,7 +1,6 @@
 import { useRef } from 'react'
 import { useAppStore } from '../stores'
 import { useShallow } from 'zustand/react/shallow'
-import { StatusBadge } from './StatusBadge'
 import { GitChangesIndicator, BrowseFilesButton } from './GitChangesIndicator'
 import { OpenInButton } from './OpenInButton'
 import { BranchPicker } from './BranchPicker'
@@ -101,7 +100,6 @@ export function SessionStatusBar({ terminalId }: Props) {
       </div>
 
       <div className="group/status flex items-center gap-2 shrink-0">
-        <StatusBadge status={terminal.status} />
         <GitChangesIndicator terminalId={terminalId} />
         <BrowseFilesButton terminalId={terminalId} />
         <OpenInButton projectPath={session.projectPath} direction="up" />

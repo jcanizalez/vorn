@@ -308,7 +308,7 @@ export function ProjectItem({
       </div>
 
       {!isCollapsed && isExpanded && (
-        <div className="ml-4 space-y-0">
+        <div className="ml-2 space-y-0">
           {sessionsOnly ? (
             projectSessions.length > 0 ? (
               projectSessions.map((s) => <SessionItem key={s.id} session={s} />)

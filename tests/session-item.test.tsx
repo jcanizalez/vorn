@@ -41,11 +41,11 @@ describe('SessionItem', () => {
     expect(screen.queryByText('main')).not.toBeInTheDocument()
   })
 
-  it('replaces the agent icon with the shimmer glyph when running', () => {
+  it('replaces the agent identity icon with the running glyph when running', () => {
     const { container } = render(<SessionItem session={session} />)
-    const glyph = container.querySelector('[data-component="shimmer-glyph"]')
+    const glyph = container.querySelector('[data-component="running-glyph"]')
     expect(glyph).toBeInTheDocument()
-    expect(glyph).toHaveClass('text-green-400')
+    expect(glyph).toHaveAttribute('aria-label', 'Running')
   })
 
   it('calls setFocusedTerminal on click', () => {
@@ -77,11 +77,11 @@ describe('SessionItem', () => {
   })
 
   it.each(['waiting', 'idle', 'error'] as const)(
-    'renders the plain agent identity icon (no shimmer) for %s status',
+    'renders the plain agent identity icon (no pulse) for %s status',
     (status) => {
       const s: SidebarSessionInfo = { ...session, status }
       const { container } = render(<SessionItem session={s} />)
-      expect(container.querySelector('[data-component="shimmer-glyph"]')).toBeNull()
+      expect(container.querySelector('[data-component="running-glyph"]')).toBeNull()
       // Identity svg still rendered (AgentIcon is an inline SVG)
       expect(container.querySelector('svg')).toBeInTheDocument()
     }

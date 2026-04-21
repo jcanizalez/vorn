@@ -1,6 +1,6 @@
 import { AgentStatus } from '../../shared/types'
 import { STATUS_LABEL } from '../lib/status-colors'
-import { ShimmerGlyph } from './ShimmerGlyph'
+import { RunningGlyph } from './RunningGlyph'
 import { Tooltip } from './Tooltip'
 
 interface Props {
@@ -23,7 +23,7 @@ export function StatusBadge({ status, size = 18 }: Props) {
         role="img"
         data-status="running"
       >
-        <ShimmerGlyph size={size} className="text-green-400" />
+        <RunningGlyph size={size} className="text-green-400" />
       </span>
     </Tooltip>
   )

@@ -172,7 +172,7 @@ export const AgentCard = memo(
             <AgentStatusIcon
               agentType={terminal.session.agentType}
               status={terminal.status}
-              size={14}
+              size={20}
             />
             <div className="flex-1 min-w-0">
               {isRenaming ? (
