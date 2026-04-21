@@ -27,9 +27,8 @@ const grid: Tier[] = [
   'hidden'
 ]
 
-// Deterministic [0,1) from integer seed — keeps twinkle timings stable
-// across mounts, and avoids Math.random() at module load (which would share
-// one roll across every instance on the page).
+// Deterministic [0,1) from integer seed — every mount renders the same
+// pulse pattern, so instances across the app stay in phase.
 function seeded(seed: number) {
   const s = Math.sin(seed * 12.9898 + 78.233) * 43758.5453
   return s - Math.floor(s)
