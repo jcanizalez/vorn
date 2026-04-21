@@ -202,6 +202,25 @@ select:focus:not(:focus-visible) {
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
+@keyframes pulse-opacity {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes pulse-opacity-dim {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
 /* Headless pill border pulse */
 @keyframes borderPulse {
   0%,

@@ -1,8 +1,7 @@
 import { useState, memo, forwardRef } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../stores'
-import { AgentIcon } from './AgentIcon'
-import { StatusBadge } from './StatusBadge'
+import { AgentStatusIcon } from './AgentStatusIcon'
 import { TerminalSlot } from './TerminalSlot'
 import { InlineRename } from './InlineRename'
 import { GitChangesIndicator, BrowseFilesButton } from './GitChangesIndicator'
@@ -170,7 +169,11 @@ export const AgentCard = memo(
             onDoubleClick={handleExpand}
             onPointerDown={onDragStart ? (e) => onDragStart(terminalId, e) : undefined}
           >
-            <AgentIcon agentType={terminal.session.agentType} size={14} />
+            <AgentStatusIcon
+              agentType={terminal.session.agentType}
+              status={terminal.status}
+              size={14}
+            />
             <div className="flex-1 min-w-0">
               {isRenaming ? (
                 <InlineRename
@@ -255,7 +258,6 @@ export const AgentCard = memo(
             </div>
           </div>
 
-          <StatusBadge status={terminal.status} />
           {typeof index === 'number' && index < 9 && (
             <span
               className="px-1 py-0.5 text-[9px] font-mono text-gray-600

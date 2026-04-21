@@ -41,16 +41,11 @@ describe('SessionItem', () => {
     expect(screen.queryByText('main')).not.toBeInTheDocument()
   })
 
-  it('renders status dot with correct class', () => {
+  it('replaces the agent icon with the shimmer glyph when running', () => {
     const { container } = render(<SessionItem session={session} />)
-    const dot = container.querySelector('.bg-green-400')
-    expect(dot).toBeInTheDocument()
-  })
-
-  it('renders agent icon', () => {
-    const { container } = render(<SessionItem session={session} />)
-    const svg = container.querySelector('svg')
-    expect(svg).toBeInTheDocument()
+    const glyph = container.querySelector('[data-component="shimmer-glyph"]')
+    expect(glyph).toBeInTheDocument()
+    expect(glyph).toHaveClass('text-green-400')
   })
 
   it('calls setFocusedTerminal on click', () => {
@@ -81,17 +76,16 @@ describe('SessionItem', () => {
     expect(screen.queryByText('main')).not.toBeInTheDocument()
   })
 
-  it.each([
-    ['running', 'bg-green-400'],
-    ['waiting', 'bg-yellow-400'],
-    ['idle', 'bg-gray-500'],
-    ['error', 'bg-red-500']
-  ] as const)('renders "%s" status as badge dot', (status, colorClass) => {
-    const s: SidebarSessionInfo = { ...session, status }
-    const { container } = render(<SessionItem session={s} />)
-    const badge = container.querySelector(`.${colorClass.replace('/', '\\/')}`)
-    expect(badge).toBeInTheDocument()
-  })
+  it.each(['waiting', 'idle', 'error'] as const)(
+    'renders the plain agent identity icon (no shimmer) for %s status',
+    (status) => {
+      const s: SidebarSessionInfo = { ...session, status }
+      const { container } = render(<SessionItem session={s} />)
+      expect(container.querySelector('[data-component="shimmer-glyph"]')).toBeNull()
+      // Identity svg still rendered (AgentIcon is an inline SVG)
+      expect(container.querySelector('svg')).toBeInTheDocument()
+    }
+  )
 
   it('renders close button', () => {
     const { container } = render(<SessionItem session={session} />)
