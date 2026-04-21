@@ -18,10 +18,9 @@ import { resolveActiveProject } from '../lib/session-utils'
 import type { AgentStatus } from '../../shared/types'
 import { ConfirmPopover } from './ConfirmPopover'
 import { toast } from './Toast'
-import { ChevronDown, GripVertical, Pencil } from 'lucide-react'
+import { ChevronDown, GripVertical, Pencil, X } from 'lucide-react'
 import { GridContextMenu } from './GridContextMenu'
-
-const isMac = navigator.platform.toUpperCase().includes('MAC')
+import { MOD } from '../lib/platform'
 
 const STATUS_LABEL: Record<AgentStatus, string> = {
   running: 'Running',
@@ -346,15 +345,14 @@ export function TabView() {
                 e.stopPropagation()
                 setContextMenu({ terminalId: id, x: e.clientX, y: e.clientY })
               }}
-              title={undefined}
               className={`group relative flex items-center gap-2 px-3 h-[36px] text-[13px] cursor-pointer
-                         transition-colors flex-1 min-w-0 max-w-[180px] select-none
+                         transition-colors flex-1 min-w-0 max-w-[180px] select-none border-b
                          ${isDragTarget ? 'ring-1 ring-blue-500/50' : ''}
                          ${isDragging ? 'opacity-50' : ''}
                          ${
                            isActive
-                             ? 'text-white border-b border-white'
-                             : 'text-gray-500 hover:text-gray-300 border-b border-transparent'
+                             ? 'text-white border-white'
+                             : 'text-gray-500 hover:text-gray-300 border-transparent'
                          }`}
               style={isIdlePinned ? { opacity: 0.55 } : undefined}
             >
@@ -373,13 +371,11 @@ export function TabView() {
                 </span>
               )}
 
-              <span className="shrink-0 flex items-center justify-center w-[16px] h-[16px]">
-                <AgentStatusIcon
-                  agentType={terminal.session.agentType}
-                  status={terminal.status}
-                  size={16}
-                />
-              </span>
+              <AgentStatusIcon
+                agentType={terminal.session.agentType}
+                status={terminal.status}
+                size={16}
+              />
 
               {isRenaming ? (
                 <InlineRename
@@ -398,7 +394,6 @@ export function TabView() {
                 </span>
               )}
 
-              {/* Right slot: badge (default) ↔ edit + close (hover) */}
               <span className="shrink-0 ml-auto flex items-center gap-1">
                 {index < 9 && !isRenaming && (
                   <span
@@ -406,7 +401,7 @@ export function TabView() {
                                  bg-white/[0.06] border border-white/[0.1] rounded leading-none
                                  pointer-events-none"
                   >
-                    {isMac ? '\u2318' : 'Ctrl+'}
+                    {MOD}
                     {index + 1}
                   </span>
                 )}
@@ -433,16 +428,7 @@ export function TabView() {
                                transition-colors text-gray-500 hover:text-gray-200 hover:bg-white/[0.1]"
                     title="Close session"
                   >
-                    <svg
-                      width="9"
-                      height="9"
-                      viewBox="0 0 8 8"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                    >
-                      <path d="M1 1l6 6M7 1l-6 6" />
-                    </svg>
+                    <X size={10} strokeWidth={2} />
                   </span>
                 </ConfirmPopover>
               </span>
