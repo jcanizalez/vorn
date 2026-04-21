@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useAppStore } from '../../stores'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { getDisplayName } from '../../lib/terminal-display'
@@ -7,7 +7,6 @@ import { SidebarHeader } from './SidebarHeader'
 import { ProjectsSection } from './ProjectsSection'
 import { FlatSessionsSection } from './FlatSessionsSection'
 import { WorkflowsSection } from './WorkflowsSection'
-import { ArchivedSessionsSection } from './ArchivedSessionsSection'
 import { SidebarFooter } from './SidebarFooter'
 import type { SidebarSessionInfo } from './types'
 
@@ -17,16 +16,11 @@ export function ProjectSidebar() {
   const activeWorkspace = useAppStore((s) => s.activeWorkspace)
   const isSidebarOpen = useAppStore((s) => s.isSidebarOpen)
   const toggleSidebar = useAppStore((s) => s.toggleSidebar)
-  const loadArchivedSessions = useAppStore((s) => s.loadArchivedSessions)
   const sidebarViewMode = useAppStore((s) => s.sidebarViewMode)
   const isMobile = useIsMobile()
 
   const { sidebarWidth, isResizingState, isCollapsed, handleResizeStart, handleResizeDoubleClick } =
     useSidebarResize()
-
-  useEffect(() => {
-    loadArchivedSessions()
-  }, [loadArchivedSessions])
 
   const closeSidebarOnMobile = useCallback(() => {
     if (isMobile && isSidebarOpen) toggleSidebar()
@@ -144,8 +138,6 @@ export function ProjectSidebar() {
         )}
 
         <WorkflowsSection isCollapsed={isCollapsed} workspaceWorkflows={workspaceWorkflows} />
-
-        {!isCollapsed && <ArchivedSessionsSection workspaceProjectNames={workspaceProjectNames} />}
       </div>
 
       <SidebarFooter isCollapsed={isCollapsed} closeSidebarOnMobile={closeSidebarOnMobile} />

@@ -23,7 +23,7 @@ export const TIPS: Tip[] = [
     shortcut: `${ALT}1\u2013${ALT}5`
   },
   { text: 'Double-click the empty grid area to quick-launch a session with your default agent' },
-  { text: 'Right-click a card for quick actions: rename, pin, launch new session, or close' },
+  { text: 'Right-click a card for quick actions: rename, launch new session, or close' },
   { text: 'Right-click the empty grid area to launch a new session or worktree session' },
   { text: 'Launch a worktree session from the Worktrees section in the sidebar' },
   { text: 'Set up Workflows in the sidebar to launch multi-agent setups with one click' },

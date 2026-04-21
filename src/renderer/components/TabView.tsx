@@ -310,7 +310,6 @@ export function TabView() {
           const isRenaming = renamingTerminalId === id
           const isDragTarget = dragState?.isDragging === true && dropTargetIndex === index
           const isDragging = dragState?.isDragging === true && dragState.draggingId === id
-          const isIdlePinned = terminal.status === 'idle' && terminal.session.pinned === true
 
           const assignedTask = tasks?.find(
             (t) => t.assignedSessionId === id && t.status === 'in_progress'
@@ -356,7 +355,6 @@ export function TabView() {
                              ? 'bg-white/[0.1] text-white'
                              : 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.04]'
                          }`}
-              style={isIdlePinned ? { opacity: 0.55 } : undefined}
             >
               {/* Drag handle — left edge, only in manual sort */}
               {isManualSort && (

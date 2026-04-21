@@ -324,17 +324,6 @@ function createSchema(): void {
     CREATE INDEX IF NOT EXISTS idx_schedule_log_workflow_id ON schedule_log(workflow_id);
     CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_name, status);
 
-    CREATE TABLE IF NOT EXISTS archived_sessions (
-      id TEXT PRIMARY KEY,
-      agent_type TEXT NOT NULL,
-      project_name TEXT NOT NULL,
-      project_path TEXT NOT NULL,
-      display_name TEXT,
-      branch TEXT,
-      agent_session_id TEXT,
-      archived_at INTEGER NOT NULL
-    );
-
     CREATE TABLE IF NOT EXISTS workspaces (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -1710,75 +1699,6 @@ export function getScheduleLogEntries(workflowId?: string): ScheduleLogEntry[] {
 
 export function clearScheduleLog(): void {
   getDb().prepare('DELETE FROM schedule_log').run()
-}
-
-// ---------------------------------------------------------------------------
-// Archived sessions
-// ---------------------------------------------------------------------------
-
-export function archiveSession(session: {
-  id: string
-  agentType: string
-  projectName: string
-  projectPath: string
-  displayName?: string
-  branch?: string
-  agentSessionId?: string
-  archivedAt: number
-}): void {
-  getDb()
-    .prepare(
-      `INSERT OR REPLACE INTO archived_sessions (id, agent_type, project_name, project_path, display_name, branch, agent_session_id, archived_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .run(
-      session.id,
-      session.agentType,
-      session.projectName,
-      session.projectPath,
-      session.displayName ?? null,
-      session.branch ?? null,
-      session.agentSessionId ?? null,
-      session.archivedAt
-    )
-}
-
-export function unarchiveSession(id: string): void {
-  getDb().prepare('DELETE FROM archived_sessions WHERE id = ?').run(id)
-}
-
-export function listArchivedSessions(): Array<{
-  id: string
-  agentType: string
-  projectName: string
-  projectPath: string
-  displayName: string | null
-  branch: string | null
-  agentSessionId: string | null
-  archivedAt: number
-}> {
-  const rows = getDb()
-    .prepare('SELECT * FROM archived_sessions ORDER BY archived_at DESC')
-    .all() as Array<{
-    id: string
-    agent_type: string
-    project_name: string
-    project_path: string
-    display_name: string | null
-    branch: string | null
-    agent_session_id: string | null
-    archived_at: number
-  }>
-  return rows.map((r) => ({
-    id: r.id,
-    agentType: r.agent_type,
-    projectName: r.project_name,
-    projectPath: r.project_path,
-    displayName: r.display_name,
-    branch: r.branch,
-    agentSessionId: r.agent_session_id,
-    archivedAt: r.archived_at
-  }))
 }
 
 // ---------------------------------------------------------------------------

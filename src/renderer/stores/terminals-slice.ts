@@ -92,16 +92,6 @@ export const createTerminalsSlice: StateCreator<AppStore, [], [], TerminalsSlice
       return { terminals: next }
     }),
 
-  togglePinned: (id) =>
-    set((state) => {
-      const next = new Map(state.terminals)
-      const term = next.get(id)
-      if (term) {
-        next.set(id, { ...term, session: { ...term.session, pinned: !term.session.pinned } })
-      }
-      return { terminals: next }
-    }),
-
   // Headless agent tracking
   headlessSessions: [],
   headlessLastOutput: new Map(),

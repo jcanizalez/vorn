@@ -11,8 +11,7 @@ import {
   HeadlessSession,
   GitDiffStat,
   TaskConfig,
-  TaskStatus,
-  ArchivedSession
+  TaskStatus
 } from '../../shared/types'
 
 export interface WorktreeInfo {
@@ -63,7 +62,6 @@ export interface TerminalsSlice {
     id: string,
     updates: { worktreePath?: string; worktreeName?: string }
   ) => void
-  togglePinned: (id: string) => void
 
   // Headless agent tracking
   headlessSessions: HeadlessSession[]
@@ -201,12 +199,6 @@ export interface UISlice {
   setWorkflowExecution: (id: string, execution: WorkflowExecution) => void
   updateVersion: string | null
   setUpdateVersion: (version: string | null) => void
-  archivedSessions: ArchivedSession[]
-  showArchivedSessions: boolean
-  setShowArchivedSessions: (show: boolean) => void
-  loadArchivedSessions: () => Promise<void>
-  archiveSession: (id: string) => Promise<void>
-  unarchiveSession: (id: string) => Promise<void>
   worktreeCache: Map<string, WorktreeInfo[]>
   loadWorktrees: (projectPath: string, force?: boolean) => Promise<void>
   sidebarProjectSort: ProjectSortMode

@@ -338,11 +338,6 @@ export function createApiShim(wsUrl: string) {
     },
     cleanupTaskImages: (taskId: string) => rpc.invoke('task:imageCleanup', taskId),
 
-    // ── Session Archive ──
-    archiveSession: (session: unknown) => rpc.invoke('session:archive', session),
-    unarchiveSession: (id: string) => rpc.invoke('session:unarchive', id),
-    listArchivedSessions: () => rpc.invoke('session:listArchived'),
-
     // ── Headless Sessions ──
     createHeadlessSession: (payload: unknown) => rpc.invoke('headless:create', payload),
     killHeadlessSession: (id: string) => rpc.invoke('headless:kill', id),

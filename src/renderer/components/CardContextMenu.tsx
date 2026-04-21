@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Maximize2, Pencil, Pin, FolderGit2, Plus, X, ChevronRight } from 'lucide-react'
+import { Maximize2, Pencil, FolderGit2, Plus, X, ChevronRight } from 'lucide-react'
 import { useAppStore } from '../stores'
 import { getProjectRemoteHostId } from '../../shared/types'
 import { ProjectIcon } from './project-sidebar/ProjectIcon'
@@ -86,7 +86,6 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
   if (!terminal) return null
 
   const isFocused = focusedId === terminalId
-  const isPinned = terminal.session.pinned === true
 
   const project = config?.projects.find((p) => p.name === terminal.session.projectName)
   const remoteHostId = project ? getProjectRemoteHostId(project) : undefined
@@ -118,16 +117,6 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
       useAppStore.getState().setRenamingTerminalId(terminalId)
       onClose()
     }
-  })
-
-  items.push({
-    icon: Pin,
-    label: isPinned ? 'Unpin' : 'Pin',
-    onClick: () => {
-      useAppStore.getState().togglePinned(terminalId)
-      onClose()
-    },
-    className: isPinned ? 'text-amber-400' : undefined
   })
 
   const quickLabel = isWorktree

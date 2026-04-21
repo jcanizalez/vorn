@@ -36,9 +36,6 @@ import {
   cleanupTaskImages
 } from './task-images'
 import {
-  archiveSession,
-  unarchiveSession,
-  listArchivedSessions,
   saveWorkflowRun,
   listWorkflowRuns,
   listWorkflowRunsByTask,
@@ -342,17 +339,6 @@ export function registerAllMethods(): void {
   registerMethod('task:imageUpload', ({ taskId, base64, filename }) =>
     saveTaskImageFromBase64(taskId, base64, filename)
   )
-
-  // Session archive
-  registerMethod('session:archive', (session) => {
-    archiveSession(session)
-    logSessionEvent(session.id, 'archived')
-  })
-  registerMethod('session:unarchive', (id) => {
-    unarchiveSession(id)
-    logSessionEvent(id, 'unarchived')
-  })
-  registerMethod('session:listArchived', () => listArchivedSessions())
 
   // Headless
   registerMethod('headless:create', (payload) => {

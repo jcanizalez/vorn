@@ -300,54 +300,6 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   updateVersion: null,
   setUpdateVersion: (version) => set({ updateVersion: version }),
 
-  archivedSessions: [],
-  showArchivedSessions: false,
-  setShowArchivedSessions: (show) => set({ showArchivedSessions: show }),
-
-  loadArchivedSessions: async () => {
-    const sessions = await window.api.listArchivedSessions()
-    set({ archivedSessions: sessions })
-  },
-
-  archiveSession: async (id) => {
-    const term = get().terminals.get(id)
-    if (!term) return
-    await window.api.archiveSession({
-      id: term.id,
-      agentType: term.session.agentType,
-      projectName: term.session.projectName,
-      projectPath: term.session.projectPath,
-      displayName: term.session.displayName,
-      branch: term.session.branch,
-      agentSessionId: term.session.agentSessionId, // only real agent ID, never hookSessionId
-      archivedAt: Date.now()
-    })
-    const sessions = await window.api.listArchivedSessions()
-    set((state) => {
-      const terminals = new Map(state.terminals)
-      terminals.delete(id)
-      const terminalOrder = state.terminalOrder.filter((tid) => tid !== id)
-      const minimizedTerminals = new Set(state.minimizedTerminals)
-      minimizedTerminals.delete(id)
-      const gitDiffStats = new Map(state.gitDiffStats)
-      gitDiffStats.delete(id)
-      return {
-        terminals,
-        terminalOrder,
-        minimizedTerminals,
-        gitDiffStats,
-        archivedSessions: sessions
-      }
-    })
-    window.api.notifyWidgetStatus()
-  },
-
-  unarchiveSession: async (id) => {
-    await window.api.unarchiveSession(id)
-    const sessions = await window.api.listArchivedSessions()
-    set({ archivedSessions: sessions })
-  },
-
   worktreeCache: new Map(),
   loadWorktrees: async (projectPath, force) => {
     if (!force) {

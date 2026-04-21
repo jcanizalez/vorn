@@ -19,9 +19,6 @@ vi.mock('../packages/server/src/database', () => ({
     tasks: []
   }),
   saveConfig: vi.fn(),
-  archiveSession: vi.fn(),
-  unarchiveSession: vi.fn(),
-  listArchivedSessions: vi.fn().mockReturnValue([]),
   saveWorkflowRun: vi.fn(),
   listWorkflowRuns: vi.fn().mockReturnValue([]),
   listWorkflowRunsByTask: vi.fn().mockReturnValue([]),

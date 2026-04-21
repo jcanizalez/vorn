@@ -65,18 +65,6 @@ export interface TerminalSession {
   hookSessionId?: string
   agentSessionId?: string
   statusSource?: 'hooks' | 'pattern'
-  pinned?: boolean
-}
-
-export interface ArchivedSession {
-  id: string
-  agentType: AgentType
-  projectName: string
-  projectPath: string
-  displayName?: string
-  branch?: string
-  agentSessionId?: string
-  archivedAt: number
 }
 
 export type AuthMethod = 'key-file' | 'key-stored' | 'password' | 'agent'
@@ -175,13 +163,7 @@ export interface TaskConfig {
 }
 
 // Session event types (lifecycle activity log)
-export type SessionEventType =
-  | 'created'
-  | 'exited'
-  | 'task_linked'
-  | 'renamed'
-  | 'archived'
-  | 'unarchived'
+export type SessionEventType = 'created' | 'exited' | 'task_linked' | 'renamed'
 
 export interface SessionEvent {
   id?: number
@@ -623,9 +605,6 @@ export const IPC = {
   TASK_IMAGE_GET_PATH: 'task:imageGetPath',
   TASK_IMAGE_CLEANUP: 'task:imageCleanup',
   DIALOG_OPEN_IMAGE: 'dialog:openImage',
-  SESSION_ARCHIVE: 'session:archive',
-  SESSION_UNARCHIVE: 'session:unarchive',
-  SESSION_LIST_ARCHIVED: 'session:listArchived',
   HEADLESS_CREATE: 'headless:create',
   HEADLESS_KILL: 'headless:kill',
   HEADLESS_LIST: 'headless:list',

@@ -9,17 +9,7 @@ import { closeTerminalSession } from '../lib/terminal-close'
 import { getDisplayName, getBranchLabel } from '../lib/terminal-display'
 import { CardContextMenu } from './CardContextMenu'
 import { useTerminalScrollButton } from '../hooks/useTerminalScrollButton'
-import {
-  GitBranch,
-  FolderGit2,
-  Pencil,
-  ListTodo,
-  Pin,
-  Archive,
-  Maximize2,
-  Minus,
-  X
-} from 'lucide-react'
+import { GitBranch, FolderGit2, Pencil, ListTodo, Maximize2, Minus, X } from 'lucide-react'
 import { toast } from './Toast'
 import { Tooltip } from './Tooltip'
 import { ConfirmPopover } from './ConfirmPopover'
@@ -83,9 +73,7 @@ export const AgentCard = memo(
       renameTerminal,
       assignedTask,
       setEditingTask,
-      setTaskDialogOpen,
-      togglePinned,
-      archiveSession
+      setTaskDialogOpen
     } = useAppStore(
       useShallow((s) => ({
         terminal: s.terminals.get(terminalId),
@@ -101,9 +89,7 @@ export const AgentCard = memo(
           (t) => t.assignedSessionId === terminalId && t.status === 'in_progress'
         ),
         setEditingTask: s.setEditingTask,
-        setTaskDialogOpen: s.setTaskDialogOpen,
-        togglePinned: s.togglePinned,
-        archiveSession: s.archiveSession
+        setTaskDialogOpen: s.setTaskDialogOpen
       }))
     )
     const [cardHovered, setCardHovered] = useState(isTouchDevice)
@@ -114,8 +100,6 @@ export const AgentCard = memo(
 
     const isFocused = focusedId === terminalId
     const isSelected = selectedId === terminalId
-    const isPinned = terminal.session.pinned === true
-    const isIdlePinned = terminal.status === 'idle' && isPinned
     const handleKill = async (): Promise<void> => {
       const name = getDisplayName(terminal.session)
       if (focusedId === terminalId) setFocused(null)
@@ -147,8 +131,7 @@ export const AgentCard = memo(
                            : 'border-white/[0.06] hover:border-white/[0.12]'
                    }`}
         style={{
-          background: '#1a1a1e',
-          ...(isIdlePinned ? { opacity: 0.55 } : {})
+          background: '#1a1a1e'
         }}
         onPointerDown={() => {
           if (!isSelected && !isFocused) setSelected(terminalId)
@@ -269,44 +252,11 @@ export const AgentCard = memo(
             </span>
           )}
 
-          {/* Pin + Browse — appear on hover, left of git */}
+          {/* Browse — appears on hover, left of git */}
           {cardHovered && (
             <div className="flex items-center gap-0.5">
-              <Tooltip label={isPinned ? 'Unpin session' : 'Pin session'} position="top">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    togglePinned(terminalId)
-                  }}
-                  className={`p-1.5 rounded transition-colors ${
-                    isPinned
-                      ? 'text-amber-400 hover:text-amber-300'
-                      : 'text-gray-500 hover:text-gray-300'
-                  }`}
-                  aria-label={isPinned ? 'Unpin session' : 'Pin session'}
-                >
-                  <Pin size={12} strokeWidth={2} className={isPinned ? 'fill-current' : ''} />
-                </button>
-              </Tooltip>
-              {isIdlePinned && (
-                <Tooltip label="Archive session" position="top">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      archiveSession(terminalId)
-                    }}
-                    className="p-1.5 rounded text-gray-500 hover:text-gray-300 transition-colors"
-                    aria-label="Archive session"
-                  >
-                    <Archive size={12} strokeWidth={2} />
-                  </button>
-                </Tooltip>
-              )}
               <BrowseFilesButton terminalId={terminalId} />
             </div>
-          )}
-          {!cardHovered && isPinned && (
-            <Pin size={10} strokeWidth={2} className="text-amber-400 fill-current shrink-0" />
           )}
 
           <GitChangesIndicator terminalId={terminalId} />

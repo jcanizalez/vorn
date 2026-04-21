@@ -3,7 +3,6 @@ import type {
   TerminalSession,
   HeadlessSession,
   AppConfig,
-  ArchivedSession,
   ResizePayload,
   FileEntry,
   GitDiffStat,
@@ -113,9 +112,6 @@ export interface RequestMethods {
     result: string
   }
   'task:imageCleanup': { params: string; result: void }
-  'session:archive': { params: ArchivedSession; result: void }
-  'session:unarchive': { params: string; result: void }
-  'session:listArchived': { params: void; result: ArchivedSession[] }
   'headless:create': {
     params: CreateTerminalPayload
     result: HeadlessSession
