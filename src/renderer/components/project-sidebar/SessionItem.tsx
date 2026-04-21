@@ -73,12 +73,16 @@ export function SessionItem({
       }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={`group/session w-full text-left px-2 py-1 rounded-md text-[12px] flex items-center gap-2 min-w-0 transition-colors ${
+      className={`group/session w-full text-left px-2 py-1 text-[12px] flex items-center gap-2 min-w-0 transition-colors relative ${
         isActive || isPreviewing
-          ? 'bg-white/[0.08] text-white'
-          : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'
+          ? 'text-white'
+          : 'text-gray-400 hover:text-white hover:bg-white/[0.04] rounded-md'
       }`}
     >
+      {/* Active session indicator — minimal left line */}
+      {(isActive || isPreviewing) && (
+        <span className="absolute left-0 top-1 bottom-1 w-px bg-white rounded-full" />
+      )}
       <span className="shrink-0" title={`${session.agentType} · ${STATUS_LABEL[session.status]}`}>
         <AgentStatusIcon agentType={session.agentType} status={session.status} size={14} />
       </span>
