@@ -172,7 +172,7 @@ export const AgentCard = memo(
             <AgentStatusIcon
               agentType={terminal.session.agentType}
               status={terminal.status}
-              size={20}
+              size={16}
             />
             <div className="flex-1 min-w-0">
               {isRenaming ? (
@@ -358,7 +358,7 @@ export const AgentCard = memo(
         </div>
 
         {/* Terminal */}
-        <div className="relative flex-1 min-h-0" style={{ background: '#141416' }}>
+        <div className="relative flex-1 min-h-0 pt-0.5" style={{ background: '#141416' }}>
           {!isFocused && (
             // In flexible mode, reserve 16px at SE so the react-grid-layout
             // resize handle isn't covered by the TerminalHost overlay (z-45).

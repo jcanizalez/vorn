@@ -18,10 +18,9 @@ import { resolveActiveProject } from '../lib/session-utils'
 import type { AgentStatus } from '../../shared/types'
 import { ConfirmPopover } from './ConfirmPopover'
 import { toast } from './Toast'
-import { ChevronDown, GripVertical, Pencil } from 'lucide-react'
+import { ChevronDown, GripVertical, Pencil, X } from 'lucide-react'
 import { GridContextMenu } from './GridContextMenu'
-
-const isMac = navigator.platform.toUpperCase().includes('MAC')
+import { MOD } from '../lib/platform'
 
 const STATUS_LABEL: Record<AgentStatus, string> = {
   running: 'Running',
@@ -296,8 +295,8 @@ export function TabView() {
 
       {/* Tab bar */}
       <div
-        className="shrink-0 flex items-center gap-0.5 px-2 py-1.5 border-b border-white/[0.06] overflow-x-auto"
-        style={{ minHeight: 36 }}
+        className="shrink-0 flex items-end gap-1 px-2 border-b border-white/[0.06] overflow-x-auto"
+        style={{ minHeight: 40 }}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
@@ -346,15 +345,14 @@ export function TabView() {
                 e.stopPropagation()
                 setContextMenu({ terminalId: id, x: e.clientX, y: e.clientY })
               }}
-              title={tooltip}
-              className={`group relative flex items-center gap-1.5 px-2.5 h-[28px] rounded-md text-xs
-                         transition-colors shrink-0 max-w-[240px] select-none
+              className={`group relative flex items-center gap-2 px-3 h-[36px] text-[13px] cursor-pointer
+                         transition-colors flex-1 min-w-[120px] max-w-[180px] select-none border-b
                          ${isDragTarget ? 'ring-1 ring-blue-500/50' : ''}
                          ${isDragging ? 'opacity-50' : ''}
                          ${
                            isActive
-                             ? 'bg-white/[0.1] text-white'
-                             : 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.04]'
+                             ? 'text-white border-white'
+                             : 'text-gray-500 hover:text-gray-300 border-transparent'
                          }`}
               style={isIdlePinned ? { opacity: 0.55 } : undefined}
             >
@@ -376,7 +374,7 @@ export function TabView() {
               <AgentStatusIcon
                 agentType={terminal.session.agentType}
                 status={terminal.status}
-                size={12}
+                size={16}
               />
 
               {isRenaming ? (
@@ -391,55 +389,57 @@ export function TabView() {
                   className="text-xs w-[100px]"
                 />
               ) : (
-                <>
-                  <span className="truncate">{displayName}</span>
+                <span className="truncate" title={tooltip}>
+                  {displayName}
+                </span>
+              )}
+
+              <span className="shrink-0 ml-auto relative flex items-center gap-1">
+                {index < 9 && !isRenaming && (
+                  <span
+                    className="absolute right-0 top-1/2 -translate-y-1/2
+                                 opacity-100 group-hover:opacity-0 transition-opacity
+                                 px-1 py-0.5 text-[9px] font-mono text-gray-500
+                                 bg-white/[0.06] border border-white/[0.1] rounded leading-none
+                                 pointer-events-none"
+                  >
+                    {MOD}
+                    {index + 1}
+                  </span>
+                )}
+                {!isRenaming && (
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation()
                       setRenamingTerminalId(id)
                     }}
-                    className="shrink-0 opacity-0 group-hover:opacity-100 text-gray-500 hover:text-gray-300 transition-opacity"
-                    title="Rename"
+                    className="w-4 h-4 flex items-center justify-center rounded
+                               opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity
+                               text-gray-500 hover:text-gray-300"
+                    title="Rename session"
+                    aria-label="Rename session"
                   >
-                    <Pencil size={9} />
+                    <Pencil size={10} />
                   </button>
-                </>
-              )}
-
-              {/* Keyboard shortcut badge */}
-              {index < 9 && !isRenaming && (
-                <span
-                  className="shrink-0 ml-auto px-0.5 text-[8px] font-mono text-gray-600
-                               bg-white/[0.04] border border-white/[0.06] rounded leading-none
-                               pointer-events-none"
+                )}
+                <ConfirmPopover
+                  message="Close this session?"
+                  confirmLabel="Close"
+                  onConfirm={() => handleCloseTab(id)}
                 >
-                  {isMac ? '\u2318' : 'Ctrl+'}
-                  {index + 1}
-                </span>
-              )}
-
-              <ConfirmPopover
-                message="Close this session?"
-                confirmLabel="Close"
-                onConfirm={() => handleCloseTab(id)}
-              >
-                <span
-                  className="ml-0.5 shrink-0 w-4 h-4 flex items-center justify-center rounded
-                             transition-colors opacity-0 group-hover:opacity-100 text-gray-500 hover:text-gray-200 hover:bg-white/[0.1]"
-                  title="Close session"
-                >
-                  <svg
-                    width="8"
-                    height="8"
-                    viewBox="0 0 8 8"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
+                  <button
+                    type="button"
+                    className="w-4 h-4 flex items-center justify-center rounded
+                               opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity
+                               text-gray-500 hover:text-gray-200 hover:bg-white/[0.1]"
+                    title="Close session"
+                    aria-label="Close session"
                   >
-                    <path d="M1 1l6 6M7 1l-6 6" />
-                  </svg>
-                </span>
-              </ConfirmPopover>
+                    <X size={10} strokeWidth={2} />
+                  </button>
+                </ConfirmPopover>
+              </span>
             </div>
           )
         })}
@@ -448,7 +448,7 @@ export function TabView() {
         <div className="shrink-0 flex items-center">
           <button
             onClick={handleQuickLaunch}
-            className="h-[28px] w-[24px] flex items-center justify-center rounded-l-md
+            className="h-[36px] w-[24px] flex items-center justify-center rounded-l-md
                        text-gray-500 hover:text-gray-200 hover:bg-white/[0.06] transition-colors"
             title="New session"
           >
@@ -479,7 +479,7 @@ export function TabView() {
                 })
               }
             }}
-            className="h-[28px] w-[16px] flex items-center justify-center rounded-r-md
+            className="h-[36px] w-[16px] flex items-center justify-center rounded-r-md
                        text-gray-500 hover:text-gray-200 hover:bg-white/[0.06] transition-colors
                        border-l border-white/[0.06]"
             title="More launch options"
@@ -494,7 +494,7 @@ export function TabView() {
       </div>
 
       {/* Terminal content */}
-      <div className="relative flex-1 min-h-0" style={{ background: '#141416' }}>
+      <div className="relative flex-1 min-h-0 pt-4" style={{ background: '#141416' }}>
         {activeTabId && activeTerminal && (
           <TerminalSlot
             key={activeTabId}
