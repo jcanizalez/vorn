@@ -2,12 +2,11 @@ import { useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useAppStore } from '../stores'
 import { TerminalSlot } from './TerminalSlot'
-import { AgentIcon } from './AgentIcon'
+import { AgentStatusIcon } from './AgentStatusIcon'
 import { InlineRename } from './InlineRename'
 import { Tooltip } from './Tooltip'
 import { ConfirmPopover } from './ConfirmPopover'
 import { SessionStatusBar } from './SessionStatusBar'
-import { StatusBadge } from './StatusBadge'
 import { MobileFontSizeControl } from './MobileFontSizeControl'
 import { MobileTerminalKeybar } from './MobileTerminalKeybar'
 import { getDisplayName, getBranchLabel } from '../lib/terminal-display'
@@ -97,7 +96,11 @@ export function FocusedTerminal() {
               <Minimize2 size={16} strokeWidth={2} />
             </button>
           )}
-          <AgentIcon agentType={terminal.session.agentType} size={16} />
+          <AgentStatusIcon
+            agentType={terminal.session.agentType}
+            status={terminal.status}
+            size={16}
+          />
           <div className="flex-1 min-w-0">
             {isRenaming ? (
               <InlineRename
@@ -152,8 +155,6 @@ export function FocusedTerminal() {
               </span>
             )}
           </div>
-
-          {isMobile && <StatusBadge status={terminal.status} />}
 
           {!isMobile && (
             <Tooltip label="Collapse to grid" shortcut={`${MOD}W`} position="bottom">

@@ -202,6 +202,33 @@ select:focus:not(:focus-visible) {
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
+/* Running glyph — two-tier organic twinkle. Opacity envelopes only; the
+   per-cell delay + duration are set inline. */
+@keyframes rg-pulse-in {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.95;
+  }
+}
+@keyframes rg-pulse-out {
+  0%,
+  100% {
+    opacity: 0.12;
+  }
+  50% {
+    opacity: 0.38;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-component='running-glyph'] rect:not([data-tier='hidden']) {
+    animation: none !important;
+    opacity: 0.5;
+  }
+}
+
 /* Headless pill border pulse */
 @keyframes borderPulse {
   0%,

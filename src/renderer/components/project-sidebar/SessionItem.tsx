@@ -1,18 +1,11 @@
 import { useRef, useCallback, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { useAppStore } from '../../stores'
-import { AgentIcon } from '../AgentIcon'
+import { AgentStatusIcon } from '../AgentStatusIcon'
 import { closeTerminalSession } from '../../lib/terminal-close'
 import { toast } from '../Toast'
-import type { AgentStatus } from '../../../shared/types'
+import { STATUS_LABEL } from '../../lib/status-colors'
 import type { SidebarSessionInfo } from './types'
-
-const STATUS_CONFIG: Record<AgentStatus, { color: string; label: string; pulse: boolean }> = {
-  running: { color: 'bg-green-400', label: 'Running', pulse: true },
-  waiting: { color: 'bg-yellow-400', label: 'Waiting', pulse: true },
-  idle: { color: 'bg-gray-500', label: 'Idle', pulse: false },
-  error: { color: 'bg-red-500', label: 'Error', pulse: false }
-}
 
 const PREVIEW_DELAY_MS = 300
 
@@ -86,20 +79,9 @@ export function SessionItem({
           : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'
       }`}
     >
-      <div className="relative shrink-0" title={STATUS_CONFIG[session.status].label}>
-        <AgentIcon agentType={session.agentType} size={14} />
-        <div
-          className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-[#1a1a2e] ${STATUS_CONFIG[session.status].color}`}
-          aria-label={STATUS_CONFIG[session.status].label}
-        >
-          {STATUS_CONFIG[session.status].pulse && (
-            <div
-              className={`absolute inset-0 rounded-full ${STATUS_CONFIG[session.status].color} animate-ping opacity-75`}
-              style={{ animationDuration: '2s' }}
-            />
-          )}
-        </div>
-      </div>
+      <span className="shrink-0" title={`${session.agentType} · ${STATUS_LABEL[session.status]}`}>
+        <AgentStatusIcon agentType={session.agentType} status={session.status} size={14} />
+      </span>
       <div className="min-w-0 flex-1">
         <div className="truncate">{session.name}</div>
         {showBranch && session.branch && (

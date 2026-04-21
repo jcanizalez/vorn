@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useAppStore } from '../stores'
-import { AgentIcon } from './AgentIcon'
-import { StatusBadge } from './StatusBadge'
+import { AgentStatusIcon } from './AgentStatusIcon'
 import { GitChangesIndicator } from './GitChangesIndicator'
 import { CardContextMenu } from './CardContextMenu'
 import { PromptLauncher } from './PromptLauncher'
@@ -59,11 +58,14 @@ function MobileSessionCard({
       >
         {/* Row 1: icon + name + status */}
         <div className="flex items-center gap-2.5">
-          <AgentIcon agentType={terminal.session.agentType} size={16} />
+          <AgentStatusIcon
+            agentType={terminal.session.agentType}
+            status={terminal.status}
+            size={16}
+          />
           <span className="flex-1 min-w-0 text-[13px] font-medium text-gray-200 truncate">
             {name}
           </span>
-          <StatusBadge status={terminal.status} />
         </div>
 
         {/* Row 2: branch + git diff + pin */}

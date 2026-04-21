@@ -1,52 +1,31 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
+import type { ReactNode } from 'react'
 import { StatusBadge } from '../src/renderer/components/StatusBadge'
 import type { AgentStatus } from '../src/shared/types'
 
+vi.mock('../src/renderer/components/Tooltip', () => ({
+  Tooltip: ({ children, label }: { children: ReactNode; label: string }) => (
+    <span data-testid="tooltip" data-label={label}>
+      {children}
+    </span>
+  )
+}))
+
 describe('StatusBadge', () => {
-  const statuses: AgentStatus[] = ['running', 'waiting', 'idle', 'error']
-
-  it.each(statuses)('renders label for %s status', (status) => {
-    render(<StatusBadge status={status} />)
-    const expected = status.charAt(0).toUpperCase() + status.slice(1)
-    expect(screen.getByText(expected)).toBeInTheDocument()
-  })
-
-  it('shows pulse animation for running status', () => {
+  it('renders the running glyph for running', () => {
     const { container } = render(<StatusBadge status="running" />)
-    const pulse = container.querySelector('.animate-ping')
-    expect(pulse).toBeInTheDocument()
+    const glyph = container.querySelector('[data-component="running-glyph"]')
+    expect(glyph).toBeInTheDocument()
+    expect(glyph).toHaveClass('text-green-400')
+    expect(screen.getByRole('img', { name: 'Running' })).toBeInTheDocument()
+    expect(screen.getByTestId('tooltip')).toHaveAttribute('data-label', 'Running')
   })
 
-  it('shows pulse animation for waiting status', () => {
-    const { container } = render(<StatusBadge status="waiting" />)
-    const pulse = container.querySelector('.animate-ping')
-    expect(pulse).toBeInTheDocument()
-  })
-
-  it('does not pulse for idle status', () => {
-    const { container } = render(<StatusBadge status="idle" />)
-    const pulse = container.querySelector('.animate-ping')
-    expect(pulse).not.toBeInTheDocument()
-  })
-
-  it('does not pulse for error status', () => {
-    const { container } = render(<StatusBadge status="error" />)
-    const pulse = container.querySelector('.animate-ping')
-    expect(pulse).not.toBeInTheDocument()
-  })
-
-  it('applies correct color class for running', () => {
-    const { container } = render(<StatusBadge status="running" />)
-    const dot = container.querySelector('.bg-green-500')
-    expect(dot).toBeInTheDocument()
-  })
-
-  it('applies correct color class for error', () => {
-    const { container } = render(<StatusBadge status="error" />)
-    const dot = container.querySelector('.bg-red-500')
-    expect(dot).toBeInTheDocument()
+  it.each<AgentStatus>(['idle', 'waiting', 'error'])('renders nothing for %s status', (status) => {
+    const { container } = render(<StatusBadge status={status} />)
+    expect(container.firstChild).toBeNull()
   })
 })

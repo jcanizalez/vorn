@@ -154,7 +154,7 @@ export function StatusPicker({
                     key={status}
                     onClick={(e) => {
                       e.stopPropagation()
-                      if (!isItemDisabled) handleSelect(status)
+                      handleSelect(status)
                     }}
                     disabled={isItemDisabled}
                     className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-xs transition-colors ${
@@ -164,10 +164,7 @@ export function StatusPicker({
                     }`}
                     title={isItemDisabled ? 'Move to Todo first, then start the task' : undefined}
                   >
-                    <Icon
-                      size={14}
-                      className={isItemDisabled ? 'text-gray-600' : STATUS_ICON_COLOR[status]}
-                    />
+                    <Icon size={14} className={STATUS_ICON_COLOR[status]} />
                     <span className="flex-1 text-left">{b.label}</span>
                     {isCurrent && <Check size={13} className="text-gray-400" />}
                   </button>

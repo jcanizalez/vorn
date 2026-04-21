@@ -1,49 +1,30 @@
 import { AgentStatus } from '../../shared/types'
-
-const STATUS_CONFIG: Record<
-  AgentStatus,
-  { color: string; glow: string; label: string; pulse: boolean }
-> = {
-  running: {
-    color: 'bg-green-500',
-    glow: 'shadow-[0_0_6px_rgba(34,197,94,0.5)]',
-    label: 'Running',
-    pulse: true
-  },
-  waiting: {
-    color: 'bg-yellow-500',
-    glow: 'shadow-[0_0_6px_rgba(234,179,8,0.4)]',
-    label: 'Waiting',
-    pulse: true
-  },
-  idle: { color: 'bg-gray-500', glow: '', label: 'Idle', pulse: false },
-  error: {
-    color: 'bg-red-500',
-    glow: 'shadow-[0_0_6px_rgba(239,68,68,0.5)]',
-    label: 'Error',
-    pulse: false
-  }
-}
+import { STATUS_LABEL } from '../lib/status-colors'
+import { RunningGlyph } from './RunningGlyph'
+import { Tooltip } from './Tooltip'
 
 interface Props {
   status: AgentStatus
+  size?: number
 }
 
-export function StatusBadge({ status }: Props) {
-  const config = STATUS_CONFIG[status]
+// Minimal vocabulary: only the running state renders a visual indicator.
+// Idle / waiting / error intentionally render nothing — the row background,
+// the terminal content and hover tooltips carry those signals already.
+export function StatusBadge({ status, size = 18 }: Props) {
+  if (status !== 'running') return null
 
   return (
-    <div className="flex items-center gap-1.5">
-      <div className="relative flex items-center justify-center">
-        {config.pulse && (
-          <div
-            className={`absolute w-2.5 h-2.5 rounded-full ${config.color} opacity-40 animate-ping`}
-            style={{ animationDuration: '2s' }}
-          />
-        )}
-        <div className={`relative w-2.5 h-2.5 rounded-full ${config.color} ${config.glow}`} />
-      </div>
-      <span className="text-xs text-gray-400">{config.label}</span>
-    </div>
+    <Tooltip label={STATUS_LABEL.running} position="top">
+      <span
+        className="inline-flex items-center justify-center"
+        style={{ width: size, height: size }}
+        aria-label={STATUS_LABEL.running}
+        role="img"
+        data-status="running"
+      >
+        <RunningGlyph size={size} className="text-green-400" />
+      </span>
+    </Tooltip>
   )
 }

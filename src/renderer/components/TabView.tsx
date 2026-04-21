@@ -5,7 +5,7 @@ import { useAppStore } from '../stores'
 import { getProjectRemoteHostId } from '../../shared/types'
 import { useVisibleTerminals } from '../hooks/useVisibleTerminals'
 import { useFilteredHeadless } from '../hooks/useFilteredHeadless'
-import { AgentIcon } from './AgentIcon'
+import { AgentStatusIcon } from './AgentStatusIcon'
 import { TerminalSlot } from './TerminalSlot'
 import { PromptLauncher } from './PromptLauncher'
 import { InlineRename } from './InlineRename'
@@ -16,7 +16,6 @@ import { getDisplayName, getBranchLabel } from '../lib/terminal-display'
 import { closeTerminalSession } from '../lib/terminal-close'
 import { resolveActiveProject } from '../lib/session-utils'
 import type { AgentStatus } from '../../shared/types'
-import { STATUS_DOT } from '../lib/status-colors'
 import { ConfirmPopover } from './ConfirmPopover'
 import { toast } from './Toast'
 import { ChevronDown, GripVertical, Pencil } from 'lucide-react'
@@ -374,10 +373,10 @@ export function TabView() {
                 </span>
               )}
 
-              <AgentIcon agentType={terminal.session.agentType} size={12} />
-
-              <span
-                className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[terminal.status]}`}
+              <AgentStatusIcon
+                agentType={terminal.session.agentType}
+                status={terminal.status}
+                size={12}
               />
 
               {isRenaming ? (
@@ -555,10 +554,11 @@ export function TabView() {
                 boxShadow: '0 4px 16px rgba(0,0,0,0.4)'
               }}
             >
-              <span
-                className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[terminal.status]}`}
+              <AgentStatusIcon
+                agentType={terminal.session.agentType}
+                status={terminal.status}
+                size={12}
               />
-              <AgentIcon agentType={terminal.session.agentType} size={12} />
               <span className="truncate max-w-[160px]">{displayName}</span>
             </motion.div>,
             document.body
