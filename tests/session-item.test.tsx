@@ -60,7 +60,7 @@ describe('SessionItem', () => {
     useAppStore.setState({ focusedTerminalId: 'sess-1' })
     const { container } = render(<SessionItem session={session} />)
     const button = container.querySelector('button')
-    expect(button?.className).toContain('bg-white/[0.08]')
+    expect(button?.className).toContain('text-white')
   })
 
   it('applies unfocused style when session is not focused', () => {

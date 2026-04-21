@@ -346,7 +346,7 @@ export function TabView() {
                 setContextMenu({ terminalId: id, x: e.clientX, y: e.clientY })
               }}
               className={`group relative flex items-center gap-2 px-3 h-[36px] text-[13px] cursor-pointer
-                         transition-colors flex-1 min-w-0 max-w-[180px] select-none border-b
+                         transition-colors flex-1 min-w-[120px] max-w-[180px] select-none border-b
                          ${isDragTarget ? 'ring-1 ring-blue-500/50' : ''}
                          ${isDragging ? 'opacity-50' : ''}
                          ${
@@ -394,10 +394,12 @@ export function TabView() {
                 </span>
               )}
 
-              <span className="shrink-0 ml-auto flex items-center gap-1">
+              <span className="shrink-0 ml-auto relative flex items-center gap-1">
                 {index < 9 && !isRenaming && (
                   <span
-                    className="group-hover:hidden px-1 py-0.5 text-[9px] font-mono text-gray-500
+                    className="absolute right-0 top-1/2 -translate-y-1/2
+                                 opacity-100 group-hover:opacity-0 transition-opacity
+                                 px-1 py-0.5 text-[9px] font-mono text-gray-500
                                  bg-white/[0.06] border border-white/[0.1] rounded leading-none
                                  pointer-events-none"
                   >
@@ -407,13 +409,16 @@ export function TabView() {
                 )}
                 {!isRenaming && (
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation()
                       setRenamingTerminalId(id)
                     }}
-                    className="hidden group-hover:flex w-4 h-4 items-center justify-center rounded
-                               transition-colors text-gray-500 hover:text-gray-300"
+                    className="w-4 h-4 flex items-center justify-center rounded
+                               opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity
+                               text-gray-500 hover:text-gray-300"
                     title="Rename session"
+                    aria-label="Rename session"
                   >
                     <Pencil size={10} />
                   </button>
@@ -423,13 +428,16 @@ export function TabView() {
                   confirmLabel="Close"
                   onConfirm={() => handleCloseTab(id)}
                 >
-                  <span
-                    className="hidden group-hover:flex w-4 h-4 items-center justify-center rounded
-                               transition-colors text-gray-500 hover:text-gray-200 hover:bg-white/[0.1]"
+                  <button
+                    type="button"
+                    className="w-4 h-4 flex items-center justify-center rounded
+                               opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity
+                               text-gray-500 hover:text-gray-200 hover:bg-white/[0.1]"
                     title="Close session"
+                    aria-label="Close session"
                   >
                     <X size={10} strokeWidth={2} />
-                  </span>
+                  </button>
                 </ConfirmPopover>
               </span>
             </div>
