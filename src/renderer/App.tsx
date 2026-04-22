@@ -530,9 +530,7 @@ export function App() {
               </div>
             )}
             <div className={`flex items-center titlebar-no-drag ${isMobile ? 'gap-1.5' : 'gap-1'}`}>
-              {mainViewMode === 'workflows' && !isMobile ? (
-                <></>
-              ) : mainViewMode !== 'tasks' ? (
+              {mainViewMode === 'workflows' && !isMobile ? null : mainViewMode !== 'tasks' ? (
                 <>
                   {!isMobile && <GridToolbar />}
                   {!isMobile && (

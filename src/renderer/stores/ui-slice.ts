@@ -239,14 +239,15 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
     }),
 
   setMainViewMode: (mode) => {
-    const config = get().config
     const prevMode = get().mainViewMode
+    if (prevMode === mode) return
+    const config = get().config
     const extra: Record<string, unknown> =
       mode === 'sessions'
         ? {}
         : { diffSidebarTerminalId: null, focusedTerminalId: null, previewTerminalId: null }
-    // Prevent workflow editor modal from showing on non-workflows tabs
-    // but preserve editingWorkflowId so the selection survives tab switches
+    // Preserve editingWorkflowId so the selection survives tab switches,
+    // but close the modal editor when leaving the workflows tab.
     if (prevMode === 'workflows' && mode !== 'workflows') {
       extra.isWorkflowEditorOpen = false
     }
