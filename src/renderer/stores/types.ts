@@ -139,7 +139,7 @@ export interface UISlice {
   rightPanelTab: PanelTab
   isDiffPanelMaximized: boolean
   diffPanelWidth: number
-  mainViewMode: 'sessions' | 'tasks'
+  mainViewMode: 'sessions' | 'tasks' | 'workflows'
   selectedTaskId: string | null
   taskStatusFilter: TaskStatusFilter
   isTaskDialogOpen: boolean
@@ -183,7 +183,7 @@ export interface UISlice {
   setRightPanelTab: (tab: PanelTab) => void
   setDiffPanelMaximized: (maximized: boolean) => void
   setDiffPanelWidth: (width: number) => void
-  setMainViewMode: (mode: 'sessions' | 'tasks') => void
+  setMainViewMode: (mode: 'sessions' | 'tasks' | 'workflows') => void
   setSelectedTaskId: (id: string | null) => void
   setTaskStatusFilter: (filter: TaskStatusFilter) => void
   setTaskDialogOpen: (open: boolean, defaultStatus?: TaskStatus) => void

@@ -1,12 +1,13 @@
 import { isElectron, MOD } from '../../lib/platform'
 import { useAppStore } from '../../stores'
 import { WorkspaceSwitcher } from '../WorkspaceSwitcher'
-import { PanelLeft, Monitor, ListTodo } from 'lucide-react'
+import { PanelLeft, Monitor, ListTodo, Zap } from 'lucide-react'
 import { Tooltip } from '../Tooltip'
 
 const VIEW_MODES = [
   { mode: 'sessions', label: 'Sessions', icon: Monitor, shortcutKey: 'S' },
-  { mode: 'tasks', label: 'Tasks', icon: ListTodo, shortcutKey: 'T' }
+  { mode: 'tasks', label: 'Tasks', icon: ListTodo, shortcutKey: 'T' },
+  { mode: 'workflows', label: 'Workflows', icon: Zap, shortcutKey: '⇧W' }
 ] as const
 
 export function SidebarHeader({ isCollapsed }: { isCollapsed: boolean }) {

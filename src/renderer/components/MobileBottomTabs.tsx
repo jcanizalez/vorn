@@ -1,4 +1,4 @@
-import { Monitor, ListTodo, Settings } from 'lucide-react'
+import { Monitor, ListTodo, Zap, Settings } from 'lucide-react'
 import { useAppStore } from '../stores'
 
 interface Props {
@@ -38,6 +38,16 @@ export function MobileBottomTabs({ hidden }: Props) {
       onTap: () => {
         if (isSettingsOpen) setSettingsOpen(false)
         setMainViewMode('tasks')
+      }
+    },
+    {
+      id: 'workflows' as const,
+      label: 'Workflows',
+      icon: Zap,
+      active: mainViewMode === 'workflows' && !isSettingsOpen,
+      onTap: () => {
+        if (isSettingsOpen) setSettingsOpen(false)
+        setMainViewMode('workflows')
       }
     },
     {

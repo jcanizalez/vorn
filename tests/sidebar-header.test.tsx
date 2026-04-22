@@ -6,7 +6,7 @@ import '@testing-library/jest-dom/vitest'
 const mockStore = {
   toggleSidebar: vi.fn(),
   setMainViewMode: vi.fn(),
-  config: { defaults: { mainViewMode: 'sessions' as 'sessions' | 'tasks' } }
+  config: { defaults: { mainViewMode: 'sessions' as 'sessions' | 'tasks' | 'workflows' } }
 }
 
 vi.mock('../src/renderer/stores', () => ({
@@ -28,22 +28,33 @@ beforeEach(() => {
 })
 
 describe('SidebarHeader', () => {
-  it('renders Sessions and Tasks toggle buttons with accessible names', () => {
+  it('renders Sessions, Tasks, and Workflows toggle buttons with accessible names', () => {
     render(<SidebarHeader isCollapsed={false} />)
     expect(screen.getByRole('button', { name: 'Sessions' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Tasks' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Workflows' })).toBeInTheDocument()
   })
 
   it('marks the active view with aria-pressed', () => {
     render(<SidebarHeader isCollapsed={false} />)
     expect(screen.getByRole('button', { name: 'Sessions' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: 'Tasks' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'Workflows' })).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    )
   })
 
   it('switches view mode when a toggle is clicked', () => {
     render(<SidebarHeader isCollapsed={false} />)
     fireEvent.click(screen.getByRole('button', { name: 'Tasks' }))
     expect(mockStore.setMainViewMode).toHaveBeenCalledWith('tasks')
+  })
+
+  it('switches to workflows view when Workflows is clicked', () => {
+    render(<SidebarHeader isCollapsed={false} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Workflows' }))
+    expect(mockStore.setMainViewMode).toHaveBeenCalledWith('workflows')
   })
 
   it('renders workspace switcher and toggles sidebar when expanded', () => {
@@ -70,5 +81,19 @@ describe('SidebarHeader', () => {
       'aria-pressed',
       'false'
     )
+  })
+
+  it('reflects workflows as active when mainViewMode is workflows', () => {
+    mockStore.config.defaults.mainViewMode = 'workflows'
+    render(<SidebarHeader isCollapsed={false} />)
+    expect(screen.getByRole('button', { name: 'Workflows' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+    expect(screen.getByRole('button', { name: 'Sessions' })).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    )
+    expect(screen.getByRole('button', { name: 'Tasks' })).toHaveAttribute('aria-pressed', 'false')
   })
 })

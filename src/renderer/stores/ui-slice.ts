@@ -241,9 +241,9 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   setMainViewMode: (mode) => {
     const config = get().config
     const extra =
-      mode !== 'sessions'
-        ? { diffSidebarTerminalId: null, focusedTerminalId: null, previewTerminalId: null }
-        : {}
+      mode === 'sessions'
+        ? {}
+        : { diffSidebarTerminalId: null, focusedTerminalId: null, previewTerminalId: null }
     if (config) {
       const updated = { ...config, defaults: { ...config.defaults, mainViewMode: mode } }
       window.api.saveConfig(updated)

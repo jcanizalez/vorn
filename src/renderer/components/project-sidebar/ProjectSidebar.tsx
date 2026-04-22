@@ -17,6 +17,7 @@ export function ProjectSidebar() {
   const isSidebarOpen = useAppStore((s) => s.isSidebarOpen)
   const toggleSidebar = useAppStore((s) => s.toggleSidebar)
   const sidebarViewMode = useAppStore((s) => s.sidebarViewMode)
+  const mainViewMode = useAppStore((s) => s.config?.defaults?.mainViewMode ?? 'sessions')
   const isMobile = useIsMobile()
 
   const { sidebarWidth, isResizingState, isCollapsed, handleResizeStart, handleResizeDoubleClick } =
@@ -118,7 +119,9 @@ export function ProjectSidebar() {
       <SidebarHeader isCollapsed={isCollapsed} />
 
       <div className={`flex-1 overflow-auto space-y-0.5 ${isCollapsed ? 'px-1.5' : 'px-3'}`}>
-        {sidebarViewMode === 'sessions-flat' ? (
+        {mainViewMode === 'workflows' ? (
+          <WorkflowsSection isCollapsed={isCollapsed} workspaceWorkflows={workspaceWorkflows} />
+        ) : sidebarViewMode === 'sessions-flat' ? (
           <FlatSessionsSection
             isCollapsed={isCollapsed}
             workspaceProjectNames={workspaceProjectNames}
@@ -136,8 +139,6 @@ export function ProjectSidebar() {
             mainRepoSessions={mainRepoSessions}
           />
         )}
-
-        <WorkflowsSection isCollapsed={isCollapsed} workspaceWorkflows={workspaceWorkflows} />
       </div>
 
       <SidebarFooter isCollapsed={isCollapsed} closeSidebarOnMobile={closeSidebarOnMobile} />

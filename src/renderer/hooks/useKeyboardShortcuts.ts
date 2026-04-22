@@ -184,6 +184,13 @@ export function useKeyboardShortcuts() {
         return
       }
 
+      // Cmd+Shift+W — workflows view
+      if (modKey(e) && e.shiftKey && e.key.toLowerCase() === 'w') {
+        e.preventDefault()
+        state.setMainViewMode('workflows')
+        return
+      }
+
       // Cmd+J — view options
       if (modKey(e) && !e.shiftKey && e.key.toLowerCase() === 'j' && !_isInputFocused()) {
         e.preventDefault()

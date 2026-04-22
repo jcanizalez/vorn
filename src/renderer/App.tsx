@@ -25,7 +25,7 @@ import { ToolbarBreadcrumb } from './components/ToolbarBreadcrumb'
 import { SettingsPage } from './components/SettingsPage'
 import { RecentSessionsPopover } from './components/RecentSessionsPopover'
 import { Tooltip } from './components/Tooltip'
-import { RotateCcw, Monitor, ListTodo, Plus, Menu } from 'lucide-react'
+import { RotateCcw, Monitor, ListTodo, Zap, Plus, Menu } from 'lucide-react'
 import { MobileBottomTabs } from './components/MobileBottomTabs'
 import { TaskToolbar } from './components/TaskToolbar'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
@@ -497,6 +497,22 @@ export function App() {
                       <ListTodo size={14} strokeWidth={2} />
                     </button>
                   </Tooltip>
+                  <Tooltip
+                    label="Workflows"
+                    shortcut={`${isMac ? '⌘⇧' : 'Ctrl+Shift+'}W`}
+                    position="bottom"
+                  >
+                    <button
+                      onClick={() => setMainViewMode('workflows')}
+                      className={`px-2.5 py-1 rounded-md transition-colors ${
+                        mainViewMode === 'workflows'
+                          ? 'bg-white/[0.1] text-white'
+                          : 'text-gray-500 hover:text-gray-300'
+                      }`}
+                    >
+                      <Zap size={14} strokeWidth={2} />
+                    </button>
+                  </Tooltip>
                 </div>
               </>
             )}
@@ -507,7 +523,7 @@ export function App() {
             </div>
           )}
           <div className={`flex items-center titlebar-no-drag ${isMobile ? 'gap-1.5' : 'gap-1'}`}>
-            {mainViewMode === 'sessions' ? (
+            {mainViewMode !== 'tasks' ? (
               <>
                 {!isMobile && <GridToolbar />}
                 {!isMobile && (
@@ -655,7 +671,7 @@ export function App() {
             )}
           </div>
           {mainViewMode === 'tasks' && selectedTaskId && <TaskDetailPanel />}
-          {mainViewMode === 'sessions' && !isMobile && diffSidebarTerminalId && <RightPanel />}
+          {mainViewMode !== 'tasks' && !isMobile && diffSidebarTerminalId && <RightPanel />}
         </div>
         <TerminalPanel />
         {isMobile && <MobileBottomTabs hidden={keyboardHeight > 0} />}

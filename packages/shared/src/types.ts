@@ -141,7 +141,7 @@ export type TaskStatus = 'todo' | 'in_progress' | 'in_review' | 'done' | 'cancel
 
 export type TaskViewMode = 'list' | 'kanban'
 
-export type MainViewMode = 'sessions' | 'tasks'
+export type MainViewMode = 'sessions' | 'tasks' | 'workflows'
 
 export interface TaskConfig {
   id: string

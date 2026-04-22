@@ -109,6 +109,15 @@ export const SHORTCUTS: ShortcutDef[] = [
     description: 'Tasks view'
   },
   {
+    id: 'view-workflows',
+    key: 'w',
+    meta: true,
+    shift: true,
+    display: `${MOD}⇧W`,
+    category: 'view',
+    description: 'Workflows view'
+  },
+  {
     id: 'view-options',
     key: 'j',
     meta: true,
