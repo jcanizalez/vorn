@@ -206,6 +206,29 @@ describe('CardStatusBar — bottom VS Code style strip', () => {
     render(<CardStatusBar terminalId="term-1" />)
     expect(screen.getByRole('button', { name: /Ship the homologation/ })).toBeInTheDocument()
   })
+
+  it('clicking the assigned-task pill opens the task dialog for that task', () => {
+    const task = {
+      id: 'task-1',
+      title: 'Ship the homologation',
+      status: 'in_progress' as const,
+      assignedSessionId: 'term-1'
+    }
+    const setEditingTask = vi.fn()
+    const setTaskDialogOpen = vi.fn()
+    act(() => {
+      useAppStore.setState({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        config: { tasks: [task] } as any,
+        setEditingTask,
+        setTaskDialogOpen
+      })
+    })
+    render(<CardStatusBar terminalId="term-1" />)
+    fireEvent.click(screen.getByRole('button', { name: /Ship the homologation/ }))
+    expect(setEditingTask).toHaveBeenCalledWith(task)
+    expect(setTaskDialogOpen).toHaveBeenCalledWith(true)
+  })
 })
 
 describe('TabView mounts CardStatusBar at the bottom', () => {
@@ -265,5 +288,90 @@ describe('FocusedTerminal on mobile keeps branch in the title bar', () => {
     expect(screen.getByText('feature-x-wt')).toBeInTheDocument()
     expect(screen.getByText('feature-x')).toBeInTheDocument()
     expect(screen.queryByText('worktree')).not.toBeInTheDocument()
+  })
+
+  it('back button and double-click title bar both contract (unset focused terminal)', () => {
+    mockIsMobile = true
+    const setFocused = vi.fn()
+    act(() => {
+      useAppStore.setState({ focusedTerminalId: 'term-1', setFocusedTerminal: setFocused })
+    })
+    render(<FocusedTerminal />)
+    fireEvent.click(screen.getByRole('button', { name: /Back to sessions/ }))
+    expect(setFocused).toHaveBeenCalledWith(null)
+  })
+
+  it('clicking the rename button on mobile puts the terminal into renaming state', () => {
+    mockIsMobile = true
+    const setRenamingTerminalId = vi.fn()
+    act(() => {
+      useAppStore.setState({ focusedTerminalId: 'term-1', setRenamingTerminalId })
+    })
+    render(<FocusedTerminal />)
+    fireEvent.click(screen.getByRole('button', { name: /Rename session/ }))
+    expect(setRenamingTerminalId).toHaveBeenCalledWith('term-1')
+  })
+
+  it('double-clicking the name on mobile also puts the terminal into renaming state', () => {
+    mockIsMobile = true
+    const setRenamingTerminalId = vi.fn()
+    act(() => {
+      useAppStore.setState({ focusedTerminalId: 'term-1', setRenamingTerminalId })
+    })
+    render(<FocusedTerminal />)
+    fireEvent.doubleClick(screen.getByText('Vorn'))
+    expect(setRenamingTerminalId).toHaveBeenCalledWith('term-1')
+  })
+
+  it('committing and cancelling the mobile InlineRename call the store', () => {
+    mockIsMobile = true
+    const renameTerminal = vi.fn()
+    const setRenamingTerminalId = vi.fn()
+    act(() => {
+      useAppStore.setState({
+        focusedTerminalId: 'term-1',
+        renamingTerminalId: 'term-1',
+        renameTerminal,
+        setRenamingTerminalId
+      })
+    })
+    const { unmount } = render(<FocusedTerminal />)
+    const input = screen.getByDisplayValue('Vorn')
+    fireEvent.change(input, { target: { value: 'Mobile renamed' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(renameTerminal).toHaveBeenCalledWith('term-1', 'Mobile renamed')
+    expect(setRenamingTerminalId).toHaveBeenCalledWith(null)
+    unmount()
+
+    setRenamingTerminalId.mockClear()
+    renameTerminal.mockClear()
+    act(() => {
+      useAppStore.setState({
+        focusedTerminalId: 'term-1',
+        renamingTerminalId: 'term-1',
+        renameTerminal,
+        setRenamingTerminalId
+      })
+    })
+    render(<FocusedTerminal />)
+    const input2 = screen.getByDisplayValue('Vorn')
+    fireEvent.keyDown(input2, { key: 'Escape' })
+    expect(renameTerminal).not.toHaveBeenCalled()
+    expect(setRenamingTerminalId).toHaveBeenCalledWith(null)
+  })
+})
+
+describe('FocusedTerminal desktop title bar', () => {
+  it('double-clicking the title bar (outside buttons) contracts back to grid', () => {
+    mockIsMobile = false
+    const setFocused = vi.fn()
+    act(() => {
+      useAppStore.setState({ focusedTerminalId: 'term-1', setFocusedTerminal: setFocused })
+    })
+    const { container } = render(<FocusedTerminal />)
+    const titleBar = container.querySelector('.titlebar-no-drag') as HTMLElement
+    expect(titleBar).not.toBeNull()
+    fireEvent.doubleClick(titleBar)
+    expect(setFocused).toHaveBeenCalledWith(null)
   })
 })
