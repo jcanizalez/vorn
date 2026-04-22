@@ -46,7 +46,7 @@ export function CardHeader({
     ? 'opacity-100'
     : 'opacity-0 group-hover/card:opacity-100 focus-within:opacity-100 transition-opacity'
 
-  const dragHandleClass = draggable && onDragStart ? 'drag-handle cursor-grab' : ''
+  const dragHandleClass = draggable ? `drag-handle${onDragStart ? ' cursor-grab' : ''}` : ''
 
   return (
     <div className="flex items-center gap-2 px-3 py-2.5 border-b border-white/[0.04] shrink-0">

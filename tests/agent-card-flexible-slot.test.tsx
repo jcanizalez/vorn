@@ -10,7 +10,9 @@ vi.hoisted(() => {
       isWorktreeDirty: () => Promise.resolve(false),
       getGitDiffStat: () => Promise.resolve(null),
       getGitBranch: () => Promise.resolve(null),
-      notifyWidgetStatus: () => {}
+      notifyWidgetStatus: () => {},
+      detectIDEs: () => Promise.resolve([]),
+      openInIDE: () => {}
     },
     writable: true
   })

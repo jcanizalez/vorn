@@ -70,7 +70,9 @@ Object.defineProperty(window, 'api', {
     createTerminal: vi.fn(),
     listBranches: vi.fn().mockResolvedValue({ local: [], remote: [] }),
     listRemoteBranches: vi.fn().mockResolvedValue([]),
-    checkoutBranch: vi.fn().mockResolvedValue({ ok: true })
+    checkoutBranch: vi.fn().mockResolvedValue({ ok: true }),
+    detectIDEs: vi.fn().mockResolvedValue([]),
+    openInIDE: vi.fn()
   },
   writable: true
 })
@@ -129,7 +131,7 @@ describe('CardStatusBar — bottom VS Code style strip', () => {
     expect(screen.getByRole('button', { name: /Switch branch/ })).toBeInTheDocument()
   })
 
-  it('renders nothing when the terminal has no branch and no task', () => {
+  it('hides the branch chip when the terminal has no branch but still renders the bar', () => {
     const terminals = new Map()
     terminals.set('blank', {
       id: 'blank',
@@ -140,8 +142,8 @@ describe('CardStatusBar — bottom VS Code style strip', () => {
     act(() => {
       useAppStore.setState({ terminals })
     })
-    const { container } = render(<CardStatusBar terminalId="blank" />)
-    expect(container).toBeEmptyDOMElement()
+    render(<CardStatusBar terminalId="blank" />)
+    expect(screen.queryByRole('button', { name: /Switch branch/ })).toBeNull()
   })
 
   it('renders nothing when the terminal is missing', () => {

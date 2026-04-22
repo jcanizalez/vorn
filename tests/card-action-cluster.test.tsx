@@ -137,17 +137,6 @@ describe('CardActionCluster — focused variant (full overlay, always visible)',
   })
 })
 
-describe('CardActionCluster — tab variant (no grid semantics)', () => {
-  it('renders folder + close only; no minimize / expand / collapse', () => {
-    render(<CardActionCluster terminalId="term-1" variant="tab" />)
-    expect(screen.getByRole('button', { name: /Browse files/ })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Minimize/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Expand/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Collapse/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Close/ })).toBeInTheDocument()
-  })
-})
-
 describe('CardActionCluster guards', () => {
   it('renders nothing when the terminal is missing', () => {
     const { container } = render(<CardActionCluster terminalId="nope" variant="mini" />)

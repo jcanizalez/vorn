@@ -12,15 +12,15 @@ import { PromptLauncher } from './PromptLauncher'
 import { InlineRename } from './InlineRename'
 import { CardContextMenu } from './CardContextMenu'
 import { BackgroundTray } from './BackgroundTray'
-import { CardHeader } from './card/CardHeader'
 import { CardStatusBar } from './card/CardStatusBar'
 import { getDisplayName, getBranchLabel } from '../lib/terminal-display'
 import { closeTerminalSession } from '../lib/terminal-close'
 import { resolveActiveProject } from '../lib/session-utils'
 import type { AgentStatus } from '../../shared/types'
 import { ConfirmPopover } from './ConfirmPopover'
+import { Tooltip } from './Tooltip'
 import { toast } from './Toast'
-import { ChevronDown, GripVertical, Pencil, X } from 'lucide-react'
+import { ChevronDown, FolderOpen, GripVertical, Pencil, X } from 'lucide-react'
 import { GridContextMenu } from './GridContextMenu'
 import { MOD } from '../lib/platform'
 
@@ -63,6 +63,38 @@ function getHorizontalDropIndex(
   }
 
   return closestIndex
+}
+
+const TAB_ICON_BTN =
+  'w-5 h-5 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity text-gray-500'
+
+export function TabIconButton({
+  label,
+  icon,
+  onClick,
+  hoverClass = 'hover:text-gray-300'
+}: {
+  label: string
+  icon: React.ReactNode
+  onClick?: () => void
+  hoverClass?: string
+}) {
+  const handleClick = (e: React.MouseEvent): void => {
+    e.stopPropagation()
+    onClick?.()
+  }
+  return (
+    <Tooltip label={label} position="bottom">
+      <button
+        type="button"
+        onClick={handleClick}
+        className={`${TAB_ICON_BTN} ${hoverClass}`}
+        aria-label={label}
+      >
+        {icon}
+      </button>
+    </Tooltip>
+  )
 }
 
 function buildTooltip(
@@ -108,6 +140,7 @@ export function TabView() {
   const renameTerminal = useAppStore((s) => s.renameTerminal)
   const sortMode = useAppStore((s) => s.sortMode)
   const reorderTerminals = useAppStore((s) => s.reorderTerminals)
+  const setDiffSidebar = useAppStore((s) => s.setDiffSidebarTerminalId)
   const tasks = useAppStore((s) => s.config?.tasks)
   const filteredHeadless = useFilteredHeadless()
   const waitingApprovals = useWaitingApprovals()
@@ -350,8 +383,8 @@ export function TabView() {
                 e.stopPropagation()
                 setContextMenu({ terminalId: id, x: e.clientX, y: e.clientY })
               }}
-              className={`group relative flex items-center gap-2 px-3 h-[36px] text-[13px] cursor-pointer
-                         transition-colors flex-1 min-w-[120px] max-w-[180px] select-none border-b
+              className={`group relative flex items-center gap-2 pl-3 pr-2 h-[36px] text-[13px] cursor-pointer
+                         transition-colors flex-1 min-w-[120px] max-w-[260px] select-none border-b
                          ${isDragTarget ? 'ring-1 ring-blue-500/50' : ''}
                          ${isDragging ? 'opacity-50' : ''}
                          ${
@@ -393,12 +426,12 @@ export function TabView() {
                   className="text-xs w-[100px]"
                 />
               ) : (
-                <span className="truncate" title={tooltip}>
+                <span className="truncate flex-1 min-w-0" title={tooltip}>
                   {displayName}
                 </span>
               )}
 
-              <span className="shrink-0 ml-auto relative flex items-center gap-1">
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                 {index < 9 && !isRenaming && (
                   <span
                     className="absolute right-0 top-1/2 -translate-y-1/2
@@ -412,36 +445,29 @@ export function TabView() {
                   </span>
                 )}
                 {!isRenaming && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setRenamingTerminalId(id)
-                    }}
-                    className="w-4 h-4 flex items-center justify-center rounded
-                               opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity
-                               text-gray-500 hover:text-gray-300"
-                    title="Rename session"
-                    aria-label="Rename session"
-                  >
-                    <Pencil size={10} />
-                  </button>
+                  <>
+                    <TabIconButton
+                      label="Browse files"
+                      icon={<FolderOpen size={13} />}
+                      onClick={() => setDiffSidebar(id, 'all-files')}
+                    />
+                    <TabIconButton
+                      label="Rename session"
+                      icon={<Pencil size={13} />}
+                      onClick={() => setRenamingTerminalId(id)}
+                    />
+                  </>
                 )}
                 <ConfirmPopover
                   message="Close this session?"
                   confirmLabel="Close"
                   onConfirm={() => handleCloseTab(id)}
                 >
-                  <button
-                    type="button"
-                    className="w-4 h-4 flex items-center justify-center rounded
-                               opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity
-                               text-gray-500 hover:text-gray-200 hover:bg-white/[0.1]"
-                    title="Close session"
-                    aria-label="Close session"
-                  >
-                    <X size={10} strokeWidth={2} />
-                  </button>
+                  <TabIconButton
+                    label="Close session"
+                    icon={<X size={13} strokeWidth={2} />}
+                    hoverClass="hover:text-gray-200 hover:bg-white/[0.1]"
+                  />
                 </ConfirmPopover>
               </span>
             </div>
@@ -496,12 +522,6 @@ export function TabView() {
           <PlusDropdown position={plusDropdownPos} onClose={() => setPlusDropdownPos(null)} />
         )}
       </div>
-
-      {activeTabId && activeTerminal && (
-        <div className="group/card shrink-0" style={{ background: '#1a1a1e' }}>
-          <CardHeader terminalId={activeTabId} variant="tab" />
-        </div>
-      )}
 
       <div className="relative flex-1 min-h-0" style={{ background: '#141416' }}>
         {activeTabId && activeTerminal && (

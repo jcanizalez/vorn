@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronDown } from 'lucide-react'
 
 import vscodeSvg from '../assets/icons/vscode.svg?raw'
@@ -45,31 +46,53 @@ function IDEIcon({ ideId, size = 14 }: { ideId: string; size?: number }) {
 }
 
 let ideCache: DetectedIDE[] | null = null
+let ideCachePromise: Promise<DetectedIDE[]> | null = null
+
+function loadIDEs(): Promise<DetectedIDE[]> {
+  if (ideCache) return Promise.resolve(ideCache)
+  if (!ideCachePromise) {
+    ideCachePromise = window.api.detectIDEs().then(
+      (detected) => {
+        ideCache = detected
+        return detected
+      },
+      (err) => {
+        ideCachePromise = null
+        throw err
+      }
+    )
+  }
+  return ideCachePromise
+}
 
 interface Props {
   projectPath: string
   direction?: 'up' | 'down'
 }
 
+const MENU_WIDTH = 180
+
 export function OpenInButton({ projectPath, direction = 'down' }: Props) {
   const [ides, setIdes] = useState<DetectedIDE[]>(ideCache || [])
   const [isOpen, setIsOpen] = useState(false)
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const anchorRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (ideCache) return
-    window.api.detectIDEs().then((detected) => {
-      ideCache = detected
-      setIdes(detected)
+    loadIDEs().then(setIdes, () => {
+      /* detection failed; UI stays hidden until a later retry */
     })
   }, [])
 
   useEffect(() => {
     if (!isOpen) return
     const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setIsOpen(false)
-      }
+      const target = e.target as Node
+      if (menuRef.current?.contains(target)) return
+      if (anchorRef.current?.contains(target)) return
+      setIsOpen(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
@@ -86,7 +109,21 @@ export function OpenInButton({ projectPath, direction = 'down' }: Props) {
 
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation()
-    setIsOpen(!isOpen)
+    if (isOpen) {
+      setIsOpen(false)
+      return
+    }
+    const rect = anchorRef.current?.getBoundingClientRect()
+    if (rect) {
+      const estimatedHeight = 32 + ides.length * 30
+      const left = Math.max(
+        8,
+        Math.min(rect.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - 8)
+      )
+      const top = direction === 'up' ? Math.max(8, rect.top - estimatedHeight - 4) : rect.bottom + 4
+      setMenuPos({ top, left })
+    }
+    setIsOpen(true)
   }
 
   const handleSelect = (ide: DetectedIDE, e: React.MouseEvent) => {
@@ -96,7 +133,7 @@ export function OpenInButton({ projectPath, direction = 'down' }: Props) {
   }
 
   return (
-    <div className="relative" ref={menuRef}>
+    <div className="relative" ref={anchorRef}>
       <div className="flex items-center">
         <button
           onClick={handleOpen}
@@ -110,6 +147,7 @@ export function OpenInButton({ projectPath, direction = 'down' }: Props) {
         </button>
         <button
           onClick={handleToggle}
+          aria-label="Choose IDE"
           className="flex items-center px-0.5 py-0.5 text-gray-500 hover:text-white
                      bg-white/[0.04] hover:bg-white/[0.08] rounded-r-md border border-white/[0.06]
                      transition-colors self-stretch"
@@ -118,27 +156,34 @@ export function OpenInButton({ projectPath, direction = 'down' }: Props) {
         </button>
       </div>
 
-      {isOpen && (
-        <div
-          className={`absolute right-0 z-50 min-w-[160px] py-1
-                     border border-white/[0.08] rounded-lg shadow-xl
-                     ${direction === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'}`}
-          style={{ background: '#1e1e22' }}
-        >
-          <div className="px-3 py-1.5 text-[11px] text-gray-500 font-medium">Open in</div>
-          {ides.map((ide) => (
-            <button
-              key={ide.id}
-              onClick={(e) => handleSelect(ide, e)}
-              className="w-full px-3 py-1.5 text-left text-[13px] text-gray-300 hover:text-white
-                         hover:bg-white/[0.06] flex items-center gap-2.5 transition-colors"
-            >
-              <IDEIcon ideId={ide.id} size={14} />
-              {ide.name}
-            </button>
-          ))}
-        </div>
-      )}
+      {isOpen &&
+        menuPos &&
+        createPortal(
+          <div
+            ref={menuRef}
+            className="fixed z-[150] py-1 border border-white/[0.08] rounded-lg shadow-xl"
+            style={{
+              background: '#1e1e22',
+              top: menuPos.top,
+              left: menuPos.left,
+              width: MENU_WIDTH
+            }}
+          >
+            <div className="px-3 py-1.5 text-[11px] text-gray-500 font-medium">Open in</div>
+            {ides.map((ide) => (
+              <button
+                key={ide.id}
+                onClick={(e) => handleSelect(ide, e)}
+                className="w-full px-3 py-1.5 text-left text-[13px] text-gray-300 hover:text-white
+                           hover:bg-white/[0.06] flex items-center gap-2.5 transition-colors"
+              >
+                <IDEIcon ideId={ide.id} size={14} />
+                {ide.name}
+              </button>
+            ))}
+          </div>,
+          document.body
+        )}
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../../stores'
 import { GitChangesIndicator } from '../GitChangesIndicator'
+import { OpenInButton } from '../OpenInButton'
 import { BranchChip } from './BranchChip'
 import { ListTodo } from 'lucide-react'
 
@@ -21,14 +22,15 @@ export function CardStatusBar({ terminalId }: Props) {
   )
 
   if (!terminal) return null
-  if (!terminal.session.branch && !assignedTask) return null
+
+  const hasBranch = Boolean(terminal.session.branch)
 
   return (
     <div
       className="shrink-0 flex items-center gap-2 px-2 h-[22px] border-t border-white/[0.04] text-[11px]"
       style={{ background: '#17171a' }}
     >
-      <BranchChip terminalId={terminalId} />
+      {hasBranch && <BranchChip terminalId={terminalId} />}
 
       {assignedTask && (
         <button
@@ -52,6 +54,7 @@ export function CardStatusBar({ terminalId }: Props) {
       <div className="flex-1" />
 
       <GitChangesIndicator terminalId={terminalId} />
+      <OpenInButton projectPath={terminal.session.projectPath} direction="up" />
     </div>
   )
 }
