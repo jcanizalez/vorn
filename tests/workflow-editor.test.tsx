@@ -53,7 +53,8 @@ const mockState = {
   addTerminal: vi.fn(),
   setFocusedTerminal: vi.fn(),
   setSelectedTaskId: vi.fn(),
-  activeWorkspace: 'personal'
+  activeWorkspace: 'personal',
+  workflowExecutions: new Map<string, unknown>()
 }
 
 vi.mock('../src/renderer/stores', () => {

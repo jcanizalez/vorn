@@ -3,6 +3,7 @@ import { TriggerNode } from './nodes/TriggerNode'
 import { LaunchAgentNode } from './nodes/LaunchAgentNode'
 import { ScriptNode } from './nodes/ScriptNode'
 import { ConditionNode } from './nodes/ConditionNode'
+import { ApprovalNode } from './nodes/ApprovalNode'
 import { ConnectorButton } from './nodes/AddStepNode'
 import {
   WorkflowNode,
@@ -10,19 +11,18 @@ import {
   TriggerConfig,
   LaunchAgentConfig,
   ScriptConfig,
-  ConditionConfig
+  ConditionConfig,
+  ApprovalConfig
 } from '../../../shared/types'
 import { computeFlowLayout, FlowRow } from '../../lib/workflow-helpers'
+
+export type AddableNodeType = 'agent' | 'script' | 'condition' | 'approval'
 
 interface Props {
   nodes: WorkflowNode[]
   edges: WorkflowEdge[]
   onNodeClick: (nodeId: string) => void
-  onInsertNode: (
-    afterNodeId: string,
-    beforeNodeId: string | null,
-    type: 'agent' | 'script' | 'condition'
-  ) => void
+  onInsertNode: (afterNodeId: string, beforeNodeId: string | null, type: AddableNodeType) => void
   onAddParallelBranch: (forkFromId: string, type: 'agent' | 'script') => void
   selectedNodeId: string | null
 }
@@ -80,6 +80,17 @@ function NodeCard({
     )
   }
 
+  if (node.type === 'approval') {
+    return (
+      <ApprovalNode
+        label={node.label}
+        config={node.config as ApprovalConfig}
+        selected={selected}
+        onClick={onClick}
+      />
+    )
+  }
+
   return (
     <LaunchAgentNode
       label={node.label}
@@ -104,11 +115,7 @@ function FlowRowRenderer({
   edges?: WorkflowEdge[]
   nodes?: WorkflowNode[]
   onNodeClick: (nodeId: string) => void
-  onInsertNode: (
-    afterNodeId: string,
-    beforeNodeId: string | null,
-    type: 'agent' | 'script' | 'condition'
-  ) => void
+  onInsertNode: (afterNodeId: string, beforeNodeId: string | null, type: AddableNodeType) => void
   onAddParallelBranch: (forkFromId: string, type: 'agent' | 'script') => void
   selectedNodeId: string | null
   isInsideBranch?: boolean
@@ -145,6 +152,7 @@ function FlowRowRenderer({
                     onAddAction={() => onInsertNode(row.node.id, beforeNodeId, 'agent')}
                     onAddScript={() => onInsertNode(row.node.id, beforeNodeId, 'script')}
                     onAddCondition={() => onInsertNode(row.node.id, beforeNodeId, 'condition')}
+                    onAddApproval={() => onInsertNode(row.node.id, beforeNodeId, 'approval')}
                     onAddParallelBranch={() => onAddParallelBranch(row.node.id, 'agent')}
                   />
                 </>
@@ -157,6 +165,7 @@ function FlowRowRenderer({
                     onAddAction={() => onInsertNode(row.node.id, null, 'agent')}
                     onAddScript={() => onInsertNode(row.node.id, null, 'script')}
                     onAddCondition={() => onInsertNode(row.node.id, null, 'condition')}
+                    onAddApproval={() => onInsertNode(row.node.id, null, 'approval')}
                     onAddParallelBranch={
                       !isInsideBranch ? () => onAddParallelBranch(row.node.id, 'agent') : undefined
                     }
@@ -210,11 +219,7 @@ function ForkRenderer({
 }: {
   row: Extract<FlowRow, { kind: 'fork' }>
   onNodeClick: (nodeId: string) => void
-  onInsertNode: (
-    afterNodeId: string,
-    beforeNodeId: string | null,
-    type: 'agent' | 'script' | 'condition'
-  ) => void
+  onInsertNode: (afterNodeId: string, beforeNodeId: string | null, type: AddableNodeType) => void
   onAddParallelBranch: (forkFromId: string, type: 'agent' | 'script') => void
   selectedNodeId: string | null
   edges?: WorkflowEdge[]

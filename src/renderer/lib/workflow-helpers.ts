@@ -6,6 +6,7 @@ import {
   LaunchAgentConfig,
   ScriptConfig,
   ConditionConfig,
+  ApprovalConfig,
   WorkflowNodePosition
 } from '../../shared/types'
 import { slugify } from './template-vars'
@@ -183,6 +184,20 @@ export function createScriptNode(config: Partial<ScriptConfig> = {}): WorkflowNo
       projectPath: '',
       ...config
     } as ScriptConfig,
+    position: { x: 0, y: 0 }
+  }
+}
+
+export function createApprovalNode(config: Partial<ApprovalConfig> = {}): WorkflowNode {
+  return {
+    id: crypto.randomUUID(),
+    type: 'approval',
+    label: 'Approval Gate',
+    slug: slugify('Approval Gate'),
+    config: {
+      message: '',
+      ...config
+    } as ApprovalConfig,
     position: { x: 0, y: 0 }
   }
 }

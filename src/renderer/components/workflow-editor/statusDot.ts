@@ -5,5 +5,6 @@ export const STATUS_DOT_CLASSES: Record<NodeExecutionStatus | 'running', string>
   error: 'bg-red-500',
   running: 'bg-yellow-400 animate-pulse',
   pending: 'bg-gray-600',
-  skipped: 'bg-gray-600'
+  skipped: 'bg-gray-600',
+  waiting: 'bg-amber-400 animate-pulse'
 }

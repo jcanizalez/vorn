@@ -202,7 +202,7 @@ export interface WorkflowExecutionContext {
   }
 }
 
-export type WorkflowNodeType = 'trigger' | 'launchAgent' | 'script' | 'condition'
+export type WorkflowNodeType = 'trigger' | 'launchAgent' | 'script' | 'condition' | 'approval'
 
 export interface WorkflowNodePosition {
   x: number
@@ -295,7 +295,17 @@ export interface ConditionConfig {
   value: string
 }
 
-export type WorkflowNodeConfig = TriggerConfig | LaunchAgentConfig | ScriptConfig | ConditionConfig
+export interface ApprovalConfig {
+  message?: string
+  timeoutMs?: number
+}
+
+export type WorkflowNodeConfig =
+  | TriggerConfig
+  | LaunchAgentConfig
+  | ScriptConfig
+  | ConditionConfig
+  | ApprovalConfig
 
 export interface WorkflowNode {
   id: string
@@ -314,7 +324,13 @@ export interface WorkflowEdge {
 }
 
 // Execution tracking (runtime only)
-export type NodeExecutionStatus = 'pending' | 'running' | 'success' | 'error' | 'skipped'
+export type NodeExecutionStatus =
+  | 'pending'
+  | 'running'
+  | 'success'
+  | 'error'
+  | 'skipped'
+  | 'waiting'
 
 export interface NodeExecutionState {
   nodeId: string
@@ -336,6 +352,8 @@ export interface NodeExecutionState {
   projectPath?: string
   worktreePath?: string
   worktreeName?: string
+  /** Timestamp when an approval gate was approved. */
+  approvedAt?: string
 }
 
 export interface WorkflowDefinition {
@@ -616,6 +634,7 @@ export const IPC = {
   WORKFLOW_RUN_SAVE: 'workflowRun:save',
   WORKFLOW_RUN_LIST: 'workflowRun:list',
   WORKFLOW_RUN_LIST_BY_TASK: 'workflowRun:listByTask',
+  WORKFLOW_RUN_LIST_WAITING: 'workflowRun:listWaiting',
   SESSION_LOG_LIST: 'sessionLog:list',
   SESSION_LOG_UPDATE: 'sessionLog:update',
   SESSION_EVENT_LIST: 'sessionEvent:list',

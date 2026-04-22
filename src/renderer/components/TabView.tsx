@@ -6,6 +6,7 @@ import { getProjectRemoteHostId } from '../../shared/types'
 import { useVisibleTerminals } from '../hooks/useVisibleTerminals'
 import { useFilteredHeadless } from '../hooks/useFilteredHeadless'
 import { AgentStatusIcon } from './AgentStatusIcon'
+import { useWaitingApprovals } from '../hooks/useWaitingApprovals'
 import { TerminalSlot } from './TerminalSlot'
 import { PromptLauncher } from './PromptLauncher'
 import { InlineRename } from './InlineRename'
@@ -108,6 +109,7 @@ export function TabView() {
   const reorderTerminals = useAppStore((s) => s.reorderTerminals)
   const tasks = useAppStore((s) => s.config?.tasks)
   const filteredHeadless = useFilteredHeadless()
+  const waitingApprovals = useWaitingApprovals()
 
   const [contextMenu, setContextMenu] = useState<{
     terminalId: string
@@ -266,7 +268,8 @@ export function TabView() {
     )
   }
 
-  const hasBackground = minimizedIds.length > 0 || filteredHeadless.length > 0
+  const hasBackground =
+    minimizedIds.length > 0 || filteredHeadless.length > 0 || waitingApprovals.length > 0
 
   if (orderedIds.length === 0 && hasBackground) {
     return (
@@ -275,6 +278,7 @@ export function TabView() {
           <BackgroundTray
             headlessSessions={filteredHeadless}
             minimizedIds={minimizedIds}
+            waitingApprovals={waitingApprovals}
             variant="grid"
           />
         </div>
@@ -290,6 +294,7 @@ export function TabView() {
       <BackgroundTray
         headlessSessions={filteredHeadless}
         minimizedIds={minimizedIds}
+        waitingApprovals={waitingApprovals}
         variant="tabs"
       />
 

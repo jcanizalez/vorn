@@ -43,7 +43,9 @@ function makeNode(type: WorkflowNode['type']): WorkflowNode {
           ? { scriptType: 'bash' }
           : type === 'condition'
             ? { variable: '', operator: 'equals', value: '' }
-            : { agentType: 'claude', projectName: '', projectPath: '' },
+            : type === 'approval'
+              ? { message: '' }
+              : { agentType: 'claude', projectName: '', projectPath: '' },
     position: { x: 0, y: 0 }
   }
 }
@@ -137,5 +139,22 @@ describe('NodeConfigPanel', () => {
       />
     )
     expect(screen.getByText(/steps\.my_step\.output/)).toBeInTheDocument()
+  })
+
+  it('renders the approval form for approval nodes', () => {
+    const onChange = vi.fn()
+    render(
+      <NodeConfigPanel
+        node={makeNode('approval')}
+        onChange={onChange}
+        onLabelChange={vi.fn()}
+        onDelete={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+    const textarea = document.querySelector('textarea') as HTMLTextAreaElement
+    expect(textarea).toBeTruthy()
+    fireEvent.change(textarea, { target: { value: 'ok?' } })
+    expect(onChange).toHaveBeenCalledWith('n1', expect.objectContaining({ message: 'ok?' }))
   })
 })

@@ -29,6 +29,7 @@ import {
   createLaunchAgentNode,
   createScriptNode,
   createConditionNode,
+  createApprovalNode,
   autoLayoutNodes,
   appendNode,
   removeNode,
@@ -225,6 +226,22 @@ describe('createConditionNode', () => {
     const node = createConditionNode()
     expect(node.type).toBe('condition')
     expect((node.config as { operator: string }).operator).toBe('equals')
+  })
+})
+
+describe('createApprovalNode', () => {
+  it('creates node with defaults', () => {
+    const node = createApprovalNode()
+    expect(node.type).toBe('approval')
+    expect(node.slug).toBe('approval_gate')
+    expect((node.config as { message?: string }).message).toBe('')
+  })
+
+  it('merges overrides', () => {
+    const node = createApprovalNode({ message: 'please', timeoutMs: 30000 })
+    const cfg = node.config as { message: string; timeoutMs: number }
+    expect(cfg.message).toBe('please')
+    expect(cfg.timeoutMs).toBe(30000)
   })
 })
 

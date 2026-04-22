@@ -6,7 +6,8 @@ import type { WorkflowDefinition } from '../src/shared/types'
 
 const mockStore = {
   setEditingWorkflowId: vi.fn(),
-  setWorkflowEditorOpen: vi.fn()
+  setWorkflowEditorOpen: vi.fn(),
+  workflowExecutions: new Map<string, unknown>()
 }
 
 vi.mock('../src/renderer/stores', () => ({
