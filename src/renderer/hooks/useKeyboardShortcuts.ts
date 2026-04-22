@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useAppStore } from '../stores'
 import { StatusFilter } from '../stores/types'
+import { resolveActiveProject } from '../lib/session-utils'
 
 const STATUS_FILTERS: StatusFilter[] = ['all', 'running', 'waiting', 'idle', 'error']
 const isMac = navigator.platform.toUpperCase().includes('MAC')
@@ -107,10 +108,15 @@ export function useKeyboardShortcuts() {
         return
       }
 
-      // Ctrl+` — toggle terminal panel
+      // Ctrl+` — new shell session in the unified sessions panel
       if (e.ctrlKey && e.key === '`') {
         e.preventDefault()
-        state.toggleTerminalPanel()
+        const project = resolveActiveProject()
+        window.api.createShellTerminal(project?.path).then((session) => {
+          const s = useAppStore.getState()
+          s.addTerminal(session)
+          s.setActiveTabId(session.id)
+        })
         return
       }
 

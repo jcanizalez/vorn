@@ -105,11 +105,7 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   isTaskDialogOpen: false,
   taskDialogDefaultStatus: 'todo' as const,
   editingTask: null,
-  isTerminalPanelOpen: false,
-  terminalPanelHeight: 250,
   activeTabId: null,
-  shellTabs: [],
-  activeShellTab: null,
 
   setActiveWorkspace: (id) => {
     const config = get().config
@@ -258,36 +254,7 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
     set({ isTaskDialogOpen: open, taskDialogDefaultStatus: defaultStatus ?? 'todo' }),
   setEditingTask: (task) => set({ editingTask: task }),
 
-  toggleTerminalPanel: () => set((state) => ({ isTerminalPanelOpen: !state.isTerminalPanelOpen })),
-
-  setTerminalPanelHeight: (height) => set({ terminalPanelHeight: height }),
-
   setActiveTabId: (id) => set({ activeTabId: id }),
-
-  addShellTab: (tab) =>
-    set((state) => ({
-      shellTabs: [...state.shellTabs, tab],
-      activeShellTab: tab.id
-    })),
-
-  removeShellTab: (id) =>
-    set((state) => {
-      const tabs = state.shellTabs.filter((t) => t.id !== id)
-      const active =
-        state.activeShellTab === id
-          ? tabs.length > 0
-            ? tabs[tabs.length - 1].id
-            : null
-          : state.activeShellTab
-      return { shellTabs: tabs, activeShellTab: active }
-    }),
-
-  setActiveShellTab: (id) => set({ activeShellTab: id }),
-
-  renameShellTab: (id, title) =>
-    set((state) => ({
-      shellTabs: state.shellTabs.map((t) => (t.id === id ? { ...t, title } : t))
-    })),
 
   workflowExecutions: new Map(),
   setWorkflowExecution: (id, execution) =>

@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
-  AgentType,
   WidgetAgentInfo,
   PermissionRequestInfo,
   PermissionSuggestion,
   AskUserQuestion
 } from '../../shared/types'
 import { AgentIcon } from './AgentIcon'
+import { glowColorForAgent } from '../lib/widget-glow'
 
 type ViewMode = 'full' | 'compact'
 
@@ -27,14 +27,6 @@ declare global {
       setViewMode: (mode: ViewMode) => void
     }
   }
-}
-
-const GLOW_COLORS: Record<AgentType, string> = {
-  claude: 'rgba(217, 119, 87, 0.45)',
-  copilot: 'rgba(255, 255, 255, 0.3)',
-  codex: 'rgba(122, 157, 255, 0.45)',
-  opencode: 'rgba(255, 255, 255, 0.3)',
-  gemini: 'rgba(49, 134, 255, 0.45)'
 }
 
 type RespondFn = (
@@ -227,7 +219,7 @@ function AgentSection({
           className={`flex items-center justify-center w-6 h-6 ${isRunning ? 'agent-icon-pulse agent-icon-glow' : ''}`}
           style={
             isRunning
-              ? ({ '--glow-color': GLOW_COLORS[agent.agentType] } as React.CSSProperties)
+              ? ({ '--glow-color': glowColorForAgent(agent.agentType) } as React.CSSProperties)
               : undefined
           }
         >

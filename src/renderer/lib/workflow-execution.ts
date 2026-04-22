@@ -1,5 +1,5 @@
 import {
-  AgentType,
+  AiAgentType,
   WorkflowDefinition,
   WorkflowNode,
   WorkflowExecution,
@@ -76,7 +76,7 @@ export interface ExecuteWorkflowOptions {
 }
 
 /**
- * Resolve a launchAgent node's configured agent to a concrete AgentType,
+ * Resolve a launchAgent node's configured agent to a concrete AiAgentType,
  * honoring the `'fromTask'` sentinel. Exported so it can be unit-tested
  * without mounting the workflow engine.
  *
@@ -91,7 +91,7 @@ export function resolveEffectiveAgent(
   config: LaunchAgentConfig,
   context: WorkflowExecutionContext | undefined,
   resolvedTask: TaskConfig | undefined
-): AgentType {
+): AiAgentType {
   if (config.agentType !== 'fromTask') return config.agentType
   return (
     context?.task?.assignedAgent ??

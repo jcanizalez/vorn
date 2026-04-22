@@ -1,9 +1,20 @@
-export type AgentType = 'claude' | 'copilot' | 'codex' | 'opencode' | 'gemini'
+/** AI agents only. Use this for icon maps, install status, command configs, and
+ *  anything else that applies exclusively to an AI CLI — not to plain shells. */
+export type AiAgentType = 'claude' | 'copilot' | 'codex' | 'opencode' | 'gemini'
+
+/** Any session type that can back a terminal tab. `'shell'` is a plain PTY
+ *  (zsh/bash), everything else is an AI agent. */
+export type AgentType = AiAgentType | 'shell'
 
 export type AgentStatus = 'running' | 'waiting' | 'idle' | 'error'
 
+/** Narrowing type guard: true when the session is an AI agent (not a plain shell). */
+export function isAiAgent(agentType: AgentType | undefined): agentType is AiAgentType {
+  return agentType !== undefined && agentType !== 'shell'
+}
+
 export function supportsExactSessionResume(agentType: AgentType): boolean {
-  return agentType !== 'gemini'
+  return agentType !== 'gemini' && agentType !== 'shell'
 }
 
 /** Can we pin a pre-generated session ID on fresh launch so we can --resume it later? */
@@ -36,6 +47,8 @@ export function getRecentSessionActivityLabel(agentType: AgentType): string {
       return 'prompt'
     case 'opencode':
       return 'message'
+    case 'shell':
+      return 'line'
   }
 }
 
@@ -65,6 +78,10 @@ export interface TerminalSession {
   hookSessionId?: string
   agentSessionId?: string
   statusSource?: 'hooks' | 'pattern'
+  /** Shell session only: working directory the PTY was started in. */
+  shellCwd?: string
+  /** Shell session only: PTY exit code once the shell has exited. */
+  shellExitCode?: number
 }
 
 export type AuthMethod = 'key-file' | 'key-stored' | 'password' | 'agent'
@@ -120,7 +137,8 @@ export const DEFAULT_WORKSPACE: WorkspaceConfig = {
 export interface ProjectConfig {
   name: string
   path: string
-  preferredAgents: AgentType[]
+  /** AI agents preferred for this project. Shells are launched directly, not via preferences. */
+  preferredAgents: AiAgentType[]
   icon?: string
   iconColor?: string
   hostIds?: string[] // 'local' | remote host UUIDs; absent = ['local']
@@ -151,7 +169,7 @@ export interface TaskConfig {
   status: TaskStatus
   order: number
   assignedSessionId?: string
-  assignedAgent?: AgentType
+  assignedAgent?: AiAgentType
   agentSessionId?: string // Real agent session ID (e.g. Claude session_id from hooks) for resume
   branch?: string
   useWorktree?: boolean
@@ -180,7 +198,7 @@ export interface SessionLog {
   id?: number
   taskId: string
   sessionId: string
-  agentType?: AgentType
+  agentType?: AiAgentType
   branch?: string
   status: SessionLogStatus
   startedAt: string
@@ -246,7 +264,7 @@ export type TriggerConfig =
  * `defaults.defaultAgent`). The workflow editor only allows `'fromTask'` when
  * the node actually has a task in scope — see LaunchAgentConfigForm.
  */
-export type LaunchAgentType = AgentType | 'fromTask'
+export type LaunchAgentType = AiAgentType | 'fromTask'
 
 // Launch Agent action config
 export interface LaunchAgentConfig {
@@ -345,7 +363,7 @@ export interface NodeExecutionState {
   agentSessionId?: string
   /** Concrete agent type resolved at launch time. Distinct from the node's
    *  configured agentType, which may be the 'fromTask' sentinel. */
-  agentType?: AgentType
+  agentType?: AiAgentType
   /** Project name captured at launch so resume works for task-agnostic nodes. */
   projectName?: string
   /** Project path captured at launch. */
@@ -417,7 +435,7 @@ export interface AppConfig {
     fontSize: number
     theme: 'dark' | 'light'
     rowHeight?: number
-    defaultAgent?: AgentType
+    defaultAgent?: AiAgentType
     notifications?: NotificationConfig
     hasSeenOnboarding?: boolean | number
     reopenSessions?: boolean
@@ -441,7 +459,7 @@ export interface AppConfig {
     hasSeededDefaultTaskWorkflow?: boolean
   }
   projects: ProjectConfig[]
-  agentCommands?: Partial<Record<AgentType, AgentCommandConfig>>
+  agentCommands?: Partial<Record<AiAgentType, AgentCommandConfig>>
   workflows?: WorkflowDefinition[]
   remoteHosts?: RemoteHost[]
   tasks?: TaskConfig[]
@@ -450,7 +468,7 @@ export interface AppConfig {
 
 export interface RecentSession {
   sessionId: string
-  agentType: AgentType
+  agentType: AiAgentType
   display: string
   projectPath: string
   timestamp: number
@@ -460,7 +478,7 @@ export interface RecentSession {
 }
 
 export interface CreateTerminalPayload {
-  agentType: AgentType
+  agentType: AiAgentType
   projectName: string
   projectPath: string
   resumeSessionId?: string
@@ -493,7 +511,7 @@ export interface CreateTerminalPayload {
 export interface HeadlessSession {
   id: string
   pid: number
-  agentType: AgentType
+  agentType: AiAgentType
   projectName: string
   projectPath: string
   displayName?: string

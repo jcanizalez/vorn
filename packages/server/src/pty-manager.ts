@@ -6,7 +6,7 @@ import path from 'node:path'
 import { EventEmitter } from 'node:events'
 import log from './logger'
 import {
-  AgentType,
+  AiAgentType,
   AgentStatus,
   AgentCommandConfig,
   CreateTerminalPayload,
@@ -55,7 +55,7 @@ class PtyManager extends EventEmitter {
   private ptys = new Map<string, pty.IPty>()
   private sessions = new Map<string, TerminalSession>()
   private normalizedPaths = new Map<string, string>()
-  private agentCommands: Record<AgentType, AgentCommandConfig> = { ...DEFAULT_AGENT_COMMANDS }
+  private agentCommands: Record<AiAgentType, AgentCommandConfig> = { ...DEFAULT_AGENT_COMMANDS }
   private remoteHosts: RemoteHost[] = []
   private dataBuffers = new Map<string, string>()
   private flushTimers = new Map<string, ReturnType<typeof setTimeout>>()
@@ -127,12 +127,12 @@ class PtyManager extends EventEmitter {
     this.remoteHosts = hosts
   }
 
-  setAgentCommands(overrides?: Partial<Record<AgentType, AgentCommandConfig>>): void {
+  setAgentCommands(overrides?: Partial<Record<AiAgentType, AgentCommandConfig>>): void {
     this.agentCommands = { ...DEFAULT_AGENT_COMMANDS }
     if (overrides) {
       for (const [key, val] of Object.entries(overrides)) {
         if (val) {
-          this.agentCommands[key as AgentType] = val
+          this.agentCommands[key as AiAgentType] = val
         }
       }
     }
@@ -427,19 +427,38 @@ class PtyManager extends EventEmitter {
     return session
   }
 
-  createShellPty(cwd?: string): { id: string; pid: number } {
+  createShellPty(cwd?: string): TerminalSession {
     const id = crypto.randomUUID()
     const shell = getDefaultShell()
+    const workingDir = cwd || os.homedir()
     const ptyProcess = pty.spawn(shell, getShellArgs(), {
       name: 'xterm-256color',
       cols: 80,
       rows: 24,
-      cwd: cwd || os.homedir(),
+      cwd: workingDir,
       env: getSafeEnv()
     })
     this.setupPtyEvents(id, ptyProcess)
     this.ptys.set(id, ptyProcess)
-    return { id, pid: ptyProcess.pid }
+
+    const shellCount =
+      Array.from(this.sessions.values()).filter((s) => s.agentType === 'shell').length + 1
+    const projectName = path.basename(workingDir) || 'shell'
+    const session: TerminalSession = {
+      id,
+      agentType: 'shell',
+      projectName,
+      projectPath: workingDir,
+      status: 'running',
+      createdAt: Date.now(),
+      pid: ptyProcess.pid,
+      displayName: `Shell ${shellCount}`,
+      shellCwd: workingDir
+    }
+    this.sessions.set(id, session)
+    this.sessionOrder.push(id)
+    this.normalizedPaths.set(id, normalizePath(workingDir))
+    return session
   }
 
   private static readonly BUFFER_FLUSH_MS = 8
@@ -483,7 +502,11 @@ class PtyManager extends EventEmitter {
 
   private appendOutput(id: string, data: string): void {
     const session = this.sessions.get(id)
-    if (!session) return // skip shell-only PTYs
+    if (!session) return
+
+    // Plain shells don't run agents — skip bracketed-paste / pattern / idle analysis.
+    // They stay 'running' until the PTY exits (setupPtyEvents sets 'idle').
+    if (session.agentType === 'shell') return
 
     let buf = this.outputLines.get(id)
     if (!buf) {
@@ -572,6 +595,9 @@ class PtyManager extends EventEmitter {
       if (session) {
         this.emit('session-exit', session)
         session.status = 'idle'
+        if (session.agentType === 'shell') {
+          session.shellExitCode = exitCode
+        }
         if (session.worktreePath) {
           // Only prompt cleanup when this is the last session using the worktree
           const remaining = this.countWorktreeSessions(session.worktreePath, session.id)

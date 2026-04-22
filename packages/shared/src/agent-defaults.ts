@@ -1,6 +1,6 @@
-import { AgentType, AgentCommandConfig } from './types'
+import { AiAgentType, AgentCommandConfig } from './types'
 
-export const DEFAULT_AGENT_COMMANDS: Record<AgentType, AgentCommandConfig> = {
+export const DEFAULT_AGENT_COMMANDS: Record<AiAgentType, AgentCommandConfig> = {
   claude: {
     command: 'claude',
     args: [],

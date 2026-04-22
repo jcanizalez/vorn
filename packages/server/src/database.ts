@@ -18,6 +18,7 @@ import {
   TerminalSession,
   ScheduleLogEntry,
   AgentType,
+  AiAgentType,
   WorkspaceConfig,
   DEFAULT_WORKSPACE,
   SessionLog,
@@ -707,7 +708,7 @@ function loadDefaults(d: Database.Database): AppConfig['defaults'] {
     fontSize: (map.fontSize as number) ?? 13,
     theme: (map.theme as 'dark' | 'light') ?? 'dark',
     ...(map.rowHeight !== undefined && { rowHeight: map.rowHeight as number }),
-    ...(map.defaultAgent !== undefined && { defaultAgent: map.defaultAgent as AgentType }),
+    ...(map.defaultAgent !== undefined && { defaultAgent: map.defaultAgent as AiAgentType }),
     ...(map.notifications !== undefined && {
       notifications: map.notifications as AppConfig['defaults']['notifications']
     }),
@@ -782,7 +783,7 @@ function loadWorkflows(d: Database.Database): WorkflowDefinition[] {
   return rows.map(rowToWorkflow)
 }
 
-function loadAgentCommands(d: Database.Database): Partial<Record<AgentType, AgentCommandConfig>> {
+function loadAgentCommands(d: Database.Database): Partial<Record<AiAgentType, AgentCommandConfig>> {
   const rows = d.prepare('SELECT * FROM agent_commands').all() as Array<{
     agent_type: string
     command: string
@@ -791,9 +792,9 @@ function loadAgentCommands(d: Database.Database): Partial<Record<AgentType, Agen
     fallback_command: string | null
     fallback_args: string | null
   }>
-  const result: Partial<Record<AgentType, AgentCommandConfig>> = {}
+  const result: Partial<Record<AiAgentType, AgentCommandConfig>> = {}
   for (const r of rows) {
-    result[r.agent_type as AgentType] = {
+    result[r.agent_type as AiAgentType] = {
       command: r.command,
       args: JSON.parse(r.args),
       ...(r.headless_args != null && { headlessArgs: JSON.parse(r.headless_args) }),
@@ -1481,7 +1482,7 @@ function rowToTask(r: {
     status: r.status as TaskConfig['status'],
     order: r.order,
     ...(r.assigned_session_id != null && { assignedSessionId: r.assigned_session_id }),
-    ...(r.assigned_agent != null && { assignedAgent: r.assigned_agent as AgentType }),
+    ...(r.assigned_agent != null && { assignedAgent: r.assigned_agent as AiAgentType }),
     ...(r.agent_session_id != null && { agentSessionId: r.agent_session_id }),
     ...(r.branch != null && { branch: r.branch }),
     ...(r.use_worktree != null && r.use_worktree !== 0 && { useWorktree: true }),
@@ -1503,7 +1504,7 @@ function rowToProject(r: {
   return {
     name: r.name,
     path: r.path,
-    preferredAgents: JSON.parse(r.preferred_agents) as AgentType[],
+    preferredAgents: JSON.parse(r.preferred_agents) as AiAgentType[],
     ...(r.icon != null && { icon: r.icon }),
     ...(r.icon_color != null && { iconColor: r.icon_color }),
     ...(r.host_ids != null && { hostIds: JSON.parse(r.host_ids) as string[] }),

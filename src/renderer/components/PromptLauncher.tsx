@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, KeyboardEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../stores'
-import { AgentType, ProjectConfig, getProjectRemoteHostId } from '../../shared/types'
+import { AiAgentType, ProjectConfig, getProjectRemoteHostId } from '../../shared/types'
 import { AGENT_LIST } from '../lib/agent-definitions'
 import { AgentIcon } from './AgentIcon'
 import { useLaunchSettings } from '../hooks/useLaunchSettings'
@@ -279,7 +279,7 @@ export function PromptLauncher({ mode, onClose }: PromptLauncherProps) {
                   key={agent.type}
                   onClick={() => {
                     if (!installed) return
-                    settings.setSelectedAgent(agent.type as AgentType)
+                    settings.setSelectedAgent(agent.type as AiAgentType)
                     setShowAgentPicker(false)
                   }}
                   disabled={!installed}

@@ -5,7 +5,7 @@ import {
   type RecentSession,
   type CreateTerminalPayload,
   type ProjectConfig,
-  type AgentType
+  type AiAgentType
 } from '../../shared/types'
 import { useAppStore } from '../stores'
 
@@ -139,6 +139,11 @@ export function buildRestorePayload(
   s: TerminalSession,
   resumeSessionId?: string
 ): CreateTerminalPayload {
+  if (s.agentType === 'shell') {
+    throw new Error(
+      'buildRestorePayload: shell sessions restore via createShellTerminal, not createTerminal'
+    )
+  }
   return {
     agentType: s.agentType,
     projectName: s.projectName,
@@ -161,7 +166,7 @@ export function buildRestorePayload(
 export async function createSessionFromProject(
   p: ProjectConfig,
   opts: {
-    agentType?: AgentType
+    agentType?: AiAgentType
     branch?: string
     existingWorktreePath?: string
     useWorktree?: boolean

@@ -178,7 +178,18 @@ export function registerAllMethods(): void {
     broadcastWidgetUpdate()
   })
   registerMethod('terminal:readOutput', ({ id, lines }) => ptyManager.getOutput(id, lines))
-  registerMethod('shell:create', (cwd) => ptyManager.createShellPty(cwd))
+  registerMethod('shell:create', (cwd) => {
+    const session = ptyManager.createShellPty(cwd)
+    clientRegistry.broadcast(IPC.SESSION_CREATED, session)
+    logSessionEvent(session.id, 'created', {
+      agentType: session.agentType,
+      projectName: session.projectName,
+      projectPath: session.projectPath
+    })
+    sessionManager.scheduleSave()
+    broadcastWidgetUpdate()
+    return session
+  })
 
   // Config
   registerMethod('config:load', () => configManager.loadConfig())

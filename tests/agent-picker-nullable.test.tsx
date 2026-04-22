@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, fireEvent } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 import { AgentPicker } from '../src/renderer/components/AgentPicker'
-import type { AgentType } from '../src/shared/types'
+import type { AiAgentType } from '../src/shared/types'
 
 // Mock createPortal to render inline
 vi.mock('react-dom', async () => {
@@ -24,7 +24,7 @@ vi.mock('framer-motion', () => ({
   AnimatePresence: ({ children }: React.PropsWithChildren) => <>{children}</>
 }))
 
-const ALL_INSTALLED: Record<AgentType, boolean> = {
+const ALL_INSTALLED: Record<AiAgentType, boolean> = {
   claude: true,
   copilot: true,
   codex: true,
@@ -197,7 +197,7 @@ describe('AgentPicker with allowFromTask', () => {
   })
 
   it('keeps "From Task" enabled even when no agents are installed', () => {
-    const none: Record<AgentType, boolean> = {
+    const none: Record<AiAgentType, boolean> = {
       claude: false,
       copilot: false,
       codex: false,

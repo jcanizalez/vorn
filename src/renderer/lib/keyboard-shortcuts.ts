@@ -86,11 +86,11 @@ export const SHORTCUTS: ShortcutDef[] = [
     description: 'Toggle sidebar'
   },
   {
-    id: 'toggle-terminal',
+    id: 'new-terminal',
     key: '`',
     display: 'Ctrl+`',
     category: 'view',
-    description: 'Toggle terminal panel'
+    description: 'New terminal session'
   },
   {
     id: 'view-sessions',

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppStore } from '../stores'
-import { AgentType } from '../../shared/types'
+import { AiAgentType } from '../../shared/types'
 import { PROJECT_ICON_OPTIONS, ICON_COLOR_PALETTE } from '../lib/project-icons'
 import { toast } from './Toast'
 import {
@@ -110,7 +110,7 @@ export function AddProjectDialog() {
     const project = {
       name: projectName.trim(),
       path: selectedPath.trim(),
-      preferredAgents: (editingProject?.preferredAgents || ['claude']) as AgentType[],
+      preferredAgents: (editingProject?.preferredAgents || ['claude']) as AiAgentType[],
       icon: selectedIcon,
       iconColor: selectedColor,
       hostIds: [selectedHostId],

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { AgentType } from '../../shared/types'
+import { AiAgentType } from '../../shared/types'
 
-export type AgentInstallStatus = Record<AgentType, boolean>
+export type AgentInstallStatus = Record<AiAgentType, boolean>
 
 const DEFAULT_STATUS: AgentInstallStatus = {
   claude: true,

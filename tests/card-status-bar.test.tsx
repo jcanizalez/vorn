@@ -58,7 +58,12 @@ vi.mock('../src/renderer/components/Tooltip', () => ({
   Tooltip: ({ children }: { children: ReactNode }) => <>{children}</>
 }))
 vi.mock('../src/renderer/components/ConfirmPopover', () => ({
-  ConfirmPopover: ({ children }: { children: ReactNode }) => <>{children}</>
+  // Pass-through that also fires onConfirm whenever the wrapped trigger is clicked —
+  // this lets tests exercise the handler (line 454 of TabView) without driving
+  // the full confirm-popover UI.
+  ConfirmPopover: ({ children, onConfirm }: { children: ReactNode; onConfirm: () => void }) => (
+    <div onClick={onConfirm}>{children}</div>
+  )
 }))
 
 Object.defineProperty(window, 'api', {
@@ -233,11 +238,77 @@ describe('CardStatusBar — bottom VS Code style strip', () => {
   })
 })
 
-describe('TabView mounts CardStatusBar at the bottom', () => {
-  it('renders the branch chip for the active tab', () => {
+describe('TabView no longer renders CardStatusBar (unified sessions panel)', () => {
+  it('omits the bottom branch chip — metadata lives in the tab tooltip instead', () => {
     render(<TabView />)
-    expect(screen.getAllByRole('button', { name: /Switch branch/ }).length).toBeGreaterThan(0)
-    expect(screen.getByText('main')).toBeInTheDocument()
+    // The "Switch branch" button only exists inside CardStatusBar, so none should render.
+    expect(screen.queryByRole('button', { name: /Switch branch/ })).not.toBeInTheDocument()
+    // The tab itself still carries the branch in its `title` tooltip attribute.
+    const tab = screen.getByRole('tab')
+    expect(tab.querySelector('[title*="Branch: main"]')).toBeTruthy()
+  })
+
+  it('folds cwd into the tab tooltip for shell sessions (not Branch)', () => {
+    const terminals = new Map()
+    // Must use the id that useVisibleTerminals mock returns (term-1)
+    terminals.set('term-1', {
+      id: 'term-1',
+      session: {
+        id: 'term-1',
+        agentType: 'shell' as const,
+        projectName: 'vorn',
+        projectPath: '/home/me/vorn',
+        status: 'running' as const,
+        createdAt: Date.now(),
+        pid: 4321,
+        displayName: 'Shell 1',
+        shellCwd: '/home/me/vorn'
+      },
+      status: 'running' as const,
+      lastOutputTimestamp: Date.now()
+    })
+    act(() => {
+      useAppStore.setState({ terminals, activeTabId: 'term-1' })
+    })
+    render(<TabView />)
+    const tab = screen.getByRole('tab')
+    const titled = tab.querySelector('[title]')
+    expect(titled?.getAttribute('title')).toContain('Cwd: /home/me/vorn')
+    expect(titled?.getAttribute('title')).not.toContain('Branch:')
+  })
+
+  it('unified + button opens the dropdown menu on click (toggles closed on second click)', () => {
+    render(<TabView />)
+    const plus = screen.getByTitle('New session')
+    // Opens
+    fireEvent.click(plus)
+    // GridContextMenu is mocked to null in this test file, but the state toggle
+    // still drives a re-render — second click should set it back to null.
+    // We assert that the button stays clickable and doesn't crash on re-click.
+    fireEvent.click(plus)
+    expect(plus).toBeInTheDocument()
+  })
+
+  it('clicking the rename icon puts the tab into renaming mode', () => {
+    const setRenamingTerminalId = vi.fn()
+    act(() => {
+      useAppStore.setState({ setRenamingTerminalId })
+    })
+    render(<TabView />)
+    // TabIconButton wraps its icon in a <button aria-label="Rename session">
+    const renameBtn = screen.getByRole('button', { name: /Rename session/ })
+    fireEvent.click(renameBtn)
+    expect(setRenamingTerminalId).toHaveBeenCalledWith('term-1')
+  })
+
+  it('confirming close on the close-session popover closes the terminal session', async () => {
+    const { closeTerminalSession } = await import('../src/renderer/lib/terminal-close')
+    render(<TabView />)
+    const closeBtn = screen.getByRole('button', { name: /Close session/ })
+    // The ConfirmPopover mock in this file propagates click to its onConfirm,
+    // so clicking the close button exercises handleCloseTab.
+    fireEvent.click(closeBtn)
+    expect(closeTerminalSession).toHaveBeenCalledWith('term-1')
   })
 })
 

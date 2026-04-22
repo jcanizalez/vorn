@@ -98,7 +98,8 @@ export function sendAgentNotification(
 ): void {
   const prefs = config?.defaults.notifications
   const name = getDisplayName(terminal.session)
-  const agent = AGENT_DEFINITIONS[terminal.session.agentType].displayName
+  const agentType = terminal.session.agentType
+  const agent = agentType === 'shell' ? 'Shell' : AGENT_DEFINITIONS[agentType].displayName
 
   let title: string
   let body: string

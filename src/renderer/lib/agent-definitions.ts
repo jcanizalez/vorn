@@ -1,7 +1,7 @@
-import { AgentType } from '../../shared/types'
+import { AiAgentType } from '../../shared/types'
 
 export interface AgentDefinition {
-  type: AgentType
+  type: AiAgentType
   displayName: string
   color: string
   bgColor: string
@@ -10,7 +10,7 @@ export interface AgentDefinition {
   installUrl: string
 }
 
-export const AGENT_DEFINITIONS: Record<AgentType, AgentDefinition> = {
+export const AGENT_DEFINITIONS: Record<AiAgentType, AgentDefinition> = {
   claude: {
     type: 'claude',
     displayName: 'Claude Code',

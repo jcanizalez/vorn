@@ -1,8 +1,38 @@
-import { AgentType } from '../../shared/types'
+import { AgentType, AiAgentType } from '../../shared/types'
 
 interface Props {
   agentType: AgentType
   size?: number
+}
+
+function ShellIcon({ size }: { size: number }) {
+  // Rounded rect with a "$" centered — used as the kind indicator for plain
+  // shell terminals, so they're instantly distinguishable from AI agents.
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <rect
+        x="3"
+        y="3"
+        width="18"
+        height="18"
+        rx="3"
+        fill="rgba(255,255,255,0.06)"
+        stroke="rgba(255,255,255,0.2)"
+        strokeWidth="1"
+      />
+      <text
+        x="12"
+        y="16"
+        textAnchor="middle"
+        fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
+        fontSize="12"
+        fontWeight="600"
+        fill="#9ca3af"
+      >
+        $
+      </text>
+    </svg>
+  )
 }
 
 function ClaudeIcon({ size }: { size: number }) {
@@ -137,7 +167,7 @@ function GeminiIcon({ size }: { size: number }) {
   )
 }
 
-const ICON_COMPONENTS: Record<AgentType, React.FC<{ size: number }>> = {
+const ICON_COMPONENTS: Record<AiAgentType, React.FC<{ size: number }>> = {
   claude: ClaudeIcon,
   copilot: CopilotIcon,
   codex: CodexIcon,
@@ -146,6 +176,7 @@ const ICON_COMPONENTS: Record<AgentType, React.FC<{ size: number }>> = {
 }
 
 export function AgentIcon({ agentType, size = 16 }: Props) {
+  if (agentType === 'shell') return <ShellIcon size={size} />
   const IconComponent = ICON_COMPONENTS[agentType]
   return <IconComponent size={size} />
 }

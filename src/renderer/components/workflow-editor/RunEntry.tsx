@@ -5,7 +5,7 @@ import {
   WorkflowNode,
   NodeExecutionState,
   TaskConfig,
-  AgentType,
+  AiAgentType,
   ApprovalConfig,
   supportsExactSessionResume
 } from '../../../shared/types'
@@ -62,7 +62,7 @@ interface RunEntryProps {
   onClickTask?: (taskId: string) => void
   onResumeSession?: (
     agentSessionId: string,
-    agentType: AgentType,
+    agentType: AiAgentType,
     projectName: string,
     projectPath: string,
     branch?: string,
@@ -141,7 +141,7 @@ export function RunEntry({
             const node = nodes.find((n) => n.id === ns.nodeId)
             const nodeConfig = node?.config as
               | {
-                  agentType?: AgentType | 'fromTask'
+                  agentType?: AiAgentType | 'fromTask'
                   projectName?: string
                   projectPath?: string
                   branch?: string
@@ -156,7 +156,7 @@ export function RunEntry({
               nodeConfig?.agentType && nodeConfig.agentType !== 'fromTask'
                 ? nodeConfig.agentType
                 : undefined
-            const resumeAgentType: AgentType | undefined = ns.agentType ?? configAgent
+            const resumeAiAgentType: AiAgentType | undefined = ns.agentType ?? configAgent
             const resumeProjectName =
               ns.projectName ||
               nodeConfig?.projectName ||
@@ -170,13 +170,13 @@ export function RunEntry({
             const canResume =
               !!ns.agentSessionId &&
               !!onResumeSession &&
-              !!resumeAgentType &&
+              !!resumeAiAgentType &&
               !!resumeProjectName &&
-              supportsExactSessionResume(resumeAgentType)
+              supportsExactSessionResume(resumeAiAgentType)
             const handleResume = (): void =>
               onResumeSession!(
                 ns.agentSessionId!,
-                resumeAgentType!,
+                resumeAiAgentType!,
                 resumeProjectName,
                 resumeProjectPath,
                 resumeBranch,

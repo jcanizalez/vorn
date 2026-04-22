@@ -5,12 +5,14 @@ import '@testing-library/jest-dom/vitest'
 
 // Mock dependencies before imports
 const mockCreateTerminal = vi.fn()
+const mockCreateShellTerminal = vi.fn()
 const mockListBranches = vi.fn()
 const mockListWorktrees = vi.fn()
 
 Object.defineProperty(window, 'api', {
   value: {
     createTerminal: (...args: unknown[]) => mockCreateTerminal(...args),
+    createShellTerminal: (...args: unknown[]) => mockCreateShellTerminal(...args),
     listBranches: (...args: unknown[]) => mockListBranches(...args),
     listWorktrees: (...args: unknown[]) => mockListWorktrees(...args),
     killTerminal: vi.fn(),
@@ -319,5 +321,66 @@ describe('GridContextMenu', () => {
     )
     fireEvent.pointerDown(screen.getByTestId('outside'))
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  describe('New terminal item (unified sessions panel)', () => {
+    it('is rendered at the top level', () => {
+      render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
+      expect(screen.getByText('New terminal')).toBeInTheDocument()
+    })
+
+    it('clicking it creates a shell via createShellTerminal in the active project cwd', async () => {
+      const shellSession = {
+        id: 'sh-1',
+        agentType: 'shell' as const,
+        projectName: 'vorn',
+        projectPath: '/tmp/vorn',
+        status: 'running' as const,
+        createdAt: Date.now(),
+        pid: 4321,
+        displayName: 'Shell 1',
+        shellCwd: '/tmp/vorn'
+      }
+      mockCreateShellTerminal.mockResolvedValue(shellSession)
+
+      const addTerminal = vi.fn()
+      const setActiveTabId = vi.fn()
+      useAppStore.setState({ addTerminal, setActiveTabId })
+
+      const onClose = vi.fn()
+      render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={onClose} />)
+
+      fireEvent.click(screen.getByText('New terminal'))
+      // Wait for the async onClick to finish
+      await new Promise((r) => setTimeout(r, 0))
+
+      expect(onClose).toHaveBeenCalled()
+      expect(mockCreateShellTerminal).toHaveBeenCalledWith('/tmp/vorn')
+      expect(addTerminal).toHaveBeenCalledWith(shellSession)
+      expect(setActiveTabId).toHaveBeenCalledWith('sh-1')
+    })
+
+    it('falls back to undefined cwd when there is no active project', async () => {
+      useAppStore.setState({
+        activeProject: null,
+        config: { ...mockConfig, projects: [] } as unknown as typeof mockConfig
+      })
+      mockCreateShellTerminal.mockResolvedValue({
+        id: 'sh-2',
+        agentType: 'shell' as const,
+        projectName: 'shell',
+        projectPath: '/home/user',
+        status: 'running' as const,
+        createdAt: Date.now(),
+        pid: 1,
+        displayName: 'Shell 1'
+      })
+
+      render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
+      fireEvent.click(screen.getByText('New terminal'))
+      await new Promise((r) => setTimeout(r, 0))
+
+      expect(mockCreateShellTerminal).toHaveBeenCalledWith(undefined)
+    })
   })
 })

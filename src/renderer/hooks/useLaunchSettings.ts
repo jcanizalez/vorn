@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useAppStore } from '../stores'
-import { AgentType } from '../../shared/types'
+import { AiAgentType } from '../../shared/types'
 import { useShallow } from 'zustand/react/shallow'
 
 export type WorktreeMode = 'project-root' | 'existing' | 'new'
@@ -17,7 +17,7 @@ const STORAGE_KEY = 'vorn:lastLaunchSettings'
 
 interface SavedSettings {
   project?: string
-  agent?: AgentType
+  agent?: AiAgentType
 }
 
 function loadSaved(): SavedSettings {
@@ -40,7 +40,7 @@ export function useLaunchSettings() {
   const defaultAgent = config?.defaults.defaultAgent || 'claude'
 
   const [saved] = useState(loadSaved)
-  const [selectedAgent, setSelectedAgent] = useState<AgentType>(saved.agent || defaultAgent)
+  const [selectedAgent, setSelectedAgent] = useState<AiAgentType>(saved.agent || defaultAgent)
   const [selectedProject, setSelectedProject] = useState(saved.project || '')
   const [localBranches, setLocalBranches] = useState<string[]>([])
   const [remoteBranches, setRemoteBranches] = useState<string[]>([])

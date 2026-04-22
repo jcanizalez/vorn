@@ -269,4 +269,11 @@ describe('buildRestorePayload', () => {
     const payload = buildRestorePayload(session)
     expect(payload.remoteHostId).toBe('host-1')
   })
+
+  it('throws for shell sessions — shells restore via a separate IPC path', () => {
+    const shell = makeSession({ agentType: 'shell' as AgentType, shellCwd: '/home/user' })
+    expect(() => buildRestorePayload(shell)).toThrow(
+      /shell sessions restore via createShellTerminal/
+    )
+  })
 })

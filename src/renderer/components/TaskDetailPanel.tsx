@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react'
 import { useAppStore } from '../stores'
 import {
-  AgentType,
+  AiAgentType,
   GitDiffResult,
   WorkflowExecution,
   SessionLog,
@@ -121,7 +121,7 @@ export function TaskDetailPanel() {
   const [formDescription, setFormDescription] = useState('')
   const [formBranch, setFormBranch] = useState('')
   const [formUseWorktree, setFormUseWorktree] = useState(false)
-  const [formAssignedAgent, setFormAssignedAgent] = useState<AgentType | null>(null)
+  const [formAssignedAgent, setFormAssignedAgent] = useState<AiAgentType | null>(null)
   const [formImages, setFormImages] = useState<string[]>([])
   const [formImagePaths, setFormImagePaths] = useState<Map<string, string>>(new Map())
   const { status: agentInstallStatus } = useAgentInstallStatus()
@@ -390,14 +390,14 @@ export function TaskDetailPanel() {
     })
     addTerminal(session)
     if (task.status === 'in_progress') {
-      startTask(task.id, session.id, task.assignedAgent as AgentType)
+      startTask(task.id, session.id, task.assignedAgent as AiAgentType)
     }
     setFocusedTerminal(session.id)
   }
 
   const handleRunResumeSession = async (
     agentSessionId: string,
-    agentType: AgentType,
+    agentType: AiAgentType,
     projectName: string,
     projectPath: string,
     branch?: string,

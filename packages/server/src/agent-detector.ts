@@ -1,13 +1,13 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { AgentType, AgentCommandConfig } from '@vornrun/shared/types'
+import { AiAgentType, AgentCommandConfig } from '@vornrun/shared/types'
 import { DEFAULT_AGENT_COMMANDS } from '@vornrun/shared/agent-defaults'
 import { configManager } from './config-manager'
 import { getSafeEnv } from './process-utils'
 
 const execFileAsync = promisify(execFile)
 
-export type AgentInstallStatus = Record<AgentType, boolean>
+export type AgentInstallStatus = Record<AiAgentType, boolean>
 
 async function commandExists(cmd: string): Promise<boolean> {
   try {
@@ -30,7 +30,7 @@ export async function detectInstalledAgents(): Promise<AgentInstallStatus> {
     const config = configManager.loadConfig()
     const agentCommands = config.agentCommands || {}
 
-    const allAgents: AgentType[] = ['claude', 'copilot', 'codex', 'opencode', 'gemini']
+    const allAgents: AiAgentType[] = ['claude', 'copilot', 'codex', 'opencode', 'gemini']
 
     const results = await Promise.all(
       allAgents.map(async (agent) => {

@@ -3,7 +3,6 @@ import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../stores'
 import { TerminalSlot } from './TerminalSlot'
 import { CardHeader } from './card/CardHeader'
-import { CardStatusBar } from './card/CardStatusBar'
 import { CardContextMenu } from './CardContextMenu'
 import { useTerminalScrollButton } from '../hooks/useTerminalScrollButton'
 
@@ -172,8 +171,6 @@ export const AgentCard = memo(
             </button>
           )}
         </div>
-
-        <CardStatusBar terminalId={terminalId} />
 
         {!flexible && <RowResizeHandle />}
 

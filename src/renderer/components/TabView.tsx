@@ -2,7 +2,6 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
 import { useAppStore } from '../stores'
-import { getProjectRemoteHostId } from '../../shared/types'
 import { useVisibleTerminals } from '../hooks/useVisibleTerminals'
 import { useFilteredHeadless } from '../hooks/useFilteredHeadless'
 import { AgentStatusIcon } from './AgentStatusIcon'
@@ -12,24 +11,15 @@ import { PromptLauncher } from './PromptLauncher'
 import { InlineRename } from './InlineRename'
 import { CardContextMenu } from './CardContextMenu'
 import { BackgroundTray } from './BackgroundTray'
-import { CardStatusBar } from './card/CardStatusBar'
 import { getDisplayName, getBranchLabel } from '../lib/terminal-display'
 import { closeTerminalSession } from '../lib/terminal-close'
-import { resolveActiveProject } from '../lib/session-utils'
-import type { AgentStatus } from '../../shared/types'
+import { buildTooltip } from '../lib/tab-tooltip'
 import { ConfirmPopover } from './ConfirmPopover'
 import { Tooltip } from './Tooltip'
 import { toast } from './Toast'
-import { ChevronDown, FolderOpen, GripVertical, Pencil, X } from 'lucide-react'
+import { FolderOpen, GripVertical, Pencil, X } from 'lucide-react'
 import { GridContextMenu } from './GridContextMenu'
 import { MOD } from '../lib/platform'
-
-const STATUS_LABEL: Record<AgentStatus, string> = {
-  running: 'Running',
-  waiting: 'Waiting',
-  idle: 'Idle',
-  error: 'Error'
-}
 
 const DRAG_THRESHOLD = 5
 
@@ -95,23 +85,6 @@ export function TabIconButton({
       </button>
     </Tooltip>
   )
-}
-
-function buildTooltip(
-  displayName: string,
-  status: AgentStatus,
-  branch?: string,
-  isWorktree?: boolean,
-  taskTitle?: string
-): string {
-  const lines = [`${displayName} \u2014 ${STATUS_LABEL[status]}`]
-  if (branch) {
-    lines.push(`Branch: ${branch}${isWorktree ? ' (worktree)' : ''}`)
-  }
-  if (taskTitle) {
-    lines.push(`Task: ${taskTitle}`)
-  }
-  return lines.join('\n')
 }
 
 /* ── Plus-button dropdown (reuses GridContextMenu) ──────────── */
@@ -252,26 +225,6 @@ export function TabView() {
     setDropTargetIndex(null)
   }, [])
 
-  /* ── Quick launch ──────────────────────────────────────────── */
-
-  const handleQuickLaunch = async (): Promise<void> => {
-    const state = useAppStore.getState()
-    const project = resolveActiveProject()
-    if (!project) {
-      state.setNewAgentDialogOpen(true)
-      return
-    }
-    const agentType = state.config?.defaults.defaultAgent || 'claude'
-    const remoteHostId = getProjectRemoteHostId(project)
-    const session = await window.api.createTerminal({
-      agentType,
-      projectName: project.name,
-      projectPath: project.path,
-      remoteHostId
-    })
-    state.addTerminal(session)
-  }
-
   /* ── Empty state ───────────────────────────────────────────── */
 
   if (orderedIds.length === 0 && minimizedIds.length === 0) {
@@ -360,12 +313,15 @@ export function TabView() {
 
           const tooltipTaskTitle =
             displayName === assignedTask?.title ? undefined : assignedTask?.title
+          const isShell = terminal.session.agentType === 'shell'
           const tooltip = buildTooltip(
             displayName,
             terminal.status,
-            getBranchLabel(terminal.session),
-            terminal.session.isWorktree,
-            tooltipTaskTitle
+            isShell ? undefined : getBranchLabel(terminal.session),
+            isShell ? undefined : terminal.session.isWorktree,
+            isShell ? undefined : tooltipTaskTitle,
+            isShell ? terminal.session.shellCwd : undefined,
+            isShell ? terminal.session.shellExitCode : undefined
           )
 
           return (
@@ -474,11 +430,25 @@ export function TabView() {
           )
         })}
 
-        {/* Split "+" button: quick launch + dropdown */}
+        {/* Unified "+": one button, always opens a menu for New terminal / New agent / templates */}
         <div className="shrink-0 flex items-center">
           <button
-            onClick={handleQuickLaunch}
-            className="h-[36px] w-[24px] flex items-center justify-center rounded-l-md
+            onClick={(e) => {
+              if (plusDropdownPos) {
+                setPlusDropdownPos(null)
+                return
+              }
+              const rect = e.currentTarget.getBoundingClientRect()
+              const menuWidth = 220
+              setPlusDropdownPos({
+                left: Math.max(
+                  8,
+                  Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8)
+                ),
+                top: rect.bottom + 4
+              })
+            }}
+            className="h-[36px] w-[32px] flex items-center justify-center rounded-md
                        text-gray-500 hover:text-gray-200 hover:bg-white/[0.06] transition-colors"
             title="New session"
           >
@@ -492,29 +462,6 @@ export function TabView() {
             >
               <path d="M6 1v10M1 6h10" />
             </svg>
-          </button>
-          <button
-            onClick={(e) => {
-              if (plusDropdownPos) {
-                setPlusDropdownPos(null)
-              } else {
-                const rect = e.currentTarget.getBoundingClientRect()
-                const menuWidth = 220
-                setPlusDropdownPos({
-                  left: Math.max(
-                    8,
-                    Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8)
-                  ),
-                  top: rect.bottom + 4
-                })
-              }
-            }}
-            className="h-[36px] w-[16px] flex items-center justify-center rounded-r-md
-                       text-gray-500 hover:text-gray-200 hover:bg-white/[0.06] transition-colors
-                       border-l border-white/[0.06]"
-            title="More launch options"
-          >
-            <ChevronDown size={10} strokeWidth={2} />
           </button>
         </div>
 
@@ -553,8 +500,6 @@ export function TabView() {
           </div>
         )}
       </div>
-
-      {activeTabId && activeTerminal && <CardStatusBar terminalId={activeTabId} />}
 
       {contextMenu && (
         <CardContextMenu

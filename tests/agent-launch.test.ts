@@ -277,3 +277,28 @@ describe('buildHeadlessSpawnArgs', () => {
     }
   })
 })
+
+describe('agent-launch guards against shell sessions', () => {
+  // Shells don't go through this file — they have their own PTY creation path.
+  // Guards exist so that if something mistakenly routes a shell through here,
+  // we surface the bug instead of silently running the wrong command.
+  const shellPayload = makePayload({ agentType: 'shell' as AgentType })
+
+  it('buildAgentLaunchLine throws for shell payloads', () => {
+    expect(() => buildAgentLaunchLine(shellPayload, cmds, env)).toThrow(
+      /buildAgentLaunchLine called for shell session/
+    )
+  })
+
+  it('buildHeadlessLaunchLine throws for shell payloads', () => {
+    expect(() => buildHeadlessLaunchLine(shellPayload, cmds, env)).toThrow(
+      /buildHeadlessLaunchLine called for shell session/
+    )
+  })
+
+  it('buildHeadlessSpawnArgs throws for shell payloads', () => {
+    expect(() => buildHeadlessSpawnArgs(shellPayload, cmds, env)).toThrow(
+      /buildHeadlessSpawnArgs called for shell session/
+    )
+  })
+})

@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import {
-  AgentType,
+  AiAgentType,
   AgentCommandConfig,
   CreateTerminalPayload,
   supportsExactSessionResume,
@@ -52,9 +52,12 @@ function resolveHeadlessArgs(
  */
 export function buildAgentLaunchLine(
   payload: CreateTerminalPayload,
-  agentCommands: Record<AgentType, AgentCommandConfig>,
+  agentCommands: Record<AiAgentType, AgentCommandConfig>,
   env: Record<string, string>
 ): string {
+  if (payload.agentType === 'shell') {
+    throw new Error('buildAgentLaunchLine called for shell session — use createShellPty instead')
+  }
   const cmdConfig = agentCommands[payload.agentType] || DEFAULT_AGENT_COMMANDS[payload.agentType]
   const cmd = resolveAgentCommand(cmdConfig, env)
   // Per-step args override settings-level args; escape each for shell safety
@@ -121,9 +124,12 @@ export function buildAgentLaunchLine(
  */
 export function buildHeadlessLaunchLine(
   payload: CreateTerminalPayload,
-  agentCommands: Record<AgentType, AgentCommandConfig>,
+  agentCommands: Record<AiAgentType, AgentCommandConfig>,
   env: Record<string, string>
 ): string {
+  if (payload.agentType === 'shell') {
+    throw new Error('buildHeadlessLaunchLine called for shell session')
+  }
   const cmdConfig = agentCommands[payload.agentType] || DEFAULT_AGENT_COMMANDS[payload.agentType]
   const cmd = resolveAgentCommand(cmdConfig, env)
   const baseCmd = cmd.command
@@ -160,9 +166,12 @@ export function buildHeadlessLaunchLine(
  */
 export function buildHeadlessSpawnArgs(
   payload: CreateTerminalPayload,
-  agentCommands: Record<AgentType, AgentCommandConfig>,
+  agentCommands: Record<AiAgentType, AgentCommandConfig>,
   env: Record<string, string>
 ): { command: string; args: string[] } {
+  if (payload.agentType === 'shell') {
+    throw new Error('buildHeadlessSpawnArgs called for shell session')
+  }
   const cmdConfig = agentCommands[payload.agentType] || DEFAULT_AGENT_COMMANDS[payload.agentType]
   const cmd = resolveAgentCommand(cmdConfig, env)
   const prompt = payload.initialPrompt || ''

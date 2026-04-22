@@ -1,5 +1,5 @@
 import { AgentIcon } from '../../AgentIcon'
-import type { LaunchAgentConfig, AgentType, NodeExecutionStatus } from '../../../../shared/types'
+import type { LaunchAgentConfig, AiAgentType, NodeExecutionStatus } from '../../../../shared/types'
 import { useAppStore } from '../../../stores'
 import { ClipboardList, Server } from 'lucide-react'
 import { STATUS_DOT_CLASSES } from '../statusDot'
@@ -49,7 +49,7 @@ export function LaunchAgentNode({ label, config, selected, executionStatus, onCl
           {isFromTask ? (
             <ClipboardList size={14} className="text-blue-400" />
           ) : (
-            <AgentIcon agentType={config.agentType as AgentType} size={14} />
+            <AgentIcon agentType={config.agentType as AiAgentType} size={14} />
           )}
         </span>
         <div className="min-w-0 flex-1">

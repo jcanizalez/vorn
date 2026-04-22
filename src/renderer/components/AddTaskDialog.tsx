@@ -13,7 +13,7 @@ import { StatusPicker } from './StatusPicker'
 import { ProjectPicker } from './ProjectPicker'
 import { AgentPicker } from './AgentPicker'
 import { useAgentInstallStatus } from '../hooks/useAgentInstallStatus'
-import type { AgentType, TaskStatus } from '../../shared/types'
+import type { AiAgentType, TaskStatus } from '../../shared/types'
 
 export function AddTaskDialog() {
   const isOpen = useAppStore((s) => s.isTaskDialogOpen)
@@ -33,7 +33,7 @@ export function AddTaskDialog() {
   const [description, setDescription] = useState('')
   const [branch, setBranch] = useState('')
   const [useWorktree, setUseWorktree] = useState(false)
-  const [assignedAgent, setAssignedAgent] = useState<AgentType | null>(null)
+  const [assignedAgent, setAssignedAgent] = useState<AiAgentType | null>(null)
   const [images, setImages] = useState<string[]>([])
   const [imagePaths, setImagePaths] = useState<Map<string, string>>(new Map())
   const taskIdRef = useRef<string>(crypto.randomUUID())

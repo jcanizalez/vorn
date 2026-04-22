@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { XCircle, ChevronDown, ChevronRight, Maximize2, RotateCcw } from 'lucide-react'
-import type { SessionLog, AgentType } from '../../shared/types'
+import type { SessionLog, AiAgentType } from '../../shared/types'
 import { StatusDot } from './workflow-editor/RunEntry'
 import { Tooltip } from './Tooltip'
 
@@ -28,7 +28,7 @@ interface SessionActivityLogProps {
   onViewFullOutput?: (logs: string) => void
   onResumeSession?: (
     agentSessionId: string,
-    agentType: AgentType,
+    agentType: AiAgentType,
     projectName: string,
     projectPath: string,
     branch?: string,
@@ -213,7 +213,7 @@ export function SessionActivityLog({
                         onClick={() =>
                           onResumeSession!(
                             agentSessionId!,
-                            (entry.agentType as AgentType) || 'claude',
+                            (entry.agentType as AiAgentType) || 'claude',
                             entry.projectName || '',
                             projectPath,
                             entry.branch

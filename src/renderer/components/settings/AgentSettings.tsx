@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAppStore } from '../../stores'
-import { AgentType, AgentCommandConfig } from '../../../shared/types'
+import { AiAgentType, AgentCommandConfig } from '../../../shared/types'
 import { DEFAULT_AGENT_COMMANDS } from '../../../shared/agent-defaults'
 import { AGENT_LIST, AGENT_DEFINITIONS } from '../../lib/agent-definitions'
 import { AgentIcon } from '../AgentIcon'
@@ -32,11 +32,11 @@ export function AgentSettings() {
 
   if (!config) return null
 
-  const getCommand = (agentType: AgentType): AgentCommandConfig => {
+  const getCommand = (agentType: AiAgentType): AgentCommandConfig => {
     return config.agentCommands?.[agentType] || DEFAULT_AGENT_COMMANDS[agentType]
   }
 
-  const updateAgentCommand = (agentType: AgentType, patch: Partial<AgentCommandConfig>): void => {
+  const updateAgentCommand = (agentType: AiAgentType, patch: Partial<AgentCommandConfig>): void => {
     const current = getCommand(agentType)
     const updated = {
       ...config,
@@ -50,7 +50,7 @@ export function AgentSettings() {
     setConfig(updated)
   }
 
-  const resetAgent = (agentType: AgentType): void => {
+  const resetAgent = (agentType: AiAgentType): void => {
     const defaults = DEFAULT_AGENT_COMMANDS[agentType]
     const updated = {
       ...config,
@@ -74,16 +74,16 @@ export function AgentSettings() {
     })
   }
 
-  const getArgsString = (agentType: AgentType): string => {
+  const getArgsString = (agentType: AiAgentType): string => {
     if (editingArgs[agentType] !== undefined) return editingArgs[agentType]
     return getCommand(agentType).args.join(' ')
   }
 
-  const handleArgsChange = (agentType: AgentType, value: string): void => {
+  const handleArgsChange = (agentType: AiAgentType, value: string): void => {
     setEditingArgs((prev) => ({ ...prev, [agentType]: value }))
   }
 
-  const handleArgsBlur = (agentType: AgentType): void => {
+  const handleArgsBlur = (agentType: AiAgentType): void => {
     const value = editingArgs[agentType]
     if (value !== undefined) {
       const args = value.trim() ? value.trim().split(/\s+/) : []
@@ -96,16 +96,16 @@ export function AgentSettings() {
     }
   }
 
-  const getHeadlessArgsString = (agentType: AgentType): string => {
+  const getHeadlessArgsString = (agentType: AiAgentType): string => {
     if (editingHeadlessArgs[agentType] !== undefined) return editingHeadlessArgs[agentType]
     return (getCommand(agentType).headlessArgs || []).join(' ')
   }
 
-  const handleHeadlessArgsChange = (agentType: AgentType, value: string): void => {
+  const handleHeadlessArgsChange = (agentType: AiAgentType, value: string): void => {
     setEditingHeadlessArgs((prev) => ({ ...prev, [agentType]: value }))
   }
 
-  const handleHeadlessArgsBlur = (agentType: AgentType): void => {
+  const handleHeadlessArgsBlur = (agentType: AiAgentType): void => {
     const value = editingHeadlessArgs[agentType]
     if (value !== undefined) {
       const headlessArgs = value.trim() ? value.trim().split(/\s+/) : []
@@ -118,7 +118,7 @@ export function AgentSettings() {
     }
   }
 
-  const isModified = (agentType: AgentType): boolean => {
+  const isModified = (agentType: AiAgentType): boolean => {
     const current = getCommand(agentType)
     const defaults = DEFAULT_AGENT_COMMANDS[agentType]
     return (
@@ -128,7 +128,7 @@ export function AgentSettings() {
     )
   }
 
-  const copyInstallCommand = (agentType: AgentType): void => {
+  const copyInstallCommand = (agentType: AiAgentType): void => {
     const def = AGENT_DEFINITIONS[agentType]
     navigator.clipboard.writeText(def.installCommand)
     setCopiedAgent(agentType)

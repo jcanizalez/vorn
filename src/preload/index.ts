@@ -14,7 +14,7 @@ import {
   HeadlessSession,
   WorkflowExecution,
   ScriptConfig,
-  AgentType,
+  AiAgentType,
   SSHKeyMeta,
   RemoteHost,
   TailscaleStatus,
@@ -32,7 +32,7 @@ const api = {
 
   killTerminal: (id: string) => ipcRenderer.invoke(IPC.TERMINAL_KILL, id),
 
-  createShellTerminal: (cwd?: string): Promise<{ id: string; pid: number }> =>
+  createShellTerminal: (cwd?: string): Promise<TerminalSession> =>
     ipcRenderer.invoke(IPC.SHELL_CREATE, cwd),
 
   onTerminalData: (callback: (event: { id: string; data: string }) => void) => {
@@ -103,7 +103,7 @@ const api = {
   detectIDEs: (): Promise<{ id: string; name: string; command: string }[]> =>
     ipcRenderer.invoke(IPC.IDE_DETECT),
 
-  detectInstalledAgents: (): Promise<Record<AgentType, boolean>> =>
+  detectInstalledAgents: (): Promise<Record<AiAgentType, boolean>> =>
     ipcRenderer.invoke(IPC.AGENT_DETECT_INSTALLED),
 
   openInIDE: (ideId: string, projectPath: string): Promise<void> =>

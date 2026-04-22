@@ -1,7 +1,7 @@
-import { AgentType } from '../../shared/types'
+import { AiAgentType } from '../../shared/types'
 
 export interface AgentMcpSetup {
-  agentType: AgentType
+  agentType: AiAgentType
   command: string
 }
 

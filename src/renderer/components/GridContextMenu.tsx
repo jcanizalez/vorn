@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Play, FolderGit2, GitBranch, Plus, ChevronRight } from 'lucide-react'
+import { Play, FolderGit2, GitBranch, Plus, ChevronRight, Terminal } from 'lucide-react'
 import { useAppStore } from '../stores'
 import { type ProjectConfig } from '../../shared/types'
 import { ProjectIcon } from './project-sidebar/ProjectIcon'
@@ -189,6 +189,20 @@ export function GridContextMenu({ position, onClose }: Props) {
       }
     })
   }
+
+  // Shell: always available, independent of project
+  items.push({
+    iconElement: <Terminal size={14} className="text-gray-400" />,
+    label: 'New terminal',
+    onClick: async () => {
+      onClose()
+      const session = await window.api.createShellTerminal(project?.path)
+      const state = useAppStore.getState()
+      state.addTerminal(session)
+      state.setActiveTabId(session.id)
+    },
+    separator: true
+  })
 
   const shouldSeparateProjects = items.length > 0 && workspaceProjects.length > 0
   workspaceProjects.forEach((p, i) => {

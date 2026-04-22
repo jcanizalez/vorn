@@ -2,10 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, ChevronDown, Bot, ClipboardList } from 'lucide-react'
-import { AgentType, LaunchAgentType } from '../../shared/types'
+import { AiAgentType, LaunchAgentType } from '../../shared/types'
 import { AgentIcon } from './AgentIcon'
 
-const AGENT_LABELS: Record<AgentType, string> = {
+const AGENT_LABELS: Record<AiAgentType, string> = {
   claude: 'Claude',
   copilot: 'Copilot',
   codex: 'Codex',
@@ -23,7 +23,7 @@ export function AgentPicker({
 }: {
   currentAgent: LaunchAgentType | null
   onChange: (agent: LaunchAgentType | null) => void
-  installStatus: Record<AgentType, boolean>
+  installStatus: Record<AiAgentType, boolean>
   variant?: 'compact' | 'form'
   allowNone?: boolean
   allowFromTask?: boolean
@@ -72,7 +72,7 @@ export function AgentPicker({
     }
   }, [open])
 
-  const agents = Object.keys(AGENT_LABELS) as AgentType[]
+  const agents = Object.keys(AGENT_LABELS) as AiAgentType[]
 
   return (
     <>

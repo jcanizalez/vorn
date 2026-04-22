@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
-import { WorkflowExecution, WorkflowNode, TaskConfig, AgentType } from '../../../../shared/types'
+import { WorkflowExecution, WorkflowNode, TaskConfig, AiAgentType } from '../../../../shared/types'
 import { RunEntry } from '../RunEntry'
 import { LogReplayModal } from '../../LogReplayModal'
 
@@ -12,7 +12,7 @@ interface Props {
   onClickTask?: (taskId: string) => void
   onResumeSession?: (
     agentSessionId: string,
-    agentType: AgentType,
+    agentType: AiAgentType,
     projectName: string,
     projectPath: string,
     branch?: string,

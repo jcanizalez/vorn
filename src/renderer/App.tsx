@@ -44,10 +44,10 @@ import { TaskDetailPanel } from './components/TaskDetailPanel'
 import { KeyboardShortcutsPanel } from './components/KeyboardShortcutsPanel'
 import { MissedScheduleDialog } from './components/MissedScheduleDialog'
 import { OnboardingModal } from './components/OnboardingModal'
-import { TerminalPanel } from './components/TerminalPanel'
 import { UpdateBanner } from './components/UpdateBanner'
 import { ToastContainer } from './components/Toast'
 import { AddTaskDialog } from './components/AddTaskDialog'
+import { GridContextMenu } from './components/GridContextMenu'
 import { isWeb } from './lib/platform'
 import { useIsMobile } from './hooks/useIsMobile'
 import { resolveResumeSessionId, buildRestorePayload } from './lib/session-utils'
@@ -113,7 +113,6 @@ export function App() {
     isSettingsOpen,
     isShortcutsPanelOpen,
     isOnboardingOpen,
-    isTerminalPanelOpen,
     isWorkflowEditorOpen,
     layoutMode,
     mainViewMode,
@@ -128,7 +127,6 @@ export function App() {
       isSettingsOpen: s.isSettingsOpen,
       isShortcutsPanelOpen: s.isShortcutsPanelOpen,
       isOnboardingOpen: s.isOnboardingOpen,
-      isTerminalPanelOpen: s.isTerminalPanelOpen,
       isWorkflowEditorOpen: s.isWorkflowEditorOpen,
       layoutMode: s.config?.defaults?.layoutMode ?? 'grid',
       mainViewMode: s.config?.defaults?.mainViewMode ?? 'sessions',
@@ -138,9 +136,9 @@ export function App() {
   )
   const setDialogOpen = useAppStore((s) => s.setNewAgentDialogOpen)
   const toggleSidebar = useAppStore((s) => s.toggleSidebar)
-  const toggleTerminalPanel = useAppStore((s) => s.toggleTerminalPanel)
   const setMainViewMode = useAppStore((s) => s.setMainViewMode)
   const [recentOpen, setRecentOpen] = useState(false)
+  const [topPlusMenuPos, setTopPlusMenuPos] = useState<{ x: number; y: number } | null>(null)
   const isMobile = useIsMobile()
 
   // On mobile, auto-close sidebar on initial load
@@ -200,8 +198,14 @@ export function App() {
           if (config.defaults.reopenSessions) {
             // Auto-restore sessions — prefer hook-correlated session ID (exact),
             // fall back to scanning agent history when hooks weren't active.
+            // Shells restore as fresh PTYs in their saved cwd (no resume concept).
             const claimed = new Set<string>()
             for (const s of prev) {
+              if (s.agentType === 'shell') {
+                const session = await window.api.createShellTerminal(s.projectPath)
+                useAppStore.getState().addTerminal(session)
+                continue
+              }
               const resumeSessionId = await resolveResumeSessionId(s, claimed)
               if (resumeSessionId) claimed.add(resumeSessionId)
               const session = await window.api.createTerminal(
@@ -238,16 +242,13 @@ export function App() {
         return
       }
 
-      // If it's a shell tab, remove it; otherwise update agent status
-      if (state.shellTabs.some((t) => t.id === id)) {
-        state.removeShellTab(id)
-      } else {
-        const terminal = state.terminals.get(id)
-        if (!terminal) return
+      const terminal = state.terminals.get(id)
+      if (!terminal) return
 
-        state.updateStatus(id, 'idle')
+      state.updateStatus(id, 'idle')
 
-        // Move assigned task to review when agent exits
+      // Agent-only: move assigned task to review when the agent PTY exits.
+      if (terminal.session.agentType !== 'shell') {
         const assignedTask = (state.config?.tasks || []).find(
           (t) => t.assignedSessionId === id && t.status === 'in_progress'
         )
@@ -513,28 +514,6 @@ export function App() {
                 {!isMobile && (
                   <>
                     <div className="w-px h-4 bg-white/[0.06] mx-0.5" />
-                    <Tooltip label="Terminal panel" shortcut="Ctrl+`" position="bottom">
-                      <button
-                        onClick={toggleTerminalPanel}
-                        className={`p-1 rounded-md transition-colors ${
-                          isTerminalPanelOpen
-                            ? 'text-white bg-white/[0.1]'
-                            : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
-                        }`}
-                      >
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                        >
-                          <polyline points="4 17 10 11 4 5" />
-                          <line x1="12" y1="19" x2="20" y2="19" />
-                        </svg>
-                      </button>
-                    </Tooltip>
                     <div className="relative flex items-center">
                       <Tooltip label="Recent sessions" position="bottom">
                         <button
@@ -571,7 +550,14 @@ export function App() {
                     position="bottom"
                   >
                     <button
-                      onClick={() => setDialogOpen(true)}
+                      onClick={(e) => {
+                        if (topPlusMenuPos) {
+                          setTopPlusMenuPos(null)
+                          return
+                        }
+                        const rect = e.currentTarget.getBoundingClientRect()
+                        setTopPlusMenuPos({ x: rect.right - 220, y: rect.bottom + 4 })
+                      }}
                       className="p-1 text-gray-400 hover:text-white hover:bg-white/[0.06] rounded-md transition-colors"
                     >
                       <Plus size={16} strokeWidth={2} />
@@ -582,33 +568,6 @@ export function App() {
             ) : (
               <>
                 {!isMobile && <TaskToolbar />}
-                {!isMobile && (
-                  <>
-                    <div className="w-px h-4 bg-white/[0.06] mx-0.5" />
-                    <Tooltip label="Terminal panel" shortcut="Ctrl+`" position="bottom">
-                      <button
-                        onClick={toggleTerminalPanel}
-                        className={`p-1 rounded-md transition-colors ${
-                          isTerminalPanelOpen
-                            ? 'text-white bg-white/[0.1]'
-                            : 'text-gray-400 hover:text-white hover:bg-white/[0.06]'
-                        }`}
-                      >
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                        >
-                          <polyline points="4 17 10 11 4 5" />
-                          <line x1="12" y1="19" x2="20" y2="19" />
-                        </svg>
-                      </button>
-                    </Tooltip>
-                  </>
-                )}
                 {isMobile ? (
                   <button
                     onClick={() => useAppStore.getState().setTaskDialogOpen(true)}
@@ -657,7 +616,6 @@ export function App() {
           {mainViewMode === 'tasks' && selectedTaskId && <TaskDetailPanel />}
           {mainViewMode === 'sessions' && !isMobile && diffSidebarTerminalId && <RightPanel />}
         </div>
-        <TerminalPanel />
         {isMobile && <MobileBottomTabs hidden={keyboardHeight > 0} />}
       </main>
 
@@ -667,6 +625,9 @@ export function App() {
       <TerminalHost />
 
       <PromptLauncher mode="overlay" onClose={() => setDialogOpen(false)} />
+      {topPlusMenuPos && (
+        <GridContextMenu position={topPlusMenuPos} onClose={() => setTopPlusMenuPos(null)} />
+      )}
       <AddProjectDialog />
       {isWorkflowEditorOpen && (
         <Suspense fallback={null}>

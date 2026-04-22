@@ -1,7 +1,7 @@
 import { useAppStore } from '../../stores'
 import { AGENT_LIST } from '../../lib/agent-definitions'
 import { AgentIcon } from '../AgentIcon'
-import { AgentType } from '../../../shared/types'
+import { AiAgentType } from '../../../shared/types'
 import { useAgentInstallStatus } from '../../hooks/useAgentInstallStatus'
 import { isElectron } from '../../lib/platform'
 import { SettingsPageHeader } from './SettingsPageHeader'
@@ -41,7 +41,7 @@ export function GeneralSettings() {
                 <button
                   key={agent.type}
                   onClick={() =>
-                    installed && updateDefaults({ defaultAgent: agent.type as AgentType })
+                    installed && updateDefaults({ defaultAgent: agent.type as AiAgentType })
                   }
                   disabled={!installed}
                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs transition-colors ${

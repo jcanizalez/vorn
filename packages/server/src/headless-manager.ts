@@ -3,7 +3,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import { EventEmitter } from 'node:events'
 import {
-  AgentType,
+  AiAgentType,
   AgentCommandConfig,
   CreateTerminalPayload,
   HeadlessSession,
@@ -40,14 +40,14 @@ class HeadlessManager extends EventEmitter {
   private processes = new Map<string, ChildProcess>()
   private sessions = new Map<string, HeadlessSession>()
   private outputBuffers = new Map<string, string[]>()
-  private agentCommands: Record<AgentType, AgentCommandConfig> = { ...DEFAULT_AGENT_COMMANDS }
+  private agentCommands: Record<AiAgentType, AgentCommandConfig> = { ...DEFAULT_AGENT_COMMANDS }
 
-  setAgentCommands(overrides?: Partial<Record<AgentType, AgentCommandConfig>>): void {
+  setAgentCommands(overrides?: Partial<Record<AiAgentType, AgentCommandConfig>>): void {
     this.agentCommands = { ...DEFAULT_AGENT_COMMANDS }
     if (overrides) {
       for (const [key, val] of Object.entries(overrides)) {
         if (val) {
-          this.agentCommands[key as AgentType] = val
+          this.agentCommands[key as AiAgentType] = val
         }
       }
     }

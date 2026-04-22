@@ -6,6 +6,7 @@ import { SortMode, StatusFilter } from '../stores/types'
 import { AGENT_DEFINITIONS, AGENT_LIST } from '../lib/agent-definitions'
 import { AgentIcon } from './AgentIcon'
 import { getDisplayName } from '../lib/terminal-display'
+import { resolveActiveProject } from '../lib/session-utils'
 import {
   formatRecentSessionActivity,
   resolveProjectName,
@@ -127,7 +128,7 @@ function useCommands(
   const setMainViewMode = useAppStore((s) => s.setMainViewMode)
   const setTaskDialogOpen = useAppStore((s) => s.setTaskDialogOpen)
   const setOnboardingOpen = useAppStore((s) => s.setOnboardingOpen)
-  const toggleTerminalPanel = useAppStore((s) => s.toggleTerminalPanel)
+  const setActiveTabId = useAppStore((s) => s.setActiveTabId)
 
   return useMemo(() => {
     const commands: Command[] = []
@@ -228,12 +229,18 @@ function useCommands(
       onExecute: () => setOnboardingOpen(true)
     })
     commands.push({
-      id: 'action:toggle-terminal-panel',
-      label: 'Toggle Terminal Panel',
+      id: 'action:new-terminal',
+      label: 'New Terminal Session',
       category: 'actions',
       icon: <Terminal size={14} strokeWidth={1.5} />,
-      keywords: ['shell', 'terminal', 'panel', 'bottom'],
-      onExecute: () => toggleTerminalPanel()
+      shortcutDisplay: 'Ctrl+`',
+      keywords: ['shell', 'terminal', 'zsh', 'bash'],
+      onExecute: async () => {
+        const project = resolveActiveProject()
+        const session = await window.api.createShellTerminal(project?.path)
+        addTerminal(session)
+        setActiveTabId(session.id)
+      }
     })
     commands.push({
       id: 'action:copy-mcp-url',
@@ -258,13 +265,15 @@ function useCommands(
     // --- Terminals ---
     for (const [id, term] of terminals) {
       const name = getDisplayName(term.session)
-      const agentDef = AGENT_DEFINITIONS[term.session.agentType]
+      const agentType = term.session.agentType
+      const agentDef = agentType === 'shell' ? null : AGENT_DEFINITIONS[agentType]
+      const kindLabel = agentDef?.displayName ?? 'Shell'
       commands.push({
         id: `terminal:${id}`,
         label: name,
         category: 'terminals',
-        icon: <AgentIcon agentType={term.session.agentType} size={14} />,
-        keywords: [agentDef.displayName, term.session.projectName, term.status],
+        icon: <AgentIcon agentType={agentType} size={14} />,
+        keywords: [kindLabel, term.session.projectName, term.status],
         onExecute: () => setFocusedTerminal(id)
       })
     }
@@ -442,7 +451,7 @@ function useCommands(
     setMainViewMode,
     setTaskDialogOpen,
     setOnboardingOpen,
-    toggleTerminalPanel
+    setActiveTabId
   ])
 }
 

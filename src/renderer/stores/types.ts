@@ -1,6 +1,6 @@
 import {
   AgentStatus,
-  AgentType,
+  AiAgentType,
   AppConfig,
   ProjectConfig,
   WorkflowDefinition,
@@ -145,11 +145,7 @@ export interface UISlice {
   isTaskDialogOpen: boolean
   taskDialogDefaultStatus: TaskStatus
   editingTask: TaskConfig | null
-  isTerminalPanelOpen: boolean
-  terminalPanelHeight: number
   activeTabId: string | null
-  shellTabs: { id: string; title: string }[]
-  activeShellTab: string | null
   setActiveWorkspace: (id: string) => void
   setFocusedTerminal: (id: string | null) => void
   setSelectedTerminal: (id: string | null) => void
@@ -188,13 +184,7 @@ export interface UISlice {
   setTaskStatusFilter: (filter: TaskStatusFilter) => void
   setTaskDialogOpen: (open: boolean, defaultStatus?: TaskStatus) => void
   setEditingTask: (task: TaskConfig | null) => void
-  toggleTerminalPanel: () => void
-  setTerminalPanelHeight: (height: number) => void
   setActiveTabId: (id: string | null) => void
-  addShellTab: (tab: { id: string; title: string }) => void
-  removeShellTab: (id: string) => void
-  setActiveShellTab: (id: string | null) => void
-  renameShellTab: (id: string, title: string) => void
   workflowExecutions: Map<string, WorkflowExecution>
   setWorkflowExecution: (id: string, execution: WorkflowExecution) => void
   updateVersion: string | null
@@ -223,7 +213,7 @@ export interface TasksSlice {
   removeTask: (id: string) => void
   updateTask: (id: string, updates: Partial<TaskConfig>) => void
   reorderTask: (id: string, newOrder: number) => void
-  startTask: (id: string, sessionId: string, agentType: AgentType, worktreePath?: string) => void
+  startTask: (id: string, sessionId: string, agentType: AiAgentType, worktreePath?: string) => void
   completeTask: (id: string) => void
   reviewTask: (id: string) => void
   cancelTask: (id: string) => void
