@@ -40,6 +40,7 @@ export function WorkflowItem({
 }) {
   const setEditingWorkflowId = useAppStore((s) => s.setEditingWorkflowId)
   const setWorkflowEditorOpen = useAppStore((s) => s.setWorkflowEditorOpen)
+  const isSelected = useAppStore((s) => s.editingWorkflowId === workflow.id)
   const moreRef = useRef<HTMLButtonElement>(null)
 
   const WfIcon = ICON_MAP[workflow.icon] || Zap
@@ -77,10 +78,13 @@ export function WorkflowItem({
         onContextMenu(e, workflow.id)
       }}
       title={isCollapsed ? workflow.name : undefined}
-      className={`group/wf w-full text-left px-2 py-1.5 rounded-md text-[13px] flex items-center gap-2 min-w-0 transition-colors text-gray-300 hover:text-white hover:bg-white/[0.04] ${
-        isDisabled ? 'opacity-40' : ''
-      } ${isCollapsed ? 'justify-center px-0' : ''}`}
+      className={`group/wf relative w-full text-left px-2 py-1.5 rounded-md text-[13px] flex items-center gap-2 min-w-0 transition-colors ${
+        isSelected ? 'text-white' : 'text-gray-300 hover:text-white hover:bg-white/[0.04]'
+      } ${isDisabled ? 'opacity-40' : ''} ${isCollapsed ? 'justify-center px-0' : ''}`}
     >
+      {isSelected && !isCollapsed && (
+        <span className="absolute left-0 top-1 bottom-1 w-px bg-white rounded-full" />
+      )}
       <span className="relative shrink-0">
         <WfIcon size={iconSize} color={workflow.iconColor || '#6b7280'} strokeWidth={1.5} />
         {dot && !isCollapsed && (
