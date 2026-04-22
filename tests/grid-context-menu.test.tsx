@@ -73,7 +73,7 @@ beforeEach(() => {
 describe('GridContextMenu', () => {
   it('renders smart quick-launch with active project name', () => {
     render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
-    expect(screen.getByText('New agent session')).toBeInTheDocument()
+    expect(screen.getByText('New session')).toBeInTheDocument()
   })
 
   it('renders every workspace project as a top-level item', () => {
@@ -99,7 +99,7 @@ describe('GridContextMenu', () => {
     render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
 
     // Quick launch should show generic agent session label
-    expect(screen.getByText('New agent session')).toBeInTheDocument()
+    expect(screen.getByText('New session')).toBeInTheDocument()
 
     // Projects are now top-level items, no "New session from..." wrapper
     expect(screen.queryByText('New session from...')).not.toBeInTheDocument()
@@ -253,7 +253,7 @@ describe('GridContextMenu', () => {
     const onClose = vi.fn()
     render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={onClose} />)
 
-    fireEvent.click(screen.getByText('New agent session'))
+    fireEvent.click(screen.getByText('New session'))
 
     expect(onClose).toHaveBeenCalled()
     expect(mockCreateTerminal).toHaveBeenCalledWith(
@@ -279,7 +279,7 @@ describe('GridContextMenu', () => {
     fireEvent.mouseEnter(screen.getByText('OtherApp').closest('button')!)
 
     // Submenu should contain the quick actions
-    const submenuAgentBtns = screen.getAllByText('New agent session')
+    const submenuAgentBtns = screen.getAllByText('New session')
     expect(submenuAgentBtns.length).toBeGreaterThanOrEqual(1)
   })
 
@@ -300,8 +300,8 @@ describe('GridContextMenu', () => {
 
     render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
 
-    // Should show generic "New agent session" without project name
-    expect(screen.getByText('New agent session')).toBeInTheDocument()
+    // Should show generic "New session" without project name
+    expect(screen.getByText('New session')).toBeInTheDocument()
   })
 
   it('calls onClose on click outside', () => {

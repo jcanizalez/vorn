@@ -131,10 +131,10 @@ export function GridContextMenu({ position, onClose }: Props) {
 
     const subs: SubmenuItem[] = []
 
-    // Quick actions at the top: agent + terminal for this project
+    // Quick actions at the top: session + terminal for this project
     subs.push({
       iconElement: <AgentIcon agentType={defaultAgent} size={12} />,
-      label: 'New agent session',
+      label: 'New session',
       onClick: () => createSession(p)
     })
     subs.push({
@@ -155,6 +155,14 @@ export function GridContextMenu({ position, onClose }: Props) {
           createSession(p, { branch: mainWt.branch, existingWorktreePath: mainWt.path }),
         separator: true
       })
+      subs.push({
+        iconElement: <Terminal size={10} className="text-gray-500" />,
+        label: `Terminal in ${mainWt.branch}`,
+        onClick: () => {
+          onClose()
+          void createShellInProject(mainWt.path)
+        }
+      })
     }
     nonMain.forEach((wt, i) => {
       subs.push({
@@ -162,7 +170,15 @@ export function GridContextMenu({ position, onClose }: Props) {
         label: formatLabel(wt),
         detail: formatDetail(wt.path),
         onClick: () => createSession(p, { branch: wt.branch, existingWorktreePath: wt.path }),
-        separator: i === 0 && mainWt === undefined
+        separator: i === 0
+      })
+      subs.push({
+        iconElement: <Terminal size={10} className="text-gray-500" />,
+        label: `Terminal in ${wt.name}`,
+        onClick: () => {
+          onClose()
+          void createShellInProject(wt.path)
+        }
       })
     })
     subs.push({
@@ -176,11 +192,11 @@ export function GridContextMenu({ position, onClose }: Props) {
 
   const items: MenuItem[] = []
 
-  // Quick launch: agent session in active project/worktree
+  // Quick launch: session in active project/worktree
   if (project) {
     items.push({
       iconElement: <AgentIcon agentType={defaultAgent} size={14} />,
-      label: 'New agent session',
+      label: 'New session',
       className: 'text-white font-medium',
       onClick: () =>
         activeWorktreePath
@@ -193,7 +209,7 @@ export function GridContextMenu({ position, onClose }: Props) {
   } else {
     items.push({
       iconElement: <AgentIcon agentType={defaultAgent} size={14} />,
-      label: 'New agent session',
+      label: 'New session',
       className: 'text-white font-medium',
       onClick: () => {
         onClose()
