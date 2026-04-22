@@ -53,7 +53,7 @@ export function BackgroundTray({
   const isGrid = variant === 'grid'
 
   return (
-    <div className={isGrid ? 'px-4 pt-4 mb-4' : 'shrink-0 px-3 py-2 border-b border-white/[0.06]'}>
+    <div className={isGrid ? 'mb-4' : 'shrink-0 px-3 py-2 border-b border-white/[0.06]'}>
       <button
         type="button"
         className={`flex items-center gap-1.5 w-full text-left cursor-pointer group ${isGrid ? 'px-1 mb-2' : 'mb-1.5'}`}

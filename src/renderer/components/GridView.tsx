@@ -168,13 +168,15 @@ export const GridView = memo(function GridView() {
       onContextMenu={handleGridContextMenu}
     >
       {/* Background tray: headless + minimized */}
-      <BackgroundTray
-        headlessSessions={filteredHeadless}
-        minimizedIds={minimizedIds}
-        waitingApprovals={waitingApprovals}
-        variant="grid"
-        hasItemsBelow={orderedIds.length > 0}
-      />
+      <div className="px-4 pt-4">
+        <BackgroundTray
+          headlessSessions={filteredHeadless}
+          minimizedIds={minimizedIds}
+          waitingApprovals={waitingApprovals}
+          variant="grid"
+          hasItemsBelow={orderedIds.length > 0}
+        />
+      </div>
 
       {orderedIds.length === 0 && filteredHeadless.length === 0 && minimizedIds.length === 0 ? (
         isFiltered ? (
