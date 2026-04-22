@@ -71,12 +71,6 @@ beforeEach(() => {
 })
 
 describe('GridContextMenu', () => {
-  it('renders segmented toggle with Session and Terminal options', () => {
-    render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
-    expect(screen.getByText('Session')).toBeInTheDocument()
-    expect(screen.getByText('Terminal')).toBeInTheDocument()
-  })
-
   it('renders quick-launch row with active project name', () => {
     render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
     expect(screen.getByText('New in Vorn')).toBeInTheDocument()
@@ -93,7 +87,16 @@ describe('GridContextMenu', () => {
     expect(screen.getByText('New session...')).toBeInTheDocument()
   })
 
-  it('quick-launch creates agent session by default (Session mode)', async () => {
+  it('each row has dual session and terminal action buttons', () => {
+    render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
+    const sessionBtns = screen.getAllByTitle('New session')
+    const terminalBtns = screen.getAllByTitle('New terminal')
+    // Quick-launch row + 2 project rows = 3 pairs
+    expect(sessionBtns.length).toBeGreaterThanOrEqual(2)
+    expect(terminalBtns.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('session button on quick-launch creates agent session', async () => {
     mockCreateTerminal.mockResolvedValue({
       id: 'new-term',
       session: {
@@ -109,7 +112,8 @@ describe('GridContextMenu', () => {
     const onClose = vi.fn()
     render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={onClose} />)
 
-    fireEvent.click(screen.getByText('New in Vorn'))
+    const sessionBtns = screen.getAllByTitle('New session')
+    fireEvent.click(sessionBtns[0])
 
     expect(onClose).toHaveBeenCalled()
     expect(mockCreateTerminal).toHaveBeenCalledWith(
@@ -121,7 +125,7 @@ describe('GridContextMenu', () => {
     )
   })
 
-  it('switching to Terminal mode makes quick-launch create a shell', async () => {
+  it('terminal button on quick-launch creates a shell', async () => {
     const shellSession = {
       id: 'sh-1',
       agentType: 'shell' as const,
@@ -142,10 +146,8 @@ describe('GridContextMenu', () => {
     const onClose = vi.fn()
     render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={onClose} />)
 
-    // Switch to terminal mode
-    fireEvent.click(screen.getByText('Terminal'))
-    // Click quick-launch
-    fireEvent.click(screen.getByText('New in Vorn'))
+    const terminalBtns = screen.getAllByTitle('New terminal')
+    fireEvent.click(terminalBtns[0])
     await new Promise((r) => setTimeout(r, 0))
 
     expect(onClose).toHaveBeenCalled()
@@ -154,37 +156,22 @@ describe('GridContextMenu', () => {
     expect(setActiveTabId).toHaveBeenCalledWith('sh-1')
   })
 
-  it('Terminal mode also applies to project row clicks', async () => {
-    const shellSession = {
-      id: 'sh-2',
-      agentType: 'shell' as const,
-      projectName: 'otherapp',
-      projectPath: '/tmp/otherapp',
-      status: 'running' as const,
-      createdAt: Date.now(),
-      pid: 1,
-      displayName: 'Shell 2'
-    }
-    mockCreateShellTerminal.mockResolvedValue(shellSession)
+  it('shows worktree submenu on hover over project item', () => {
+    const cache = new Map()
+    cache.set('/tmp/vorn', [
+      { path: '/tmp/wt/feat-a', branch: 'feat-a', isMain: false, name: 'feat-a' },
+      { path: '/tmp/wt/feat-b', branch: 'feat-b', isMain: false, name: 'feat-b' }
+    ])
+    useAppStore.setState({ worktreeCache: cache })
 
-    const addTerminal = vi.fn()
-    const setActiveTabId = vi.fn()
-    useAppStore.setState({ addTerminal, setActiveTabId })
-
-    const onClose = vi.fn()
-    render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={onClose} />)
-
-    fireEvent.click(screen.getByText('Terminal'))
-    fireEvent.click(screen.getByText('OtherApp'))
-    await new Promise((r) => setTimeout(r, 0))
-
-    expect(onClose).toHaveBeenCalled()
-    expect(mockCreateShellTerminal).toHaveBeenCalledWith('/tmp/otherapp')
-  })
-
-  it('no submenus are rendered — menu is flat', () => {
     render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
-    expect(screen.queryByText('New worktree')).not.toBeInTheDocument()
+
+    const vornItem = screen.getByText('Vorn')
+    fireEvent.mouseEnter(vornItem.closest('div[class*="group/row"]')!)
+
+    expect(screen.getByText('feat-a')).toBeInTheDocument()
+    expect(screen.getByText('feat-b')).toBeInTheDocument()
+    expect(screen.getByText('New worktree')).toBeInTheDocument()
   })
 
   it('calls onClose on click outside', () => {
