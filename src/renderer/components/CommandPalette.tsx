@@ -6,8 +6,8 @@ import { SortMode, StatusFilter } from '../stores/types'
 import { AGENT_DEFINITIONS, AGENT_LIST } from '../lib/agent-definitions'
 import { AgentIcon } from './AgentIcon'
 import { getDisplayName } from '../lib/terminal-display'
-import { resolveActiveProject } from '../lib/session-utils'
 import {
+  resolveActiveProject,
   formatRecentSessionActivity,
   resolveProjectName,
   createSessionFromProject,

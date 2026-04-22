@@ -9,7 +9,9 @@ import { AgentIcon } from './AgentIcon'
 import {
   resolveActiveProject,
   createSessionFromProject,
-  createShellInProject
+  createShellInProject,
+  countSessionsByWorktree,
+  formatSessionCount
 } from '../lib/session-utils'
 import { useWorkspaceProjects } from '../hooks/useWorkspaceProjects'
 
@@ -114,77 +116,58 @@ export function GridContextMenu({ position, onClose }: Props) {
     void createSessionFromProject(p, opts)
   }
 
-  // Build a grouped list of project + worktree targets for "in…" submenus
   const buildScopedSubmenu = (mode: 'session' | 'terminal'): SubmenuItem[] => {
     const subs: SubmenuItem[] = []
+    const sessionCountByPath = countSessionsByWorktree(terminals.values())
+    const onClickFor = (p: ProjectConfig, wtPath?: string, branch?: string): (() => void) => {
+      if (mode === 'session') {
+        return () =>
+          wtPath ? createSession(p, { branch, existingWorktreePath: wtPath }) : createSession(p)
+      }
+      return () => {
+        onClose()
+        void createShellInProject(wtPath ?? p.path)
+      }
+    }
+
     for (const p of workspaceProjects) {
       const worktrees = worktreeCache.get(p.path)
       const mainWt = worktrees?.find((wt) => wt.isMain)
       const nonMain = (worktrees ?? []).filter((wt) => !wt.isMain)
-      const sessionCountByPath = new Map<string, number>()
-      for (const [, t] of terminals) {
-        const wtPath = t.session.worktreePath
-        if (wtPath) sessionCountByPath.set(wtPath, (sessionCountByPath.get(wtPath) ?? 0) + 1)
-      }
-      const formatDetail = (path: string): string => {
-        const count = sessionCountByPath.get(path) ?? 0
-        return count > 0 ? `${count} session${count > 1 ? 's' : ''}` : ''
-      }
-
       const hasWorktrees = mainWt || nonMain.length > 0
 
       if (!hasWorktrees) {
-        // Non-git project — clickable row (no header needed)
         subs.push({
           iconElement: <ProjectIcon icon={p.icon} color={p.iconColor} size={12} />,
           label: p.name,
-          onClick:
-            mode === 'session'
-              ? () => createSession(p)
-              : () => {
-                  onClose()
-                  void createShellInProject(p.path)
-                },
+          onClick: onClickFor(p),
           separator: subs.length > 0
         })
-      } else {
-        // Project group header (non-clickable label)
-        subs.push({
-          iconElement: <ProjectIcon icon={p.icon} color={p.iconColor} size={12} />,
-          label: p.name,
-          isHeader: true,
-          separator: subs.length > 0
-        })
+        continue
+      }
 
-        if (mainWt) {
-          subs.push({
-            iconElement: <GitBranch size={12} className="text-gray-400" />,
-            label: mainWt.branch,
-            detail: formatDetail(mainWt.path),
-            onClick:
-              mode === 'session'
-                ? () =>
-                    createSession(p, { branch: mainWt.branch, existingWorktreePath: mainWt.path })
-                : () => {
-                    onClose()
-                    void createShellInProject(mainWt.path)
-                  }
-          })
-        }
-        for (const wt of nonMain) {
-          subs.push({
-            iconElement: <FolderGit2 size={12} className="text-amber-400/70" />,
-            label: wt.name,
-            detail: formatDetail(wt.path),
-            onClick:
-              mode === 'session'
-                ? () => createSession(p, { branch: wt.branch, existingWorktreePath: wt.path })
-                : () => {
-                    onClose()
-                    void createShellInProject(wt.path)
-                  }
-          })
-        }
+      subs.push({
+        iconElement: <ProjectIcon icon={p.icon} color={p.iconColor} size={12} />,
+        label: p.name,
+        isHeader: true,
+        separator: subs.length > 0
+      })
+
+      if (mainWt) {
+        subs.push({
+          iconElement: <GitBranch size={12} className="text-gray-400" />,
+          label: mainWt.branch,
+          detail: formatSessionCount(sessionCountByPath.get(mainWt.path) ?? 0),
+          onClick: onClickFor(p, mainWt.path, mainWt.branch)
+        })
+      }
+      for (const wt of nonMain) {
+        subs.push({
+          iconElement: <FolderGit2 size={12} className="text-amber-400/70" />,
+          label: wt.name,
+          detail: formatSessionCount(sessionCountByPath.get(wt.path) ?? 0),
+          onClick: onClickFor(p, wt.path, wt.branch)
+        })
       }
     }
     return subs
@@ -192,7 +175,6 @@ export function GridContextMenu({ position, onClose }: Props) {
 
   const items: MenuItem[] = []
 
-  // Quick launch: agent session in active context
   if (project) {
     items.push({
       iconElement: <AgentIcon agentType={defaultAgent} size={14} />,
@@ -218,7 +200,6 @@ export function GridContextMenu({ position, onClose }: Props) {
     })
   }
 
-  // Quick launch: terminal in active context
   items.push({
     iconElement: <Terminal size={14} className="text-gray-400" />,
     label: 'New terminal',
@@ -229,7 +210,6 @@ export function GridContextMenu({ position, onClose }: Props) {
     }
   })
 
-  // "New session in…" submenu — pick project/worktree for agent
   if (workspaceProjects.length > 0) {
     items.push({
       iconElement: <AgentIcon agentType={defaultAgent} size={14} />,
@@ -239,7 +219,6 @@ export function GridContextMenu({ position, onClose }: Props) {
       onSubmenuEnter: () => workspaceProjects.forEach((p) => loadWorktrees(p.path))
     })
 
-    // "New terminal in…" submenu — pick project/worktree for shell
     items.push({
       iconElement: <Terminal size={14} className="text-gray-400" />,
       label: 'New terminal in…',

@@ -108,7 +108,6 @@ export function useKeyboardShortcuts() {
         return
       }
 
-      // Ctrl+` — new shell session in the unified sessions panel
       if (e.ctrlKey && e.key === '`') {
         e.preventDefault()
         const project = resolveActiveProject()

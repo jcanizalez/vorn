@@ -247,7 +247,6 @@ export function App() {
 
       state.updateStatus(id, 'idle')
 
-      // Agent-only: move assigned task to review when the agent PTY exits.
       if (terminal.session.agentType !== 'shell') {
         const assignedTask = (state.config?.tasks || []).find(
           (t) => t.assignedSessionId === id && t.status === 'in_progress'

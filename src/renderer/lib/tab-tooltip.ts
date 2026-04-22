@@ -7,7 +7,6 @@ const STATUS_LABEL: Record<AgentStatus, string> = {
   error: 'Error'
 }
 
-/** Tab hover tooltip — used by TabView. Shells substitute cwd/exit for branch/task. */
 export function buildTooltip(
   displayName: string,
   status: AgentStatus,

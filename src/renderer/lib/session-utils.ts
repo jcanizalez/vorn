@@ -54,6 +54,21 @@ export function formatRecentSessionActivity(
   return `${session.activityCount} ${pluralizeActivityLabel(session.activityLabel, session.activityCount)}`
 }
 
+export function formatSessionCount(count: number): string {
+  return count > 0 ? `${count} session${count > 1 ? 's' : ''}` : ''
+}
+
+export function countSessionsByWorktree(
+  terminals: Iterable<{ session: Pick<TerminalSession, 'worktreePath'> }>
+): Map<string, number> {
+  const counts = new Map<string, number>()
+  for (const t of terminals) {
+    const wtPath = t.session.worktreePath
+    if (wtPath) counts.set(wtPath, (counts.get(wtPath) ?? 0) + 1)
+  }
+  return counts
+}
+
 function isDefined<T>(value: T | undefined): value is T {
   return value !== undefined
 }
@@ -192,10 +207,6 @@ export async function createSessionFromProject(
   state.addTerminal(session)
 }
 
-/**
- * Create a plain shell terminal, optionally scoped to a directory.
- * Shared by the context menu, sidebar buttons, and command palette.
- */
 export async function createShellInProject(cwd?: string): Promise<void> {
   const session = await window.api.createShellTerminal(cwd)
   const state = useAppStore.getState()

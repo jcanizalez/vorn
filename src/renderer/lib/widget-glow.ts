@@ -9,8 +9,7 @@ const GLOW_COLORS: Record<AiAgentType, string> = {
 }
 const SHELL_GLOW = 'rgba(156, 163, 175, 0.35)'
 
-/** Glow color used by the widget's running-agent pulse. Shells get a neutral
- *  grey so they don't borrow AI-agent brand colors. */
+/** Shells use a neutral grey so they don't borrow AI-agent brand colors. */
 export function glowColorForAgent(agentType: AgentType): string {
   return agentType === 'shell' ? SHELL_GLOW : GLOW_COLORS[agentType]
 }

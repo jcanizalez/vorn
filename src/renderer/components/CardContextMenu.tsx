@@ -9,6 +9,7 @@ import { closeTerminalSession } from '../lib/terminal-close'
 import { toast } from './Toast'
 import { getDisplayName } from '../lib/terminal-display'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { countSessionsByWorktree, formatSessionCount } from '../lib/session-utils'
 
 interface Props {
   terminalId: string
@@ -160,16 +161,14 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
   })
 
   const worktreeSubmenuItems: SubmenuItem[] = []
+  const sessionCountByPath = countSessionsByWorktree(terminals.values())
 
   for (const wt of worktrees) {
-    let sessionCount = 0
-    for (const [, t] of terminals) {
-      if (t.session.worktreePath === wt.path) sessionCount++
-    }
+    const sessionCount = sessionCountByPath.get(wt.path) ?? 0
     worktreeSubmenuItems.push({
       iconElement: <FolderGit2 size={12} className="text-amber-400/70" />,
       label: wt.branch,
-      detail: sessionCount > 0 ? `${sessionCount} session${sessionCount > 1 ? 's' : ''}` : 'idle',
+      detail: sessionCount > 0 ? formatSessionCount(sessionCount) : 'idle',
       onClick: async () => {
         onClose()
         const state = useAppStore.getState()

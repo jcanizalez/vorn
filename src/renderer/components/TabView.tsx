@@ -430,7 +430,6 @@ export function TabView() {
           )
         })}
 
-        {/* Unified "+": one button, always opens a menu for New terminal / New agent / templates */}
         <div className="shrink-0 flex items-center">
           <button
             onClick={(e) => {
