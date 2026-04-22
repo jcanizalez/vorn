@@ -71,14 +71,19 @@ beforeEach(() => {
 })
 
 describe('GridContextMenu', () => {
-  it('renders smart quick-launch with active project name', () => {
+  it('renders segmented toggle with Session and Terminal options', () => {
     render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
-    expect(screen.getByText('New session')).toBeInTheDocument()
+    expect(screen.getByText('Session')).toBeInTheDocument()
+    expect(screen.getByText('Terminal')).toBeInTheDocument()
+  })
+
+  it('renders quick-launch row with active project name', () => {
+    render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
+    expect(screen.getByText('New in Vorn')).toBeInTheDocument()
   })
 
   it('renders every workspace project as a top-level item', () => {
     render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
-    // Active project still appears in Projects section in addition to the quick-launch row.
     expect(screen.getByText('Vorn')).toBeInTheDocument()
     expect(screen.getByText('OtherApp')).toBeInTheDocument()
   })
@@ -88,54 +93,7 @@ describe('GridContextMenu', () => {
     expect(screen.getByText('New session...')).toBeInTheDocument()
   })
 
-  it('does not show old flat "New session in worktree" label', () => {
-    render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
-    expect(screen.queryByText('New session in worktree')).not.toBeInTheDocument()
-  })
-
-  it('shows projects list in All Projects view', () => {
-    useAppStore.setState({ activeProject: null })
-
-    render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
-
-    // Quick launch should show generic agent session label
-    expect(screen.getByText('New session')).toBeInTheDocument()
-
-    // Projects are now top-level items, no "New session from..." wrapper
-    expect(screen.queryByText('New session from...')).not.toBeInTheDocument()
-    expect(screen.getByText('Vorn')).toBeInTheDocument()
-    expect(screen.getByText('OtherApp')).toBeInTheDocument()
-  })
-
-  it('clicking a project item creates a session in that project', async () => {
-    mockCreateTerminal.mockResolvedValue({
-      id: 'proj-term',
-      session: {
-        id: 'proj-term',
-        agentType: 'claude',
-        projectName: 'OtherApp',
-        projectPath: '/tmp/otherapp'
-      },
-      status: 'idle',
-      lastOutputTimestamp: Date.now()
-    })
-
-    const onClose = vi.fn()
-    render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={onClose} />)
-
-    fireEvent.click(screen.getByText('OtherApp'))
-
-    expect(onClose).toHaveBeenCalled()
-    expect(mockCreateTerminal).toHaveBeenCalledWith(
-      expect.objectContaining({
-        agentType: 'claude',
-        projectName: 'OtherApp',
-        projectPath: '/tmp/otherapp'
-      })
-    )
-  })
-
-  it('quick-launch creates session with active project', async () => {
+  it('quick-launch creates agent session by default (Session mode)', async () => {
     mockCreateTerminal.mockResolvedValue({
       id: 'new-term',
       session: {
@@ -151,7 +109,7 @@ describe('GridContextMenu', () => {
     const onClose = vi.fn()
     render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={onClose} />)
 
-    fireEvent.click(screen.getByText('New session'))
+    fireEvent.click(screen.getByText('New in Vorn'))
 
     expect(onClose).toHaveBeenCalled()
     expect(mockCreateTerminal).toHaveBeenCalledWith(
@@ -163,24 +121,70 @@ describe('GridContextMenu', () => {
     )
   })
 
-  it('no submenus are rendered — menu is flat', () => {
-    render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
+  it('switching to Terminal mode makes quick-launch create a shell', async () => {
+    const shellSession = {
+      id: 'sh-1',
+      agentType: 'shell' as const,
+      projectName: 'vorn',
+      projectPath: '/tmp/vorn',
+      status: 'running' as const,
+      createdAt: Date.now(),
+      pid: 4321,
+      displayName: 'Shell 1',
+      shellCwd: '/tmp/vorn'
+    }
+    mockCreateShellTerminal.mockResolvedValue(shellSession)
 
-    const vornItem = screen.getByText('Vorn')
-    fireEvent.mouseEnter(vornItem.closest('button')!)
+    const addTerminal = vi.fn()
+    const setActiveTabId = vi.fn()
+    useAppStore.setState({ addTerminal, setActiveTabId })
 
-    // No worktree entries should appear — submenus are removed
-    expect(screen.queryByText('New worktree')).not.toBeInTheDocument()
+    const onClose = vi.fn()
+    render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={onClose} />)
+
+    // Switch to terminal mode
+    fireEvent.click(screen.getByText('Terminal'))
+    // Click quick-launch
+    fireEvent.click(screen.getByText('New in Vorn'))
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(onClose).toHaveBeenCalled()
+    expect(mockCreateShellTerminal).toHaveBeenCalledWith('/tmp/vorn')
+    expect(addTerminal).toHaveBeenCalledWith(shellSession)
+    expect(setActiveTabId).toHaveBeenCalledWith('sh-1')
   })
 
-  it('falls back to opening dialog when no project is resolved', () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    useAppStore.setState({ config: { ...mockConfig, projects: [] } as any, activeProject: null })
+  it('Terminal mode also applies to project row clicks', async () => {
+    const shellSession = {
+      id: 'sh-2',
+      agentType: 'shell' as const,
+      projectName: 'otherapp',
+      projectPath: '/tmp/otherapp',
+      status: 'running' as const,
+      createdAt: Date.now(),
+      pid: 1,
+      displayName: 'Shell 2'
+    }
+    mockCreateShellTerminal.mockResolvedValue(shellSession)
 
+    const addTerminal = vi.fn()
+    const setActiveTabId = vi.fn()
+    useAppStore.setState({ addTerminal, setActiveTabId })
+
+    const onClose = vi.fn()
+    render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={onClose} />)
+
+    fireEvent.click(screen.getByText('Terminal'))
+    fireEvent.click(screen.getByText('OtherApp'))
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(onClose).toHaveBeenCalled()
+    expect(mockCreateShellTerminal).toHaveBeenCalledWith('/tmp/otherapp')
+  })
+
+  it('no submenus are rendered — menu is flat', () => {
     render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
-
-    // Should show generic "New session" without project name
-    expect(screen.getByText('New session')).toBeInTheDocument()
+    expect(screen.queryByText('New worktree')).not.toBeInTheDocument()
   })
 
   it('calls onClose on click outside', () => {
@@ -193,66 +197,5 @@ describe('GridContextMenu', () => {
     )
     fireEvent.pointerDown(screen.getByTestId('outside'))
     expect(onClose).toHaveBeenCalledTimes(1)
-  })
-
-  describe('New terminal item (unified sessions panel)', () => {
-    it('is rendered at the top level', () => {
-      render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
-      expect(screen.getByText('New terminal')).toBeInTheDocument()
-    })
-
-    it('clicking it creates a shell via createShellTerminal in the active project cwd', async () => {
-      const shellSession = {
-        id: 'sh-1',
-        agentType: 'shell' as const,
-        projectName: 'vorn',
-        projectPath: '/tmp/vorn',
-        status: 'running' as const,
-        createdAt: Date.now(),
-        pid: 4321,
-        displayName: 'Shell 1',
-        shellCwd: '/tmp/vorn'
-      }
-      mockCreateShellTerminal.mockResolvedValue(shellSession)
-
-      const addTerminal = vi.fn()
-      const setActiveTabId = vi.fn()
-      useAppStore.setState({ addTerminal, setActiveTabId })
-
-      const onClose = vi.fn()
-      render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={onClose} />)
-
-      fireEvent.click(screen.getByText('New terminal'))
-      // Wait for the async onClick to finish
-      await new Promise((r) => setTimeout(r, 0))
-
-      expect(onClose).toHaveBeenCalled()
-      expect(mockCreateShellTerminal).toHaveBeenCalledWith('/tmp/vorn')
-      expect(addTerminal).toHaveBeenCalledWith(shellSession)
-      expect(setActiveTabId).toHaveBeenCalledWith('sh-1')
-    })
-
-    it('falls back to undefined cwd when there is no active project', async () => {
-      useAppStore.setState({
-        activeProject: null,
-        config: { ...mockConfig, projects: [] } as unknown as typeof mockConfig
-      })
-      mockCreateShellTerminal.mockResolvedValue({
-        id: 'sh-2',
-        agentType: 'shell' as const,
-        projectName: 'shell',
-        projectPath: '/home/user',
-        status: 'running' as const,
-        createdAt: Date.now(),
-        pid: 1,
-        displayName: 'Shell 1'
-      })
-
-      render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
-      fireEvent.click(screen.getByText('New terminal'))
-      await new Promise((r) => setTimeout(r, 0))
-
-      expect(mockCreateShellTerminal).toHaveBeenCalledWith(undefined)
-    })
   })
 })
