@@ -131,7 +131,11 @@ export const AgentCard = memo(
                            : 'border-white/[0.06] hover:border-white/[0.12]'
                    }
                    ${
-                     flexible ? '' : isFocused || isSelected || isDragTarget ? 'z-10' : 'hover:z-10'
+                     flexible
+                       ? ''
+                       : isFocused || isSelected || isDragTarget
+                         ? 'z-10'
+                         : 'hover:z-10 focus-within:z-10'
                    }`}
         style={{
           background: '#1a1a1e'
