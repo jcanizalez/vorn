@@ -232,8 +232,10 @@ export function WorkflowEditor({ inline = false }: { inline?: boolean } = {}) {
 
     if (editingId) {
       updateWorkflow(editingId, workflow)
+      toast.success('Workflow saved')
     } else {
       addWorkflow(workflow)
+      toast.success('Workflow created')
       if (inline) {
         setEditingId(workflow.id)
       }
