@@ -27,6 +27,50 @@ function gateKey(workflowId: string, nodeId: string): string {
   return `${workflowId}:${nodeId}`
 }
 
+function scheduleGateTimeout(
+  workflowId: string,
+  nodeId: string,
+  timeoutMs: number | undefined,
+  execution: WorkflowExecution,
+  elapsedMs = 0
+): void {
+  if (!timeoutMs || timeoutMs <= 0) return
+  const key = gateKey(workflowId, nodeId)
+  const prev = gateTimers.get(key)
+  if (prev) clearTimeout(prev)
+  const remaining = Math.max(0, timeoutMs - elapsedMs)
+  const timer = setTimeout(() => {
+    gateTimers.delete(key)
+    void rejectWorkflowGate(execution, nodeId, `Approval timed out after ${timeoutMs}ms`)
+  }, remaining)
+  gateTimers.set(key, timer)
+}
+
+/**
+ * Re-arm timeout timers for any approval gates that were `waiting` before the
+ * app restarted. Called once after startup hydration; timers elsewhere are set
+ * as gates enter `waiting` for the first time.
+ */
+export function rescheduleWaitingGateTimers(
+  executions: Iterable<WorkflowExecution>,
+  workflows: WorkflowDefinition[]
+): void {
+  const now = Date.now()
+  for (const execution of executions) {
+    const workflow = workflows.find((w) => w.id === execution.workflowId)
+    if (!workflow) continue
+    for (const ns of execution.nodeStates) {
+      if (ns.status !== 'waiting') continue
+      const node = workflow.nodes.find((n) => n.id === ns.nodeId)
+      if (node?.type !== 'approval') continue
+      const timeoutMs = (node.config as ApprovalConfig).timeoutMs
+      if (!timeoutMs || timeoutMs <= 0) continue
+      const startedAt = ns.startedAt ? new Date(ns.startedAt).getTime() : now
+      scheduleGateTimeout(workflow.id, ns.nodeId, timeoutMs, execution, now - startedAt)
+    }
+  }
+}
+
 export interface ExecuteWorkflowOptions {
   source?: 'scheduler' | 'manual'
 }
@@ -154,6 +198,7 @@ async function executeNode(
 
     sendWorkflowGateNotification(
       workflow,
+      node.id,
       node.label,
       config.message,
       useAppStore.getState().config ?? null,
@@ -163,20 +208,7 @@ async function executeNode(
       }
     )
 
-    if (config.timeoutMs && config.timeoutMs > 0) {
-      const key = gateKey(workflow.id, node.id)
-      const prev = gateTimers.get(key)
-      if (prev) clearTimeout(prev)
-      const timer = setTimeout(() => {
-        gateTimers.delete(key)
-        void rejectWorkflowGate(
-          execution,
-          node.id,
-          `Approval timed out after ${config.timeoutMs}ms`
-        )
-      }, config.timeoutMs)
-      gateTimers.set(key, timer)
-    }
+    scheduleGateTimeout(workflow.id, node.id, config.timeoutMs, execution)
     return
   }
 
@@ -556,6 +588,14 @@ export async function executeWorkflow(
     const existing = useAppStore.getState().workflowExecutions.get(workflow.id)
     if (existing) return existing
     throw new Error(`Workflow "${workflow.name}" is already executing`)
+  }
+
+  const pending = useAppStore.getState().workflowExecutions.get(workflow.id)
+  if (pending && pending.nodeStates.some((ns) => ns.status === 'waiting')) {
+    console.warn(
+      `[workflow] skipping execution of "${workflow.name}" — existing run is waiting for approval`
+    )
+    return pending
   }
 
   const execution: WorkflowExecution = {

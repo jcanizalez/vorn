@@ -123,6 +123,7 @@ export function sendAgentNotification(
 
 export function sendWorkflowGateNotification(
   workflow: WorkflowDefinition,
+  nodeId: string,
   nodeLabel: string,
   message: string | undefined,
   config: AppConfig | null,
@@ -133,7 +134,7 @@ export function sendWorkflowGateNotification(
 
   dispatch(
     'waiting',
-    `workflow-gate:${workflow.id}:${nodeLabel}`,
+    `workflow-gate:${workflow.id}:${nodeId}`,
     prefs,
     `${workflow.name} · awaiting approval`,
     message || `${nodeLabel} is waiting for your approval`,

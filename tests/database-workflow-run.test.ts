@@ -39,7 +39,8 @@ describe('workflow run persistence', () => {
           agentSessionId: 'agent-xyz',
           agentType: 'claude',
           projectName: 'proj',
-          projectPath: '/abs/proj'
+          projectPath: '/abs/proj',
+          approvedAt: '2026-04-20T10:00:04Z'
         }
       ]
     }
@@ -52,6 +53,7 @@ describe('workflow run persistence', () => {
     expect(state.projectName).toBe('proj')
     expect(state.projectPath).toBe('/abs/proj')
     expect(state.agentSessionId).toBe('agent-xyz')
+    expect(state.approvedAt).toBe('2026-04-20T10:00:04Z')
   })
 
   it('omits fields that were not set', () => {
