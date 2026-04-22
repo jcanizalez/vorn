@@ -71,9 +71,10 @@ beforeEach(() => {
 })
 
 describe('GridContextMenu', () => {
-  it('renders quick-launch row with active project name', () => {
+  it('renders New session and New terminal rows', () => {
     render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
-    expect(screen.getByText('New in Vorn')).toBeInTheDocument()
+    expect(screen.getByText('New session')).toBeInTheDocument()
+    expect(screen.getByText('New terminal')).toBeInTheDocument()
   })
 
   it('renders every workspace project as a top-level item', () => {
@@ -87,16 +88,7 @@ describe('GridContextMenu', () => {
     expect(screen.getByText('New session...')).toBeInTheDocument()
   })
 
-  it('each row has dual session and terminal action buttons', () => {
-    render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
-    const sessionBtns = screen.getAllByTitle('New session')
-    const terminalBtns = screen.getAllByTitle('New terminal')
-    // Quick-launch row + 2 project rows = 3 pairs
-    expect(sessionBtns.length).toBeGreaterThanOrEqual(2)
-    expect(terminalBtns.length).toBeGreaterThanOrEqual(2)
-  })
-
-  it('session button on quick-launch creates agent session', async () => {
+  it('New session creates agent session in active project', async () => {
     mockCreateTerminal.mockResolvedValue({
       id: 'new-term',
       session: {
@@ -111,9 +103,7 @@ describe('GridContextMenu', () => {
 
     const onClose = vi.fn()
     render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={onClose} />)
-
-    const sessionBtns = screen.getAllByTitle('New session')
-    fireEvent.click(sessionBtns[0])
+    fireEvent.click(screen.getByText('New session'))
 
     expect(onClose).toHaveBeenCalled()
     expect(mockCreateTerminal).toHaveBeenCalledWith(
@@ -125,7 +115,7 @@ describe('GridContextMenu', () => {
     )
   })
 
-  it('terminal button on quick-launch creates a shell', async () => {
+  it('New terminal creates a shell in active project', async () => {
     const shellSession = {
       id: 'sh-1',
       agentType: 'shell' as const,
@@ -145,9 +135,7 @@ describe('GridContextMenu', () => {
 
     const onClose = vi.fn()
     render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={onClose} />)
-
-    const terminalBtns = screen.getAllByTitle('New terminal')
-    fireEvent.click(terminalBtns[0])
+    fireEvent.click(screen.getByText('New terminal'))
     await new Promise((r) => setTimeout(r, 0))
 
     expect(onClose).toHaveBeenCalled()
@@ -167,11 +155,50 @@ describe('GridContextMenu', () => {
     render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
 
     const vornItem = screen.getByText('Vorn')
-    fireEvent.mouseEnter(vornItem.closest('div[class*="group/row"]')!)
+    fireEvent.mouseEnter(vornItem.closest('button')!)
 
     expect(screen.getByText('feat-a')).toBeInTheDocument()
     expect(screen.getByText('feat-b')).toBeInTheDocument()
     expect(screen.getByText('New worktree')).toBeInTheDocument()
+  })
+
+  it('clicking a worktree in the submenu creates session on that worktree', async () => {
+    const cache = new Map()
+    cache.set('/tmp/vorn', [
+      { path: '/tmp/wt/feat-a', branch: 'feat-a', isMain: false, name: 'feat-a' }
+    ])
+    useAppStore.setState({ worktreeCache: cache })
+
+    mockCreateTerminal.mockResolvedValue({
+      id: 'wt-term',
+      session: {
+        id: 'wt-term',
+        agentType: 'claude',
+        projectName: 'Vorn',
+        projectPath: '/tmp/vorn',
+        branch: 'feat-a',
+        worktreePath: '/tmp/wt/feat-a'
+      },
+      status: 'idle',
+      lastOutputTimestamp: Date.now()
+    })
+
+    const onClose = vi.fn()
+    render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={onClose} />)
+
+    fireEvent.mouseEnter(screen.getByText('Vorn').closest('button')!)
+    fireEvent.click(screen.getByText('feat-a'))
+
+    expect(onClose).toHaveBeenCalled()
+    expect(mockCreateTerminal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agentType: 'claude',
+        projectName: 'Vorn',
+        projectPath: '/tmp/vorn',
+        branch: 'feat-a',
+        existingWorktreePath: '/tmp/wt/feat-a'
+      })
+    )
   })
 
   it('calls onClose on click outside', () => {

@@ -22,8 +22,7 @@ interface SubmenuItem {
   iconElement?: React.ReactNode
   label: string
   detail?: string
-  onSession: () => void
-  onTerminal: () => void
+  onClick: () => void
   separator?: boolean
 }
 
@@ -31,8 +30,6 @@ interface MenuItem {
   icon?: React.FC<{ size?: number; className?: string }>
   iconElement?: React.ReactNode
   label: string
-  onSession?: () => void
-  onTerminal?: () => void
   onClick?: () => void
   className?: string
   separator?: boolean
@@ -41,51 +38,12 @@ interface MenuItem {
   onSubmenuEnter?: () => void
 }
 
-const MENU_WIDTH = 240
-const SUBMENU_WIDTH = 240
+const MENU_WIDTH = 220
+const SUBMENU_WIDTH = 220
 
 function estimatePanelHeight(items: { separator?: boolean }[]): number {
   const seps = items.filter((i) => i.separator).length
   return items.length * 32 + seps * 9 + 16
-}
-
-function DualLaunchButtons({
-  defaultAgent,
-  onSession,
-  onTerminal,
-  size = 13
-}: {
-  defaultAgent: AiAgentType
-  onSession: () => void
-  onTerminal: () => void
-  size?: number
-}) {
-  return (
-    <span className="flex items-center gap-0.5 ml-auto shrink-0">
-      <button
-        type="button"
-        title="New session"
-        onClick={(e) => {
-          e.stopPropagation()
-          onSession()
-        }}
-        className="p-0.5 rounded hover:bg-white/[0.12] transition-colors text-gray-500 hover:text-white"
-      >
-        <AgentIcon agentType={defaultAgent} size={size} />
-      </button>
-      <button
-        type="button"
-        title="New terminal"
-        onClick={(e) => {
-          e.stopPropagation()
-          onTerminal()
-        }}
-        className="p-0.5 rounded hover:bg-white/[0.12] transition-colors text-gray-500 hover:text-white"
-      >
-        <Terminal size={size} strokeWidth={1.5} />
-      </button>
-    </span>
-  )
 }
 
 export function GridContextMenu({ position, onClose }: Props) {
@@ -153,11 +111,6 @@ export function GridContextMenu({ position, onClose }: Props) {
     void createSessionFromProject(p, opts)
   }
 
-  const createTerminal = (cwd?: string): void => {
-    onClose()
-    void createShellInProject(cwd)
-  }
-
   const buildWorktreeSubmenu = (p: ProjectConfig): SubmenuItem[] | null => {
     const worktrees = worktreeCache.get(p.path)
     if (!worktrees || worktrees.length === 0) return null
@@ -181,9 +134,8 @@ export function GridContextMenu({ position, onClose }: Props) {
         iconElement: <GitBranch size={12} className="text-gray-400" />,
         label: mainWt.branch,
         detail: formatDetail(mainWt.path),
-        onSession: () =>
-          createSession(p, { branch: mainWt.branch, existingWorktreePath: mainWt.path }),
-        onTerminal: () => createTerminal(mainWt.path)
+        onClick: () =>
+          createSession(p, { branch: mainWt.branch, existingWorktreePath: mainWt.path })
       })
     }
     nonMain.forEach((wt, i) => {
@@ -191,16 +143,14 @@ export function GridContextMenu({ position, onClose }: Props) {
         iconElement: <FolderGit2 size={12} className="text-amber-400/70" />,
         label: formatLabel(wt),
         detail: formatDetail(wt.path),
-        onSession: () => createSession(p, { branch: wt.branch, existingWorktreePath: wt.path }),
-        onTerminal: () => createTerminal(wt.path),
+        onClick: () => createSession(p, { branch: wt.branch, existingWorktreePath: wt.path }),
         separator: i === 0 && mainWt !== undefined
       })
     })
     subs.push({
       iconElement: <Plus size={12} className="text-amber-400/70" />,
       label: 'New worktree',
-      onSession: () => createSession(p, { useWorktree: true }),
-      onTerminal: () => createSession(p, { useWorktree: true }),
+      onClick: () => createSession(p, { useWorktree: true }),
       separator: subs.length > 0
     })
     return subs
@@ -208,35 +158,51 @@ export function GridContextMenu({ position, onClose }: Props) {
 
   const items: MenuItem[] = []
 
-  // Quick launch in active context — dual action row
+  // Quick launch: agent session in active context
   if (project) {
-    const quickLabel = activeWorktreePath
-      ? `New in ${activeWt?.name ?? 'worktree'}`
-      : `New in ${project.name}`
     items.push({
-      iconElement: <ProjectIcon icon={project.icon} color={project.iconColor} size={14} />,
-      label: quickLabel,
+      iconElement: <AgentIcon agentType={defaultAgent} size={14} />,
+      label: 'New session',
       className: 'text-white font-medium',
-      onSession: () =>
+      onClick: () =>
         activeWorktreePath
           ? createSession(project, {
               branch: activeWt?.branch,
               existingWorktreePath: activeWorktreePath
             })
-          : createSession(project),
-      onTerminal: () => createTerminal(activeWorktreePath ?? project.path)
+          : createSession(project)
+    })
+  } else {
+    items.push({
+      iconElement: <AgentIcon agentType={defaultAgent} size={14} />,
+      label: 'New session',
+      className: 'text-white font-medium',
+      onClick: () => {
+        onClose()
+        useAppStore.getState().setNewAgentDialogOpen(true)
+      }
     })
   }
 
-  // Project rows with worktree submenus and dual action buttons
+  // Quick launch: terminal in active context
+  items.push({
+    iconElement: <Terminal size={14} className="text-gray-400" />,
+    label: 'New terminal',
+    onClick: () => {
+      onClose()
+      const cwd = activeWorktreePath ?? project?.path
+      void createShellInProject(cwd)
+    }
+  })
+
+  // Project rows with worktree submenus (click = agent session)
   const shouldSeparateProjects = items.length > 0 && workspaceProjects.length > 0
   workspaceProjects.forEach((p, i) => {
     items.push({
       iconElement: <ProjectIcon icon={p.icon} color={p.iconColor} size={14} />,
       label: p.name,
       separator: i === 0 && shouldSeparateProjects,
-      onSession: () => createSession(p),
-      onTerminal: () => createTerminal(p.path),
+      onClick: () => createSession(p),
       submenuProject: p,
       onSubmenuEnter: () => loadWorktrees(p.path)
     })
@@ -291,14 +257,17 @@ export function GridContextMenu({ position, onClose }: Props) {
       >
         {items.map((item, i) => {
           const itemHasSubmenu = hasSubmenu(item)
-          const hasDualActions = Boolean(item.onSession && item.onTerminal)
           return (
             <div key={i}>
               {item.separator && <div className="border-t border-white/[0.06] my-1" />}
-              <div
+              <button
                 ref={(el) => {
-                  if (el) itemRefs.current.set(i, el as unknown as HTMLButtonElement)
+                  if (el) itemRefs.current.set(i, el)
                   else itemRefs.current.delete(i)
+                }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  item.onClick?.()
                 }}
                 onMouseEnter={() => {
                   if (itemHasSubmenu) {
@@ -312,39 +281,24 @@ export function GridContextMenu({ position, onClose }: Props) {
                 onMouseLeave={() => {
                   if (itemHasSubmenu) scheduleHide()
                 }}
-                className={`group/row w-full flex items-center gap-2.5 px-3 py-1.5 text-xs ${item.className ?? 'text-gray-300'} hover:bg-white/[0.06] transition-colors`}
+                aria-haspopup={itemHasSubmenu ? 'menu' : undefined}
+                aria-expanded={itemHasSubmenu ? hoveredSubmenu === i : undefined}
+                className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-xs ${item.className ?? 'text-gray-300'} hover:bg-white/[0.06] transition-colors`}
               >
                 {item.iconElement ??
                   (item.icon && (
                     <item.icon size={14} className={item.className ?? 'text-gray-500'} />
                   ))}
-                {item.onClick ? (
-                  <button
-                    className="flex-1 text-left truncate"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      item.onClick!()
-                    }}
-                  >
-                    {item.label}
-                  </button>
-                ) : (
-                  <span className="flex-1 text-left truncate">{item.label}</span>
-                )}
+                <span className="flex-1 text-left truncate">{item.label}</span>
                 {item.shortcut && (
                   <span className="text-[10px] text-gray-600 ml-auto shrink-0">
                     {item.shortcut}
                   </span>
                 )}
-                {hasDualActions && !item.onClick && (
-                  <DualLaunchButtons
-                    defaultAgent={defaultAgent}
-                    onSession={item.onSession!}
-                    onTerminal={item.onTerminal!}
-                  />
+                {itemHasSubmenu && (
+                  <ChevronRight size={11} className="text-gray-600 ml-auto shrink-0" />
                 )}
-                {itemHasSubmenu && <ChevronRight size={11} className="text-gray-600 shrink-0" />}
-              </div>
+              </button>
             </div>
           )
         })}
@@ -371,29 +325,27 @@ export function GridContextMenu({ position, onClose }: Props) {
           {activeSubmenu.map((sub, j) => (
             <div key={j}>
               {sub.separator && <div className="border-t border-white/[0.06] my-1" />}
-              <div
+              <button
                 role="menuitem"
-                className="w-full flex items-center gap-2.5 px-3 py-1.5 text-xs text-gray-300
+                onClick={(e) => {
+                  e.stopPropagation()
+                  sub.onClick()
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-gray-300
                            hover:bg-white/[0.06] transition-colors"
               >
                 {sub.iconElement}
                 <span className="flex-1 text-left font-mono truncate">{sub.label}</span>
                 {sub.detail && (
                   <span
-                    className={`text-[10px] shrink-0 ${
+                    className={`text-[10px] ml-auto shrink-0 ${
                       sub.detail !== 'idle' ? 'text-green-400/70' : 'text-gray-600'
                     }`}
                   >
                     {sub.detail}
                   </span>
                 )}
-                <DualLaunchButtons
-                  defaultAgent={defaultAgent}
-                  onSession={sub.onSession}
-                  onTerminal={sub.onTerminal}
-                  size={11}
-                />
-              </div>
+              </button>
             </div>
           ))}
         </motion.div>
