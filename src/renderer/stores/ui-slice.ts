@@ -239,9 +239,12 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
     }),
 
   setMainViewMode: (mode) => {
-    const prevMode = get().mainViewMode
+    const state = get()
+    const config = state.config
+    // mainViewMode is sourced from config.defaults (see ProjectSidebar/SidebarHeader);
+    // the store field isn't synced on setConfig, so compare against config first.
+    const prevMode = config?.defaults?.mainViewMode ?? state.mainViewMode
     if (prevMode === mode) return
-    const config = get().config
     const extra: Record<string, unknown> =
       mode === 'sessions'
         ? {}

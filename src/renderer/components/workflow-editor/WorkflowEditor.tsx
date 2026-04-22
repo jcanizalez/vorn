@@ -198,64 +198,59 @@ export function WorkflowEditor({ inline = false }: { inline?: boolean } = {}) {
     setEditingId(null)
     setSelectedNodeId(null)
     setShowRunHistory(false)
-    if (!inline) setOpen(false)
-  }, [inline, setOpen, setEditingId])
+    setOpen(false)
+  }, [setOpen, setEditingId])
 
   const activeWorkspace = useAppStore((s) => s.activeWorkspace)
 
-  const persistWorkflow = useCallback(
-    (includeLastRun: boolean): WorkflowDefinition => {
-      const workflow: WorkflowDefinition = {
-        id: editingId || crypto.randomUUID(),
-        name,
-        icon,
-        iconColor,
-        nodes,
-        edges,
-        enabled,
-        ...(staggerDelayMs && { staggerDelayMs }),
-        ...(autoCleanupWorktrees && { autoCleanupWorktrees }),
-        ...(includeLastRun &&
-          existingWorkflow?.lastRunAt && { lastRunAt: existingWorkflow.lastRunAt }),
-        ...(includeLastRun &&
-          existingWorkflow?.lastRunStatus && { lastRunStatus: existingWorkflow.lastRunStatus }),
-        workspaceId: existingWorkflow?.workspaceId ?? activeWorkspace
-      }
-      if (editingId) {
-        updateWorkflow(editingId, workflow)
-      } else {
-        addWorkflow(workflow)
-        if (inline) setEditingId(workflow.id)
-      }
-      return workflow
-    },
-    [
-      editingId,
+  const persistWorkflow = useCallback((): WorkflowDefinition => {
+    const workflow: WorkflowDefinition = {
+      id: editingId || crypto.randomUUID(),
       name,
       icon,
       iconColor,
       nodes,
       edges,
       enabled,
-      staggerDelayMs,
-      autoCleanupWorktrees,
-      existingWorkflow,
-      updateWorkflow,
-      addWorkflow,
-      activeWorkspace,
-      inline,
-      setEditingId
-    ]
-  )
+      ...(staggerDelayMs && { staggerDelayMs }),
+      ...(autoCleanupWorktrees && { autoCleanupWorktrees }),
+      ...(existingWorkflow?.lastRunAt && { lastRunAt: existingWorkflow.lastRunAt }),
+      ...(existingWorkflow?.lastRunStatus && { lastRunStatus: existingWorkflow.lastRunStatus }),
+      workspaceId: existingWorkflow?.workspaceId ?? activeWorkspace
+    }
+    if (editingId) {
+      updateWorkflow(editingId, workflow)
+    } else {
+      addWorkflow(workflow)
+      if (inline) setEditingId(workflow.id)
+    }
+    return workflow
+  }, [
+    editingId,
+    name,
+    icon,
+    iconColor,
+    nodes,
+    edges,
+    enabled,
+    staggerDelayMs,
+    autoCleanupWorktrees,
+    existingWorkflow,
+    updateWorkflow,
+    addWorkflow,
+    activeWorkspace,
+    inline,
+    setEditingId
+  ])
 
   const handleSave = useCallback(() => {
-    persistWorkflow(true)
+    persistWorkflow()
     toast.success(editingId ? 'Workflow saved' : 'Workflow created')
     if (!inline) handleClose()
   }, [persistWorkflow, editingId, inline, handleClose])
 
   const handleRun = useCallback(async () => {
-    const workflow = persistWorkflow(false)
+    const workflow = persistWorkflow()
     if (!inline) handleClose()
     await executeWorkflow(workflow)
   }, [persistWorkflow, inline, handleClose])

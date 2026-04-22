@@ -678,6 +678,10 @@ export function App() {
                   </div>
                 )}
               </Suspense>
+            ) : mainViewMode === 'workflows' && isMobile ? (
+              <div className="flex-1 flex items-center justify-center text-gray-500 text-sm px-6 text-center">
+                Open the sidebar to pick a workflow
+              </div>
             ) : isMobile ? (
               <MobileSinglePane />
             ) : focusedId || previewId ? (
@@ -705,7 +709,7 @@ export function App() {
 
       <PromptLauncher mode="overlay" onClose={() => setDialogOpen(false)} />
       <AddProjectDialog />
-      {isWorkflowEditorOpen && mainViewMode !== 'workflows' && (
+      {isWorkflowEditorOpen && (mainViewMode !== 'workflows' || isMobile) && (
         <Suspense fallback={null}>
           <WorkflowEditor />
         </Suspense>

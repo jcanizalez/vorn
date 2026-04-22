@@ -7,7 +7,8 @@ import type { WorkflowDefinition } from '../src/shared/types'
 const mockStore = {
   setEditingWorkflowId: vi.fn(),
   setWorkflowEditorOpen: vi.fn(),
-  workflowExecutions: new Map<string, unknown>()
+  workflowExecutions: new Map<string, unknown>(),
+  editingWorkflowId: null as string | null
 }
 
 vi.mock('../src/renderer/stores', () => ({
@@ -180,5 +181,35 @@ describe('WorkflowItem', () => {
     )
     expect(screen.queryByText('My Workflow')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Run workflow/ })).not.toBeInTheDocument()
+  })
+
+  it('renders a selected indicator bar and white text when the item is the editing target', () => {
+    mockStore.editingWorkflowId = 'w1'
+    const { container } = render(
+      <WorkflowItem
+        workflow={makeManual()}
+        isCollapsed={false}
+        iconSize={14}
+        onContextMenu={vi.fn()}
+      />
+    )
+    const row = container.querySelector('button.group\\/wf') as HTMLElement
+    expect(row.className).toContain('text-white')
+    expect(container.querySelector('span.absolute.left-0')).toBeInTheDocument()
+    mockStore.editingWorkflowId = null
+  })
+
+  it('omits the selected indicator bar when collapsed even if selected', () => {
+    mockStore.editingWorkflowId = 'w1'
+    const { container } = render(
+      <WorkflowItem
+        workflow={makeManual()}
+        isCollapsed={true}
+        iconSize={22}
+        onContextMenu={vi.fn()}
+      />
+    )
+    expect(container.querySelector('span.absolute.left-0')).not.toBeInTheDocument()
+    mockStore.editingWorkflowId = null
   })
 })

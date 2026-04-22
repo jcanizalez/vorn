@@ -185,4 +185,59 @@ describe('WorkflowEditor', () => {
     if (iconButton) fireEvent.click(iconButton)
     expect(container.querySelector('.grid')).toBeInTheDocument()
   })
+
+  it('renders inline in the content area when inline=true', () => {
+    const { container } = render(<WorkflowEditor inline />)
+    const backButton = container.querySelector('svg.lucide-arrow-left')
+    expect(backButton).toBeNull()
+    const saveButton = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Save')
+    )
+    expect(saveButton).toBeDefined()
+  })
+
+  it('updates an existing workflow on save and preserves lastRun metadata', () => {
+    const existing = {
+      id: 'w1',
+      name: 'Existing',
+      icon: 'Zap',
+      iconColor: '#ffffff',
+      nodes: [
+        {
+          id: 't',
+          type: 'trigger' as const,
+          label: 'T',
+          config: { triggerType: 'manual' as const },
+          position: { x: 0, y: 0 }
+        }
+      ],
+      edges: [],
+      enabled: true,
+      staggerDelayMs: 500,
+      autoCleanupWorktrees: true,
+      lastRunAt: 1234567890,
+      lastRunStatus: 'success' as const,
+      workspaceId: 'personal'
+    }
+    mockState.editingWorkflowId = 'w1'
+    mockState.config = { workflows: [existing], tasks: [], projects: [], defaults: {} }
+    const { container } = render(<WorkflowEditor />)
+    const saveButton = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Save')
+    )
+    if (saveButton) fireEvent.click(saveButton)
+    expect(mockState.updateWorkflow).toHaveBeenCalledWith(
+      'w1',
+      expect.objectContaining({
+        id: 'w1',
+        staggerDelayMs: 500,
+        autoCleanupWorktrees: true,
+        lastRunAt: 1234567890,
+        lastRunStatus: 'success',
+        workspaceId: 'personal'
+      })
+    )
+    mockState.editingWorkflowId = null
+    mockState.config = { workflows: [], tasks: [], projects: [], defaults: {} }
+  })
 })
