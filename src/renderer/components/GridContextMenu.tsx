@@ -155,14 +155,6 @@ export function GridContextMenu({ position, onClose }: Props) {
           createSession(p, { branch: mainWt.branch, existingWorktreePath: mainWt.path }),
         separator: true
       })
-      subs.push({
-        iconElement: <Terminal size={10} className="text-gray-500" />,
-        label: `Terminal in ${mainWt.branch}`,
-        onClick: () => {
-          onClose()
-          void createShellInProject(mainWt.path)
-        }
-      })
     }
     nonMain.forEach((wt, i) => {
       subs.push({
@@ -170,15 +162,7 @@ export function GridContextMenu({ position, onClose }: Props) {
         label: formatLabel(wt),
         detail: formatDetail(wt.path),
         onClick: () => createSession(p, { branch: wt.branch, existingWorktreePath: wt.path }),
-        separator: i === 0
-      })
-      subs.push({
-        iconElement: <Terminal size={10} className="text-gray-500" />,
-        label: `Terminal in ${wt.name}`,
-        onClick: () => {
-          onClose()
-          void createShellInProject(wt.path)
-        }
+        separator: i === 0 && mainWt === undefined
       })
     })
     subs.push({
