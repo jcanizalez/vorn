@@ -28,7 +28,6 @@ import {
   ListTodo,
   BookOpen,
   Terminal,
-  Archive,
   Plug,
   LayoutDashboard
 } from 'lucide-react'
@@ -129,8 +128,6 @@ function useCommands(
   const setTaskDialogOpen = useAppStore((s) => s.setTaskDialogOpen)
   const setOnboardingOpen = useAppStore((s) => s.setOnboardingOpen)
   const toggleTerminalPanel = useAppStore((s) => s.toggleTerminalPanel)
-  const loadArchivedSessions = useAppStore((s) => s.loadArchivedSessions)
-  const setShowArchivedSessions = useAppStore((s) => s.setShowArchivedSessions)
 
   return useMemo(() => {
     const commands: Command[] = []
@@ -237,17 +234,6 @@ function useCommands(
       icon: <Terminal size={14} strokeWidth={1.5} />,
       keywords: ['shell', 'terminal', 'panel', 'bottom'],
       onExecute: () => toggleTerminalPanel()
-    })
-    commands.push({
-      id: 'action:archived-sessions',
-      label: 'Show Archived Sessions',
-      category: 'actions',
-      icon: <Archive size={14} strokeWidth={1.5} />,
-      keywords: ['archive', 'history', 'old sessions', 'past'],
-      onExecute: () => {
-        setShowArchivedSessions(true)
-        loadArchivedSessions()
-      }
     })
     commands.push({
       id: 'action:copy-mcp-url',
@@ -456,9 +442,7 @@ function useCommands(
     setMainViewMode,
     setTaskDialogOpen,
     setOnboardingOpen,
-    toggleTerminalPanel,
-    loadArchivedSessions,
-    setShowArchivedSessions
+    toggleTerminalPanel
   ])
 }
 

@@ -6,6 +6,7 @@ import { getProjectRemoteHostId } from '../../shared/types'
 import { useVisibleTerminals } from '../hooks/useVisibleTerminals'
 import { useFilteredHeadless } from '../hooks/useFilteredHeadless'
 import { AgentStatusIcon } from './AgentStatusIcon'
+import { useWaitingApprovals } from '../hooks/useWaitingApprovals'
 import { TerminalSlot } from './TerminalSlot'
 import { PromptLauncher } from './PromptLauncher'
 import { InlineRename } from './InlineRename'
@@ -109,6 +110,7 @@ export function TabView() {
   const reorderTerminals = useAppStore((s) => s.reorderTerminals)
   const tasks = useAppStore((s) => s.config?.tasks)
   const filteredHeadless = useFilteredHeadless()
+  const waitingApprovals = useWaitingApprovals()
 
   const [contextMenu, setContextMenu] = useState<{
     terminalId: string
@@ -267,7 +269,8 @@ export function TabView() {
     )
   }
 
-  const hasBackground = minimizedIds.length > 0 || filteredHeadless.length > 0
+  const hasBackground =
+    minimizedIds.length > 0 || filteredHeadless.length > 0 || waitingApprovals.length > 0
 
   if (orderedIds.length === 0 && hasBackground) {
     return (
@@ -276,6 +279,7 @@ export function TabView() {
           <BackgroundTray
             headlessSessions={filteredHeadless}
             minimizedIds={minimizedIds}
+            waitingApprovals={waitingApprovals}
             variant="grid"
           />
         </div>
@@ -291,6 +295,7 @@ export function TabView() {
       <BackgroundTray
         headlessSessions={filteredHeadless}
         minimizedIds={minimizedIds}
+        waitingApprovals={waitingApprovals}
         variant="tabs"
       />
 
@@ -310,7 +315,6 @@ export function TabView() {
           const isRenaming = renamingTerminalId === id
           const isDragTarget = dragState?.isDragging === true && dropTargetIndex === index
           const isDragging = dragState?.isDragging === true && dragState.draggingId === id
-          const isIdlePinned = terminal.status === 'idle' && terminal.session.pinned === true
 
           const assignedTask = tasks?.find(
             (t) => t.assignedSessionId === id && t.status === 'in_progress'
@@ -355,7 +359,6 @@ export function TabView() {
                              ? 'text-white border-white'
                              : 'text-gray-500 hover:text-gray-300 border-transparent'
                          }`}
-              style={isIdlePinned ? { opacity: 0.55 } : undefined}
             >
               {/* Drag handle — left edge, only in manual sort */}
               {isManualSort && (

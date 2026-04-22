@@ -13,7 +13,11 @@ import { AddProjectDialog } from './components/AddProjectDialog'
 const WorkflowEditor = lazy(() =>
   import('./components/workflow-editor/WorkflowEditor').then((m) => ({ default: m.WorkflowEditor }))
 )
-import { executeWorkflow as runWorkflow } from './lib/workflow-execution'
+import {
+  executeWorkflow as runWorkflow,
+  rescheduleWaitingGateTimers
+} from './lib/workflow-execution'
+import type { WorkflowExecution } from '../shared/types'
 import { CommandPalette } from './components/CommandPalette'
 import { SessionRestoredBanner } from './components/SessionRestoredBanner'
 import { GridToolbar } from './components/GridToolbar'
@@ -352,6 +356,20 @@ export function App() {
     }
     pollHeadless()
     const headlessPollInterval = setInterval(pollHeadless, 5000)
+
+    window.api
+      .listRunsWithWaitingGates()
+      .then((runs) => {
+        const store = useAppStore.getState()
+        const hydrated: WorkflowExecution[] = []
+        for (const run of runs) {
+          if (store.workflowExecutions.has(run.workflowId)) continue
+          store.setWorkflowExecution(run.workflowId, run)
+          hydrated.push(run)
+        }
+        rescheduleWaitingGateTimers(hydrated, store.config?.workflows ?? [])
+      })
+      .catch((err) => console.error('[App] failed to hydrate waiting gates:', err))
 
     // Auto-prune exited headless sessions
     const pruneInterval = setInterval(() => {

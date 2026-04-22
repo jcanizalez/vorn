@@ -9,16 +9,67 @@ import {
   ScriptConfig,
   ConditionConfig,
   ConditionOperator,
+  ApprovalConfig,
   TaskConfig,
   getProjectRemoteHostId
 } from '../../shared/types'
-import { getTriggerNode } from './workflow-helpers'
 import { resolveTemplateVars, StepOutputs } from './template-vars'
 import { buildTaskPrompt, buildWorkflowPrompt } from '../../shared/prompt-builder'
 import { useAppStore } from '../stores'
+import { sendWorkflowGateNotification } from './notifications'
 
-/** Guard against concurrent execution of the same workflow */
 const runningWorkflows = new Set<string>()
+
+/** Cleared on approve/reject so a late timer can't reject an already-resolved gate. */
+const gateTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+function gateKey(workflowId: string, nodeId: string): string {
+  return `${workflowId}:${nodeId}`
+}
+
+function scheduleGateTimeout(
+  workflowId: string,
+  nodeId: string,
+  timeoutMs: number | undefined,
+  execution: WorkflowExecution,
+  elapsedMs = 0
+): void {
+  if (!timeoutMs || timeoutMs <= 0) return
+  const key = gateKey(workflowId, nodeId)
+  const prev = gateTimers.get(key)
+  if (prev) clearTimeout(prev)
+  const remaining = Math.max(0, timeoutMs - elapsedMs)
+  const timer = setTimeout(() => {
+    gateTimers.delete(key)
+    void rejectWorkflowGate(execution, nodeId, `Approval timed out after ${timeoutMs}ms`)
+  }, remaining)
+  gateTimers.set(key, timer)
+}
+
+/**
+ * Re-arm timeout timers for any approval gates that were `waiting` before the
+ * app restarted. Called once after startup hydration; timers elsewhere are set
+ * as gates enter `waiting` for the first time.
+ */
+export function rescheduleWaitingGateTimers(
+  executions: Iterable<WorkflowExecution>,
+  workflows: WorkflowDefinition[]
+): void {
+  const now = Date.now()
+  for (const execution of executions) {
+    const workflow = workflows.find((w) => w.id === execution.workflowId)
+    if (!workflow) continue
+    for (const ns of execution.nodeStates) {
+      if (ns.status !== 'waiting') continue
+      const node = workflow.nodes.find((n) => n.id === ns.nodeId)
+      if (node?.type !== 'approval') continue
+      const timeoutMs = (node.config as ApprovalConfig).timeoutMs
+      if (!timeoutMs || timeoutMs <= 0) continue
+      const startedAt = ns.startedAt ? new Date(ns.startedAt).getTime() : now
+      scheduleGateTimeout(workflow.id, ns.nodeId, timeoutMs, execution, now - startedAt)
+    }
+  }
+}
 
 export interface ExecuteWorkflowOptions {
   source?: 'scheduler' | 'manual'
@@ -131,6 +182,36 @@ async function executeNode(
   context?: WorkflowExecutionContext,
   stepOutputs?: StepOutputs
 ): Promise<void> {
+  if (node.type === 'approval') {
+    const existing = execution.nodeStates.find((s) => s.nodeId === node.id)
+    if (existing?.status === 'waiting') return
+
+    const config = node.config as ApprovalConfig
+    const timeoutSuffix = config.timeoutMs ? ` (timeout ${config.timeoutMs}ms)` : ''
+    console.log(`[workflow] approval gate "${node.label}" waiting${timeoutSuffix}`)
+
+    updateNodeState(execution, node.id, {
+      status: 'waiting',
+      startedAt: new Date().toISOString()
+    })
+    persistExecution(workflow.id, execution)
+
+    sendWorkflowGateNotification(
+      workflow,
+      node.id,
+      node.label,
+      config.message,
+      useAppStore.getState().config ?? null,
+      () => {
+        useAppStore.getState().setEditingWorkflowId(workflow.id)
+        useAppStore.getState().setWorkflowEditorOpen(true)
+      }
+    )
+
+    scheduleGateTimeout(workflow.id, node.id, config.timeoutMs, execution)
+    return
+  }
+
   updateNodeState(execution, node.id, {
     status: 'running',
     startedAt: new Date().toISOString()
@@ -461,21 +542,61 @@ async function executeNode(
   }
 }
 
+function buildGraph(edges: readonly { source: string; target: string }[]): {
+  successors: Map<string, string[]>
+  predecessors: Map<string, string[]>
+} {
+  const successors = new Map<string, string[]>()
+  const predecessors = new Map<string, string[]>()
+  for (const e of edges) {
+    successors.set(e.source, [...(successors.get(e.source) || []), e.target])
+    predecessors.set(e.target, [...(predecessors.get(e.target) || []), e.source])
+  }
+  return { successors, predecessors }
+}
+
+/** Stops at join points whose other predecessors aren't already terminal/skipped. */
+function collectSkippedBranch(
+  startNodeId: string,
+  successors: Map<string, string[]>,
+  predecessors: Map<string, string[]>,
+  isTerminal: (nodeId: string) => boolean
+): Set<string> {
+  const skipped = new Set<string>()
+  const queue = [startNodeId]
+  while (queue.length > 0) {
+    const id = queue.shift()!
+    if (skipped.has(id) || isTerminal(id)) continue
+    skipped.add(id)
+    for (const s of successors.get(id) || []) {
+      const otherPreds = (predecessors.get(s) || []).filter(
+        (p) => p !== id && !skipped.has(p) && !isTerminal(p)
+      )
+      if (otherPreds.length === 0) queue.push(s)
+    }
+  }
+  return skipped
+}
+
 export async function executeWorkflow(
   workflow: WorkflowDefinition,
   context?: WorkflowExecutionContext,
   options?: ExecuteWorkflowOptions
 ): Promise<WorkflowExecution> {
-  // Concurrency guard — prevent duplicate runs of the same workflow
   if (runningWorkflows.has(workflow.id)) {
     console.warn(`[workflow] skipping execution of "${workflow.name}" — already running`)
     const existing = useAppStore.getState().workflowExecutions.get(workflow.id)
     if (existing) return existing
     throw new Error(`Workflow "${workflow.name}" is already executing`)
   }
-  runningWorkflows.add(workflow.id)
 
-  const triggerNode = getTriggerNode(workflow)
+  const pending = useAppStore.getState().workflowExecutions.get(workflow.id)
+  if (pending && pending.nodeStates.some((ns) => ns.status === 'waiting')) {
+    console.warn(
+      `[workflow] skipping execution of "${workflow.name}" — existing run is waiting for approval`
+    )
+    return pending
+  }
 
   const execution: WorkflowExecution = {
     workflowId: workflow.id,
@@ -495,43 +616,47 @@ export async function executeWorkflow(
 
   persistExecution(workflow.id, execution)
 
-  const nodeMap = new Map(workflow.nodes.map((n) => [n.id, n]))
-  const successorsMap = new Map<string, string[]>()
-  const predecessorsMap = new Map<string, string[]>()
+  return runExecution(workflow, execution, context, options)
+}
 
-  for (const edge of workflow.edges) {
-    successorsMap.set(edge.source, [...(successorsMap.get(edge.source) || []), edge.target])
-    predecessorsMap.set(edge.target, [...(predecessorsMap.get(edge.target) || []), edge.source])
+async function runExecution(
+  workflow: WorkflowDefinition,
+  execution: WorkflowExecution,
+  context: WorkflowExecutionContext | undefined,
+  options?: ExecuteWorkflowOptions
+): Promise<WorkflowExecution> {
+  if (runningWorkflows.has(workflow.id)) {
+    console.warn(`[workflow] runExecution: ${workflow.id} already running, skipping`)
+    return execution
+  }
+  runningWorkflows.add(workflow.id)
+
+  const nodeMap = new Map(workflow.nodes.map((n) => [n.id, n]))
+  const { successors: successorsMap, predecessors: predecessorsMap } = buildGraph(workflow.edges)
+
+  // Rebuilt at the start of every wave so external mutations (e.g. a sibling
+  // gate approved mid-loop by another re-entry) are picked up.
+  const completed = new Set<string>()
+  const skippedByCondition = new Set<string>()
+  function rebuildCompletionSets(): void {
+    completed.clear()
+    skippedByCondition.clear()
+    for (const ns of execution.nodeStates) {
+      if (ns.status === 'success' || ns.status === 'error') completed.add(ns.nodeId)
+      else if (ns.status === 'skipped') skippedByCondition.add(ns.nodeId)
+    }
   }
 
-  const completed = new Set<string>()
   const running = new Set<string>()
 
-  if (triggerNode) {
-    completed.add(triggerNode.id)
-  }
-
-  // Track which nodes are blocked by condition branches
-  const skippedByCondition = new Set<string>()
-
   function markSkippedBranch(startNodeId: string): void {
-    const queue = [startNodeId]
-    while (queue.length > 0) {
-      const id = queue.shift()!
-      if (skippedByCondition.has(id) || completed.has(id)) continue
-      skippedByCondition.add(id)
-      // Only follow edges that stay within this branch (stop at join points)
-      const succs = successorsMap.get(id) || []
-      for (const s of succs) {
-        // Don't skip nodes that have other incoming paths (join points)
-        const otherPreds = (predecessorsMap.get(s) || []).filter(
-          (p) => p !== id && !skippedByCondition.has(p)
-        )
-        if (otherPreds.length === 0) {
-          queue.push(s)
-        }
-      }
-    }
+    const branch = collectSkippedBranch(
+      startNodeId,
+      successorsMap,
+      predecessorsMap,
+      (id) => completed.has(id) || skippedByCondition.has(id)
+    )
+    for (const id of branch) skippedByCondition.add(id)
   }
 
   function getReadyNodes(): WorkflowNode[] {
@@ -540,6 +665,8 @@ export async function executeWorkflow(
       if (node.type === 'trigger') continue
       if (completed.has(node.id) || running.has(node.id)) continue
       if (skippedByCondition.has(node.id)) continue
+      const ns = execution.nodeStates.find((s) => s.nodeId === node.id)
+      if (ns?.status === 'waiting') continue
 
       const preds = predecessorsMap.get(node.id) || []
       const allPredsReady = preds.every((p) => completed.has(p) || skippedByCondition.has(p))
@@ -550,9 +677,12 @@ export async function executeWorkflow(
     return ready
   }
 
+  const actionNodeCount = workflow.nodes.filter((n) => n.type !== 'trigger').length
+
   try {
     let wave = 0
     while (true) {
+      rebuildCompletionSets()
       const ready = getReadyNodes()
       if (ready.length === 0) break
 
@@ -581,6 +711,10 @@ export async function executeWorkflow(
           persistExecution(workflow.id, execution)
         }
         running.delete(node.id)
+
+        const postState = execution.nodeStates.find((s) => s.nodeId === node.id)
+        if (postState?.status === 'waiting') return
+
         completed.add(node.id)
 
         // After a condition node completes, skip the non-matching branch
@@ -606,6 +740,12 @@ export async function executeWorkflow(
       })
 
       await Promise.all(promises)
+    }
+
+    const hasWaiting = execution.nodeStates.some((ns) => ns.status === 'waiting')
+    if (hasWaiting) {
+      persistExecution(workflow.id, execution)
+      return execution
     }
 
     // Mark any nodes still pending as skipped (unreachable due to missing edges or cycles)
@@ -705,4 +845,107 @@ export async function executeWorkflow(
   }
 
   return execution
+}
+
+/**
+ * Only `triggerTaskId` is persisted — trigger.fromStatus/toStatus aren't,
+ * so `{{trigger.fromStatus}}` template vars in post-gate nodes are empty on resume.
+ */
+function rebuildContextForResume(
+  execution: WorkflowExecution
+): WorkflowExecutionContext | undefined {
+  if (!execution.triggerTaskId) return undefined
+  const task = (useAppStore.getState().config?.tasks || []).find(
+    (t) => t.id === execution.triggerTaskId
+  )
+  return task ? { task } : undefined
+}
+
+function resolveWaitingGate(
+  execution: WorkflowExecution,
+  nodeId: string,
+  caller: 'approve' | 'reject'
+): { workflow: WorkflowDefinition } | null {
+  const workflow = (useAppStore.getState().config?.workflows || []).find(
+    (w) => w.id === execution.workflowId
+  )
+  if (!workflow) {
+    console.warn(`[workflow] ${caller}WorkflowGate: workflow ${execution.workflowId} not found`)
+    return null
+  }
+
+  const ns = execution.nodeStates.find((s) => s.nodeId === nodeId)
+  if (!ns || ns.status !== 'waiting') {
+    console.warn(
+      `[workflow] ${caller}WorkflowGate: node ${nodeId} not waiting (status=${ns?.status})`
+    )
+    return null
+  }
+
+  const key = gateKey(workflow.id, nodeId)
+  const timer = gateTimers.get(key)
+  if (timer) {
+    clearTimeout(timer)
+    gateTimers.delete(key)
+  }
+
+  return { workflow }
+}
+
+/** Safe to call on an execution loaded from the database (cross-session resume). */
+export async function approveWorkflowGate(
+  execution: WorkflowExecution,
+  nodeId: string
+): Promise<WorkflowExecution> {
+  const resolved = resolveWaitingGate(execution, nodeId, 'approve')
+  if (!resolved) return execution
+  const { workflow } = resolved
+
+  const now = new Date().toISOString()
+  updateNodeState(execution, nodeId, {
+    status: 'success',
+    completedAt: now,
+    approvedAt: now
+  })
+  persistExecution(workflow.id, execution)
+
+  const context = rebuildContextForResume(execution)
+  return runExecution(workflow, execution, context)
+}
+
+export async function rejectWorkflowGate(
+  execution: WorkflowExecution,
+  nodeId: string,
+  reason = 'Rejected by user'
+): Promise<WorkflowExecution> {
+  const resolved = resolveWaitingGate(execution, nodeId, 'reject')
+  if (!resolved) return execution
+  const { workflow } = resolved
+
+  const now = new Date().toISOString()
+  updateNodeState(execution, nodeId, {
+    status: 'error',
+    completedAt: now,
+    error: reason
+  })
+
+  const { successors, predecessors } = buildGraph(workflow.edges)
+  const isTerminal = (id: string): boolean => {
+    const s = execution.nodeStates.find((n) => n.nodeId === id)
+    return !!s && (s.status === 'success' || s.status === 'error' || s.status === 'skipped')
+  }
+  for (const succ of successors.get(nodeId) || []) {
+    const branch = collectSkippedBranch(succ, successors, predecessors, isTerminal)
+    for (const id of branch) {
+      const state = execution.nodeStates.find((n) => n.nodeId === id)
+      if (state?.status === 'pending') {
+        updateNodeState(execution, id, { status: 'skipped', completedAt: now })
+      }
+    }
+  }
+
+  persistExecution(workflow.id, execution)
+
+  const context = rebuildContextForResume(execution)
+  return runExecution(workflow, execution, context)
 }

@@ -6,7 +6,7 @@ import { CardContextMenu } from './CardContextMenu'
 import { PromptLauncher } from './PromptLauncher'
 import { useVisibleTerminals } from '../hooks/useVisibleTerminals'
 import { getDisplayName, getBranchLabel } from '../lib/terminal-display'
-import { GitBranch, FolderGit2, Pin } from 'lucide-react'
+import { GitBranch, FolderGit2 } from 'lucide-react'
 
 /**
  * Compact session card for the mobile card list.
@@ -29,7 +29,6 @@ function MobileSessionCard({
 
   if (!terminal) return null
 
-  const isPinned = terminal.session.pinned === true
   const name = terminal.session.displayName?.trim()
     ? getDisplayName(terminal.session)
     : assignedTask
@@ -68,7 +67,7 @@ function MobileSessionCard({
           </span>
         </div>
 
-        {/* Row 2: branch + git diff + pin */}
+        {/* Row 2: branch + git diff */}
         <div className="flex items-center gap-2 mt-1 ml-[26px]">
           {terminal.session.branch && (
             <span className="flex items-center gap-1 text-[10px] font-mono text-gray-500 truncate min-w-0">
@@ -83,10 +82,6 @@ function MobileSessionCard({
             </span>
           )}
           <GitChangesIndicator terminalId={terminalId} />
-          <div className="flex-1" />
-          {isPinned && (
-            <Pin size={10} strokeWidth={2} className="text-amber-400 fill-current shrink-0" />
-          )}
         </div>
       </button>
 

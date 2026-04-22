@@ -1,16 +1,18 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Zap, Play, Terminal, GitFork, MoreHorizontal, Trash2 } from 'lucide-react'
+import { X, Zap, Play, Terminal, GitFork, Hand, MoreHorizontal, Trash2 } from 'lucide-react'
 import {
   WorkflowNode,
   TriggerConfig,
   LaunchAgentConfig,
   ScriptConfig,
-  ConditionConfig
+  ConditionConfig,
+  ApprovalConfig
 } from '../../../../shared/types'
 import { TriggerConfigForm } from './TriggerConfigForm'
 import { LaunchAgentConfigForm } from './LaunchAgentConfigForm'
 import { ScriptConfigForm } from './ScriptConfigForm'
 import { ConditionConfigForm } from './ConditionConfigForm'
+import { ApprovalConfigForm } from './ApprovalConfigForm'
 import type { StepVariableGroup } from '../../../lib/template-vars'
 
 const NODE_TYPE_CONFIG: Record<
@@ -20,7 +22,13 @@ const NODE_TYPE_CONFIG: Record<
   trigger: { icon: Zap, label: 'Trigger', color: 'text-blue-400', bg: 'bg-blue-500/10' },
   launchAgent: { icon: Play, label: 'Agent', color: 'text-green-400', bg: 'bg-green-500/10' },
   script: { icon: Terminal, label: 'Script', color: 'text-amber-400', bg: 'bg-amber-500/10' },
-  condition: { icon: GitFork, label: 'Condition', color: 'text-purple-400', bg: 'bg-purple-500/10' }
+  condition: {
+    icon: GitFork,
+    label: 'Condition',
+    color: 'text-purple-400',
+    bg: 'bg-purple-500/10'
+  },
+  approval: { icon: Hand, label: 'Approval', color: 'text-amber-400', bg: 'bg-amber-500/10' }
 }
 
 interface Props {
@@ -157,6 +165,13 @@ export function NodeConfigPanel({
             onChange={(config) => onChange(node.id, config)}
             triggerType={triggerType}
             stepGroups={stepGroups || []}
+          />
+        )}
+
+        {node.type === 'approval' && (
+          <ApprovalConfigForm
+            config={node.config as ApprovalConfig}
+            onChange={(config) => onChange(node.id, config)}
           />
         )}
       </div>

@@ -324,17 +324,6 @@ function createSchema(): void {
     CREATE INDEX IF NOT EXISTS idx_schedule_log_workflow_id ON schedule_log(workflow_id);
     CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_name, status);
 
-    CREATE TABLE IF NOT EXISTS archived_sessions (
-      id TEXT PRIMARY KEY,
-      agent_type TEXT NOT NULL,
-      project_name TEXT NOT NULL,
-      project_path TEXT NOT NULL,
-      display_name TEXT,
-      branch TEXT,
-      agent_session_id TEXT,
-      archived_at INTEGER NOT NULL
-    );
-
     CREATE TABLE IF NOT EXISTS workspaces (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -367,6 +356,7 @@ function createSchema(): void {
       agent_type TEXT,
       project_name TEXT,
       project_path TEXT,
+      approved_at TEXT,
       FOREIGN KEY (run_id) REFERENCES workflow_runs(id) ON DELETE CASCADE
     );
 
@@ -579,6 +569,22 @@ function migrateSchema(d: Database.Database): void {
       '[database] migrated schema to version 7 (rename claude_session_id → agent_session_id)'
     )
   }
+
+  if (version < 8) {
+    d.transaction(() => {
+      const cols = d.prepare('PRAGMA table_info(workflow_run_nodes)').all() as Array<{
+        name: string
+      }>
+      if (!cols.some((c) => c.name === 'approved_at')) {
+        d.exec('ALTER TABLE workflow_run_nodes ADD COLUMN approved_at TEXT')
+      }
+
+      d.prepare(
+        "INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('schema_version', '8')"
+      ).run()
+    })()
+    log.info('[database] migrated schema to version 8 (approval gate timestamp)')
+  }
 }
 
 /**
@@ -630,7 +636,11 @@ function verifySchema(d: Database.Database): void {
         column: 'project_name',
         ddl: 'ALTER TABLE workflow_run_nodes ADD COLUMN project_name TEXT'
       },
-      { column: 'project_path', ddl: 'ALTER TABLE workflow_run_nodes ADD COLUMN project_path TEXT' }
+      {
+        column: 'project_path',
+        ddl: 'ALTER TABLE workflow_run_nodes ADD COLUMN project_path TEXT'
+      },
+      { column: 'approved_at', ddl: 'ALTER TABLE workflow_run_nodes ADD COLUMN approved_at TEXT' }
     ]
   }
 
@@ -1713,75 +1723,6 @@ export function clearScheduleLog(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Archived sessions
-// ---------------------------------------------------------------------------
-
-export function archiveSession(session: {
-  id: string
-  agentType: string
-  projectName: string
-  projectPath: string
-  displayName?: string
-  branch?: string
-  agentSessionId?: string
-  archivedAt: number
-}): void {
-  getDb()
-    .prepare(
-      `INSERT OR REPLACE INTO archived_sessions (id, agent_type, project_name, project_path, display_name, branch, agent_session_id, archived_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .run(
-      session.id,
-      session.agentType,
-      session.projectName,
-      session.projectPath,
-      session.displayName ?? null,
-      session.branch ?? null,
-      session.agentSessionId ?? null,
-      session.archivedAt
-    )
-}
-
-export function unarchiveSession(id: string): void {
-  getDb().prepare('DELETE FROM archived_sessions WHERE id = ?').run(id)
-}
-
-export function listArchivedSessions(): Array<{
-  id: string
-  agentType: string
-  projectName: string
-  projectPath: string
-  displayName: string | null
-  branch: string | null
-  agentSessionId: string | null
-  archivedAt: number
-}> {
-  const rows = getDb()
-    .prepare('SELECT * FROM archived_sessions ORDER BY archived_at DESC')
-    .all() as Array<{
-    id: string
-    agent_type: string
-    project_name: string
-    project_path: string
-    display_name: string | null
-    branch: string | null
-    agent_session_id: string | null
-    archived_at: number
-  }>
-  return rows.map((r) => ({
-    id: r.id,
-    agentType: r.agent_type,
-    projectName: r.project_name,
-    projectPath: r.project_path,
-    displayName: r.display_name,
-    branch: r.branch,
-    agentSessionId: r.agent_session_id,
-    archivedAt: r.archived_at
-  }))
-}
-
-// ---------------------------------------------------------------------------
 // Workflow runs
 // ---------------------------------------------------------------------------
 
@@ -1809,8 +1750,8 @@ export function saveWorkflowRun(execution: WorkflowExecution): void {
     d.prepare('DELETE FROM workflow_run_nodes WHERE run_id = ?').run(runId)
 
     const insertNode = d.prepare(
-      `INSERT INTO workflow_run_nodes (run_id, node_id, status, started_at, completed_at, session_id, error, logs, task_id, agent_session_id, agent_type, project_name, project_path)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO workflow_run_nodes (run_id, node_id, status, started_at, completed_at, session_id, error, logs, task_id, agent_session_id, agent_type, project_name, project_path, approved_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     for (const ns of execution.nodeStates) {
       insertNode.run(
@@ -1826,7 +1767,8 @@ export function saveWorkflowRun(execution: WorkflowExecution): void {
         ns.agentSessionId ?? null,
         ns.agentType ?? null,
         ns.projectName ?? null,
-        ns.projectPath ?? null
+        ns.projectPath ?? null,
+        ns.approvedAt ?? null
       )
     }
 
@@ -1878,6 +1820,7 @@ export function listWorkflowRuns(workflowId: string, limit = 20): WorkflowExecut
       agent_type: string | null
       project_name: string | null
       project_path: string | null
+      approved_at: string | null
     }>
 
     return {
@@ -1898,7 +1841,8 @@ export function listWorkflowRuns(workflowId: string, limit = 20): WorkflowExecut
         ...(n.agent_session_id != null && { agentSessionId: n.agent_session_id }),
         ...(n.agent_type != null && { agentType: n.agent_type as NodeExecutionState['agentType'] }),
         ...(n.project_name != null && { projectName: n.project_name }),
-        ...(n.project_path != null && { projectPath: n.project_path })
+        ...(n.project_path != null && { projectPath: n.project_path }),
+        ...(n.approved_at != null && { approvedAt: n.approved_at })
       }))
     }
   })
@@ -1946,6 +1890,7 @@ export function listWorkflowRunsByTask(
       logs: string | null
       task_id: string | null
       agent_session_id: string | null
+      approved_at: string | null
     }>
 
     return {
@@ -1964,10 +1909,84 @@ export function listWorkflowRunsByTask(
         ...(n.error != null && { error: n.error }),
         ...(n.logs != null && { logs: n.logs }),
         ...(n.task_id != null && { taskId: n.task_id }),
-        ...(n.agent_session_id != null && { agentSessionId: n.agent_session_id })
+        ...(n.agent_session_id != null && { agentSessionId: n.agent_session_id }),
+        ...(n.approved_at != null && { approvedAt: n.approved_at })
       }))
     }
   })
+}
+
+export function listRunsWithWaitingGates(): WorkflowExecution[] {
+  const d = getDb()
+
+  const rows = d
+    .prepare(
+      `SELECT DISTINCT wr.*
+       FROM workflow_runs wr
+       JOIN workflow_run_nodes wrn ON wrn.run_id = wr.id
+       WHERE wrn.status = 'waiting'
+       ORDER BY wr.started_at DESC`
+    )
+    .all() as Array<{
+    id: string
+    workflow_id: string
+    started_at: string
+    completed_at: string | null
+    status: string
+    trigger_task_id: string | null
+  }>
+
+  if (rows.length === 0) return []
+
+  const placeholders = rows.map(() => '?').join(',')
+  const allNodeRows = d
+    .prepare(`SELECT * FROM workflow_run_nodes WHERE run_id IN (${placeholders})`)
+    .all(...rows.map((r) => r.id)) as Array<{
+    run_id: string
+    node_id: string
+    status: string
+    started_at: string | null
+    completed_at: string | null
+    session_id: string | null
+    error: string | null
+    logs: string | null
+    task_id: string | null
+    agent_session_id: string | null
+    agent_type: string | null
+    project_name: string | null
+    project_path: string | null
+    approved_at: string | null
+  }>
+
+  const nodesByRun = new Map<string, typeof allNodeRows>()
+  for (const n of allNodeRows) {
+    const bucket = nodesByRun.get(n.run_id)
+    if (bucket) bucket.push(n)
+    else nodesByRun.set(n.run_id, [n])
+  }
+
+  return rows.map((r) => ({
+    workflowId: r.workflow_id,
+    startedAt: r.started_at,
+    ...(r.completed_at != null && { completedAt: r.completed_at }),
+    status: r.status as WorkflowExecution['status'],
+    ...(r.trigger_task_id != null && { triggerTaskId: r.trigger_task_id }),
+    nodeStates: (nodesByRun.get(r.id) ?? []).map((n) => ({
+      nodeId: n.node_id,
+      status: n.status as NodeExecutionState['status'],
+      ...(n.started_at != null && { startedAt: n.started_at }),
+      ...(n.completed_at != null && { completedAt: n.completed_at }),
+      ...(n.session_id != null && { sessionId: n.session_id }),
+      ...(n.error != null && { error: n.error }),
+      ...(n.logs != null && { logs: n.logs }),
+      ...(n.task_id != null && { taskId: n.task_id }),
+      ...(n.agent_session_id != null && { agentSessionId: n.agent_session_id }),
+      ...(n.agent_type != null && { agentType: n.agent_type as NodeExecutionState['agentType'] }),
+      ...(n.project_name != null && { projectName: n.project_name }),
+      ...(n.project_path != null && { projectPath: n.project_path }),
+      ...(n.approved_at != null && { approvedAt: n.approved_at })
+    }))
+  }))
 }
 
 // ─── Session Logs ─────────────────────────────────────────────────

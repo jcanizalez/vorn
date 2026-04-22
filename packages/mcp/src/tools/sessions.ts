@@ -6,7 +6,6 @@ import type {
   TerminalSession,
   HeadlessSession,
   RecentSession,
-  ArchivedSession,
   SessionEvent
 } from '@vornrun/shared/types'
 import { V } from '../validation'
@@ -23,12 +22,9 @@ const AGENT_TYPES: [AgentType, ...AgentType[]] = [
 export function registerSessionTools(server: McpServer): void {
   server.tool(
     'list_sessions',
-    'List terminal sessions. Filter by status: "active" (running terminals), "recent" (past sessions), or "archived".',
+    'List terminal sessions. Filter by status: "active" (running terminals) or "recent" (past sessions).',
     {
-      filter: z
-        .enum(['active', 'recent', 'archived'])
-        .optional()
-        .describe('Session filter (default: active)'),
+      filter: z.enum(['active', 'recent']).optional().describe('Session filter (default: active)'),
       project_name: V.name.optional().describe('Filter by project name'),
       project_path: V.absolutePath
         .optional()
@@ -52,11 +48,8 @@ export function registerSessionTools(server: McpServer): void {
             pid: s.pid
           }))
           return { content: [{ type: 'text', text: JSON.stringify(summary, null, 2) }] }
-        } else if (filter === 'recent') {
-          const sessions = await rpcCall<RecentSession[]>('sessions:getRecent', args.project_path)
-          return { content: [{ type: 'text', text: JSON.stringify(sessions, null, 2) }] }
         } else {
-          const sessions = await rpcCall<ArchivedSession[]>('session:listArchived')
+          const sessions = await rpcCall<RecentSession[]>('sessions:getRecent', args.project_path)
           return { content: [{ type: 'text', text: JSON.stringify(sessions, null, 2) }] }
         }
       } catch (err) {
@@ -368,11 +361,11 @@ export function registerSessionTools(server: McpServer): void {
 
   server.tool(
     'list_session_events',
-    'List session lifecycle events (created, exited, task_linked, renamed, archived, unarchived). Use for post-mortem analysis and multi-agent coordination.',
+    'List session lifecycle events (created, exited, task_linked, renamed). Use for post-mortem analysis and multi-agent coordination.',
     {
       session_id: V.id.optional().describe('Filter by session ID'),
       event_type: z
-        .enum(['created', 'exited', 'task_linked', 'renamed', 'archived', 'unarchived'])
+        .enum(['created', 'exited', 'task_linked', 'renamed'])
         .optional()
         .describe('Filter by event type'),
       limit: z

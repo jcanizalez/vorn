@@ -216,11 +216,10 @@ describe('CardContextMenu', () => {
     )
   })
 
-  it('still renders Expand, Rename, Pin, and Close items', () => {
+  it('still renders Expand, Rename, and Close items', () => {
     render(<CardContextMenu terminalId="term-1" position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
     expect(screen.getByText('Expand')).toBeInTheDocument()
     expect(screen.getByText('Rename')).toBeInTheDocument()
-    expect(screen.getByText('Pin')).toBeInTheDocument()
     expect(screen.getByText('Close session')).toBeInTheDocument()
   })
 

@@ -1,17 +1,19 @@
-import { useState } from 'react'
-import { ChevronDown, ChevronRight, Maximize2, RotateCcw } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ChevronDown, ChevronRight, Maximize2, RotateCcw, Check, X } from 'lucide-react'
 import {
   WorkflowExecution,
   WorkflowNode,
   NodeExecutionState,
   TaskConfig,
   AgentType,
+  ApprovalConfig,
   supportsExactSessionResume
 } from '../../../shared/types'
 
 import { formatRelativeTime } from '../../lib/format-time'
 import { STATUS_DOT_CLASSES as SHARED_STATUS_DOTS } from './statusDot'
 import { Tooltip } from '../Tooltip'
+import { approveWorkflowGate, rejectWorkflowGate } from '../../lib/workflow-execution'
 
 function formatDuration(start: string, end?: string): string {
   if (!end) return 'running...'
@@ -21,12 +23,13 @@ function formatDuration(start: string, end?: string): string {
   return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`
 }
 
-const STATUS_LABELS: Record<string, string> = {
+const STATUS_LABELS: Record<WorkflowExecution['status'] | NodeExecutionState['status'], string> = {
   success: 'Success',
   error: 'Error',
   running: 'Running',
   pending: 'Pending',
-  skipped: 'Skipped'
+  skipped: 'Skipped',
+  waiting: 'Waiting for approval'
 }
 
 export function StatusDot({
@@ -76,8 +79,14 @@ export function RunEntry({
   onClickTask,
   onResumeSession
 }: RunEntryProps) {
-  const [expanded, setExpanded] = useState(false)
+  const hasWaitingGate = execution.nodeStates.some((ns) => ns.status === 'waiting')
+  const [expanded, setExpanded] = useState(hasWaitingGate)
   const [expandedNodeId, setExpandedNodeId] = useState<string | null>(null)
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (hasWaitingGate) setExpanded(true)
+  }, [hasWaitingGate])
 
   // Filter to non-trigger nodes for display
   const actionStates = execution.nodeStates.filter((ns) => {
@@ -174,6 +183,10 @@ export function RunEntry({
                 resumeUseWorktree
               )
 
+            const isWaitingGate = ns.status === 'waiting' && node?.type === 'approval'
+            const approvalMessage =
+              node?.type === 'approval' ? (node.config as ApprovalConfig).message : undefined
+
             return (
               <div key={ns.nodeId} className="border-b border-white/[0.04] last:border-b-0">
                 {/* Step header */}
@@ -215,6 +228,37 @@ export function RunEntry({
                     </span>
                   )}
                 </button>
+
+                {/* Approval gate controls */}
+                {isWaitingGate && (
+                  <div className="px-4 pb-3 -mt-0.5 flex items-start gap-2">
+                    <div className="flex-1 min-w-0 text-[11px] text-amber-300/90">
+                      {approvalMessage || 'Waiting for approval.'}
+                    </div>
+                    <button
+                      onClick={() => {
+                        void approveWorkflowGate(execution, ns.nodeId)
+                      }}
+                      className="flex items-center gap-1 px-2 py-1 rounded text-[11px]
+                                 text-green-300 hover:text-green-200 hover:bg-green-500/10
+                                 border border-green-500/30 transition-colors shrink-0"
+                    >
+                      <Check size={11} strokeWidth={2.5} />
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => {
+                        void rejectWorkflowGate(execution, ns.nodeId)
+                      }}
+                      className="flex items-center gap-1 px-2 py-1 rounded text-[11px]
+                                 text-red-300 hover:text-red-200 hover:bg-red-500/10
+                                 border border-red-500/30 transition-colors shrink-0"
+                    >
+                      <X size={11} strokeWidth={2.5} />
+                      Reject
+                    </button>
+                  </div>
+                )}
 
                 {/* Expanded logs */}
                 {expandedNodeId === ns.nodeId && ns.logs && (

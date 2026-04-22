@@ -11,7 +11,6 @@ import {
   GitCommitPayload,
   GitCommitResult,
   ScheduleLogEntry,
-  ArchivedSession,
   HeadlessSession,
   WorkflowExecution,
   ScriptConfig,
@@ -198,15 +197,6 @@ const api = {
   cleanupTaskImages: (taskId: string): Promise<void> =>
     ipcRenderer.invoke(IPC.TASK_IMAGE_CLEANUP, taskId),
 
-  // Session archive
-  archiveSession: (session: ArchivedSession): Promise<void> =>
-    ipcRenderer.invoke(IPC.SESSION_ARCHIVE, session),
-
-  unarchiveSession: (id: string): Promise<void> => ipcRenderer.invoke(IPC.SESSION_UNARCHIVE, id),
-
-  listArchivedSessions: (): Promise<ArchivedSession[]> =>
-    ipcRenderer.invoke(IPC.SESSION_LIST_ARCHIVED),
-
   // Headless sessions
   createHeadlessSession: (payload: CreateTerminalPayload): Promise<HeadlessSession> =>
     ipcRenderer.invoke(IPC.HEADLESS_CREATE, payload),
@@ -341,6 +331,9 @@ const api = {
     limit?: number
   ): Promise<(WorkflowExecution & { workflowName?: string })[]> =>
     ipcRenderer.invoke(IPC.WORKFLOW_RUN_LIST_BY_TASK, taskId, limit),
+
+  listRunsWithWaitingGates: (): Promise<WorkflowExecution[]> =>
+    ipcRenderer.invoke(IPC.WORKFLOW_RUN_LIST_WAITING),
 
   listSessionLogs: (taskId: string): Promise<SessionLog[]> =>
     ipcRenderer.invoke(IPC.SESSION_LOG_LIST, taskId),

@@ -1,4 +1,4 @@
-import { AgentStatus, AppConfig } from '../../shared/types'
+import { AgentStatus, AppConfig, WorkflowDefinition } from '../../shared/types'
 import { TerminalState } from '../stores/types'
 import { getDisplayName } from './terminal-display'
 import { AGENT_DEFINITIONS } from './agent-definitions'
@@ -64,6 +64,32 @@ export function shouldNotifyBell(config: AppConfig | null): boolean {
   return !!prefs?.enabled && prefs.onBell !== false
 }
 
+function dispatch(
+  reason: NotificationReason,
+  cooldownKey: string,
+  prefs: AppConfig['defaults']['notifications'] | undefined,
+  title: string,
+  body: string,
+  onClick?: () => void
+): void {
+  if (prefs?.soundEnabled) {
+    playNotificationSound(reason, prefs.soundVolume ?? 0.5)
+  }
+
+  if (Notification.permission !== 'granted') return
+  if (document.hasFocus()) return
+
+  const lastTime = lastNotified.get(cooldownKey) ?? 0
+  if (Date.now() - lastTime < COOLDOWN_MS) return
+  lastNotified.set(cooldownKey, Date.now())
+
+  const notification = new Notification(title, { body, silent: false })
+  notification.onclick = () => {
+    window.focus()
+    onClick?.()
+  }
+}
+
 export function sendAgentNotification(
   terminal: TerminalState,
   reason: NotificationReason,
@@ -71,21 +97,6 @@ export function sendAgentNotification(
   onClick?: () => void
 ): void {
   const prefs = config?.defaults.notifications
-
-  // Play sound even when window is focused
-  if (prefs?.soundEnabled) {
-    playNotificationSound(reason, prefs.soundVolume ?? 0.5)
-  }
-
-  // OS notification only when window is not focused
-  if (Notification.permission !== 'granted') return
-  if (document.hasFocus()) return
-
-  // Cooldown per terminal
-  const lastTime = lastNotified.get(terminal.id) ?? 0
-  if (Date.now() - lastTime < COOLDOWN_MS) return
-  lastNotified.set(terminal.id, Date.now())
-
   const name = getDisplayName(terminal.session)
   const agent = AGENT_DEFINITIONS[terminal.session.agentType].displayName
 
@@ -107,9 +118,26 @@ export function sendAgentNotification(
       break
   }
 
-  const notification = new Notification(title, { body, silent: false })
-  notification.onclick = () => {
-    window.focus()
-    onClick?.()
-  }
+  dispatch(reason, terminal.id, prefs, title, body, onClick)
+}
+
+export function sendWorkflowGateNotification(
+  workflow: WorkflowDefinition,
+  nodeId: string,
+  nodeLabel: string,
+  message: string | undefined,
+  config: AppConfig | null,
+  onClick?: () => void
+): void {
+  const prefs = config?.defaults.notifications
+  if (!prefs?.enabled || prefs.onWaiting === false) return
+
+  dispatch(
+    'waiting',
+    `workflow-gate:${workflow.id}:${nodeId}`,
+    prefs,
+    `${workflow.name} · awaiting approval`,
+    message || `${nodeLabel} is waiting for your approval`,
+    onClick
+  )
 }

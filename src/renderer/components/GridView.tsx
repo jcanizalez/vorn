@@ -13,6 +13,7 @@ import { GridContextMenu } from './GridContextMenu'
 import { AgentIcon } from './AgentIcon'
 import { useVisibleTerminals } from '../hooks/useVisibleTerminals'
 import { useFilteredHeadless } from '../hooks/useFilteredHeadless'
+import { useWaitingApprovals } from '../hooks/useWaitingApprovals'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { resolveActiveProject } from '../lib/session-utils'
 import { getDisplayName, getBranchLabel } from '../lib/terminal-display'
@@ -42,6 +43,7 @@ export const GridView = memo(function GridView() {
     }))
   )
   const filteredHeadless = useFilteredHeadless()
+  const waitingApprovals = useWaitingApprovals()
 
   const [dragState, setDragState] = useState<DragState | null>(null)
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null)
@@ -169,6 +171,7 @@ export const GridView = memo(function GridView() {
       <BackgroundTray
         headlessSessions={filteredHeadless}
         minimizedIds={minimizedIds}
+        waitingApprovals={waitingApprovals}
         variant="grid"
         hasItemsBelow={orderedIds.length > 0}
       />

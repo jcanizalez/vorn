@@ -36,12 +36,10 @@ import {
   cleanupTaskImages
 } from './task-images'
 import {
-  archiveSession,
-  unarchiveSession,
-  listArchivedSessions,
   saveWorkflowRun,
   listWorkflowRuns,
   listWorkflowRunsByTask,
+  listRunsWithWaitingGates,
   updateWorkflowRunStatus,
   dbSaveSSHKey,
   dbListSSHKeys,
@@ -343,17 +341,6 @@ export function registerAllMethods(): void {
     saveTaskImageFromBase64(taskId, base64, filename)
   )
 
-  // Session archive
-  registerMethod('session:archive', (session) => {
-    archiveSession(session)
-    logSessionEvent(session.id, 'archived')
-  })
-  registerMethod('session:unarchive', (id) => {
-    unarchiveSession(id)
-    logSessionEvent(id, 'unarchived')
-  })
-  registerMethod('session:listArchived', () => listArchivedSessions())
-
   // Headless
   registerMethod('headless:create', (payload) => {
     const session = headlessManager.createHeadless(payload)
@@ -384,6 +371,7 @@ export function registerAllMethods(): void {
   registerMethod('workflowRun:listByTask', ({ taskId, limit }) =>
     listWorkflowRunsByTask(taskId, limit)
   )
+  registerMethod('workflowRun:listWaiting', () => listRunsWithWaitingGates())
 
   // Session logs
   registerMethod('sessionLog:list', ({ taskId }) => listSessionLogs(taskId))

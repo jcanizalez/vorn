@@ -11,7 +11,8 @@ const mockStore = {
   updateWorkflow: vi.fn(),
   reorderWorkflows: vi.fn(),
   sidebarWorkflowFilter: 'all' as 'all' | 'manual' | 'scheduled',
-  setSidebarWorkflowFilter: vi.fn()
+  setSidebarWorkflowFilter: vi.fn(),
+  workflowExecutions: new Map<string, unknown>()
 }
 
 vi.mock('../src/renderer/stores', () => ({

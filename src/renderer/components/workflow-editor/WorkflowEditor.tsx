@@ -14,7 +14,7 @@ import {
   supportsExactSessionResume,
   getProjectRemoteHostId
 } from '../../../shared/types'
-import { WorkflowCanvas } from './WorkflowCanvas'
+import { WorkflowCanvas, AddableNodeType } from './WorkflowCanvas'
 import { NodeConfigPanel } from './panels/NodeConfigPanel'
 import { RunHistoryPanel } from './panels/RunHistoryPanel'
 import { WorkflowPropertiesPanel } from './panels/WorkflowPropertiesPanel'
@@ -23,6 +23,7 @@ import {
   createLaunchAgentNode,
   createScriptNode,
   createConditionNode,
+  createApprovalNode,
   appendNodeAfter,
   insertNodeBetween,
   insertBeforeFork,
@@ -106,6 +107,29 @@ export function WorkflowEditor() {
       setExecutionHistory([])
     }
   }, [editingId, isOpen])
+
+  // Re-query on status transitions for this workflow only, plus whenever a
+  // node flips into or out of 'waiting' (gate approve/reject). Selecting
+  // scalars avoids refetching on every streaming log chunk.
+  const liveExecStatus = useAppStore((s) =>
+    editingId ? s.workflowExecutions.get(editingId)?.status : undefined
+  )
+  const liveExecCompletedAt = useAppStore((s) =>
+    editingId ? s.workflowExecutions.get(editingId)?.completedAt : undefined
+  )
+  const liveWaitingSignature = useAppStore((s) => {
+    if (!editingId) return ''
+    const ns = s.workflowExecutions.get(editingId)?.nodeStates
+    if (!ns) return ''
+    return ns
+      .filter((n) => n.status === 'waiting')
+      .map((n) => n.nodeId)
+      .join(',')
+  })
+  useEffect(() => {
+    if (!editingId || !isOpen || !liveExecStatus) return
+    window.api.listWorkflowRuns(editingId, 20).then(setExecutionHistory).catch(console.error)
+  }, [editingId, isOpen, liveExecStatus, liveExecCompletedAt, liveWaitingSignature])
 
   // Load existing workflow when editing (with slug migration)
   useEffect(() => {
@@ -265,21 +289,20 @@ export function WorkflowEditor() {
     handleClose()
   }, [editingId, removeWorkflowFromStore, handleClose])
 
-  // Helper: create a node with a unique slug
   const createNodeWithUniqueSlug = useCallback(
-    (type: 'agent' | 'script' | 'condition') => {
+    (type: AddableNodeType) => {
       const projects = useAppStore.getState().config?.projects || []
       const firstProject = projects[0]
-      const newNode =
-        type === 'condition'
-          ? createConditionNode()
-          : type === 'script'
-            ? createScriptNode()
-            : createLaunchAgentNode(
-                firstProject
-                  ? { projectName: firstProject.name, projectPath: firstProject.path }
-                  : {}
-              )
+      const factories: Record<AddableNodeType, () => WorkflowNode> = {
+        condition: () => createConditionNode(),
+        approval: () => createApprovalNode(),
+        script: () => createScriptNode(),
+        agent: () =>
+          createLaunchAgentNode(
+            firstProject ? { projectName: firstProject.name, projectPath: firstProject.path } : {}
+          )
+      }
+      const newNode = factories[type]()
       if (newNode.slug) {
         const existingSlugs = new Set(nodes.filter((n) => n.slug).map((n) => n.slug!))
         newNode.slug = ensureUniqueSlug(newNode.slug, existingSlugs)
@@ -290,7 +313,7 @@ export function WorkflowEditor() {
   )
 
   const handleInsertNode = useCallback(
-    (afterNodeId: string, beforeNodeId: string | null, type: 'agent' | 'script' | 'condition') => {
+    (afterNodeId: string, beforeNodeId: string | null, type: AddableNodeType) => {
       // Condition nodes use a special insertion that creates true/false branches
       if (type === 'condition') {
         const result = insertConditionBetween(nodes, edges, afterNodeId, beforeNodeId)

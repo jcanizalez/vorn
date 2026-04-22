@@ -69,8 +69,6 @@ export const AgentCard = memo(
 
     const isFocused = focusedId === terminalId
     const isSelected = selectedId === terminalId
-    const isPinned = terminal.session.pinned === true
-    const isIdlePinned = terminal.status === 'idle' && isPinned
 
     const handleExpand = (): void => {
       setFocused(terminalId)
@@ -91,10 +89,7 @@ export const AgentCard = memo(
                            ? 'card-drop-target border-blue-500/30 hover:border-white/[0.12]'
                            : 'border-white/[0.06] hover:border-white/[0.12]'
                    }`}
-        style={{
-          background: '#1a1a1e',
-          ...(isIdlePinned ? { opacity: 0.55 } : {})
-        }}
+        style={{ background: '#1a1a1e' }}
         onPointerDown={() => {
           if (!isSelected && !isFocused) setSelected(terminalId)
         }}

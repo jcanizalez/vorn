@@ -7,9 +7,14 @@ import { executeWorkflow } from '../../lib/workflow-execution'
 import { Zap, Play, MoreHorizontal } from 'lucide-react'
 import { Tooltip } from '../Tooltip'
 
-type DotColor = 'blue' | 'gray' | 'red' | null
+type DotColor = 'blue' | 'gray' | 'red' | 'amber' | null
 
-function statusDotColor(workflow: WorkflowDefinition, scheduled: boolean): DotColor {
+function statusDotColor(
+  workflow: WorkflowDefinition,
+  scheduled: boolean,
+  hasWaitingGate: boolean
+): DotColor {
+  if (hasWaitingGate) return 'amber'
   if (scheduled) return workflow.enabled ? 'blue' : 'gray'
   if (workflow.lastRunStatus === 'error') return 'red'
   return null
@@ -18,7 +23,8 @@ function statusDotColor(workflow: WorkflowDefinition, scheduled: boolean): DotCo
 const DOT_CLASSES: Record<Exclude<DotColor, null>, string> = {
   blue: 'bg-blue-400',
   gray: 'bg-gray-600',
-  red: 'bg-red-500'
+  red: 'bg-red-500',
+  amber: 'bg-amber-400 animate-pulse'
 }
 
 export function WorkflowItem({
@@ -39,7 +45,11 @@ export function WorkflowItem({
   const WfIcon = ICON_MAP[workflow.icon] || Zap
   const isScheduled = isScheduledWorkflow(workflow)
   const isDisabled = isScheduled && !workflow.enabled
-  const dot = statusDotColor(workflow, isScheduled)
+  const hasWaitingGate = useAppStore((s) => {
+    const exec = s.workflowExecutions.get(workflow.id)
+    return exec ? exec.nodeStates.some((ns) => ns.status === 'waiting') : false
+  })
+  const dot = statusDotColor(workflow, isScheduled, hasWaitingGate)
 
   const handleEdit = () => {
     setEditingWorkflowId(workflow.id)

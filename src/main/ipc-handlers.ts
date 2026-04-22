@@ -105,13 +105,6 @@ export function registerIpcHandlers(): void {
     requireBridge().request(IPC.TASK_IMAGE_CLEANUP, taskId)
   )
 
-  // Session archive
-  safeHandle(IPC.SESSION_ARCHIVE, (_, session) =>
-    requireBridge().request(IPC.SESSION_ARCHIVE, session)
-  )
-  safeHandle(IPC.SESSION_UNARCHIVE, (_, id) => requireBridge().request(IPC.SESSION_UNARCHIVE, id))
-  safeHandle(IPC.SESSION_LIST_ARCHIVED, () => requireBridge().request(IPC.SESSION_LIST_ARCHIVED))
-
   // Headless sessions (enriched with decrypted credentials when needed)
   safeHandle(IPC.HEADLESS_CREATE, async (_, payload) => {
     const enriched = await enrichPayloadWithCredentials(payload, requireBridge())
@@ -132,6 +125,9 @@ export function registerIpcHandlers(): void {
   )
   safeHandle(IPC.WORKFLOW_RUN_LIST_BY_TASK, (_, taskId, limit) =>
     requireBridge().request(IPC.WORKFLOW_RUN_LIST_BY_TASK, { taskId, limit })
+  )
+  safeHandle(IPC.WORKFLOW_RUN_LIST_WAITING, () =>
+    requireBridge().request(IPC.WORKFLOW_RUN_LIST_WAITING, {})
   )
 
   // Session logs
