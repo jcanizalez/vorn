@@ -1,21 +1,13 @@
 import { useShallow } from 'zustand/react/shallow'
-import {
-  HeadlessSession,
-  WorkflowExecution,
-  NodeExecutionState,
-  WorkflowDefinition
-} from '../../shared/types'
+import { HeadlessSession } from '../../shared/types'
 import { HeadlessPill } from './HeadlessPill'
 import { MinimizedPill } from './MinimizedPill'
 import { WaitingApprovalPill } from './WaitingApprovalPill'
 import { useAppStore } from '../stores'
 import { ChevronRight } from 'lucide-react'
+import { backgroundTrayHasItems, type WaitingApproval } from '../lib/background-tray'
 
-export interface WaitingApproval {
-  execution: WorkflowExecution
-  nodeState: NodeExecutionState
-  workflow?: WorkflowDefinition
-}
+export { type WaitingApproval }
 
 interface Props {
   headlessSessions: HeadlessSession[]
@@ -39,12 +31,11 @@ export function BackgroundTray({
     }))
   )
 
+  if (!backgroundTrayHasItems(headlessSessions, minimizedIds, waitingApprovals)) return null
+
   const headlessCount = headlessSessions.length
   const minimizedCount = minimizedIds.length
   const waitingCount = waitingApprovals.length
-  const totalCount = headlessCount + minimizedCount + waitingCount
-
-  if (totalCount === 0) return null
 
   const runningCount = headlessSessions.filter((s) => s.status === 'running').length
   const groupCount = [headlessCount, minimizedCount, waitingCount].filter((n) => n > 0).length
