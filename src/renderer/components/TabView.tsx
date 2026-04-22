@@ -68,7 +68,7 @@ function getHorizontalDropIndex(
 const TAB_ICON_BTN =
   'w-5 h-5 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity text-gray-500'
 
-function TabIconButton({
+export function TabIconButton({
   label,
   icon,
   onClick,
@@ -76,14 +76,18 @@ function TabIconButton({
 }: {
   label: string
   icon: React.ReactNode
-  onClick?: (e: React.MouseEvent) => void
+  onClick?: () => void
   hoverClass?: string
 }) {
+  const handleClick = (e: React.MouseEvent): void => {
+    e.stopPropagation()
+    onClick?.()
+  }
   return (
     <Tooltip label={label} position="bottom">
       <button
         type="button"
-        onClick={onClick}
+        onClick={handleClick}
         className={`${TAB_ICON_BTN} ${hoverClass}`}
         aria-label={label}
       >
@@ -445,18 +449,12 @@ export function TabView() {
                     <TabIconButton
                       label="Browse files"
                       icon={<FolderOpen size={13} />}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setDiffSidebar(id, 'all-files')
-                      }}
+                      onClick={() => setDiffSidebar(id, 'all-files')}
                     />
                     <TabIconButton
                       label="Rename session"
                       icon={<Pencil size={13} />}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setRenamingTerminalId(id)
-                      }}
+                      onClick={() => setRenamingTerminalId(id)}
                     />
                   </>
                 )}

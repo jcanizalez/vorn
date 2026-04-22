@@ -51,10 +51,16 @@ let ideCachePromise: Promise<DetectedIDE[]> | null = null
 function loadIDEs(): Promise<DetectedIDE[]> {
   if (ideCache) return Promise.resolve(ideCache)
   if (!ideCachePromise) {
-    ideCachePromise = window.api.detectIDEs().then((detected) => {
-      ideCache = detected
-      return detected
-    })
+    ideCachePromise = window.api.detectIDEs().then(
+      (detected) => {
+        ideCache = detected
+        return detected
+      },
+      (err) => {
+        ideCachePromise = null
+        throw err
+      }
+    )
   }
   return ideCachePromise
 }
@@ -75,7 +81,9 @@ export function OpenInButton({ projectPath, direction = 'down' }: Props) {
 
   useEffect(() => {
     if (ideCache) return
-    loadIDEs().then(setIdes)
+    loadIDEs().then(setIdes, () => {
+      /* detection failed; UI stays hidden until a later retry */
+    })
   }, [])
 
   useEffect(() => {
@@ -139,6 +147,7 @@ export function OpenInButton({ projectPath, direction = 'down' }: Props) {
         </button>
         <button
           onClick={handleToggle}
+          aria-label="Choose IDE"
           className="flex items-center px-0.5 py-0.5 text-gray-500 hover:text-white
                      bg-white/[0.04] hover:bg-white/[0.08] rounded-r-md border border-white/[0.06]
                      transition-colors self-stretch"
@@ -152,7 +161,7 @@ export function OpenInButton({ projectPath, direction = 'down' }: Props) {
         createPortal(
           <div
             ref={menuRef}
-            className="fixed z-[9999] py-1 border border-white/[0.08] rounded-lg shadow-xl"
+            className="fixed z-[150] py-1 border border-white/[0.08] rounded-lg shadow-xl"
             style={{
               background: '#1e1e22',
               top: menuPos.top,
