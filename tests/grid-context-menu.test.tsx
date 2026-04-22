@@ -134,7 +134,7 @@ describe('GridContextMenu', () => {
     expect(mockCreateShellTerminal).toHaveBeenCalledWith('/tmp/vorn')
   })
 
-  it('"New session in…" submenu shows worktrees (no duplicate project entry)', () => {
+  it('"New session in…" submenu groups worktrees under project header', () => {
     const cache = new Map()
     cache.set('/tmp/vorn', [
       { path: '/tmp/vorn', branch: 'main', isMain: true, name: 'vorn' },
@@ -145,14 +145,14 @@ describe('GridContextMenu', () => {
     render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
     fireEvent.mouseEnter(screen.getByText('New session in…').closest('button')!)
 
-    // Main branch shown instead of standalone project entry
-    expect(screen.getByText('Vorn › main')).toBeInTheDocument()
-    expect(screen.getByText('Vorn › feat-a')).toBeInTheDocument()
-    // No standalone "Vorn" entry (would be redundant with "Vorn › main")
-    expect(screen.queryByText(/^Vorn$/)).not.toBeInTheDocument()
+    // Project name as group header
+    expect(screen.getByText('Vorn')).toBeInTheDocument()
+    // Worktree entries underneath (just branch names, not prefixed)
+    expect(screen.getByText('main')).toBeInTheDocument()
+    expect(screen.getByText('feat-a')).toBeInTheDocument()
   })
 
-  it('"New terminal in…" submenu shows worktrees', () => {
+  it('"New terminal in…" submenu groups worktrees under project header', () => {
     const cache = new Map()
     cache.set('/tmp/vorn', [
       { path: '/tmp/vorn', branch: 'main', isMain: true, name: 'vorn' },
@@ -163,8 +163,9 @@ describe('GridContextMenu', () => {
     render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
     fireEvent.mouseEnter(screen.getByText('New terminal in…').closest('button')!)
 
-    expect(screen.getByText('Vorn › main')).toBeInTheDocument()
-    expect(screen.getByText('Vorn › feat-a')).toBeInTheDocument()
+    expect(screen.getByText('Vorn')).toBeInTheDocument()
+    expect(screen.getByText('main')).toBeInTheDocument()
+    expect(screen.getByText('feat-a')).toBeInTheDocument()
   })
 
   it('calls onClose on click outside', () => {

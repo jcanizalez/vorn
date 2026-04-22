@@ -22,8 +22,9 @@ interface SubmenuItem {
   iconElement?: React.ReactNode
   label: string
   detail?: string
-  onClick: () => void
+  onClick?: () => void
   separator?: boolean
+  isHeader?: boolean
 }
 
 type SubmenuKey = 'session-in' | 'terminal-in'
@@ -113,7 +114,7 @@ export function GridContextMenu({ position, onClose }: Props) {
     void createSessionFromProject(p, opts)
   }
 
-  // Build a flat list of project + worktree targets for "in…" submenus
+  // Build a grouped list of project + worktree targets for "in…" submenus
   const buildScopedSubmenu = (mode: 'session' | 'terminal'): SubmenuItem[] => {
     const subs: SubmenuItem[] = []
     for (const p of workspaceProjects) {
@@ -130,9 +131,10 @@ export function GridContextMenu({ position, onClose }: Props) {
         return count > 0 ? `${count} session${count > 1 ? 's' : ''}` : ''
       }
 
-      // Project-level entry — only shown for non-git projects (no worktrees)
       const hasWorktrees = mainWt || nonMain.length > 0
+
       if (!hasWorktrees) {
+        // Non-git project — clickable row (no header needed)
         subs.push({
           iconElement: <ProjectIcon icon={p.icon} color={p.iconColor} size={12} />,
           label: p.name,
@@ -145,37 +147,44 @@ export function GridContextMenu({ position, onClose }: Props) {
                 },
           separator: subs.length > 0
         })
-      }
-
-      // Worktree entries under the project
-      if (mainWt) {
+      } else {
+        // Project group header (non-clickable label)
         subs.push({
-          iconElement: <GitBranch size={12} className="text-gray-400" />,
-          label: `${p.name} › ${mainWt.branch}`,
-          detail: formatDetail(mainWt.path),
-          onClick:
-            mode === 'session'
-              ? () => createSession(p, { branch: mainWt.branch, existingWorktreePath: mainWt.path })
-              : () => {
-                  onClose()
-                  void createShellInProject(mainWt.path)
-                },
+          iconElement: <ProjectIcon icon={p.icon} color={p.iconColor} size={12} />,
+          label: p.name,
+          isHeader: true,
           separator: subs.length > 0
         })
-      }
-      for (const wt of nonMain) {
-        subs.push({
-          iconElement: <FolderGit2 size={12} className="text-amber-400/70" />,
-          label: `${p.name} › ${wt.name}`,
-          detail: formatDetail(wt.path),
-          onClick:
-            mode === 'session'
-              ? () => createSession(p, { branch: wt.branch, existingWorktreePath: wt.path })
-              : () => {
-                  onClose()
-                  void createShellInProject(wt.path)
-                }
-        })
+
+        if (mainWt) {
+          subs.push({
+            iconElement: <GitBranch size={12} className="text-gray-400" />,
+            label: mainWt.branch,
+            detail: formatDetail(mainWt.path),
+            onClick:
+              mode === 'session'
+                ? () =>
+                    createSession(p, { branch: mainWt.branch, existingWorktreePath: mainWt.path })
+                : () => {
+                    onClose()
+                    void createShellInProject(mainWt.path)
+                  }
+          })
+        }
+        for (const wt of nonMain) {
+          subs.push({
+            iconElement: <FolderGit2 size={12} className="text-amber-400/70" />,
+            label: wt.name,
+            detail: formatDetail(wt.path),
+            onClick:
+              mode === 'session'
+                ? () => createSession(p, { branch: wt.branch, existingWorktreePath: wt.path })
+                : () => {
+                    onClose()
+                    void createShellInProject(wt.path)
+                  }
+          })
+        }
       }
     }
     return subs
@@ -356,27 +365,34 @@ export function GridContextMenu({ position, onClose }: Props) {
           {activeSubmenu.map((sub, j) => (
             <div key={j}>
               {sub.separator && <div className="border-t border-white/[0.06] my-1" />}
-              <button
-                role="menuitem"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  sub.onClick()
-                }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-gray-300
-                           hover:bg-white/[0.06] transition-colors"
-              >
-                {sub.iconElement}
-                <span className="flex-1 text-left font-mono truncate">{sub.label}</span>
-                {sub.detail && (
-                  <span
-                    className={`text-[10px] ml-auto shrink-0 ${
-                      sub.detail !== 'idle' ? 'text-green-400/70' : 'text-gray-600'
-                    }`}
-                  >
-                    {sub.detail}
-                  </span>
-                )}
-              </button>
+              {sub.isHeader ? (
+                <div className="flex items-center gap-2 px-3 pt-2 pb-1 text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                  {sub.iconElement}
+                  {sub.label}
+                </div>
+              ) : (
+                <button
+                  role="menuitem"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    sub.onClick?.()
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 pl-7 py-1.5 text-xs text-gray-300
+                             hover:bg-white/[0.06] transition-colors"
+                >
+                  {sub.iconElement}
+                  <span className="flex-1 text-left font-mono truncate">{sub.label}</span>
+                  {sub.detail && (
+                    <span
+                      className={`text-[10px] ml-auto shrink-0 ${
+                        sub.detail !== 'idle' ? 'text-green-400/70' : 'text-gray-600'
+                      }`}
+                    >
+                      {sub.detail}
+                    </span>
+                  )}
+                </button>
+              )}
             </div>
           ))}
         </motion.div>
