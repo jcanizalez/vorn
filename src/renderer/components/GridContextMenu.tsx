@@ -64,6 +64,11 @@ export function GridContextMenu({ position, onClose }: Props) {
   const workspaceProjects = useWorkspaceProjects()
   const workspaceWorkflows = useWorkspaceWorkflows()
 
+  // Force-refresh worktree data once when the menu mounts
+  useEffect(() => {
+    workspaceProjects.forEach((p) => loadWorktrees(p.path, true))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const [hoveredSubmenu, setHoveredSubmenu] = useState<number | null>(null)
 
   const clearHideTimeout = useCallback(() => {
@@ -209,14 +214,14 @@ export function GridContextMenu({ position, onClose }: Props) {
       iconElement: <AgentIcon agentType={defaultAgent} size={14} />,
       label: 'New session in…',
       submenuKey: 'session-in',
-      onSubmenuEnter: () => workspaceProjects.forEach((p) => loadWorktrees(p.path, true))
+      onSubmenuEnter: () => workspaceProjects.forEach((p) => loadWorktrees(p.path))
     })
 
     items.push({
       iconElement: <Terminal size={14} className="text-gray-400" />,
       label: 'New terminal in…',
       submenuKey: 'terminal-in',
-      onSubmenuEnter: () => workspaceProjects.forEach((p) => loadWorktrees(p.path, true))
+      onSubmenuEnter: () => workspaceProjects.forEach((p) => loadWorktrees(p.path))
     })
   }
 
