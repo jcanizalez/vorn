@@ -128,11 +128,32 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
     }
   }
 
-  // --- Group 1: New session + New terminal ---
+  // --- Group 1: Expand + Rename ---
+  if (!isFocused && layoutMode !== 'tabs') {
+    items.push({
+      icon: Maximize2,
+      label: 'Expand',
+      onClick: () => {
+        useAppStore.getState().setFocusedTerminal(terminalId)
+        onClose()
+      }
+    })
+  }
+
+  items.push({
+    icon: Pencil,
+    label: 'Rename',
+    onClick: () => {
+      useAppStore.getState().setRenamingTerminalId(terminalId)
+      onClose()
+    }
+  })
+
+  // --- Group 2: New session + New terminal + New session with… + Run workflow ---
   items.push({
     iconElement: <AgentIcon agentType={defaultAgent} size={14} />,
     label: 'New session',
-    className: 'text-white font-medium',
+    separator: true,
     onClick: () => createSessionWithAgent(defaultAgent)
   })
 
@@ -151,7 +172,6 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
     }
   })
 
-  // --- Group 2: New session with…, Expand, Rename, Run workflow ---
   const agentSubmenuItems: SubmenuItem[] = AGENT_LIST.filter((a) => agentInstallStatus[a.type]).map(
     (agent) => ({
       iconElement: <AgentIcon agentType={agent.type} size={12} />,
@@ -164,32 +184,9 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
     items.push({
       iconElement: <AgentIcon agentType={defaultAgent} size={14} />,
       label: 'New session with…',
-      submenu: agentSubmenuItems,
-      separator: true
+      submenu: agentSubmenuItems
     })
   }
-
-  if (!isFocused && layoutMode !== 'tabs') {
-    items.push({
-      icon: Maximize2,
-      label: 'Expand',
-      separator: agentSubmenuItems.length <= 1,
-      onClick: () => {
-        useAppStore.getState().setFocusedTerminal(terminalId)
-        onClose()
-      }
-    })
-  }
-
-  items.push({
-    icon: Pencil,
-    label: 'Rename',
-    separator: (isFocused || layoutMode === 'tabs') && agentSubmenuItems.length <= 1,
-    onClick: () => {
-      useAppStore.getState().setRenamingTerminalId(terminalId)
-      onClose()
-    }
-  })
 
   if (workspaceWorkflows.length > 0) {
     const workflowSubmenuItems: SubmenuItem[] = workspaceWorkflows.map((wf) => {
