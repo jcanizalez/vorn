@@ -1,22 +1,20 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Maximize2, Pencil, FolderGit2, Plus, X, ChevronRight, Zap, Terminal } from 'lucide-react'
+import { Maximize2, Pencil, X, ChevronRight, Zap, Terminal } from 'lucide-react'
 import { useAppStore } from '../stores'
-import { getProjectRemoteHostId } from '../../shared/types'
+import { type AiAgentType, getProjectRemoteHostId } from '../../shared/types'
 import { ICON_MAP } from './project-sidebar/icon-map'
 import { AgentIcon } from './AgentIcon'
+import { AGENT_LIST } from '../lib/agent-definitions'
+import { useAgentInstallStatus } from '../hooks/useAgentInstallStatus'
 import { closeTerminalSession } from '../lib/terminal-close'
 import { executeWorkflow } from '../lib/workflow-execution'
 import { toast } from './Toast'
 import { getDisplayName } from '../lib/terminal-display'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { useWorkspaceWorkflows } from '../hooks/useWorkspaceWorkflows'
-import {
-  countSessionsByWorktree,
-  formatSessionCount,
-  createShellInProject
-} from '../lib/session-utils'
+import { createShellInProject } from '../lib/session-utils'
 
 interface Props {
   terminalId: string
@@ -46,18 +44,17 @@ interface MenuItem {
 export function CardContextMenu({ terminalId, position, onClose }: Props) {
   const menuRef = useRef<HTMLDivElement>(null)
   const submenuRef = useRef<HTMLDivElement>(null)
-  const itemRefs = useRef<Map<number, HTMLButtonElement>>(new Map())
   const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const terminal = useAppStore((s) => s.terminals.get(terminalId))
   const focusedId = useAppStore((s) => s.focusedTerminalId)
   const config = useAppStore((s) => s.config)
-  const worktreeCache = useAppStore((s) => s.worktreeCache)
-  const loadWorktrees = useAppStore((s) => s.loadWorktrees)
   const layoutMode = useAppStore((s) => s.config?.defaults?.layoutMode ?? 'grid')
   const isMobile = useIsMobile()
   const workspaceWorkflows = useWorkspaceWorkflows()
+  const { status: agentInstallStatus } = useAgentInstallStatus()
 
   const [hoveredSubmenu, setHoveredSubmenu] = useState<number | null>(null)
+  const [submenuItemTop, setSubmenuItemTop] = useState(0)
 
   const clearHideTimeout = useCallback(() => {
     if (hideTimeout.current) {
@@ -103,48 +100,40 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
   const isWorktree = terminal.session.isWorktree
   const branch = terminal.session.branch
 
-  const worktrees = projectPath ? (worktreeCache.get(projectPath) ?? []) : []
-  const terminals = useAppStore.getState().terminals
-
   const items: MenuItem[] = []
 
   const defaultAgent = config?.defaults?.defaultAgent || 'claude'
 
-  // --- Group 1: Quick actions (New session, New terminal) ---
-  const quickLabel = isWorktree
-    ? branch
-      ? `New session in ${projectName} on ${branch}`
-      : `New session in ${projectName} (worktree)`
-    : `New session in ${projectName}`
+  const createSessionWithAgent = async (agentType: AiAgentType) => {
+    onClose()
+    const state = useAppStore.getState()
+    if (isWorktree && terminal.session.worktreePath) {
+      const session = await window.api.createTerminal({
+        agentType,
+        projectName,
+        projectPath,
+        branch,
+        existingWorktreePath: terminal.session.worktreePath,
+        remoteHostId
+      })
+      state.addTerminal(session)
+    } else {
+      const session = await window.api.createTerminal({
+        agentType,
+        projectName,
+        projectPath,
+        remoteHostId
+      })
+      state.addTerminal(session)
+    }
+  }
 
+  // --- Group 1: New session + New terminal ---
   items.push({
     iconElement: <AgentIcon agentType={defaultAgent} size={14} />,
-    label: quickLabel,
+    label: 'New session',
     className: 'text-white font-medium',
-    onClick: async () => {
-      onClose()
-      const state = useAppStore.getState()
-      const agentType = state.config?.defaults.defaultAgent || 'claude'
-      if (isWorktree && terminal.session.worktreePath) {
-        const session = await window.api.createTerminal({
-          agentType,
-          projectName,
-          projectPath,
-          branch,
-          existingWorktreePath: terminal.session.worktreePath,
-          remoteHostId
-        })
-        state.addTerminal(session)
-      } else {
-        const session = await window.api.createTerminal({
-          agentType,
-          projectName,
-          projectPath,
-          remoteHostId
-        })
-        state.addTerminal(session)
-      }
-    }
+    onClick: () => createSessionWithAgent(defaultAgent)
   })
 
   items.push({
@@ -162,71 +151,29 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
     }
   })
 
-  // --- Group 2: Worktree submenu ---
-  const worktreeSubmenuItems: SubmenuItem[] = []
-  const sessionCountByPath = countSessionsByWorktree(terminals.values())
+  // --- Group 2: New session with…, Expand, Rename, Run workflow ---
+  const agentSubmenuItems: SubmenuItem[] = AGENT_LIST.filter((a) => agentInstallStatus[a.type]).map(
+    (agent) => ({
+      iconElement: <AgentIcon agentType={agent.type} size={12} />,
+      label: agent.displayName,
+      onClick: () => createSessionWithAgent(agent.type)
+    })
+  )
 
-  for (const wt of worktrees) {
-    const sessionCount = sessionCountByPath.get(wt.path) ?? 0
-    worktreeSubmenuItems.push({
-      iconElement: <FolderGit2 size={12} className="text-amber-400/70" />,
-      label: wt.branch,
-      detail: sessionCount > 0 ? formatSessionCount(sessionCount) : 'idle',
-      onClick: async () => {
-        onClose()
-        const state = useAppStore.getState()
-        const agentType = state.config?.defaults.defaultAgent || 'claude'
-        const session = await window.api.createTerminal({
-          agentType,
-          projectName,
-          projectPath,
-          branch: wt.branch,
-          existingWorktreePath: wt.path,
-          remoteHostId
-        })
-        state.addTerminal(session)
-      }
+  if (agentSubmenuItems.length > 1) {
+    items.push({
+      iconElement: <AgentIcon agentType={defaultAgent} size={14} />,
+      label: 'New session with…',
+      submenu: agentSubmenuItems,
+      separator: true
     })
   }
 
-  worktreeSubmenuItems.push({
-    iconElement: <Plus size={12} className="text-amber-400/70" />,
-    label: 'New worktree',
-    onClick: async () => {
-      onClose()
-      const state = useAppStore.getState()
-      const agentType = state.config?.defaults.defaultAgent || 'claude'
-      const branchResult = await window.api.listBranches(projectPath)
-      const branchName = branchResult.current || 'main'
-      const session = await window.api.createTerminal({
-        agentType,
-        projectName,
-        projectPath,
-        branch: branchName,
-        useWorktree: true,
-        remoteHostId
-      })
-      state.addTerminal(session)
-    },
-    separator: worktreeSubmenuItems.length > 0
-  })
-
-  items.push({
-    iconElement: <FolderGit2 size={14} className="text-amber-400" />,
-    label: `New session in ${projectName}...`,
-    submenu: worktreeSubmenuItems,
-    separator: true,
-    onSubmenuEnter: () => {
-      if (projectPath) loadWorktrees(projectPath)
-    }
-  })
-
-  // --- Group 3: Expand, Rename, Run workflow ---
   if (!isFocused && layoutMode !== 'tabs') {
     items.push({
       icon: Maximize2,
       label: 'Expand',
-      separator: true,
+      separator: agentSubmenuItems.length <= 1,
       onClick: () => {
         useAppStore.getState().setFocusedTerminal(terminalId)
         onClose()
@@ -237,7 +184,7 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
   items.push({
     icon: Pencil,
     label: 'Rename',
-    separator: isFocused || layoutMode === 'tabs',
+    separator: (isFocused || layoutMode === 'tabs') && agentSubmenuItems.length <= 1,
     onClick: () => {
       useAppStore.getState().setRenamingTerminalId(terminalId)
       onClose()
@@ -264,7 +211,7 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
     })
   }
 
-  // --- Group 4: Close ---
+  // --- Group 3: Close ---
   items.push({
     icon: X,
     label: 'Close session',
@@ -291,10 +238,7 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
   let submenuTop = top
   const submenuWidth = 220
   if (hoveredSubmenu !== null) {
-    const itemEl = itemRefs.current.get(hoveredSubmenu)
-    if (itemEl) {
-      submenuTop = itemEl.getBoundingClientRect().top
-    }
+    submenuTop = submenuItemTop || top
     if (submenuLeft + submenuWidth > window.innerWidth - 8) {
       submenuLeft = left - submenuWidth - 4
     }
@@ -328,23 +272,21 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
           <div key={i}>
             {item.separator && <div className="border-t border-white/[0.06] my-1" />}
             <button
-              ref={(el) => {
-                if (el) itemRefs.current.set(i, el)
-                else itemRefs.current.delete(i)
-              }}
               onClick={(e) => {
                 e.stopPropagation()
                 if (item.submenu) {
                   clearHideTimeout()
+                  setSubmenuItemTop(e.currentTarget.getBoundingClientRect().top)
                   setHoveredSubmenu(hoveredSubmenu === i ? null : i)
                   item.onSubmenuEnter?.()
                 } else {
                   item.onClick?.()
                 }
               }}
-              onMouseEnter={() => {
+              onMouseEnter={(e) => {
                 if (item.submenu) {
                   clearHideTimeout()
+                  setSubmenuItemTop(e.currentTarget.getBoundingClientRect().top)
                   setHoveredSubmenu(i)
                   item.onSubmenuEnter?.()
                 } else {

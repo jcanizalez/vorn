@@ -15,6 +15,13 @@ Object.defineProperty(window, 'api', {
     createShellTerminal: (...args: unknown[]) => mockCreateShellTerminal(...args),
     listBranches: (...args: unknown[]) => mockListBranches(...args),
     listWorktrees: (...args: unknown[]) => mockListWorktrees(...args),
+    detectInstalledAgents: vi.fn().mockResolvedValue({
+      claude: true,
+      copilot: true,
+      codex: false,
+      opencode: false,
+      gemini: false
+    }),
     killTerminal: vi.fn(),
     saveConfig: vi.fn(),
     notifyWidgetStatus: vi.fn(),
@@ -109,61 +116,9 @@ beforeEach(() => {
 })
 
 describe('CardContextMenu', () => {
-  it('renders smart quick-launch with project name', () => {
+  it('renders "New session" quick-launch', () => {
     render(<CardContextMenu terminalId="term-1" position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
-    expect(screen.getByText('New session in Vorn')).toBeInTheDocument()
-  })
-
-  it('renders worktree-aware quick-launch label when terminal is in a worktree', () => {
-    render(<CardContextMenu terminalId="term-2" position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
-    expect(screen.getByText('New session in Vorn on feature-auth')).toBeInTheDocument()
-  })
-
-  it('renders worktree submenu item with chevron', () => {
-    render(<CardContextMenu terminalId="term-1" position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
-    expect(screen.getByText('New session in Vorn...')).toBeInTheDocument()
-  })
-
-  it('does not render old "New session in worktree" flat label', () => {
-    render(<CardContextMenu terminalId="term-1" position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
-    expect(screen.queryByText('New session in worktree')).not.toBeInTheDocument()
-    expect(screen.queryByText('New session (same project)')).not.toBeInTheDocument()
-  })
-
-  it('shows submenu with worktrees on hover', () => {
-    const worktrees = [{ path: '/tmp/wt/feat-a', branch: 'feat-a', isMain: false }]
-    const cache = new Map()
-    cache.set('/tmp/vorn', worktrees)
-    useAppStore.setState({ worktreeCache: cache })
-
-    render(<CardContextMenu terminalId="term-1" position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
-
-    const submenuTrigger = screen.getByText('New session in Vorn...')
-    fireEvent.mouseEnter(submenuTrigger.closest('button')!)
-
-    expect(screen.getByText('feat-a')).toBeInTheDocument()
-    expect(screen.getByText('New worktree')).toBeInTheDocument()
-  })
-
-  it('shows session count for worktrees with active sessions', () => {
-    const worktrees = [
-      {
-        path: '/tmp/.vorn-worktrees/vorn/feature-auth',
-        branch: 'feature-auth',
-        isMain: false
-      }
-    ]
-    const cache = new Map()
-    cache.set('/tmp/vorn', worktrees)
-    useAppStore.setState({ worktreeCache: cache })
-
-    render(<CardContextMenu terminalId="term-1" position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
-
-    const submenuTrigger = screen.getByText('New session in Vorn...')
-    fireEvent.mouseEnter(submenuTrigger.closest('button')!)
-
-    // term-2 has worktreePath matching this worktree
-    expect(screen.getByText('1 session')).toBeInTheDocument()
+    expect(screen.getByText('New session')).toBeInTheDocument()
   })
 
   it('quick-launch creates terminal in same project', async () => {
@@ -182,7 +137,7 @@ describe('CardContextMenu', () => {
     const onClose = vi.fn()
     render(<CardContextMenu terminalId="term-1" position={{ x: 100, y: 100 }} onClose={onClose} />)
 
-    fireEvent.click(screen.getByText('New session in Vorn'))
+    fireEvent.click(screen.getByText('New session'))
 
     expect(onClose).toHaveBeenCalled()
     expect(mockCreateTerminal).toHaveBeenCalledWith(
@@ -210,7 +165,7 @@ describe('CardContextMenu', () => {
     const onClose = vi.fn()
     render(<CardContextMenu terminalId="term-2" position={{ x: 100, y: 100 }} onClose={onClose} />)
 
-    fireEvent.click(screen.getByText('New session in Vorn on feature-auth'))
+    fireEvent.click(screen.getByText('New session'))
 
     expect(mockCreateTerminal).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -223,7 +178,7 @@ describe('CardContextMenu', () => {
     )
   })
 
-  it('still renders Expand, Rename, New terminal, and Close items', () => {
+  it('renders Expand, Rename, New terminal, and Close items', () => {
     render(<CardContextMenu terminalId="term-1" position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
     expect(screen.getByText('Expand')).toBeInTheDocument()
     expect(screen.getByText('Rename')).toBeInTheDocument()
