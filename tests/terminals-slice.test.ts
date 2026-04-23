@@ -76,3 +76,80 @@ describe('updateSessionBranch', () => {
     expect(store.getState().terminals.get('term-2')?.session.branch).toBe('dev')
   })
 })
+
+describe('setBranchForCwd', () => {
+  let store: ReturnType<typeof createStore>
+
+  beforeEach(() => {
+    store = createStore()
+  })
+
+  it('updates every session whose worktreePath matches cwd', () => {
+    store.getState().addTerminal(
+      makeSession({
+        id: 'a',
+        branch: 'main',
+        worktreePath: '/wt/emerald',
+        projectPath: '/proj'
+      })
+    )
+    store.getState().addTerminal(
+      makeSession({
+        id: 'b',
+        branch: 'main',
+        worktreePath: '/wt/emerald',
+        projectPath: '/proj'
+      })
+    )
+
+    store.getState().setBranchForCwd('/wt/emerald', 'feature/x')
+
+    expect(store.getState().terminals.get('a')?.session.branch).toBe('feature/x')
+    expect(store.getState().terminals.get('b')?.session.branch).toBe('feature/x')
+  })
+
+  it('falls back to projectPath when session has no worktreePath', () => {
+    store
+      .getState()
+      .addTerminal(
+        makeSession({ id: 'a', branch: 'main', projectPath: '/proj', worktreePath: undefined })
+      )
+
+    store.getState().setBranchForCwd('/proj', 'feature/x')
+
+    expect(store.getState().terminals.get('a')?.session.branch).toBe('feature/x')
+  })
+
+  it('leaves non-matching sessions untouched', () => {
+    store
+      .getState()
+      .addTerminal(
+        makeSession({ id: 'match', branch: 'main', worktreePath: '/wt/a', projectPath: '/proj' })
+      )
+    store
+      .getState()
+      .addTerminal(
+        makeSession({ id: 'other', branch: 'dev', worktreePath: '/wt/b', projectPath: '/proj' })
+      )
+
+    store.getState().setBranchForCwd('/wt/a', 'feature/x')
+
+    expect(store.getState().terminals.get('match')?.session.branch).toBe('feature/x')
+    expect(store.getState().terminals.get('other')?.session.branch).toBe('dev')
+  })
+
+  it('preserves terminals Map reference when nothing changes', () => {
+    store
+      .getState()
+      .addTerminal(
+        makeSession({ id: 'a', branch: 'main', worktreePath: '/wt/a', projectPath: '/proj' })
+      )
+    const before = store.getState().terminals
+
+    store.getState().setBranchForCwd('/wt/unrelated', 'feature/x')
+    expect(store.getState().terminals).toBe(before)
+
+    store.getState().setBranchForCwd('/wt/a', 'main')
+    expect(store.getState().terminals).toBe(before)
+  })
+})

@@ -2,18 +2,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 
-const { toastError, loadWorktrees } = vi.hoisted(() => ({
+const { toastError, toastSuccess, loadWorktrees, setBranchForCwd } = vi.hoisted(() => ({
   toastError: vi.fn(),
-  loadWorktrees: vi.fn()
+  toastSuccess: vi.fn(),
+  loadWorktrees: vi.fn(),
+  setBranchForCwd: vi.fn()
 }))
 
 vi.mock('../src/renderer/components/Toast', () => ({
-  toast: { error: toastError, success: vi.fn() }
+  toast: { error: toastError, success: toastSuccess }
 }))
 
+type StoreShape = {
+  loadWorktrees: typeof loadWorktrees
+  setBranchForCwd: typeof setBranchForCwd
+}
+
 vi.mock('../src/renderer/stores', () => ({
-  useAppStore: (selector: (s: { loadWorktrees: typeof loadWorktrees }) => unknown) =>
-    selector({ loadWorktrees })
+  useAppStore: (selector: (s: StoreShape) => unknown) =>
+    selector({ loadWorktrees, setBranchForCwd })
 }))
 
 const checkoutBranch = vi.fn()
@@ -26,7 +33,9 @@ import { useBranchSwitcher } from '../src/renderer/hooks/useBranchSwitcher'
 
 beforeEach(() => {
   toastError.mockReset()
+  toastSuccess.mockReset()
   loadWorktrees.mockReset()
+  setBranchForCwd.mockReset()
   checkoutBranch.mockReset()
 })
 
@@ -51,14 +60,16 @@ describe('useBranchSwitcher', () => {
     expect(checkoutBranch).not.toHaveBeenCalled()
   })
 
-  it('checkouts and reloads worktrees on success', async () => {
+  it('checkouts, fans out branch to sessions, reloads worktrees, and toasts on success', async () => {
     checkoutBranch.mockResolvedValue({ ok: true })
     const { result } = renderHook(() => useBranchSwitcher(params))
     await act(async () => {
       await result.current.selectBranch('feat')
     })
     expect(checkoutBranch).toHaveBeenCalledWith('/p', 'feat')
+    expect(setBranchForCwd).toHaveBeenCalledWith('/p', 'feat')
     expect(loadWorktrees).toHaveBeenCalledWith('/p', true)
+    expect(toastSuccess).toHaveBeenCalledWith("Switched to 'feat'")
     expect(toastError).not.toHaveBeenCalled()
     expect(result.current.showPicker).toBe(false)
     expect(result.current.isSwitching).toBe(false)
@@ -72,6 +83,8 @@ describe('useBranchSwitcher', () => {
     })
     expect(toastError).toHaveBeenCalledWith('boom')
     expect(loadWorktrees).not.toHaveBeenCalled()
+    expect(setBranchForCwd).not.toHaveBeenCalled()
+    expect(toastSuccess).not.toHaveBeenCalled()
   })
 
   it('catches IPC rejection and surfaces error via toast', async () => {
