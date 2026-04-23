@@ -301,6 +301,16 @@ export function GridContextMenu({ position, onClose }: Props) {
                 }}
                 onClick={(e) => {
                   e.stopPropagation()
+                  if (itemHasSubmenu) {
+                    if (hoveredSubmenu === i) {
+                      setHoveredSubmenu(null)
+                    } else {
+                      clearHideTimeout()
+                      setHoveredSubmenu(i)
+                      item.onSubmenuEnter?.()
+                    }
+                    return
+                  }
                   item.onClick?.()
                 }}
                 onMouseEnter={() => {

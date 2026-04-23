@@ -208,8 +208,21 @@ export function App() {
             const claimed = new Set<string>()
             for (const s of prev) {
               if (s.agentType === 'shell') {
-                const session = await window.api.createShellTerminal(s.projectPath)
-                useAppStore.getState().addTerminal(session)
+                const cwd = s.shellCwd ?? s.worktreePath ?? s.projectPath
+                const session = await window.api.createShellTerminal(cwd)
+                const restored =
+                  s.projectName && s.projectPath
+                    ? {
+                        ...session,
+                        projectName: s.projectName,
+                        projectPath: s.projectPath,
+                        worktreePath: s.worktreePath,
+                        worktreeName: s.worktreeName,
+                        branch: s.branch,
+                        isWorktree: s.isWorktree
+                      }
+                    : session
+                useAppStore.getState().addTerminal(restored)
                 continue
               }
               const resumeSessionId = await resolveResumeSessionId(s, claimed)
