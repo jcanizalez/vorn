@@ -52,7 +52,7 @@ function createWindow(): void {
     frame: false,
     ...(isMac
       ? {
-          trafficLightPosition: { x: 16, y: 16 }
+          trafficLightPosition: { x: 16, y: 13 }
         }
       : {}),
     backgroundColor: '#1a1a1e',

@@ -5,7 +5,10 @@ import { ICON_MAP } from '../project-sidebar/icon-map'
 import { PROJECT_ICON_OPTIONS, ICON_COLOR_PALETTE } from '../../lib/project-icons'
 import { Tooltip } from '../Tooltip'
 import { useAppStore } from '../../stores'
-import { isWeb } from '../../lib/platform'
+import { isWeb, TRAFFIC_LIGHT_PAD_PX } from '../../lib/platform'
+import { SidebarToggleButton } from '../SidebarToggleButton'
+import { MainViewPills } from '../MainViewPills'
+import { WindowControls } from '../WindowControls'
 import {
   WorkflowDefinition,
   WorkflowNode,
@@ -429,13 +432,25 @@ export function WorkflowEditor({ inline = false }: { inline?: boolean } = {}) {
     <>
       {/* Top bar */}
       <div
-        className={`shrink-0 h-[52px] flex items-center justify-between px-4 border-b border-white/[0.08] titlebar-drag`}
-        style={inline && !isSidebarOpen && !isWeb ? { paddingLeft: '80px' } : undefined}
+        className={`shrink-0 h-[40px] flex items-center justify-between px-3 border-b border-white/[0.08] titlebar-drag`}
+        style={
+          inline && !isSidebarOpen && !isWeb
+            ? { paddingLeft: `${TRAFFIC_LIGHT_PAD_PX}px` }
+            : undefined
+        }
       >
         <div
-          className="flex items-center gap-3 titlebar-no-drag"
+          className="flex items-center gap-1 titlebar-no-drag"
           style={!inline ? { paddingLeft: '70px' } : undefined}
         >
+          {inline && !isSidebarOpen && (
+            <>
+              <SidebarToggleButton />
+              <div className="w-px h-4 bg-white/[0.06] mx-0.5" />
+              <MainViewPills />
+              <div className="w-px h-4 bg-white/[0.06] mx-0.5" />
+            </>
+          )}
           {!inline && (
             <button
               onClick={handleClose}
@@ -611,6 +626,7 @@ export function WorkflowEditor({ inline = false }: { inline?: boolean } = {}) {
               </div>
             )}
           </div>
+          {inline && <WindowControls />}
         </div>
       </div>
 

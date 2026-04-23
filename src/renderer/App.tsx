@@ -394,7 +394,7 @@ export function App() {
         {!isInlineWorkflowEditor && !isTabToolbarMerged && !isFocusedFullScreen && (
           <div
             className={`titlebar-drag shrink-0 border-b border-white/[0.06] relative z-[46] bg-[#1a1a1e]
-                        flex items-center ${isMobile ? 'px-2 justify-between' : 'px-3'} h-[52px]`}
+                        flex items-center ${isMobile ? 'px-2 justify-between' : 'px-3'} ${isMobile ? 'h-[52px]' : 'h-[40px]'}`}
             style={
               !isSidebarOpen && !isWeb && !isMobile
                 ? { paddingLeft: `${TRAFFIC_LIGHT_PAD_PX}px` }

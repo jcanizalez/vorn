@@ -281,7 +281,7 @@ export function TabView() {
         )}
 
         <div
-          className="flex-1 flex items-end gap-1 px-1 overflow-x-auto min-w-0 titlebar-no-drag"
+          className="flex-1 flex items-end gap-1 px-1 overflow-x-auto min-w-0"
           style={{ minHeight: 40 }}
         >
           {orderedIds.map((id, index) => {
@@ -327,7 +327,7 @@ export function TabView() {
                   e.stopPropagation()
                   setContextMenu({ terminalId: id, x: e.clientX, y: e.clientY })
                 }}
-                className={`group relative flex items-center gap-2 pl-3 pr-10 h-[36px] text-[13px] cursor-pointer
+                className={`titlebar-no-drag group relative flex items-center gap-2 pl-3 pr-10 h-[36px] text-[13px] cursor-pointer
                            transition-colors flex-1 min-w-[120px] max-w-[260px] select-none border-b
                            ${isDragTarget ? 'ring-1 ring-blue-500/50' : ''}
                            ${isDragging ? 'opacity-50' : ''}
@@ -418,7 +418,7 @@ export function TabView() {
             )
           })}
 
-          <div className="shrink-0 flex items-center">
+          <div className="titlebar-no-drag shrink-0 flex items-center">
             <button
               onClick={() => {
                 const project = resolveActiveProject()

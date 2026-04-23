@@ -66,7 +66,12 @@ vi.mock('../src/renderer/stores', () => {
 ;(global as unknown as { window: object }).window = {
   api: {
     listWorkflowRuns: vi.fn().mockResolvedValue([]),
-    createTerminal: vi.fn()
+    createTerminal: vi.fn(),
+    isWindowMaximized: vi.fn().mockResolvedValue(false),
+    onWindowMaximizedChange: vi.fn(() => () => {}),
+    windowMinimize: vi.fn(),
+    windowMaximize: vi.fn(),
+    windowClose: vi.fn()
   }
 }
 

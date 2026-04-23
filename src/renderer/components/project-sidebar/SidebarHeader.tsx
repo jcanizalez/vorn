@@ -1,4 +1,4 @@
-import { isElectron, MOD } from '../../lib/platform'
+import { isElectron, MOD, TRAFFIC_LIGHT_PAD_PX } from '../../lib/platform'
 import { useAppStore } from '../../stores'
 import { WorkspaceSwitcher } from '../WorkspaceSwitcher'
 import { PanelLeft, Monitor, ListTodo, Zap } from 'lucide-react'
@@ -18,7 +18,8 @@ export function SidebarHeader({ isCollapsed }: { isCollapsed: boolean }) {
   return (
     <div className="shrink-0 border-b border-white/[0.06]">
       <div
-        className={`titlebar-drag h-[52px] pr-3 flex items-center ${isElectron ? 'pl-[78px]' : 'pl-3'}`}
+        className="titlebar-drag h-[40px] pr-3 flex items-center"
+        style={isElectron ? { paddingLeft: `${TRAFFIC_LIGHT_PAD_PX}px` } : { paddingLeft: '12px' }}
       >
         {!isCollapsed && (
           <div className="flex-1 titlebar-no-drag min-w-0">

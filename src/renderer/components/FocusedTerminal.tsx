@@ -149,18 +149,15 @@ export function FocusedTerminal() {
             </div>
           </div>
         ) : (
-          <>
-            {isMac && <div className="titlebar-drag h-6 shrink-0" />}
-            <div
-              className="group/card titlebar-no-drag"
-              onDoubleClick={(e) => {
-                if ((e.target as HTMLElement).closest('button, input, [role="button"]')) return
-                handleContract()
-              }}
-            >
-              <CardHeader terminalId={effectiveId} variant="focused" />
-            </div>
-          </>
+          <div
+            className={`group/card ${isMac ? 'titlebar-drag' : 'titlebar-no-drag'}`}
+            onDoubleClick={(e) => {
+              if ((e.target as HTMLElement).closest('button, input, [role="button"]')) return
+              handleContract()
+            }}
+          >
+            <CardHeader terminalId={effectiveId} variant="focused" />
+          </div>
         )}
 
         {/* Terminal */}
