@@ -5,12 +5,14 @@ import '@testing-library/jest-dom/vitest'
 
 // Mock dependencies before imports
 const mockCreateTerminal = vi.fn()
+const mockCreateShellTerminal = vi.fn()
 const mockListBranches = vi.fn()
 const mockListWorktrees = vi.fn()
 
 Object.defineProperty(window, 'api', {
   value: {
     createTerminal: (...args: unknown[]) => mockCreateTerminal(...args),
+    createShellTerminal: (...args: unknown[]) => mockCreateShellTerminal(...args),
     listBranches: (...args: unknown[]) => mockListBranches(...args),
     listWorktrees: (...args: unknown[]) => mockListWorktrees(...args),
     killTerminal: vi.fn(),
@@ -221,10 +223,11 @@ describe('CardContextMenu', () => {
     )
   })
 
-  it('still renders Expand, Rename, and Close items', () => {
+  it('still renders Expand, Rename, New terminal, and Close items', () => {
     render(<CardContextMenu terminalId="term-1" position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
     expect(screen.getByText('Expand')).toBeInTheDocument()
     expect(screen.getByText('Rename')).toBeInTheDocument()
+    expect(screen.getByText('New terminal')).toBeInTheDocument()
     expect(screen.getByText('Close session')).toBeInTheDocument()
   })
 

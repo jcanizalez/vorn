@@ -1,18 +1,22 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Maximize2, Pencil, FolderGit2, Plus, X, ChevronRight, Zap } from 'lucide-react'
+import { Maximize2, Pencil, FolderGit2, Plus, X, ChevronRight, Zap, Terminal } from 'lucide-react'
 import { useAppStore } from '../stores'
 import { getProjectRemoteHostId } from '../../shared/types'
-import { ProjectIcon } from './project-sidebar/ProjectIcon'
 import { ICON_MAP } from './project-sidebar/icon-map'
+import { AgentIcon } from './AgentIcon'
 import { closeTerminalSession } from '../lib/terminal-close'
 import { executeWorkflow } from '../lib/workflow-execution'
 import { toast } from './Toast'
 import { getDisplayName } from '../lib/terminal-display'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { useWorkspaceWorkflows } from '../hooks/useWorkspaceWorkflows'
-import { countSessionsByWorktree, formatSessionCount } from '../lib/session-utils'
+import {
+  countSessionsByWorktree,
+  formatSessionCount,
+  createShellInProject
+} from '../lib/session-utils'
 
 interface Props {
   terminalId: string
@@ -104,27 +108,9 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
 
   const items: MenuItem[] = []
 
-  if (!isFocused && layoutMode !== 'tabs') {
-    items.push({
-      icon: Maximize2,
-      label: 'Expand',
-      onClick: () => {
-        useAppStore.getState().setFocusedTerminal(terminalId)
-        onClose()
-      }
-    })
-  }
+  const defaultAgent = config?.defaults?.defaultAgent || 'claude'
 
-  items.push({
-    icon: Pencil,
-    label: 'Rename',
-    onClick: () => {
-      useAppStore.getState().setRenamingTerminalId(terminalId)
-      onClose()
-    },
-    separator: !isFocused && layoutMode !== 'tabs'
-  })
-
+  // --- Group 1: Quick actions (New session, New terminal) ---
   const quickLabel = isWorktree
     ? branch
       ? `New session in ${projectName} on ${branch}`
@@ -132,12 +118,9 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
     : `New session in ${projectName}`
 
   items.push({
-    iconElement: isWorktree ? (
-      <FolderGit2 size={14} className="text-amber-400" />
-    ) : (
-      <ProjectIcon icon={project?.icon} color={project?.iconColor} size={14} />
-    ),
+    iconElement: <AgentIcon agentType={defaultAgent} size={14} />,
     label: quickLabel,
+    className: 'text-white font-medium',
     onClick: async () => {
       onClose()
       const state = useAppStore.getState()
@@ -161,10 +144,25 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
         })
         state.addTerminal(session)
       }
-    },
-    separator: true
+    }
   })
 
+  items.push({
+    iconElement: <Terminal size={14} className="text-gray-400" />,
+    label: 'New terminal',
+    onClick: () => {
+      onClose()
+      const cwd = isWorktree ? terminal.session.worktreePath : projectPath
+      void createShellInProject(cwd, {
+        project,
+        worktreePath: isWorktree ? terminal.session.worktreePath : undefined,
+        worktreeName: isWorktree ? terminal.session.worktreeName : undefined,
+        branch
+      })
+    }
+  })
+
+  // --- Group 2: Worktree submenu ---
   const worktreeSubmenuItems: SubmenuItem[] = []
   const sessionCountByPath = countSessionsByWorktree(terminals.values())
 
@@ -217,8 +215,32 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
     iconElement: <FolderGit2 size={14} className="text-amber-400" />,
     label: `New session in ${projectName}...`,
     submenu: worktreeSubmenuItems,
+    separator: true,
     onSubmenuEnter: () => {
       if (projectPath) loadWorktrees(projectPath)
+    }
+  })
+
+  // --- Group 3: Expand, Rename, Run workflow ---
+  if (!isFocused && layoutMode !== 'tabs') {
+    items.push({
+      icon: Maximize2,
+      label: 'Expand',
+      separator: true,
+      onClick: () => {
+        useAppStore.getState().setFocusedTerminal(terminalId)
+        onClose()
+      }
+    })
+  }
+
+  items.push({
+    icon: Pencil,
+    label: 'Rename',
+    separator: isFocused || layoutMode === 'tabs',
+    onClick: () => {
+      useAppStore.getState().setRenamingTerminalId(terminalId)
+      onClose()
     }
   })
 
@@ -238,11 +260,11 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
     items.push({
       iconElement: <Zap size={14} className="text-gray-500" />,
       label: 'Run workflow',
-      submenu: workflowSubmenuItems,
-      separator: true
+      submenu: workflowSubmenuItems
     })
   }
 
+  // --- Group 4: Close ---
   items.push({
     icon: X,
     label: 'Close session',
