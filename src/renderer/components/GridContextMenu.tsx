@@ -259,7 +259,7 @@ export function GridContextMenu({ position, onClose }: Props) {
 
   if (workspaceWorkflows.length > 0) {
     items.push({
-      iconElement: <Zap size={14} className="text-amber-400" />,
+      iconElement: <Zap size={14} className="text-gray-500" />,
       label: 'Run workflow',
       submenuKey: 'run-workflow'
     })

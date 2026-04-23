@@ -130,7 +130,7 @@ export function TerminalContextMenu({ terminalId, position, onClose }: Props) {
           role="menuitem"
           onClick={handleCopy}
           disabled={!selection}
-          className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-gray-300
+          className="w-full flex items-center gap-2.5 px-3 py-1.5 text-xs text-gray-300
                      hover:bg-white/[0.06] active:bg-white/[0.1] transition-colors
                      disabled:opacity-40 disabled:pointer-events-none"
         >
@@ -140,7 +140,7 @@ export function TerminalContextMenu({ terminalId, position, onClose }: Props) {
         <button
           role="menuitem"
           onClick={handlePaste}
-          className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-gray-300
+          className="w-full flex items-center gap-2.5 px-3 py-1.5 text-xs text-gray-300
                      hover:bg-white/[0.06] active:bg-white/[0.1] transition-colors"
         >
           <ClipboardPaste size={14} className="text-gray-500" />
@@ -166,10 +166,10 @@ export function TerminalContextMenu({ terminalId, position, onClose }: Props) {
                 setShowWorkflowSubmenu(true)
               }}
               onMouseLeave={scheduleHide}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-gray-300
+              className="w-full flex items-center gap-2.5 px-3 py-1.5 text-xs text-gray-300
                          hover:bg-white/[0.06] active:bg-white/[0.1] transition-colors"
             >
-              <Zap size={14} className="text-amber-400" />
+              <Zap size={14} className="text-gray-500" />
               <span className="flex-1 text-left">Run workflow</span>
               <ChevronRight size={11} className="text-gray-600 ml-auto shrink-0" />
             </button>

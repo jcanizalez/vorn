@@ -121,7 +121,8 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
     onClick: () => {
       useAppStore.getState().setRenamingTerminalId(terminalId)
       onClose()
-    }
+    },
+    separator: !isFocused && layoutMode !== 'tabs'
   })
 
   const quickLabel = isWorktree
@@ -235,7 +236,7 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
     })
 
     items.push({
-      iconElement: <Zap size={14} className="text-amber-400" />,
+      iconElement: <Zap size={14} className="text-gray-500" />,
       label: 'Run workflow',
       submenu: workflowSubmenuItems,
       separator: true
@@ -333,7 +334,7 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
               }}
               aria-haspopup={item.submenu ? 'menu' : undefined}
               aria-expanded={item.submenu ? hoveredSubmenu === i : undefined}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-gray-300
+              className="w-full flex items-center gap-2.5 px-3 py-1.5 text-xs text-gray-300
                          hover:bg-white/[0.06] active:bg-white/[0.1] transition-colors"
             >
               {item.iconElement ??
