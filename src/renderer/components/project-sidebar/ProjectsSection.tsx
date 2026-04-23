@@ -137,7 +137,7 @@ export function ProjectsSection({
         <SidebarNavItem
           isActive={activeProject === null}
           isCollapsed={isCollapsed}
-          icon={<Layers size={iconSize} strokeWidth={1.5} className="shrink-0" />}
+          icon={<Layers size={iconSize} strokeWidth={1.5} />}
           label="All Projects"
           badge={workspaceTerminalCount}
           onClick={() => {

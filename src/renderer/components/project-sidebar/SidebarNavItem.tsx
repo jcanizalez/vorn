@@ -25,11 +25,11 @@ export function SidebarNavItem({
       } ${isCollapsed ? 'justify-center px-0' : ''}`}
       title={isCollapsed ? label : undefined}
     >
-      {icon}
+      <span className="shrink-0 flex items-center">{icon}</span>
       {!isCollapsed && (
         <>
           <span className="truncate">{label}</span>
-          {badge && <span className="text-gray-500 text-xs ml-auto">{badge}</span>}
+          {badge != null && <span className="text-gray-500 text-xs ml-auto">{badge}</span>}
         </>
       )}
     </button>
