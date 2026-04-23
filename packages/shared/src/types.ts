@@ -623,6 +623,8 @@ export const IPC = {
   WINDOW_MINIMIZE: 'window:minimize',
   WINDOW_MAXIMIZE: 'window:maximize',
   WINDOW_CLOSE: 'window:close',
+  WINDOW_IS_MAXIMIZED: 'window:isMaximized',
+  WINDOW_MAXIMIZED_CHANGED: 'window:maximizedChanged',
   WIDGET_STATUS_UPDATE: 'widget:status-update',
   WIDGET_FOCUS_TERMINAL: 'widget:focus-terminal',
   WIDGET_HIDE: 'widget:hide',

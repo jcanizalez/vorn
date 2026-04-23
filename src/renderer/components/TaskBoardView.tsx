@@ -12,6 +12,8 @@ import { ListTodo } from 'lucide-react'
 import { toast } from './Toast'
 import { useWorkspaceProjects } from '../hooks/useWorkspaceProjects'
 
+const ROOT_STYLE = { background: '#141416' }
+
 export function TaskBoardView() {
   const activeProject = useAppStore((s) => s.activeProject)
   const config = useAppStore((s) => s.config)
@@ -152,7 +154,7 @@ export function TaskBoardView() {
   const totalTasks = allTasks.length
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 min-w-0">
+    <div className="flex-1 flex flex-col min-h-0 min-w-0" style={ROOT_STYLE}>
       {/* Content */}
       <div
         className={`flex-1 p-4 ${viewMode === 'kanban' ? 'flex flex-col min-h-0 overflow-hidden' : 'overflow-auto'}`}

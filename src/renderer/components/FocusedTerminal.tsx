@@ -12,6 +12,7 @@ import { getDisplayName, getBranchLabel } from '../lib/terminal-display'
 import { useTerminalScrollButton } from '../hooks/useTerminalScrollButton'
 import { useTerminalPinchZoom } from '../hooks/useTerminalPinchZoom'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { isMac } from '../lib/platform'
 import { ArrowDown, FolderGit2, GitBranch, Minimize2, Pencil } from 'lucide-react'
 
 export function FocusedTerminal() {
@@ -149,7 +150,7 @@ export function FocusedTerminal() {
           </div>
         ) : (
           <div
-            className="group/card titlebar-no-drag"
+            className={`group/card ${isMac ? 'titlebar-drag' : 'titlebar-no-drag'}`}
             onDoubleClick={(e) => {
               if ((e.target as HTMLElement).closest('button, input, [role="button"]')) return
               handleContract()

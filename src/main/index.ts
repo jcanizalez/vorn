@@ -52,7 +52,7 @@ function createWindow(): void {
     frame: false,
     ...(isMac
       ? {
-          trafficLightPosition: { x: 16, y: 16 }
+          trafficLightPosition: { x: 16, y: 13 }
         }
       : {}),
     backgroundColor: '#1a1a1e',
@@ -67,6 +67,13 @@ function createWindow(): void {
   mainWindow.once('ready-to-show', () => {
     mainWindow?.maximize()
     mainWindow?.show()
+  })
+
+  mainWindow.on('maximize', () => {
+    mainWindow?.webContents.send(IPC.WINDOW_MAXIMIZED_CHANGED, true)
+  })
+  mainWindow.on('unmaximize', () => {
+    mainWindow?.webContents.send(IPC.WINDOW_MAXIMIZED_CHANGED, false)
   })
 
   // Set dock icon on macOS (needed in dev mode since there's no app bundle)
@@ -311,6 +318,7 @@ app.whenReady().then(async () => {
     else mainWindow?.maximize()
   })
   ipcMain.on(IPC.WINDOW_CLOSE, () => mainWindow?.close())
+  ipcMain.handle(IPC.WINDOW_IS_MAXIMIZED, () => mainWindow?.isMaximized() ?? false)
 
   createMenu(toggleWidget)
   createWindow()
