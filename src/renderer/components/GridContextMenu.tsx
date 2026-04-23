@@ -209,14 +209,14 @@ export function GridContextMenu({ position, onClose }: Props) {
       iconElement: <AgentIcon agentType={defaultAgent} size={14} />,
       label: 'New session in…',
       submenuKey: 'session-in',
-      onSubmenuEnter: () => workspaceProjects.forEach((p) => loadWorktrees(p.path))
+      onSubmenuEnter: () => workspaceProjects.forEach((p) => loadWorktrees(p.path, true))
     })
 
     items.push({
       iconElement: <Terminal size={14} className="text-gray-400" />,
       label: 'New terminal in…',
       submenuKey: 'terminal-in',
-      onSubmenuEnter: () => workspaceProjects.forEach((p) => loadWorktrees(p.path))
+      onSubmenuEnter: () => workspaceProjects.forEach((p) => loadWorktrees(p.path, true))
     })
   }
 
