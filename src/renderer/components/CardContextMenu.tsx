@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Maximize2, Pencil, FolderGit2, Plus, X, ChevronRight } from 'lucide-react'
+import { Maximize2, Pencil, FolderGit2, Plus, X, ChevronRight, Zap } from 'lucide-react'
 import { useAppStore } from '../stores'
 import { getProjectRemoteHostId } from '../../shared/types'
 import { ProjectIcon } from './project-sidebar/ProjectIcon'
+import { ICON_MAP } from './project-sidebar/icon-map'
 import { closeTerminalSession } from '../lib/terminal-close'
+import { executeWorkflow } from '../lib/workflow-execution'
 import { toast } from './Toast'
 import { getDisplayName } from '../lib/terminal-display'
 import { useIsMobile } from '../hooks/useIsMobile'
+import { useWorkspaceWorkflows } from '../hooks/useWorkspaceWorkflows'
 import { countSessionsByWorktree, formatSessionCount } from '../lib/session-utils'
 
 interface Props {
@@ -48,6 +51,7 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
   const loadWorktrees = useAppStore((s) => s.loadWorktrees)
   const layoutMode = useAppStore((s) => s.config?.defaults?.layoutMode ?? 'grid')
   const isMobile = useIsMobile()
+  const workspaceWorkflows = useWorkspaceWorkflows()
 
   const [hoveredSubmenu, setHoveredSubmenu] = useState<number | null>(null)
 
@@ -216,6 +220,27 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
       if (projectPath) loadWorktrees(projectPath)
     }
   })
+
+  if (workspaceWorkflows.length > 0) {
+    const workflowSubmenuItems: SubmenuItem[] = workspaceWorkflows.map((wf) => {
+      const WfIcon = ICON_MAP[wf.icon] || Zap
+      return {
+        iconElement: <WfIcon size={12} color={wf.iconColor} />,
+        label: wf.name,
+        onClick: () => {
+          onClose()
+          executeWorkflow(wf, undefined, { source: 'manual' })
+        }
+      }
+    })
+
+    items.push({
+      iconElement: <Zap size={14} className="text-amber-400" />,
+      label: 'Run workflow',
+      submenu: workflowSubmenuItems,
+      separator: true
+    })
+  }
 
   items.push({
     icon: X,

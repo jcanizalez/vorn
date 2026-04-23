@@ -28,6 +28,11 @@ vi.mock('../src/renderer/components/Toast', () => ({
   toast: { success: vi.fn(), error: vi.fn() }
 }))
 
+const mockExecuteWorkflow = vi.fn()
+vi.mock('../src/renderer/lib/workflow-execution', () => ({
+  executeWorkflow: (...args: unknown[]) => mockExecuteWorkflow(...args)
+}))
+
 import { useAppStore } from '../src/renderer/stores'
 import { GridContextMenu } from '../src/renderer/components/GridContextMenu'
 
@@ -178,5 +183,103 @@ describe('GridContextMenu', () => {
     )
     fireEvent.pointerDown(screen.getByTestId('outside'))
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows "Run workflow" when workspace has workflows', () => {
+    const configWithWorkflows = {
+      ...mockConfig,
+      workflows: [
+        {
+          id: 'wf-1',
+          name: 'Deploy',
+          icon: 'Rocket',
+          iconColor: '#ff6600',
+          nodes: [],
+          edges: [],
+          enabled: true,
+          workspaceId: 'personal'
+        }
+      ]
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    useAppStore.setState({ config: configWithWorkflows as any })
+
+    render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
+    expect(screen.getByText('Run workflow')).toBeInTheDocument()
+  })
+
+  it('does not show "Run workflow" when no workflows exist', () => {
+    render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
+    expect(screen.queryByText('Run workflow')).not.toBeInTheDocument()
+  })
+
+  it('"Run workflow" submenu shows workflow names and executes on click', () => {
+    const configWithWorkflows = {
+      ...mockConfig,
+      workflows: [
+        {
+          id: 'wf-1',
+          name: 'Deploy Staging',
+          icon: 'Rocket',
+          iconColor: '#ff6600',
+          nodes: [],
+          edges: [],
+          enabled: true,
+          workspaceId: 'personal'
+        }
+      ]
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    useAppStore.setState({ config: configWithWorkflows as any })
+
+    const onClose = vi.fn()
+    render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={onClose} />)
+
+    fireEvent.mouseEnter(screen.getByText('Run workflow').closest('button')!)
+    expect(screen.getByText('Deploy Staging')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Deploy Staging'))
+    expect(onClose).toHaveBeenCalled()
+    expect(mockExecuteWorkflow).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'wf-1', name: 'Deploy Staging' }),
+      undefined,
+      { source: 'manual' }
+    )
+  })
+
+  it('only shows workflows from the active workspace in "Run workflow"', () => {
+    const configWithWorkflows = {
+      ...mockConfig,
+      workflows: [
+        {
+          id: 'wf-1',
+          name: 'Personal Deploy',
+          icon: 'Zap',
+          iconColor: '#fff',
+          nodes: [],
+          edges: [],
+          enabled: true,
+          workspaceId: 'personal'
+        },
+        {
+          id: 'wf-2',
+          name: 'Work Deploy',
+          icon: 'Zap',
+          iconColor: '#fff',
+          nodes: [],
+          edges: [],
+          enabled: true,
+          workspaceId: 'work'
+        }
+      ]
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    useAppStore.setState({ config: configWithWorkflows as any, activeWorkspace: 'personal' })
+
+    render(<GridContextMenu position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
+
+    fireEvent.mouseEnter(screen.getByText('Run workflow').closest('button')!)
+    expect(screen.getByText('Personal Deploy')).toBeInTheDocument()
+    expect(screen.queryByText('Work Deploy')).not.toBeInTheDocument()
   })
 })

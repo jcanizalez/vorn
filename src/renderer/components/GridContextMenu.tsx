@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { FolderGit2, GitBranch, Plus, ChevronRight, Terminal } from 'lucide-react'
+import { FolderGit2, GitBranch, Plus, ChevronRight, Terminal, Zap } from 'lucide-react'
 import { useAppStore } from '../stores'
 import { type ProjectConfig, type AiAgentType } from '../../shared/types'
 import { ProjectIcon } from './project-sidebar/ProjectIcon'
+import { ICON_MAP } from './project-sidebar/icon-map'
 import { AgentIcon } from './AgentIcon'
+import { executeWorkflow } from '../lib/workflow-execution'
 import {
   resolveActiveProject,
   createSessionFromProject,
@@ -14,6 +16,7 @@ import {
   formatSessionCount
 } from '../lib/session-utils'
 import { useWorkspaceProjects } from '../hooks/useWorkspaceProjects'
+import { useWorkspaceWorkflows } from '../hooks/useWorkspaceWorkflows'
 
 interface Props {
   position: { x: number; y: number }
@@ -29,7 +32,7 @@ interface SubmenuItem {
   isHeader?: boolean
 }
 
-type SubmenuKey = 'session-in' | 'terminal-in'
+type SubmenuKey = 'session-in' | 'terminal-in' | 'run-workflow'
 
 interface MenuItem {
   icon?: React.FC<{ size?: number; className?: string }>
@@ -61,6 +64,7 @@ export function GridContextMenu({ position, onClose }: Props) {
   const worktreeCache = useAppStore((s) => s.worktreeCache)
   const loadWorktrees = useAppStore((s) => s.loadWorktrees)
   const workspaceProjects = useWorkspaceProjects()
+  const workspaceWorkflows = useWorkspaceWorkflows()
 
   const [hoveredSubmenu, setHoveredSubmenu] = useState<number | null>(null)
 
@@ -253,7 +257,28 @@ export function GridContextMenu({ position, onClose }: Props) {
     separator: true
   })
 
+  if (workspaceWorkflows.length > 0) {
+    items.push({
+      iconElement: <Zap size={14} className="text-amber-400" />,
+      label: 'Run workflow',
+      submenuKey: 'run-workflow'
+    })
+  }
+
   const hasSubmenu = (item: MenuItem): boolean => item.submenuKey !== undefined
+
+  const buildWorkflowSubmenu = (): SubmenuItem[] =>
+    workspaceWorkflows.map((wf) => {
+      const WfIcon = ICON_MAP[wf.icon] || Zap
+      return {
+        iconElement: <WfIcon size={12} color={wf.iconColor} />,
+        label: wf.name,
+        onClick: () => {
+          onClose()
+          executeWorkflow(wf, undefined, { source: 'manual' })
+        }
+      }
+    })
 
   const menuHeight = estimatePanelHeight(items)
   const left = Math.max(8, Math.min(position.x, window.innerWidth - MENU_WIDTH - 8))
@@ -261,7 +286,9 @@ export function GridContextMenu({ position, onClose }: Props) {
 
   const hoveredItem = hoveredSubmenu !== null ? items[hoveredSubmenu] : null
   const activeSubmenu = hoveredItem?.submenuKey
-    ? buildScopedSubmenu(hoveredItem.submenuKey === 'session-in' ? 'session' : 'terminal')
+    ? hoveredItem.submenuKey === 'run-workflow'
+      ? buildWorkflowSubmenu()
+      : buildScopedSubmenu(hoveredItem.submenuKey === 'session-in' ? 'session' : 'terminal')
     : null
 
   let submenuLeft = left + MENU_WIDTH + 4

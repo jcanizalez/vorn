@@ -34,6 +34,11 @@ vi.mock('../src/renderer/hooks/useIsMobile', () => ({
   useIsMobile: () => false
 }))
 
+const mockExecuteWorkflow = vi.fn()
+vi.mock('../src/renderer/lib/workflow-execution', () => ({
+  executeWorkflow: (...args: unknown[]) => mockExecuteWorkflow(...args)
+}))
+
 import { useAppStore } from '../src/renderer/stores'
 import { CardContextMenu } from '../src/renderer/components/CardContextMenu'
 
@@ -240,5 +245,117 @@ describe('CardContextMenu', () => {
       <CardContextMenu terminalId="nonexistent" position={{ x: 100, y: 100 }} onClose={vi.fn()} />
     )
     expect(container.innerHTML).toBe('')
+  })
+
+  it('shows "Run workflow" submenu when workspace has workflows', () => {
+    const configWithWorkflows = {
+      ...mockConfig,
+      workflows: [
+        {
+          id: 'wf-1',
+          name: 'Deploy Staging',
+          icon: 'Rocket',
+          iconColor: '#ff6600',
+          nodes: [],
+          edges: [],
+          enabled: true,
+          workspaceId: 'personal'
+        },
+        {
+          id: 'wf-2',
+          name: 'Run Tests',
+          icon: 'Play',
+          iconColor: '#00ff00',
+          nodes: [],
+          edges: [],
+          enabled: true,
+          workspaceId: 'personal'
+        }
+      ]
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    useAppStore.setState({ config: configWithWorkflows as any })
+
+    render(<CardContextMenu terminalId="term-1" position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
+    expect(screen.getByText('Run workflow')).toBeInTheDocument()
+  })
+
+  it('does not show "Run workflow" when no workflows exist', () => {
+    render(<CardContextMenu terminalId="term-1" position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
+    expect(screen.queryByText('Run workflow')).not.toBeInTheDocument()
+  })
+
+  it('shows workflow names in submenu on hover and executes on click', () => {
+    const configWithWorkflows = {
+      ...mockConfig,
+      workflows: [
+        {
+          id: 'wf-1',
+          name: 'Deploy Staging',
+          icon: 'Rocket',
+          iconColor: '#ff6600',
+          nodes: [],
+          edges: [],
+          enabled: true,
+          workspaceId: 'personal'
+        }
+      ]
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    useAppStore.setState({ config: configWithWorkflows as any })
+
+    const onClose = vi.fn()
+    render(<CardContextMenu terminalId="term-1" position={{ x: 100, y: 100 }} onClose={onClose} />)
+
+    const trigger = screen.getByText('Run workflow')
+    fireEvent.mouseEnter(trigger.closest('button')!)
+
+    expect(screen.getByText('Deploy Staging')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Deploy Staging'))
+    expect(onClose).toHaveBeenCalled()
+    expect(mockExecuteWorkflow).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'wf-1', name: 'Deploy Staging' }),
+      undefined,
+      { source: 'manual' }
+    )
+  })
+
+  it('only shows workflows from the active workspace', () => {
+    const configWithWorkflows = {
+      ...mockConfig,
+      workflows: [
+        {
+          id: 'wf-1',
+          name: 'Personal WF',
+          icon: 'Zap',
+          iconColor: '#fff',
+          nodes: [],
+          edges: [],
+          enabled: true,
+          workspaceId: 'personal'
+        },
+        {
+          id: 'wf-2',
+          name: 'Work WF',
+          icon: 'Zap',
+          iconColor: '#fff',
+          nodes: [],
+          edges: [],
+          enabled: true,
+          workspaceId: 'work'
+        }
+      ]
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    useAppStore.setState({ config: configWithWorkflows as any, activeWorkspace: 'personal' })
+
+    render(<CardContextMenu terminalId="term-1" position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
+
+    const trigger = screen.getByText('Run workflow')
+    fireEvent.mouseEnter(trigger.closest('button')!)
+
+    expect(screen.getByText('Personal WF')).toBeInTheDocument()
+    expect(screen.queryByText('Work WF')).not.toBeInTheDocument()
   })
 })
