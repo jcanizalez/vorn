@@ -134,9 +134,7 @@ describe('WorktreeItem progress-toast handlers', () => {
 
   it('new session button fires loading toast and calls createSessionFromProject', async () => {
     const { container } = renderWorktreeItem()
-    const buttons = Array.from(container.querySelectorAll('button[type="button"]'))
-    // Terminal button is first, session (+) button is second
-    const sessionBtn = buttons[1]
+    const sessionBtn = container.querySelector('button[aria-label="New session"]') as HTMLElement
     act(() => {
       fireEvent.click(sessionBtn)
     })
@@ -189,8 +187,7 @@ describe('WorktreeItem progress-toast handlers', () => {
         })
     )
     const { container } = renderWorktreeItem()
-    // Terminal button is first, session (+) button is second
-    const sessionBtn = container.querySelectorAll('button[type="button"]')[1]
+    const sessionBtn = container.querySelector('button[aria-label="New session"]') as HTMLElement
     act(() => {
       fireEvent.click(sessionBtn)
       fireEvent.click(sessionBtn)

@@ -135,12 +135,10 @@ describe('ProjectItem progress-toast handlers', () => {
   it('new session button fires a loading toast and calls createSessionFromProject', async () => {
     const { container } = renderProjectItem()
     await waitFor(() => expect(mockIsGitRepo).toHaveBeenCalled())
-    // Terminal button is first, session (+) button is second
-    const buttons = Array.from(container.querySelectorAll('button[type="button"]'))
-    const sessionBtn = buttons[1]
+    const sessionBtn = container.querySelector('button[aria-label="New session"]') as HTMLElement
     expect(sessionBtn).not.toBeNull()
     act(() => {
-      fireEvent.click(sessionBtn!)
+      fireEvent.click(sessionBtn)
     })
     expect(mockLoading).toHaveBeenCalledWith('Starting session…')
     await waitFor(() => {
@@ -246,8 +244,7 @@ describe('ProjectItem progress-toast handlers', () => {
     )
     const { container } = renderProjectItem()
     await waitFor(() => expect(mockIsGitRepo).toHaveBeenCalled())
-    // Terminal button is first, session (+) button is second
-    const sessionBtn = container.querySelectorAll('button[type="button"]')[1] as HTMLElement
+    const sessionBtn = container.querySelector('button[aria-label="New session"]') as HTMLElement
     act(() => {
       fireEvent.click(sessionBtn)
       fireEvent.click(sessionBtn)
