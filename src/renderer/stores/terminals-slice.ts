@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand'
-import { AppStore, TerminalsSlice } from './types'
+import { AppStore, TerminalsSlice, TerminalState } from './types'
 
 export const createTerminalsSlice: StateCreator<AppStore, [], [], TerminalsSlice> = (set) => ({
   terminals: new Map(),
@@ -76,6 +76,18 @@ export const createTerminalsSlice: StateCreator<AppStore, [], [], TerminalsSlice
       const next = new Map(state.terminals)
       next.set(id, { ...term, session: { ...term.session, branch } })
       return { terminals: next }
+    }),
+
+  setBranchForCwd: (cwd, branch) =>
+    set((state) => {
+      let next: Map<string, TerminalState> | null = null
+      for (const [id, term] of state.terminals) {
+        const sessionCwd = term.session.worktreePath ?? term.session.projectPath
+        if (sessionCwd !== cwd || term.session.branch === branch) continue
+        if (!next) next = new Map(state.terminals)
+        next.set(id, { ...term, session: { ...term.session, branch } })
+      }
+      return next ? { terminals: next } : state
     }),
 
   updateSessionWorktree: (id, updates) =>
