@@ -85,8 +85,10 @@ export function TabIconButton({
   hoverClass?: string
 }) {
   const handleClick = (e: React.MouseEvent): void => {
-    e.stopPropagation()
-    onClick?.()
+    if (onClick) {
+      e.stopPropagation()
+      onClick()
+    }
   }
   return (
     <Tooltip label={label} position="bottom">

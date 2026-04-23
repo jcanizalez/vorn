@@ -30,7 +30,7 @@ describe('TabIconButton', () => {
     expect(onParentClick).not.toHaveBeenCalled()
   })
 
-  it('still stops propagation when no onClick is provided', () => {
+  it('allows propagation when no onClick is provided (for ConfirmPopover wrapping)', () => {
     const onParentClick = vi.fn()
     render(
       <div onClick={onParentClick}>
@@ -38,7 +38,7 @@ describe('TabIconButton', () => {
       </div>
     )
     fireEvent.click(screen.getByRole('button', { name: 'Close session' }))
-    expect(onParentClick).not.toHaveBeenCalled()
+    expect(onParentClick).toHaveBeenCalledTimes(1)
   })
 
   it('applies a custom hover class', () => {
