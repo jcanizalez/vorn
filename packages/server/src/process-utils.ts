@@ -99,7 +99,9 @@ export function normalizePath(p: string): string {
   let result = pathImpl.normalize(p)
   const root = pathImpl.parse(result).root
   if (result !== root) {
-    result = result.replace(/[\\/]+$/, '')
+    let end = result.length
+    while (end > root.length && (result[end - 1] === '/' || result[end - 1] === '\\')) end--
+    result = result.slice(0, end)
   }
   try {
     result = fs.realpathSync(result)
