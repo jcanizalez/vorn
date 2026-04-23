@@ -1,19 +1,20 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { FolderGit2, GitBranch, Plus, ChevronRight, Terminal } from 'lucide-react'
+import { FolderGit2, GitBranch, Plus, ChevronRight, Terminal, Zap } from 'lucide-react'
 import { useAppStore } from '../stores'
 import { type ProjectConfig, type AiAgentType } from '../../shared/types'
 import { ProjectIcon } from './project-sidebar/ProjectIcon'
 import { AgentIcon } from './AgentIcon'
+import { buildWorkflowMenuItems } from '../lib/workflow-menu-items'
 import {
-  resolveActiveProject,
   createSessionFromProject,
   createShellInProject,
   countSessionsByWorktree,
   formatSessionCount
 } from '../lib/session-utils'
 import { useWorkspaceProjects } from '../hooks/useWorkspaceProjects'
+import { useWorkspaceWorkflows } from '../hooks/useWorkspaceWorkflows'
 
 interface Props {
   position: { x: number; y: number }
@@ -29,7 +30,7 @@ interface SubmenuItem {
   isHeader?: boolean
 }
 
-type SubmenuKey = 'session-in' | 'terminal-in'
+type SubmenuKey = 'session-in' | 'terminal-in' | 'run-workflow'
 
 interface MenuItem {
   icon?: React.FC<{ size?: number; className?: string }>
@@ -57,10 +58,18 @@ export function GridContextMenu({ position, onClose }: Props) {
   const itemRefs = useRef<Map<number, HTMLButtonElement>>(new Map())
   const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const activeWorktreePath = useAppStore((s) => s.activeWorktreePath)
   const worktreeCache = useAppStore((s) => s.worktreeCache)
   const loadWorktrees = useAppStore((s) => s.loadWorktrees)
   const workspaceProjects = useWorkspaceProjects()
+  const workspaceWorkflows = useWorkspaceWorkflows()
+
+  const didRefreshRef = useRef(false)
+  useEffect(() => {
+    if (!didRefreshRef.current && workspaceProjects.length > 0) {
+      didRefreshRef.current = true
+      workspaceProjects.forEach((p) => loadWorktrees(p.path, true))
+    }
+  }, [workspaceProjects, loadWorktrees])
 
   const [hoveredSubmenu, setHoveredSubmenu] = useState<number | null>(null)
 
@@ -94,13 +103,7 @@ export function GridContextMenu({ position, onClose }: Props) {
     }
   }, [onClose, clearHideTimeout])
 
-  const project = resolveActiveProject()
   const terminals = useAppStore.getState().terminals
-
-  const activeWt =
-    activeWorktreePath && project
-      ? worktreeCache.get(project.path)?.find((wt) => wt.path === activeWorktreePath)
-      : undefined
 
   const defaultAgent: AiAgentType = useAppStore.getState().config?.defaults.defaultAgent ?? 'claude'
 
@@ -179,57 +182,39 @@ export function GridContextMenu({ position, onClose }: Props) {
           onClick: onClickFor(p, wt.path, wt.branch, wt.name)
         })
       }
+
+      if (mode === 'session') {
+        subs.push({
+          iconElement: <Plus size={12} className="text-gray-500" />,
+          label: 'New worktree',
+          onClick: () => {
+            onClose()
+            const agentType = useAppStore.getState().config?.defaults.defaultAgent ?? 'claude'
+            window.api.listBranches(p.path).then((result) => {
+              const branch = result.current || 'main'
+              window.api
+                .createTerminal({
+                  agentType,
+                  projectName: p.name,
+                  projectPath: p.path,
+                  branch,
+                  useWorktree: true
+                })
+                .then((session) => useAppStore.getState().addTerminal(session))
+            })
+          }
+        })
+      }
     }
     return subs
   }
 
   const items: MenuItem[] = []
 
-  if (project) {
-    items.push({
-      iconElement: <AgentIcon agentType={defaultAgent} size={14} />,
-      label: 'New session',
-      className: 'text-white font-medium',
-      onClick: () =>
-        activeWorktreePath
-          ? createSession(project, {
-              branch: activeWt?.branch,
-              existingWorktreePath: activeWorktreePath
-            })
-          : createSession(project)
-    })
-  } else {
-    items.push({
-      iconElement: <AgentIcon agentType={defaultAgent} size={14} />,
-      label: 'New session',
-      className: 'text-white font-medium',
-      onClick: () => {
-        onClose()
-        useAppStore.getState().setNewAgentDialogOpen(true)
-      }
-    })
-  }
-
-  items.push({
-    iconElement: <Terminal size={14} className="text-gray-400" />,
-    label: 'New terminal',
-    onClick: () => {
-      onClose()
-      const cwd = activeWorktreePath ?? project?.path
-      void createShellInProject(cwd, {
-        project,
-        worktreePath: activeWorktreePath ?? undefined,
-        worktreeName: activeWt?.name,
-        branch: activeWt?.branch
-      })
-    }
-  })
-
   if (workspaceProjects.length > 0) {
     items.push({
       iconElement: <AgentIcon agentType={defaultAgent} size={14} />,
       label: 'New session in…',
-      separator: true,
       submenuKey: 'session-in',
       onSubmenuEnter: () => workspaceProjects.forEach((p) => loadWorktrees(p.path))
     })
@@ -250,8 +235,16 @@ export function GridContextMenu({ position, onClose }: Props) {
       onClose()
       useAppStore.getState().setNewAgentDialogOpen(true)
     },
-    separator: true
+    separator: workspaceProjects.length > 0
   })
+
+  if (workspaceWorkflows.length > 0) {
+    items.push({
+      iconElement: <Zap size={14} className="text-gray-500" />,
+      label: 'Run workflow',
+      submenuKey: 'run-workflow'
+    })
+  }
 
   const hasSubmenu = (item: MenuItem): boolean => item.submenuKey !== undefined
 
@@ -261,7 +254,9 @@ export function GridContextMenu({ position, onClose }: Props) {
 
   const hoveredItem = hoveredSubmenu !== null ? items[hoveredSubmenu] : null
   const activeSubmenu = hoveredItem?.submenuKey
-    ? buildScopedSubmenu(hoveredItem.submenuKey === 'session-in' ? 'session' : 'terminal')
+    ? hoveredItem.submenuKey === 'run-workflow'
+      ? buildWorkflowMenuItems(workspaceWorkflows, onClose)
+      : buildScopedSubmenu(hoveredItem.submenuKey === 'session-in' ? 'session' : 'terminal')
     : null
 
   let submenuLeft = left + MENU_WIDTH + 4

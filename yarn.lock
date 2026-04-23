@@ -1401,6 +1401,25 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@electron/rebuild@npm:^4.0.4":
+  version: 4.0.4
+  resolution: "@electron/rebuild@npm:4.0.4"
+  dependencies:
+    "@malept/cross-spawn-promise": "npm:^2.0.0"
+    debug: "npm:^4.1.1"
+    node-abi: "npm:^4.2.0"
+    node-api-version: "npm:^0.2.1"
+    node-gyp: "npm:^12.2.0"
+    read-binary-file-arch: "npm:^1.0.6"
+  dependenciesMeta:
+    electron:
+      built: true
+  bin:
+    electron-rebuild: lib/cli.js
+  checksum: 10c0/f6ff567b0c6ec038c4805b2feaaf00826200a59d27cc271172940c9735aec97e734fddd0ca4f45e882350cf87694fe85219ba8181fc09ec643f4dedcf15f673d
+  languageName: node
+  linkType: hard
+
 "@electron/universal@npm:2.0.3":
   version: 2.0.3
   resolution: "@electron/universal@npm:2.0.3"
@@ -3563,6 +3582,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@tiptap/extension-code-block@npm:^3.22.4":
+  version: 3.22.4
+  resolution: "@tiptap/extension-code-block@npm:3.22.4"
+  peerDependencies:
+    "@tiptap/core": 3.22.4
+    "@tiptap/pm": 3.22.4
+  checksum: 10c0/23ce5f5d50b7be74c41d31fee1c4846ab39780e4cf70a5d0675c4a8287fce324c30a9fd40d58225e03fbad4acff0f29308b0d32afa456cb801be7ccdcbe8352a
+  languageName: node
+  linkType: hard
+
 "@tiptap/extension-code@npm:^3.22.3":
   version: 3.22.3
   resolution: "@tiptap/extension-code@npm:3.22.3"
@@ -4479,7 +4508,7 @@ __metadata:
     electron-log: "npm:^5.4.3"
     electron-updater: "npm:^6.8.3"
     electron-vite: "npm:^5.0.0"
-    typescript: "npm:^6.0.2"
+    typescript: "npm:^6.0.3"
     ws: "npm:^8.20.0"
   languageName: unknown
   linkType: soft
@@ -4495,7 +4524,7 @@ __metadata:
     pino: "npm:^10.3.1"
     tsup: "npm:^8.5.1"
     tsx: "npm:^4.21.0"
-    typescript: "npm:^6.0.2"
+    typescript: "npm:^6.0.3"
     ws: "npm:^8.20.0"
     zod: "npm:^4.3.6"
   bin:
@@ -4520,7 +4549,7 @@ __metadata:
     pino: "npm:^10.3.1"
     tsup: "npm:^8.5.1"
     tsx: "npm:^4.21.0"
-    typescript: "npm:^6.0.2"
+    typescript: "npm:^6.0.3"
     zod: "npm:^4.3.6"
   languageName: unknown
   linkType: soft
@@ -4542,7 +4571,7 @@ __metadata:
     "@vornrun/shared": "workspace:*"
     postcss: "npm:^8.5.9"
     tailwindcss: "npm:^4.2.2"
-    typescript: "npm:^6.0.2"
+    typescript: "npm:^6.0.3"
     vite: "npm:^7.3.2"
     vite-plugin-pwa: "npm:^1.2.0"
   languageName: unknown
@@ -12226,23 +12255,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typescript@npm:^6.0.2":
-  version: 6.0.2
-  resolution: "typescript@npm:6.0.2"
+"typescript@npm:^6.0.3":
+  version: 6.0.3
+  resolution: "typescript@npm:6.0.3"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
-  checksum: 10c0/4b860b0bf87cc0fee0f66d8ef2640b5a8a8a8c74d1129adb82e389e5f97124383823c47946bef8a73ede371461143a3aa8544399d2133c7b2e4f07e81860af7f
+  checksum: 10c0/4a25ff5045b984370f48f196b3a0120779b1b343d40b9a68d114ea5e5fff099809b2bb777576991a63a5cd59cf7bffd96ff6fe10afcefbcb8bd6fb96ad4b6606
   languageName: node
   linkType: hard
 
-"typescript@patch:typescript@npm%3A^6.0.2#optional!builtin<compat/typescript>":
-  version: 6.0.2
-  resolution: "typescript@patch:typescript@npm%3A6.0.2#optional!builtin<compat/typescript>::version=6.0.2&hash=5786d5"
+"typescript@patch:typescript@npm%3A^6.0.3#optional!builtin<compat/typescript>":
+  version: 6.0.3
+  resolution: "typescript@patch:typescript@npm%3A6.0.3#optional!builtin<compat/typescript>::version=6.0.3&hash=5786d5"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
-  checksum: 10c0/49f0b84fc6ca55653e77752b8a61beabc09ee3dae5d965c31596225aa6ef213c5727b1d2e895b900416dc603854ba0872ac4a812c2a4ed6793a601f9c675de02
+  checksum: 10c0/2f25c74e65663c248fa1ade2b8459d9ce5372ff9dad07067310f132966ebec1d93f6c42f0baf77a6b6a7a91460463f708e6887013aaade22111037457c6b25df
   languageName: node
   linkType: hard
 
@@ -12734,7 +12763,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "vorn@workspace:."
   dependencies:
-    "@electron/rebuild": "npm:^4.0.3"
+    "@electron/rebuild": "npm:^4.0.4"
     "@eslint/js": "npm:^10.0.1"
     "@modelcontextprotocol/sdk": "npm:^1.29.0"
     "@tailwindcss/postcss": "npm:^4.2.2"
@@ -12743,7 +12772,7 @@ __metadata:
     "@testing-library/react": "npm:^16.3.2"
     "@testing-library/user-event": "npm:^14.6.1"
     "@tiptap/core": "npm:^3.22.3"
-    "@tiptap/extension-code-block": "npm:^3.22.3"
+    "@tiptap/extension-code-block": "npm:^3.22.4"
     "@tiptap/extension-code-block-lowlight": "npm:^3.22.3"
     "@tiptap/extension-link": "npm:^3.22.3"
     "@tiptap/extension-list": "npm:^3.22.3"
@@ -12794,7 +12823,7 @@ __metadata:
     shiki: "npm:^4.0.2"
     simple-git-hooks: "npm:^2.13.1"
     tailwindcss: "npm:^4.2.2"
-    typescript: "npm:^6.0.2"
+    typescript: "npm:^6.0.3"
     typescript-eslint: "npm:^8.58.2"
     vite: "npm:^7.3.2"
     vitest: "npm:4.1.4"

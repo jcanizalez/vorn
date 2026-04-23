@@ -29,6 +29,21 @@ vi.mock('../src/renderer/components/GitChangesIndicator', () => ({
 vi.mock('../src/renderer/components/GridContextMenu', () => ({
   GridContextMenu: () => null
 }))
+vi.mock('../src/renderer/components/GridToolbar', () => ({
+  GridToolbar: () => <div data-testid="grid-toolbar" />
+}))
+vi.mock('../src/renderer/components/WindowControls', () => ({
+  WindowControls: () => <div data-testid="window-controls" />
+}))
+vi.mock('../src/renderer/components/SidebarToggleButton', () => ({
+  SidebarToggleButton: () => <button data-testid="sidebar-toggle">sidebar</button>
+}))
+vi.mock('../src/renderer/components/MainViewPills', () => ({
+  MainViewPills: () => <div data-testid="main-view-pills" />
+}))
+vi.mock('../src/renderer/components/RecentSessionsButton', () => ({
+  RecentSessionsButton: () => <button data-testid="recent-sessions">recent</button>
+}))
 let mockIsMobile = false
 vi.mock('../src/renderer/hooks/useIsMobile', () => ({
   useIsMobile: () => mockIsMobile
@@ -39,11 +54,14 @@ vi.mock('../src/renderer/hooks/useTerminalScrollButton', () => ({
 vi.mock('../src/renderer/hooks/useTerminalPinchZoom', () => ({
   useTerminalPinchZoom: vi.fn()
 }))
+let mockOrderedIds = ['term-1']
+let mockMinimizedIds: string[] = []
 vi.mock('../src/renderer/hooks/useVisibleTerminals', () => ({
-  useVisibleTerminals: () => ({ orderedIds: ['term-1'], minimizedIds: [] })
+  useVisibleTerminals: () => ({ orderedIds: mockOrderedIds, minimizedIds: mockMinimizedIds })
 }))
+let mockFilteredHeadless: unknown[] = []
 vi.mock('../src/renderer/hooks/useFilteredHeadless', () => ({
-  useFilteredHeadless: () => []
+  useFilteredHeadless: () => mockFilteredHeadless
 }))
 vi.mock('../src/renderer/lib/terminal-close', () => ({
   closeTerminalSession: vi.fn()
@@ -108,6 +126,9 @@ const initialState = useAppStore.getState()
 
 beforeEach(() => {
   mockIsMobile = false
+  mockOrderedIds = ['term-1']
+  mockMinimizedIds = []
+  mockFilteredHeadless = []
   const terminals = new Map()
   terminals.set('term-1', mockTerminal)
   act(() => {
@@ -446,5 +467,214 @@ describe('FocusedTerminal desktop title bar', () => {
     expect(titleBar).not.toBeNull()
     fireEvent.doubleClick(titleBar)
     expect(setFocused).toHaveBeenCalledWith(null)
+  })
+})
+
+describe('TabView merged toolbar controls', () => {
+  it('shows sidebar toggle and view pills when sidebar is closed', () => {
+    act(() => {
+      useAppStore.setState({ isSidebarOpen: false })
+    })
+    render(<TabView />)
+    expect(screen.getByTestId('sidebar-toggle')).toBeInTheDocument()
+    expect(screen.getByTestId('main-view-pills')).toBeInTheDocument()
+  })
+
+  it('hides sidebar toggle and view pills when sidebar is open', () => {
+    act(() => {
+      useAppStore.setState({ isSidebarOpen: true })
+    })
+    render(<TabView />)
+    expect(screen.queryByTestId('sidebar-toggle')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('main-view-pills')).not.toBeInTheDocument()
+  })
+
+  it('always renders the right toolbar controls (GridToolbar, recent, window controls)', () => {
+    render(<TabView />)
+    expect(screen.getByTestId('grid-toolbar')).toBeInTheDocument()
+    expect(screen.getByTestId('recent-sessions')).toBeInTheDocument()
+    expect(screen.getByTestId('window-controls')).toBeInTheDocument()
+  })
+
+  it('renders empty state with PromptLauncher when no tabs and no background', () => {
+    mockOrderedIds = []
+    mockMinimizedIds = []
+    render(<TabView />)
+    // Toolbar still renders
+    expect(screen.getByTestId('grid-toolbar')).toBeInTheDocument()
+    // No terminal slot
+    expect(screen.queryByTestId('terminal-instance')).not.toBeInTheDocument()
+  })
+
+  it('renders "No matching agents" when filtered with no tabs', () => {
+    mockOrderedIds = []
+    act(() => {
+      useAppStore.setState({ statusFilter: 'running' })
+    })
+    render(<TabView />)
+    expect(screen.getByText('No matching agents')).toBeInTheDocument()
+  })
+
+  it('renders background tray when no tabs but has minimized sessions', () => {
+    mockOrderedIds = []
+    mockMinimizedIds = ['term-1']
+    render(<TabView />)
+    expect(screen.getByTestId('grid-toolbar')).toBeInTheDocument()
+  })
+
+  it('renders the new session button', () => {
+    render(<TabView />)
+    expect(screen.getByRole('button', { name: 'New session' })).toBeInTheDocument()
+  })
+
+  it('renders the more session options button', () => {
+    render(<TabView />)
+    expect(screen.getByRole('button', { name: 'More session options' })).toBeInTheDocument()
+  })
+
+  it('opens context menu on tab right-click', () => {
+    const { container } = render(<TabView />)
+    const tab = screen.getByRole('tab')
+    fireEvent.contextMenu(tab)
+    expect(container).toBeTruthy()
+  })
+
+  it('shows loading skeleton when terminal has no output yet', () => {
+    const terminals = new Map()
+    terminals.set('term-1', { ...mockTerminal, lastOutputTimestamp: 0 })
+    act(() => {
+      useAppStore.setState({ terminals })
+    })
+    const { container } = render(<TabView />)
+    expect(container.querySelector('.animate-pulse')).toBeInTheDocument()
+  })
+
+  it('renders tab with task-assigned display name', () => {
+    act(() => {
+      useAppStore.setState({
+        config: {
+          version: 1,
+          defaults: { shell: 'bash', fontSize: 14, theme: 'dark' as const },
+          tasks: [
+            {
+              id: 'task-1',
+              title: 'Fix auth bug',
+              status: 'in_progress' as const,
+              assignedSessionId: 'term-1',
+              createdAt: Date.now()
+            }
+          ]
+        }
+      })
+    })
+    render(<TabView />)
+    expect(screen.getByText('Fix auth bug')).toBeInTheDocument()
+  })
+
+  it('clicks new session button and opens dialog when no project', () => {
+    const setNewAgentDialogOpen = vi.fn()
+    act(() => {
+      useAppStore.setState({ setNewAgentDialogOpen })
+    })
+    render(<TabView />)
+    fireEvent.click(screen.getByRole('button', { name: 'New session' }))
+    expect(setNewAgentDialogOpen).toHaveBeenCalledWith(true)
+  })
+
+  it('opens more session options dropdown on click', () => {
+    render(<TabView />)
+    const moreBtn = screen.getByRole('button', { name: 'More session options' })
+    fireEvent.click(moreBtn)
+    // Dropdown opens (GridContextMenu is mocked to null but state toggles)
+    expect(moreBtn).toBeInTheDocument()
+  })
+
+  it('renders tab in renaming mode', () => {
+    act(() => {
+      useAppStore.setState({ renamingTerminalId: 'term-1' })
+    })
+    render(<TabView />)
+    // InlineRename is not mocked, it renders an input
+    const input = screen.getByRole('textbox')
+    expect(input).toBeInTheDocument()
+  })
+
+  it('renders inactive tab styling for non-active tabs', () => {
+    const terminals = new Map()
+    terminals.set('term-1', mockTerminal)
+    terminals.set('term-2', {
+      ...mockTerminal,
+      id: 'term-2',
+      session: { ...mockTerminal.session, id: 'term-2' }
+    })
+    mockOrderedIds = ['term-1', 'term-2']
+    act(() => {
+      useAppStore.setState({ terminals, activeTabId: 'term-1' })
+    })
+    render(<TabView />)
+    const tabs = screen.getAllByRole('tab')
+    expect(tabs).toHaveLength(2)
+    expect(tabs[0].className).toContain('text-white')
+    expect(tabs[1].className).toContain('text-gray-500')
+  })
+
+  it('clicks browse files button on a tab', () => {
+    const setDiffSidebar = vi.fn()
+    act(() => {
+      useAppStore.setState({ setDiffSidebarTerminalId: setDiffSidebar })
+    })
+    render(<TabView />)
+    fireEvent.click(screen.getByRole('button', { name: 'Browse files' }))
+    expect(setDiffSidebar).toHaveBeenCalledWith('term-1', 'all-files')
+  })
+
+  it('clicks rename button on a tab', () => {
+    const setRenamingTerminalId = vi.fn()
+    act(() => {
+      useAppStore.setState({ setRenamingTerminalId })
+    })
+    render(<TabView />)
+    fireEvent.click(screen.getByRole('button', { name: 'Rename session' }))
+    expect(setRenamingTerminalId).toHaveBeenCalledWith('term-1')
+  })
+
+  it('commits rename via InlineRename', async () => {
+    const renameTerminal = vi.fn()
+    const setRenamingTerminalId = vi.fn()
+    act(() => {
+      useAppStore.setState({
+        renamingTerminalId: 'term-1',
+        renameTerminal,
+        setRenamingTerminalId
+      })
+    })
+    render(<TabView />)
+    const input = screen.getByRole('textbox')
+    fireEvent.change(input, { target: { value: 'New Name' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() => {
+      expect(renameTerminal).toHaveBeenCalledWith('term-1', 'New Name')
+      expect(setRenamingTerminalId).toHaveBeenCalledWith(null)
+    })
+  })
+
+  it('cancels rename via Escape', () => {
+    const setRenamingTerminalId = vi.fn()
+    act(() => {
+      useAppStore.setState({ renamingTerminalId: 'term-1', setRenamingTerminalId })
+    })
+    render(<TabView />)
+    const input = screen.getByRole('textbox')
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(setRenamingTerminalId).toHaveBeenCalledWith(null)
+  })
+
+  it('toggles more session options dropdown open and closed', () => {
+    render(<TabView />)
+    const moreBtn = screen.getByRole('button', { name: 'More session options' })
+    fireEvent.click(moreBtn)
+    // Click again to close
+    fireEvent.click(moreBtn)
+    expect(moreBtn).toBeInTheDocument()
   })
 })

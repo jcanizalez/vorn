@@ -60,7 +60,7 @@ export function CardHeader({
           status={terminal.status}
           size={18}
         />
-        <div className="min-w-0 flex items-center gap-1 group/rename">
+        <div className="titlebar-no-drag min-w-0 flex items-center gap-1 group/rename">
           {isRenaming ? (
             <InlineRename
               value={displayName}
@@ -87,7 +87,7 @@ export function CardHeader({
                   e.stopPropagation()
                   setRenamingTerminalId(terminalId)
                 }}
-                className="opacity-0 group-hover/rename:opacity-100 text-gray-500 hover:text-gray-300 transition-opacity shrink-0"
+                className="titlebar-no-drag opacity-0 group-hover/rename:opacity-100 text-gray-500 hover:text-gray-300 transition-opacity shrink-0"
                 aria-label="Rename session"
               >
                 <Pencil size={10} />
@@ -110,7 +110,7 @@ export function CardHeader({
             {index + 1}
           </span>
         )}
-        <div className={revealClass}>
+        <div className={`titlebar-no-drag ${revealClass}`}>
           <CardActionCluster terminalId={terminalId} variant={variant} />
         </div>
       </div>

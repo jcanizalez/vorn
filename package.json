@@ -41,7 +41,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@tiptap/core": "^3.22.3",
-    "@tiptap/extension-code-block": "^3.22.3",
+    "@tiptap/extension-code-block": "^3.22.4",
     "@tiptap/extension-code-block-lowlight": "^3.22.3",
     "@tiptap/extension-link": "^3.22.3",
     "@tiptap/extension-list": "^3.22.3",
@@ -76,7 +76,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
-    "@electron/rebuild": "^4.0.3",
+    "@electron/rebuild": "^4.0.4",
     "@eslint/js": "^10.0.1",
     "@tailwindcss/postcss": "^4.2.2",
     "@testing-library/dom": "^10.4.1",
@@ -104,7 +104,7 @@
     "prettier": "^3.8.2",
     "simple-git-hooks": "^2.13.1",
     "tailwindcss": "^4.2.2",
-    "typescript": "^6.0.2",
+    "typescript": "^6.0.3",
     "typescript-eslint": "^8.58.2",
     "vite": "^7.3.2",
     "vitest": "4.1.4"

@@ -15,3 +15,5 @@ export const isMac =
   typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC')
 
 export const MOD = isMac ? '⌘' : 'Ctrl+'
+
+export const TRAFFIC_LIGHT_PAD_PX = 80

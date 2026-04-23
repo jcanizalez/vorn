@@ -305,6 +305,14 @@ const api = {
   windowMinimize: () => ipcRenderer.send(IPC.WINDOW_MINIMIZE),
   windowMaximize: () => ipcRenderer.send(IPC.WINDOW_MAXIMIZE),
   windowClose: () => ipcRenderer.send(IPC.WINDOW_CLOSE),
+  isWindowMaximized: (): Promise<boolean> => ipcRenderer.invoke(IPC.WINDOW_IS_MAXIMIZED),
+  onWindowMaximizedChange: (callback: (maximized: boolean) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, maximized: boolean): void => callback(maximized)
+    ipcRenderer.on(IPC.WINDOW_MAXIMIZED_CHANGED, listener)
+    return () => {
+      ipcRenderer.removeListener(IPC.WINDOW_MAXIMIZED_CHANGED, listener)
+    }
+  },
 
   // Widget
   notifyWidgetStatus: () => ipcRenderer.send(IPC.WIDGET_RENDERER_STATUS),
