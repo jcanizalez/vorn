@@ -57,7 +57,7 @@ const nodeSchema = z.object({
   id: V.id,
   type: z.enum(['trigger', 'launchAgent']),
   label: V.shortText,
-  config: z.record(z.unknown()),
+  config: z.record(z.string(), z.unknown()),
   position: z.object({ x: z.number(), y: z.number() })
 })
 
