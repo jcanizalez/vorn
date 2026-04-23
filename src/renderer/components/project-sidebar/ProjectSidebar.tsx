@@ -7,6 +7,7 @@ import { SidebarHeader } from './SidebarHeader'
 import { ProjectsSection } from './ProjectsSection'
 import { FlatSessionsSection } from './FlatSessionsSection'
 import { WorkflowsSection } from './WorkflowsSection'
+import { TasksProjectsSection } from './TasksProjectsSection'
 import { SidebarFooter } from './SidebarFooter'
 import type { SidebarSessionInfo } from './types'
 
@@ -121,6 +122,8 @@ export function ProjectSidebar() {
       <div className={`flex-1 overflow-auto space-y-0.5 ${isCollapsed ? 'px-1.5' : 'px-3'}`}>
         {mainViewMode === 'workflows' ? (
           <WorkflowsSection isCollapsed={isCollapsed} workspaceWorkflows={workspaceWorkflows} />
+        ) : mainViewMode === 'tasks' ? (
+          <TasksProjectsSection isCollapsed={isCollapsed} workspaceProjects={workspaceProjects} />
         ) : sidebarViewMode === 'sessions-flat' ? (
           <FlatSessionsSection
             isCollapsed={isCollapsed}
