@@ -3,9 +3,12 @@ import path from 'node:path'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import type { FileEntry, RemoteHost } from '@vornrun/shared/types'
-import { sshExecSync, shellEscape } from './process-utils'
+import { sshExecSync, shellEscape, getSafeEnv } from './process-utils'
+import { resolveExecutable } from './resolve-executable'
 
 const execFileAsync = promisify(execFile)
+
+const gitBin = (): string => resolveExecutable('git') ?? 'git'
 
 const ALWAYS_EXCLUDE = new Set(['.git', '.DS_Store', 'Thumbs.db'])
 const MAX_READ_BYTES = 512 * 1024 // 512 KB default
@@ -16,9 +19,10 @@ const IGNORE_CACHE_TTL = 30_000
 
 async function getRepoRoot(cwd: string): Promise<string | null> {
   try {
-    const { stdout } = await execFileAsync('git', ['rev-parse', '--show-toplevel'], {
+    const { stdout } = await execFileAsync(gitBin(), ['rev-parse', '--show-toplevel'], {
       cwd,
       encoding: 'utf-8',
+      env: getSafeEnv(),
       timeout: 3000
     })
     return stdout.trim()
@@ -38,9 +42,15 @@ async function getGitIgnored(cwd: string): Promise<Set<string> | null> {
 
   try {
     const { stdout } = await execFileAsync(
-      'git',
+      gitBin(),
       ['ls-files', '--others', '--ignored', '--exclude-standard', '--directory'],
-      { cwd: root, encoding: 'utf-8', timeout: 5000, maxBuffer: 1024 * 1024 }
+      {
+        cwd: root,
+        encoding: 'utf-8',
+        env: getSafeEnv(),
+        timeout: 5000,
+        maxBuffer: 1024 * 1024
+      }
     )
     const lines = stdout.trim()
     const ignored = lines

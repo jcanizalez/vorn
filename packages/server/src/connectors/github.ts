@@ -9,6 +9,8 @@ import type {
   TaskStatus
 } from '@vornrun/shared/types'
 import log from '../logger'
+import { getSafeEnv } from '../process-utils'
+import { resolveGhPath, GhNotFoundError } from './gh-cli'
 
 const execFileAsync = promisify(execFile)
 
@@ -26,13 +28,17 @@ function isTransientErr(err: unknown): boolean {
  * so gh's non-zero exit reasons (e.g. rate limiting, auth) surface in logs.
  */
 async function gh(args: string[], cwd?: string, input?: string): Promise<string> {
+  const ghPath = resolveGhPath()
+  if (!ghPath) throw new GhNotFoundError()
+  const env = getSafeEnv()
   const run = async () => {
     if (input !== undefined) {
-      return runWithStdin(args, input, cwd)
+      return runWithStdin(ghPath, args, input, cwd, env)
     }
-    const { stdout } = await execFileAsync('gh', args, {
+    const { stdout } = await execFileAsync(ghPath, args, {
       timeout: 15_000,
       maxBuffer: 10 * 1024 * 1024,
+      env,
       ...(cwd && { cwd })
     })
     return stdout
@@ -58,9 +64,15 @@ async function gh(args: string[], cwd?: string, input?: string): Promise<string>
 
 /** Run `gh` feeding `input` on stdin. Used by `gh api --input -` paths so we
  *  never interpolate untrusted body values into shell arguments. */
-function runWithStdin(args: string[], input: string, cwd?: string): Promise<string> {
+function runWithStdin(
+  ghPath: string,
+  args: string[],
+  input: string,
+  cwd: string | undefined,
+  env: Record<string, string>
+): Promise<string> {
   return new Promise((resolve, reject) => {
-    const child = spawn('gh', args, { cwd, timeout: 15_000 })
+    const child = spawn(ghPath, args, { cwd, timeout: 15_000, env })
     let stdout = ''
     let stderr = ''
     child.stdout.on('data', (d) => {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, type ReactNode } from 'react'
 import { useAppStore } from '../../stores'
 import { SettingsPageHeader } from './SettingsPageHeader'
 import { ConnectorIcon } from '../ConnectorIcon'
@@ -40,6 +40,24 @@ function humanCron(cron: string): string {
   if (m) return `every ${m[1]} minute${m[1] === '1' ? '' : 's'}`
   if (cron === '* * * * *') return 'every minute'
   return cron
+}
+
+/** Render text with `backtick` spans styled as inline code. */
+function renderMessageWithCode(text: string): ReactNode {
+  const parts = text.split(/(`[^`]+`)/g)
+  return parts.map((part, i) => {
+    if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
+      return (
+        <code
+          key={i}
+          className="px-1 py-[1px] bg-black/30 border border-white/[0.08] rounded-sm text-amber-100 font-mono text-[11px]"
+        >
+          {part.slice(1, -1)}
+        </code>
+      )
+    }
+    return <span key={i}>{part}</span>
+  })
 }
 
 export function ConnectorSettings() {
@@ -140,8 +158,10 @@ export function ConnectorSettings() {
                 {connectors.find((c) => c.id === s.connectorId)?.name || s.connectorId} not signed
                 in
               </div>
-              <div className="text-amber-300/70 mt-0.5">
-                {s.message || 'Run `gh auth login` in your terminal to sign in.'}
+              <div className="text-amber-300/70 mt-0.5 whitespace-pre-line">
+                {renderMessageWithCode(
+                  s.message || 'Run `gh auth login` in your terminal to sign in.'
+                )}
               </div>
             </div>
           </div>

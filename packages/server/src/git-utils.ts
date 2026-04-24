@@ -3,7 +3,16 @@ import path from 'node:path'
 import fs from 'node:fs'
 import crypto from 'node:crypto'
 import type { RemoteHost } from '@vornrun/shared/types'
-import { sshExecSync, shellEscape } from './process-utils'
+import { sshExecSync, shellEscape, getSafeEnv } from './process-utils'
+import { resolveExecutable } from './resolve-executable'
+
+// Resolve `git` from the login-shell PATH so packaged Electron finds the
+// same binary the user would from their terminal (e.g. a newer Homebrew git
+// rather than the Xcode stub). Falls back to the bare name so callers still
+// work if resolution fails.
+function gitBin(): string {
+  return resolveExecutable('git') ?? 'git'
+}
 
 /**
  * Run a git command locally or via SSH depending on whether a remote host is provided.
@@ -18,9 +27,10 @@ function gitExec(
     const cmd = `cd ${shellEscape(cwd, 'posix')} && git ${args.map((a) => shellEscape(a, 'posix')).join(' ')}`
     return sshExecSync(opts.remote, cmd, { timeout: opts?.timeout ?? 10000 })
   }
-  return execFileSync('git', args, {
+  return execFileSync(gitBin(), args, {
     cwd,
     ...EXEC_OPTS,
+    env: getSafeEnv(),
     timeout: opts?.timeout ?? 10000,
     maxBuffer: opts?.maxBuffer
   }).trim()
@@ -34,9 +44,10 @@ const EXEC_OPTS = {
 export function isGitRepo(projectPath: string): boolean {
   try {
     return (
-      execFileSync('git', ['rev-parse', '--is-inside-work-tree'], {
+      execFileSync(gitBin(), ['rev-parse', '--is-inside-work-tree'], {
         cwd: projectPath,
         ...EXEC_OPTS,
+        env: getSafeEnv(),
         timeout: 3000
       }).trim() === 'true'
     )
