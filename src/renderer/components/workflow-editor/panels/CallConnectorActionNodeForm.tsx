@@ -6,6 +6,7 @@ import type {
   ConnectorActionDef
 } from '../../../../shared/types'
 import { SelectPicker } from '../../SelectPicker'
+import { ConnectorIcon } from '../../ConnectorIcon'
 
 interface Props {
   config: CallConnectorActionConfig
@@ -46,7 +47,11 @@ export function CallConnectorActionNodeForm({ config, onChange }: Props) {
         <label className="text-[13px] text-gray-400 font-medium block mb-2">Connection</label>
         <SelectPicker
           value={config.connectionId}
-          options={connections.map((c) => ({ value: c.id, label: c.name }))}
+          options={connections.map((c) => ({
+            value: c.id,
+            label: c.name,
+            icon: <ConnectorIcon connectorId={c.connectorId} size={14} className="text-gray-400" />
+          }))}
           onChange={(v) => onChange({ ...config, connectionId: v, action: '', args: {} })}
           variant="form"
           placeholder="Select a connection..."
