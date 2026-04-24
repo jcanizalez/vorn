@@ -22,7 +22,8 @@ import {
   FileEntry,
   SourceConnection,
   TaskSourceLink,
-  ConnectorManifest
+  ConnectorManifest,
+  ConnectorActionDef
 } from '../shared/types'
 
 const api = {
@@ -468,6 +469,20 @@ const api = {
     args: Record<string, unknown>
   }): Promise<{ success: boolean; output?: Record<string, unknown>; error?: string }> =>
     ipcRenderer.invoke(IPC.CONNECTION_EXECUTE_ACTION, params),
+
+  listConnectionActions: (connectionId: string): Promise<ConnectorActionDef[]> =>
+    ipcRenderer.invoke(IPC.CONNECTION_LIST_ACTIONS, connectionId),
+
+  listMcpTools: (
+    connectionId: string
+  ): Promise<
+    Array<{ name: string; description?: string; inputSchema?: Record<string, unknown> }>
+  > => ipcRenderer.invoke(IPC.CONNECTION_LIST_MCP_TOOLS, connectionId),
+
+  refreshMcpTools: (
+    connectionId: string
+  ): Promise<{ ok: boolean; count?: number; error?: string }> =>
+    ipcRenderer.invoke(IPC.CONNECTION_REFRESH_MCP_TOOLS, connectionId),
 
   upsertTaskFromItem: (params: {
     connectionId: string

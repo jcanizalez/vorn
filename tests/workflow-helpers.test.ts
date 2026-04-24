@@ -291,6 +291,36 @@ describe('removeNode', () => {
     expect(result.nodes.map((n) => n.id)).toEqual(['trigger-1', 'b'])
     expect(result.edges.some((e) => e.source === 'trigger-1' && e.target === 'b')).toBe(true)
   })
+
+  it('cascade-deletes both branches of a condition up to the join point', () => {
+    const t = makeTriggerNode()
+    const tail = makeActionNode('tail')
+    // Insert a condition between trigger and tail. This sets up two
+    // placeholder branches that rejoin at `tail`.
+    const inserted = insertConditionBetween(
+      [t, tail],
+      [makeEdge('trigger-1', 'tail')],
+      'trigger-1',
+      'tail'
+    )
+    const condNode = inserted.nodes.find((n) => n.type === 'condition')!
+
+    const result = removeNode(inserted.nodes, inserted.edges, condNode.id)
+
+    // Condition + both branch placeholders gone, only trigger and tail remain.
+    expect(result.nodes.map((n) => n.id).sort()).toEqual(['tail', 'trigger-1'])
+    // Predecessor reconnected directly to the join.
+    expect(result.edges.some((e) => e.source === 'trigger-1' && e.target === 'tail')).toBe(true)
+  })
+
+  it('removes a terminal condition without reconnecting (no join)', () => {
+    const t = makeTriggerNode()
+    const inserted = insertConditionBetween([t], [], 'trigger-1', null)
+    const condNode = inserted.nodes.find((n) => n.type === 'condition')!
+    const result = removeNode(inserted.nodes, inserted.edges, condNode.id)
+    expect(result.nodes.map((n) => n.id)).toEqual(['trigger-1'])
+    expect(result.edges).toEqual([])
+  })
 })
 
 describe('insertNodeBetween', () => {

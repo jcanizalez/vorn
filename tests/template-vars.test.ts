@@ -118,6 +118,41 @@ describe('buildStepGroups', () => {
     expect(groups[0].keys).toHaveLength(3)
     expect(groups[0].keys.map((k) => k.key)).toEqual(['output', 'status', 'error'])
   })
+
+  it('prepends schema-derived keys for callConnectorAction nodes when a lookup is provided', () => {
+    const node: WorkflowNode = {
+      id: 'n1',
+      type: 'callConnectorAction',
+      label: 'Create Issue',
+      slug: 'create_issue',
+      config: {
+        nodeType: 'callConnectorAction',
+        connectionId: 'c1',
+        action: 'createIssue',
+        args: {}
+      },
+      position: { x: 0, y: 0 }
+    }
+    const lookup = (cid: string, atype: string) =>
+      cid === 'c1' && atype === 'createIssue'
+        ? {
+            type: 'createIssue',
+            label: 'Create Issue',
+            configFields: [],
+            outputSchema: {
+              type: 'object',
+              properties: {
+                html_url: { type: 'string', description: 'Issue URL' },
+                number: { type: 'number' }
+              }
+            }
+          }
+        : undefined
+    const groups = buildStepGroups([node], lookup)
+    const keys = groups[0].keys.map((k) => k.key)
+    expect(keys.slice(0, 2)).toEqual(['html_url', 'number'])
+    expect(keys.slice(-3)).toEqual(['output', 'status', 'error'])
+  })
 })
 
 describe('resolveTemplateVars', () => {
@@ -172,5 +207,28 @@ describe('resolveTemplateVars', () => {
     const outputs: StepOutputs = { build: { output: longOutput } }
     const result = resolveTemplateVars('{{steps.build.output}}', context, outputs)
     expect(result.length).toBe(50_000)
+  })
+
+  it('walks nested paths into a step output object', () => {
+    const outputs: StepOutputs = {
+      create_issue: { issue: { id: 7, html_url: 'https://gh/x/1' } }
+    }
+    expect(
+      resolveTemplateVars('Url: {{steps.create_issue.issue.html_url}}', context, outputs)
+    ).toBe('Url: https://gh/x/1')
+  })
+
+  it('JSON-stringifies object/array leaves', () => {
+    const outputs: StepOutputs = {
+      list_dir: { entries: [{ name: 'a' }, { name: 'b' }] }
+    }
+    expect(resolveTemplateVars('{{steps.list_dir.entries}}', context, outputs)).toBe(
+      '[{"name":"a"},{"name":"b"}]'
+    )
+  })
+
+  it('returns empty when a nested path segment is missing', () => {
+    const outputs: StepOutputs = { x: { a: { b: 1 } } }
+    expect(resolveTemplateVars('{{steps.x.a.missing}}', context, outputs)).toBe('')
   })
 })

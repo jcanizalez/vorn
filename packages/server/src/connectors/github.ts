@@ -13,6 +13,40 @@ import { resolveGhPath, GhNotFoundError, getGhEnv } from './gh-cli'
 
 const execFileAsync = promisify(execFile)
 
+// JSON Schema subsets of the GitHub REST responses we pass through as
+// `ActionResult.output`. Only keys that are useful to reference from
+// downstream workflow steps are listed — the raw body still contains
+// everything, the schema just drives the variable-autocomplete UI and
+// documents the stable fields.
+const GITHUB_ISSUE_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    id: { type: 'number', description: 'Numeric id of the issue' },
+    number: { type: 'number', description: 'Issue number within the repo' },
+    html_url: { type: 'string', description: 'Issue URL to show in UIs' },
+    url: { type: 'string', description: 'GitHub REST API URL for the issue' },
+    title: { type: 'string' },
+    body: { type: 'string' },
+    state: { type: 'string', description: 'open or closed' },
+    labels: { type: 'array' },
+    assignees: { type: 'array' },
+    created_at: { type: 'string' },
+    updated_at: { type: 'string' },
+    closed_at: { type: 'string' }
+  }
+}
+
+const GITHUB_COMMENT_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    id: { type: 'number' },
+    html_url: { type: 'string', description: 'Link to the comment' },
+    body: { type: 'string' },
+    created_at: { type: 'string' },
+    updated_at: { type: 'string' }
+  }
+}
+
 const TRANSIENT_CODES = new Set(['ETIMEDOUT', 'ENETDOWN', 'ENETUNREACH', 'ECONNRESET'])
 
 function isTransientErr(err: unknown): boolean {
@@ -317,16 +351,18 @@ export const githubConnector: VornConnector = {
       case 'closeIssue': {
         const { number: issueNumber } = args
         if (!issueNumber) return { success: false, error: 'number is required' }
-        await ghApi(`repos/${owner}/${repo}/issues/${issueNumber}`, 'PATCH', { state: 'closed' })
-        return { success: true }
+        const result = await ghApi(`repos/${owner}/${repo}/issues/${issueNumber}`, 'PATCH', {
+          state: 'closed'
+        })
+        return { success: true, output: result as Record<string, unknown> }
       }
       case 'commentOnIssue': {
         const { number: num, body: comment } = args
         if (!num || !comment) return { success: false, error: 'number and body are required' }
-        await ghApi(`repos/${owner}/${repo}/issues/${num}/comments`, 'POST', {
+        const result = await ghApi(`repos/${owner}/${repo}/issues/${num}/comments`, 'POST', {
           body: String(comment)
         })
-        return { success: true }
+        return { success: true, output: result as Record<string, unknown> }
       }
       case 'syncTasks': {
         // This is handled by the sync engine at a higher level.
@@ -401,7 +437,8 @@ export const githubConnector: VornConnector = {
             },
             { key: 'body', label: 'Body', type: 'textarea', supportsTemplates: true },
             { key: 'labels', label: 'Labels', type: 'text', placeholder: 'bug,enhancement' }
-          ]
+          ],
+          outputSchema: GITHUB_ISSUE_SCHEMA
         },
         {
           type: 'closeIssue',
@@ -416,7 +453,8 @@ export const githubConnector: VornConnector = {
               placeholder: '{{connectorItem.externalId}}',
               supportsTemplates: true
             }
-          ]
+          ],
+          outputSchema: GITHUB_ISSUE_SCHEMA
         },
         {
           type: 'commentOnIssue',
@@ -438,7 +476,8 @@ export const githubConnector: VornConnector = {
               required: true,
               supportsTemplates: true
             }
-          ]
+          ],
+          outputSchema: GITHUB_COMMENT_SCHEMA
         }
       ],
       defaultWorkflows: [

@@ -25,7 +25,8 @@ export const PROJECT_ICON_OPTIONS: ProjectIconOption[] = [
   { name: 'FlaskConical', label: 'Lab' },
   { name: 'Rocket', label: 'Launch' },
   { name: 'github', label: 'GitHub' },
-  { name: 'linear', label: 'Linear' }
+  { name: 'linear', label: 'Linear' },
+  { name: 'mcp', label: 'MCP' }
 ]
 
 export const ICON_COLOR_PALETTE = [

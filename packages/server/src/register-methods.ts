@@ -76,8 +76,13 @@ import {
   connectorRegistry,
   setDecryptedCreds,
   clearDecryptedCreds,
-  applyDecryptedCreds
+  applyDecryptedCreds,
+  invokeMcpTool,
+  discoverTools,
+  mcpConnectionActions,
+  stopMcpClient
 } from './connectors'
+import { MCP_CONNECTOR_ID } from './connectors/mcp'
 import { detectRepoSlug } from './connectors/github'
 import { buildConnectorSeededWorkflow } from './default-workflows'
 import { connectorSeededWorkflowId, connectorSeededWorkflowIdPrefix } from '@vornrun/shared/types'
@@ -123,6 +128,33 @@ function stopOutputFlushIfIdle(): void {
 function bufferSessionOutput(sessionId: string, data: string): void {
   const chunks = outputBuffers.get(sessionId)
   if (chunks) chunks.push(stripAnsi(data))
+}
+
+/** Discover tools on an MCP connection and persist them on the row. */
+async function runMcpDiscovery(
+  connectionId: string
+): Promise<{ ok: boolean; count?: number; error?: string }> {
+  const conn = dbGetSourceConnection(connectionId)
+  if (!conn || conn.connectorId !== MCP_CONNECTOR_ID) {
+    return { ok: false, error: 'Not an MCP connection' }
+  }
+  try {
+    const tools = await discoverTools(conn)
+    dbUpdateSourceConnection(conn.id, {
+      filters: { ...conn.filters, discoveredTools: tools },
+      lastSyncAt: new Date().toISOString(),
+      lastSyncError: undefined
+    })
+    dbSignalChange()
+    configManager.notifyChanged()
+    return { ok: true, count: tools.length }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    dbUpdateSourceConnection(conn.id, { lastSyncError: msg })
+    dbSignalChange()
+    configManager.notifyChanged()
+    return { ok: false, error: msg }
+  }
 }
 
 /**
@@ -667,6 +699,18 @@ export function registerAllMethods(): void {
 
     dbSignalChange()
     configManager.notifyChanged()
+
+    // For MCP connections, kick off tool discovery in the background. We
+    // delay briefly so the main process has time to decrypt + push secretEnv
+    // via the credential-sync path (triggered by notifyChanged above).
+    if (conn.connectorId === MCP_CONNECTOR_ID) {
+      setTimeout(() => {
+        void runMcpDiscovery(conn.id).catch((err) =>
+          log.warn(`[mcp] initial discovery failed for ${conn.id}: ${err}`)
+        )
+      }, 1500)
+    }
+
     return conn
   })
 
@@ -693,6 +737,9 @@ export function registerAllMethods(): void {
     dbDeleteSourceConnection(id)
     // Forget any decrypted plaintext for this connection.
     clearDecryptedCreds(id)
+    // Terminate any live MCP stdio child for this connection. Fire-and-forget
+    // because delete is synchronous and the child may take a moment to exit.
+    void stopMcpClient(id).catch((err) => log.warn(`[mcp] stopClient failed: ${err}`))
     dbSignalChange()
     configManager.notifyChanged()
   })
@@ -712,6 +759,14 @@ export function registerAllMethods(): void {
   registerMethod('connection:executeAction', async ({ connectionId, action, args }) => {
     const conn = dbGetSourceConnection(connectionId)
     if (!conn) return { success: false, error: `Connection ${connectionId} not found` }
+
+    // MCP connections route through invokeMcpTool because the tool call needs
+    // the SourceConnection itself (to start / address the per-connection stdio
+    // client), not just the merged args the generic execute path provides.
+    if (conn.connectorId === MCP_CONNECTOR_ID) {
+      return invokeMcpTool(conn, action, args ?? {})
+    }
+
     const connector = connectorRegistry.get(conn.connectorId)
     if (!connector?.execute) {
       return {
@@ -730,6 +785,32 @@ export function registerAllMethods(): void {
         error: err instanceof Error ? err.message : String(err)
       }
     }
+  })
+
+  /**
+   * Return the actions a connection exposes, in the same `ConnectorActionDef`
+   * shape regardless of connector type. Static connectors return their
+   * manifest actions verbatim; MCP maps its per-connection discovered tools
+   * to the same shape. The workflow editor drives its Action picker off this
+   * endpoint so the form stays connector-agnostic.
+   */
+  registerMethod('connection:listActions', (connectionId: string) => {
+    const conn = dbGetSourceConnection(connectionId)
+    if (!conn) return []
+    if (conn.connectorId === MCP_CONNECTOR_ID) return mcpConnectionActions(conn)
+    const connector = connectorRegistry.get(conn.connectorId)
+    return connector?.describe().actions ?? []
+  })
+
+  registerMethod('connection:listMcpTools', (connectionId: string) => {
+    const conn = dbGetSourceConnection(connectionId)
+    if (!conn || conn.connectorId !== MCP_CONNECTOR_ID) return []
+    const tools = conn.filters.discoveredTools
+    return Array.isArray(tools) ? tools : []
+  })
+
+  registerMethod('connection:refreshMcpTools', async (connectionId: string) => {
+    return runMcpDiscovery(connectionId)
   })
 
   /**

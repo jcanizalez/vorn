@@ -15,6 +15,8 @@ import {
   WorkflowEdge,
   TriggerConfig,
   AiAgentType,
+  CallConnectorActionConfig,
+  ConnectorActionDef,
   supportsExactSessionResume,
   getProjectRemoteHostId
 } from '../../../shared/types'
@@ -96,11 +98,65 @@ export function WorkflowEditor({ inline = false }: { inline?: boolean } = {}) {
     return (triggerNode.config as TriggerConfig).triggerType
   }, [nodes])
 
+  // Map of connectionId → action defs. Populated for every connection the
+  // workflow's callConnectorAction nodes reference, so the autocomplete can
+  // surface schema-typed outputs (e.g. `{{steps.createIssue.html_url}}`)
+  // without making buildStepGroups async.
+  const [connectionActions, setConnectionActions] = useState<Map<string, ConnectorActionDef[]>>(
+    () => new Map()
+  )
+
+  // Join the referenced connection ids into a stable key so the effect below
+  // only refires when the set of referenced connections changes — not on
+  // every label edit, drag, or unrelated field update.
+  const connectionIdsKey = useMemo(() => {
+    const ids = new Set<string>()
+    for (const n of nodes) {
+      if (n.type === 'callConnectorAction') {
+        const cfg = n.config as CallConnectorActionConfig
+        if (cfg.connectionId) ids.add(cfg.connectionId)
+      }
+    }
+    return [...ids].sort().join(',')
+  }, [nodes])
+
+  useEffect(() => {
+    if (!connectionIdsKey) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setConnectionActions((prev) => (prev.size === 0 ? prev : new Map()))
+      return
+    }
+    let cancelled = false
+    // Per-connection so a single dead connection doesn't blank out the
+    // autocomplete for healthy ones — each id resolves independently.
+    Promise.all(
+      connectionIdsKey.split(',').map(async (id): Promise<[string, ConnectorActionDef[]]> => {
+        try {
+          const actions = await window.api.listConnectionActions(id)
+          return [id, actions]
+        } catch {
+          return [id, []]
+        }
+      })
+    ).then((entries) => {
+      if (!cancelled) setConnectionActions(new Map(entries))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [connectionIdsKey])
+
+  const lookupAction = useCallback(
+    (connectionId: string, actionType: string) =>
+      connectionActions.get(connectionId)?.find((a) => a.type === actionType),
+    [connectionActions]
+  )
+
   const stepGroups = useMemo(() => {
     if (!selectedNodeId) return []
     const ancestors = getAncestorNodes(nodes, edges, selectedNodeId)
-    return buildStepGroups(ancestors)
-  }, [nodes, edges, selectedNodeId])
+    return buildStepGroups(ancestors, lookupAction)
+  }, [nodes, edges, selectedNodeId, lookupAction])
 
   // Load execution history from database
   useEffect(() => {
