@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react'
 import { Zap, Clock, Calendar, ListPlus, ArrowRightLeft, Plug, type LucideIcon } from 'lucide-react'
-import type { TriggerConfig } from '../../../../shared/types'
+import type { TriggerConfig, ConnectorPollTriggerConfig } from '../../../../shared/types'
+import { ConnectorIcon } from '../../ConnectorIcon'
 
 interface Props {
   label: string
@@ -17,6 +19,32 @@ const TRIGGER_ICONS: Record<string, LucideIcon> = {
   connectorPoll: Plug
 }
 const DEFAULT_ICON = Zap
+
+function useConnectorId(config: TriggerConfig): string | null {
+  const [connectorId, setConnectorId] = useState<string | null>(null)
+  const connectionId =
+    config.triggerType === 'connectorPoll'
+      ? (config as ConnectorPollTriggerConfig).connectionId
+      : null
+
+  useEffect(() => {
+    if (!connectionId) {
+      setConnectorId(null)
+      return
+    }
+    let cancelled = false
+    window.api.listConnections().then((conns) => {
+      if (cancelled) return
+      const match = conns.find((c: { id: string }) => c.id === connectionId)
+      setConnectorId(match?.connectorId ?? null)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [connectionId])
+
+  return connectorId
+}
 
 function getSubtitle(config: TriggerConfig): string {
   switch (config.triggerType) {
@@ -43,6 +71,7 @@ function getSubtitle(config: TriggerConfig): string {
 
 export function TriggerNode({ label, config, selected, onClick }: Props) {
   const Icon = TRIGGER_ICONS[config.triggerType] || DEFAULT_ICON
+  const connectorId = useConnectorId(config)
 
   return (
     <div
@@ -55,7 +84,11 @@ export function TriggerNode({ label, config, selected, onClick }: Props) {
                   bg-[#1d1d20] hover:bg-white/[0.02]`}
     >
       <div className="flex items-center gap-2">
-        <Icon size={14} className="text-blue-400 shrink-0" strokeWidth={2} />
+        {connectorId ? (
+          <ConnectorIcon connectorId={connectorId} size={14} className="text-blue-400 shrink-0" />
+        ) : (
+          <Icon size={14} className="text-blue-400 shrink-0" strokeWidth={2} />
+        )}
         <div className="min-w-0">
           <div className="text-[13px] font-medium text-white truncate">{label}</div>
           <div className="text-[11px] text-gray-500 truncate">{getSubtitle(config)}</div>

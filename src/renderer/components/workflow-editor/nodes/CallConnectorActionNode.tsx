@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react'
 import { Zap } from 'lucide-react'
 import type { CallConnectorActionConfig, NodeExecutionStatus } from '../../../../shared/types'
 import { STATUS_DOT_CLASSES } from '../statusDot'
+import { ConnectorIcon } from '../../ConnectorIcon'
 
 interface Props {
   label: string
@@ -10,6 +12,28 @@ interface Props {
   onClick: () => void
 }
 
+function useConnectorId(connectionId: string | undefined): string | null {
+  const [connectorId, setConnectorId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!connectionId) {
+      setConnectorId(null)
+      return
+    }
+    let cancelled = false
+    window.api.listConnections().then((conns) => {
+      if (cancelled) return
+      const match = conns.find((c: { id: string }) => c.id === connectionId)
+      setConnectorId(match?.connectorId ?? null)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [connectionId])
+
+  return connectorId
+}
+
 export function CallConnectorActionNode({
   label,
   config,
@@ -17,6 +41,8 @@ export function CallConnectorActionNode({
   executionStatus,
   onClick
 }: Props) {
+  const connectorId = useConnectorId(config.connectionId)
+
   return (
     <div
       onClick={(e) => {
@@ -33,7 +59,11 @@ export function CallConnectorActionNode({
         />
       )}
       <div className="flex items-center gap-2">
-        <Zap size={14} className="text-gray-400 shrink-0" strokeWidth={2} />
+        {connectorId ? (
+          <ConnectorIcon connectorId={connectorId} size={14} className="text-gray-400 shrink-0" />
+        ) : (
+          <Zap size={14} className="text-gray-400 shrink-0" strokeWidth={2} />
+        )}
         <div className="min-w-0 flex-1">
           <div className="text-[13px] font-medium text-white truncate">{label}</div>
           <div className="text-[11px] text-gray-500 truncate">
