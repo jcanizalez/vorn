@@ -48,25 +48,22 @@ export function pickAutoLayout(n: number, W: number, H: number): AutoLayout {
 
   if (n > maxCols * maxRows) return scrollFallback()
 
-  let best: { cols: number; rows: number; score: number; fits: boolean } | null = null
+  // Pick the best candidate by aspect-ratio proximity to target, breaking ties
+  // toward fewer empty cells and then more columns. The gate above guarantees
+  // at least one candidate fits the min-card-size floor, so we can seed `best`
+  // with the first non-skipped iteration and drop a defensive post-loop branch.
+  let best = { cols: 1, rows: n, score: -Infinity }
   for (let cols = 1; cols <= Math.min(n, maxCols); cols++) {
     const rows = Math.ceil(n / cols)
     if (rows > maxRows) continue
     const cardW = W / cols
     const cardH = H / rows
-    const fits = cardW >= AUTO_MIN_CARD_W && cardH >= AUTO_MIN_CARD_H
     const aspectPenalty = Math.abs(Math.log(cardW / cardH / AUTO_TARGET_ASPECT))
     const emptyPenalty = (cols * rows - n) * 0.25
     const score = -aspectPenalty - emptyPenalty
-    if (
-      best === null ||
-      (fits && !best.fits) ||
-      (fits === best.fits && (score > best.score || (score === best.score && cols > best.cols)))
-    ) {
-      best = { cols, rows, score, fits }
+    if (score > best.score || (score === best.score && cols > best.cols)) {
+      best = { cols, rows, score }
     }
   }
-
-  if (best && best.fits) return { cols: best.cols, rows: best.rows, mode: 'fit' }
-  return scrollFallback()
+  return { cols: best.cols, rows: best.rows, mode: 'fit' }
 }

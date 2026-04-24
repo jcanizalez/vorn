@@ -66,4 +66,16 @@ describe('FocusedNavHint', () => {
     fireEvent.click(screen.getByLabelText('Previous session'))
     expect(setFocusedTerminal).toHaveBeenCalledWith('c')
   })
+
+  it('button pointerDown does not bubble (prevents drag interference)', () => {
+    const parentPointerDown = vi.fn()
+    render(
+      <div onPointerDown={parentPointerDown}>
+        <FocusedNavHint terminalId="b" />
+      </div>
+    )
+    fireEvent.pointerDown(screen.getByLabelText('Next session'))
+    fireEvent.pointerDown(screen.getByLabelText('Previous session'))
+    expect(parentPointerDown).not.toHaveBeenCalled()
+  })
 })
