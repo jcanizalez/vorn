@@ -78,6 +78,67 @@ const ISSUE_FIELDS = `
   team { key }
 `
 
+async function resolveIssueId(apiKey: string, identifier: string): Promise<string | null> {
+  const data = await linearGraphQL<{ issues: { nodes: Array<{ id: string }> } }>(
+    apiKey,
+    `query IssueIdByIdentifier($identifier: String!) {
+       issues(filter: { identifier: { eq: $identifier } }, first: 1) { nodes { id } }
+     }`,
+    { identifier }
+  )
+  return data.issues.nodes[0]?.id ?? null
+}
+
+async function resolveIssueWithTeam(
+  apiKey: string,
+  identifier: string
+): Promise<{ id: string; teamId: string; teamKey: string } | null> {
+  const data = await linearGraphQL<{
+    issues: { nodes: Array<{ id: string; team: { id: string; key: string } }> }
+  }>(
+    apiKey,
+    `query IssueWithTeam($identifier: String!) {
+       issues(filter: { identifier: { eq: $identifier } }, first: 1) {
+         nodes { id team { id key } }
+       }
+     }`,
+    { identifier }
+  )
+  const node = data.issues.nodes[0]
+  return node ? { id: node.id, teamId: node.team.id, teamKey: node.team.key } : null
+}
+
+async function resolveTeamId(apiKey: string, teamKey: string): Promise<string | null> {
+  const data = await linearGraphQL<{ teams: { nodes: Array<{ id: string }> } }>(
+    apiKey,
+    `query TeamIdByKey($key: String!) {
+       teams(filter: { key: { eq: $key } }, first: 1) { nodes { id } }
+     }`,
+    { key: teamKey }
+  )
+  return data.teams.nodes[0]?.id ?? null
+}
+
+async function resolveCompletedStateId(apiKey: string, teamId: string): Promise<string | null> {
+  const data = await linearGraphQL<{
+    workflowStates: { nodes: Array<{ id: string; type: string; position: number }> }
+  }>(
+    apiKey,
+    `query CompletedStates($teamId: ID!) {
+       workflowStates(
+         filter: { team: { id: { eq: $teamId } }, type: { eq: "completed" } }
+         first: 5
+       ) { nodes { id type position } }
+     }`,
+    { teamId }
+  )
+  const nodes = data.workflowStates.nodes
+  if (!nodes.length) return null
+  // Prefer the lowest-position completed state (Linear orders "Done" before
+  // post-done states like "Merged" / "Released").
+  return nodes.slice().sort((a, b) => a.position - b.position)[0].id
+}
+
 function requireAuth(filters: Record<string, unknown>): string {
   const key = filters.apiKey
   if (typeof key !== 'string' || !key.trim()) {
@@ -92,7 +153,7 @@ export const linearConnector: VornConnector = {
   id: 'linear',
   name: 'Linear',
   icon: 'linear',
-  capabilities: ['tasks', 'triggers'],
+  capabilities: ['tasks', 'triggers', 'actions'],
 
   async listItems(filters: Record<string, unknown>): Promise<ExternalItem[]> {
     const apiKey = requireAuth(filters)
@@ -189,10 +250,107 @@ export const linearConnector: VornConnector = {
     }
   },
 
-  async execute(actionType: string, _args: Record<string, unknown>): Promise<ActionResult> {
-    // Linear actions (createIssue, updateIssue) not yet implemented — the
-    // connector is read-only for polling tasks into the board.
-    return { success: false, error: `Linear action "${actionType}" not implemented yet` }
+  async execute(actionType: string, args: Record<string, unknown>): Promise<ActionResult> {
+    const apiKey = requireAuth(args)
+
+    switch (actionType) {
+      case 'commentOnIssue': {
+        const identifier = typeof args.identifier === 'string' ? args.identifier : ''
+        const body = typeof args.body === 'string' ? args.body : ''
+        if (!identifier) return { success: false, error: 'identifier is required (e.g. ENG-123)' }
+        if (!body) return { success: false, error: 'body is required' }
+        const issueId = await resolveIssueId(apiKey, identifier)
+        if (!issueId) return { success: false, error: `Issue ${identifier} not found` }
+        const data = await linearGraphQL<{
+          commentCreate: { success: boolean; comment: { id: string; url: string } }
+        }>(
+          apiKey,
+          `mutation CreateComment($input: CommentCreateInput!) {
+             commentCreate(input: $input) { success comment { id url } }
+           }`,
+          { input: { issueId, body } }
+        )
+        if (!data.commentCreate.success) {
+          return { success: false, error: 'Linear commentCreate returned success=false' }
+        }
+        return { success: true, output: { url: data.commentCreate.comment.url } }
+      }
+
+      case 'createIssue': {
+        const title = typeof args.title === 'string' ? args.title : ''
+        if (!title) return { success: false, error: 'title is required' }
+        const description = typeof args.description === 'string' ? args.description : undefined
+        const teamKey = typeof args.teamKey === 'string' ? args.teamKey : undefined
+        if (!teamKey) {
+          return {
+            success: false,
+            error: 'teamKey is required (set it on the connection or per-action)'
+          }
+        }
+        const teamId = await resolveTeamId(apiKey, teamKey)
+        if (!teamId) return { success: false, error: `Team ${teamKey} not found` }
+        const input: Record<string, unknown> = { teamId, title }
+        if (description) input.description = description
+        const data = await linearGraphQL<{
+          issueCreate: {
+            success: boolean
+            issue: { id: string; identifier: string; url: string }
+          }
+        }>(
+          apiKey,
+          `mutation CreateIssue($input: IssueCreateInput!) {
+             issueCreate(input: $input) { success issue { id identifier url } }
+           }`,
+          { input }
+        )
+        if (!data.issueCreate.success) {
+          return { success: false, error: 'Linear issueCreate returned success=false' }
+        }
+        return {
+          success: true,
+          output: {
+            identifier: data.issueCreate.issue.identifier,
+            url: data.issueCreate.issue.url
+          }
+        }
+      }
+
+      case 'closeIssue': {
+        const identifier = typeof args.identifier === 'string' ? args.identifier : ''
+        if (!identifier) return { success: false, error: 'identifier is required (e.g. ENG-123)' }
+        const issue = await resolveIssueWithTeam(apiKey, identifier)
+        if (!issue) return { success: false, error: `Issue ${identifier} not found` }
+        // Pick a "completed"-type workflow state on the issue's team. Linear
+        // doesn't have a single canonical "Done" — each team configures its
+        // own, so we grab the first completed-type state.
+        const stateId = await resolveCompletedStateId(apiKey, issue.teamId)
+        if (!stateId) {
+          return { success: false, error: `No completed-type state on team ${issue.teamKey}` }
+        }
+        const data = await linearGraphQL<{
+          issueUpdate: { success: boolean; issue: { id: string; state: { name: string } } }
+        }>(
+          apiKey,
+          `mutation CloseIssue($id: String!, $input: IssueUpdateInput!) {
+             issueUpdate(id: $id, input: $input) { success issue { id state { name } } }
+           }`,
+          { id: issue.id, input: { stateId } }
+        )
+        if (!data.issueUpdate.success) {
+          return { success: false, error: 'Linear issueUpdate returned success=false' }
+        }
+        return { success: true, output: { state: data.issueUpdate.issue.state.name } }
+      }
+
+      case 'syncTasks': {
+        // Handled by the sync engine at a higher level; the action node
+        // calls listItems() and does upsert logic.
+        return { success: true }
+      }
+
+      default:
+        return { success: false, error: `Unknown action: ${actionType}` }
+    }
   },
 
   describe(): ConnectorManifest {
@@ -243,7 +401,75 @@ export const linearConnector: VornConnector = {
           defaultIntervalMs: 60_000
         }
       ],
-      actions: [],
+      actions: [
+        // teamKey / apiKey come from the connection's filters/auth and are
+        // merged server-side before execute() runs, so they're not duplicated
+        // in these configFields.
+        {
+          type: 'commentOnIssue',
+          label: 'Comment on Issue',
+          description: 'Post a comment on a Linear issue',
+          configFields: [
+            {
+              key: 'identifier',
+              label: 'Issue',
+              type: 'text',
+              required: true,
+              placeholder: '{{connectorItem.externalId}}',
+              supportsTemplates: true
+            },
+            {
+              key: 'body',
+              label: 'Comment',
+              type: 'textarea',
+              required: true,
+              supportsTemplates: true
+            }
+          ]
+        },
+        {
+          type: 'createIssue',
+          label: 'Create Issue',
+          description: 'Create a new Linear issue',
+          configFields: [
+            {
+              key: 'title',
+              label: 'Title',
+              type: 'text',
+              required: true,
+              supportsTemplates: true
+            },
+            {
+              key: 'description',
+              label: 'Description',
+              type: 'textarea',
+              supportsTemplates: true
+            },
+            {
+              key: 'teamKey',
+              label: 'Team Key',
+              type: 'text',
+              placeholder: 'ENG (defaults to connection team)',
+              description: 'Override the connection team for this action.'
+            }
+          ]
+        },
+        {
+          type: 'closeIssue',
+          label: 'Close Issue',
+          description: "Move an issue to the team's default completed state",
+          configFields: [
+            {
+              key: 'identifier',
+              label: 'Issue',
+              type: 'text',
+              required: true,
+              placeholder: '{{connectorItem.externalId}}',
+              supportsTemplates: true
+            }
+          ]
+        }
+      ],
       defaultWorkflows: [
         {
           name: 'Linear: Issue Created',
