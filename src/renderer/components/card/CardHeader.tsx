@@ -3,6 +3,7 @@ import { useAppStore } from '../../stores'
 import { AgentStatusIcon } from '../AgentStatusIcon'
 import { InlineRename } from '../InlineRename'
 import { CardActionCluster, type CardVariant } from './CardActionCluster'
+import { FocusedNavHint } from './FocusedNavHint'
 import { getDisplayName } from '../../lib/terminal-display'
 import { Pencil } from 'lucide-react'
 import { MOD } from '../../lib/platform'
@@ -96,6 +97,12 @@ export function CardHeader({
           )}
         </div>
       </div>
+
+      {variant === 'focused' && (
+        <div className="titlebar-no-drag">
+          <FocusedNavHint terminalId={terminalId} />
+        </div>
+      )}
 
       {/* ⌘N badge and action cluster share this slot so the badge sits flush right when idle. */}
       <div className="relative flex items-center shrink-0">

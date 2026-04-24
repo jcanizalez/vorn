@@ -280,9 +280,10 @@ describe('github connector — poll()', () => {
       ])
     )
     const gh = await importGithub()
-    // Explicit cursor before created_at so the test isn't time-of-day dependent
-    // (default cursor is `Date.now() - 60s`, which flakes once real time passes
-    // the hardcoded PR timestamp).
+    // Pin the `since` cursor so the test stays deterministic regardless of
+    // when it runs — without a cursor the connector uses `now - 60s`, which
+    // filters out the fixture PR whenever wall-clock time is past its
+    // hard-coded `created_at`.
     const result = await gh.poll!('prOpened', { owner: 'o', repo: 'r' }, '2026-04-24T10:59:00Z')
     expect(result.events).toHaveLength(1)
     expect(result.events[0].data).toMatchObject({

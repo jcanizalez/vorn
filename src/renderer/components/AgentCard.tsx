@@ -77,9 +77,8 @@ export const AgentCard = memo(
     return (
       <div
         ref={ref}
-        className={`group/card relative border overflow-hidden flex flex-col
+        className={`group/card relative border overflow-hidden flex flex-col h-full
                    transition-colors
-                   ${flexible ? 'h-full' : ''}
                    ${
                      isFocused
                        ? 'border-blue-500/60 ring-1 ring-blue-500/30'
