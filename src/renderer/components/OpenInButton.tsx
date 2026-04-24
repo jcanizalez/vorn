@@ -137,22 +137,20 @@ export function OpenInButton({ projectPath, direction = 'down' }: Props) {
       <div className="flex items-center">
         <button
           onClick={handleOpen}
-          className="flex items-center gap-1 px-1.5 py-0.5 text-[11px] text-gray-500 hover:text-white
-                     bg-white/[0.04] hover:bg-white/[0.08] rounded-l-md border border-white/[0.06]
-                     border-r-0 transition-colors"
+          className="flex items-center gap-1 px-1 py-0.5 text-gray-500 hover:text-gray-300
+                     hover:bg-white/[0.06] rounded-l transition-colors"
           title={`Open in ${defaultIDE.name}`}
         >
           <IDEIcon ideId={defaultIDE.id} size={11} />
-          <span>Open</span>
+          <span className="text-[10px]">Open</span>
         </button>
         <button
           onClick={handleToggle}
           aria-label="Choose IDE"
-          className="flex items-center px-0.5 py-0.5 text-gray-500 hover:text-white
-                     bg-white/[0.04] hover:bg-white/[0.08] rounded-r-md border border-white/[0.06]
-                     transition-colors self-stretch"
+          className="flex items-center px-0.5 py-0.5 text-gray-500 hover:text-gray-300
+                     hover:bg-white/[0.06] rounded-r transition-colors self-stretch"
         >
-          <ChevronDown size={11} strokeWidth={2} />
+          <ChevronDown size={9} strokeWidth={2} />
         </button>
       </div>
 

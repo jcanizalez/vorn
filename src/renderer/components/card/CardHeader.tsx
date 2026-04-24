@@ -49,7 +49,7 @@ export function CardHeader({
   const dragHandleClass = draggable ? `drag-handle${onDragStart ? ' cursor-grab' : ''}` : ''
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2.5 border-b border-white/[0.04] shrink-0">
+    <div className="flex items-center gap-2 px-3 py-2.5 border-b border-white/[0.04] shrink-0" style={{ background: '#141416' }}>
       <div
         className={`flex-1 min-w-0 flex items-center gap-2 ${dragHandleClass}`}
         onDoubleClick={onDoubleClick}

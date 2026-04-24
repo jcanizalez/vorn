@@ -21,8 +21,7 @@ export function GitChangesIndicator({ terminalId }: Props) {
     <button
       onClick={handleClick}
       className="flex items-center gap-1.5 px-1.5 py-0.5 text-[11px] font-mono
-                 bg-white/[0.04] hover:bg-white/[0.08] rounded-md border border-white/[0.06]
-                 transition-colors cursor-pointer"
+                 hover:bg-white/[0.06] rounded transition-colors cursor-pointer"
       title={`${stat.filesChanged} file${stat.filesChanged !== 1 ? 's' : ''} changed`}
     >
       <span className="text-green-400">+{stat.insertions}</span>

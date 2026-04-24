@@ -28,7 +28,7 @@ export function CardStatusBar({ terminalId }: Props) {
   return (
     <div
       className="shrink-0 flex items-center gap-2 px-2 h-[22px] border-t border-white/[0.04] text-[11px]"
-      style={{ background: '#17171a' }}
+      style={{ background: '#141416' }}
     >
       {hasBranch && <BranchChip terminalId={terminalId} />}
 
