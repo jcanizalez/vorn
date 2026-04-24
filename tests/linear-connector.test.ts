@@ -308,4 +308,82 @@ describe('linear connector — execute()', () => {
     expect(result.success).toBe(false)
     expect(result.error).toMatch(/Unknown action/)
   })
+
+  it('commentOnIssue: surfaces success:false from Linear', async () => {
+    fetchMock
+      .mockResolvedValueOnce(okResponse({ issues: { nodes: [{ id: 'issue-uuid' }] } }))
+      .mockResolvedValueOnce(okResponse({ commentCreate: { success: false, comment: null } }))
+    const linear = await importLinear()
+    const result = await linear.execute!('commentOnIssue', {
+      apiKey: 'k',
+      identifier: 'ENG-1',
+      body: 'hi'
+    })
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/success=false/)
+  })
+
+  it('createIssue: fails when teamKey has no matching team', async () => {
+    fetchMock.mockResolvedValue(okResponse({ teams: { nodes: [] } }))
+    const linear = await importLinear()
+    const result = await linear.execute!('createIssue', {
+      apiKey: 'k',
+      teamKey: 'NOPE',
+      title: 't'
+    })
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/Team NOPE not found/)
+  })
+
+  it('createIssue: surfaces success:false from Linear', async () => {
+    fetchMock
+      .mockResolvedValueOnce(okResponse({ teams: { nodes: [{ id: 'team-uuid' }] } }))
+      .mockResolvedValueOnce(okResponse({ issueCreate: { success: false, issue: null } }))
+    const linear = await importLinear()
+    const result = await linear.execute!('createIssue', {
+      apiKey: 'k',
+      teamKey: 'ENG',
+      title: 't'
+    })
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/success=false/)
+  })
+
+  it('closeIssue: fails when the team has no completed-type workflow state', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        okResponse({
+          issues: { nodes: [{ id: 'issue-uuid', team: { id: 'team-uuid', key: 'ENG' } }] }
+        })
+      )
+      .mockResolvedValueOnce(okResponse({ workflowStates: { nodes: [] } }))
+    const linear = await importLinear()
+    const result = await linear.execute!('closeIssue', {
+      apiKey: 'k',
+      identifier: 'ENG-1'
+    })
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/No completed-type state/)
+  })
+
+  it('closeIssue: fails when identifier not found', async () => {
+    fetchMock.mockResolvedValue(okResponse({ issues: { nodes: [] } }))
+    const linear = await importLinear()
+    const result = await linear.execute!('closeIssue', {
+      apiKey: 'k',
+      identifier: 'ENG-999'
+    })
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/not found/)
+  })
+
+  it('commentOnIssue: fails when body is missing', async () => {
+    const linear = await importLinear()
+    const result = await linear.execute!('commentOnIssue', {
+      apiKey: 'k',
+      identifier: 'ENG-1'
+    })
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/body is required/)
+  })
 })
