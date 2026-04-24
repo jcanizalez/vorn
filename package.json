@@ -100,7 +100,7 @@
     "jsdom": "^29.0.2",
     "lint-staged": "^16.4.0",
     "node-gyp": "^12.2.0",
-    "postcss": "^8.5.9",
+    "postcss": "^8.5.10",
     "prettier": "^3.8.2",
     "simple-git-hooks": "^2.13.1",
     "tailwindcss": "^4.2.2",

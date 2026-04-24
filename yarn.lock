@@ -4522,7 +4522,7 @@ __metadata:
     "@types/react-dom": "npm:^19"
     "@vitejs/plugin-react": "npm:^5.2.0"
     "@vornrun/shared": "workspace:*"
-    postcss: "npm:^8.5.9"
+    postcss: "npm:^8.5.10"
     tailwindcss: "npm:^4.2.2"
     typescript: "npm:^6.0.3"
     vite: "npm:^7.3.2"
@@ -9844,7 +9844,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"postcss@npm:^8.5.6, postcss@npm:^8.5.9":
+"postcss@npm:^8.5.10":
+  version: 8.5.10
+  resolution: "postcss@npm:8.5.10"
+  dependencies:
+    nanoid: "npm:^3.3.11"
+    picocolors: "npm:^1.1.1"
+    source-map-js: "npm:^1.2.1"
+  checksum: 10c0/c592dffa0c4873b401f01955b265538d9942f425040df5e2b8f0ad34c83773a792ea0fa5859ccc99cfb5b955b4ebff118ab7056315388dc83b107b0fa8313576
+  languageName: node
+  linkType: hard
+
+"postcss@npm:^8.5.6":
   version: 8.5.9
   resolution: "postcss@npm:8.5.9"
   dependencies:
@@ -12642,7 +12653,7 @@ __metadata:
     node-cron: "npm:^4.2.1"
     node-gyp: "npm:^12.2.0"
     node-pty: "npm:1.2.0-beta.12"
-    postcss: "npm:^8.5.9"
+    postcss: "npm:^8.5.10"
     prettier: "npm:^3.8.2"
     qrcode: "npm:^1.5.4"
     react: "npm:^19.2.5"
