@@ -21,6 +21,8 @@ import {
   CreateTaskFromItemConfig,
   CallConnectorActionConfig
 } from '../../../../shared/types'
+import { ConnectorIcon } from '../../ConnectorIcon'
+import { useConnectorIdFor } from '../../../lib/use-connections'
 import { TriggerConfigForm } from './TriggerConfigForm'
 import { LaunchAgentConfigForm } from './LaunchAgentConfigForm'
 import { ScriptConfigForm } from './ScriptConfigForm'
@@ -97,10 +99,25 @@ export function NodeConfigPanel({
   const Icon = tc.icon
   const canDelete = node.type !== 'trigger'
 
+  // For connector-action nodes the generic Zap is uninformative — show the
+  // connector's own mark (GitHub / Linear / MCP / …) by looking the selected
+  // connection up. Falls back to Zap when no connection is chosen yet.
+  const connectorConfig =
+    node.type === 'callConnectorAction' ? (node.config as CallConnectorActionConfig) : null
+  const headerConnectorId = useConnectorIdFor(connectorConfig?.connectionId)
+
   return (
     <div className="w-[420px] border-l border-white/[0.08] bg-[#1e1e22] flex flex-col h-full overflow-hidden titlebar-no-drag">
       <div className="flex items-center gap-2 px-5 py-3 border-b border-white/[0.08]">
-        <Icon size={14} className={`${tc.color} shrink-0`} />
+        {headerConnectorId ? (
+          <ConnectorIcon
+            connectorId={headerConnectorId}
+            size={14}
+            className="text-gray-300 shrink-0"
+          />
+        ) : (
+          <Icon size={14} className={`${tc.color} shrink-0`} />
+        )}
         <input
           type="text"
           value={node.label}
@@ -213,6 +230,8 @@ export function NodeConfigPanel({
           <CallConnectorActionNodeForm
             config={node.config as CallConnectorActionConfig}
             onChange={(config) => onChange(node.id, config)}
+            triggerType={triggerType}
+            stepGroups={stepGroups}
           />
         )}
       </div>

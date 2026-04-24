@@ -268,6 +268,15 @@ export interface ConnectorActionDef {
   label: string
   description?: string
   configFields: ConnectorConfigField[]
+  /**
+   * JSON Schema describing the shape of `ActionResult.output` on success.
+   * Used by the workflow editor to surface typed fields in the variable
+   * autocomplete (so `{{steps.createIssue.html_url}}` shows up), and by
+   * the template resolver to walk nested paths into the returned object.
+   * Optional — actions without a declared schema fall back to the default
+   * `output / status / error` keys every step has.
+   */
+  outputSchema?: Record<string, unknown>
 }
 
 export interface ConnectorStatusOption {
@@ -592,6 +601,14 @@ export interface NodeExecutionState {
   error?: string
   logs?: string
   output?: string
+  /**
+   * Typed payload returned by a callConnectorAction step (the connector's
+   * `ActionResult.output`, which matches the action's declared
+   * `outputSchema`). Stored separately from the string `output` / `logs`
+   * fields so the template resolver can walk nested paths like
+   * `{{steps.create_issue.html_url}}` at its original shape.
+   */
+  structuredOutput?: Record<string, unknown>
   taskId?: string
   agentSessionId?: string
   /** Concrete agent type resolved at launch time. Distinct from the node's
@@ -920,7 +937,10 @@ export const IPC = {
   CONNECTION_BACKFILL: 'connection:backfill',
   CREDENTIALS_SET_DECRYPTED: 'credentials:setDecrypted',
   CREDENTIALS_CLEAR_DECRYPTED: 'credentials:clearDecrypted',
-  CONNECTION_EXECUTE_ACTION: 'connection:executeAction'
+  CONNECTION_EXECUTE_ACTION: 'connection:executeAction',
+  CONNECTION_LIST_ACTIONS: 'connection:listActions',
+  CONNECTION_LIST_MCP_TOOLS: 'connection:listMcpTools',
+  CONNECTION_REFRESH_MCP_TOOLS: 'connection:refreshMcpTools'
 } as const
 
 export interface PermissionSuggestion {

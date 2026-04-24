@@ -379,6 +379,32 @@ export function removeNode(
   edges: WorkflowEdge[],
   nodeId: string
 ): { nodes: WorkflowNode[]; edges: WorkflowEdge[] } {
+  const nodeToRemove = nodes.find((n) => n.id === nodeId)
+
+  // Condition nodes own two branch subtrees. Removing just the condition
+  // and reconnecting predecessors to both branches would turn the if/else
+  // into two parallel paths that silently both run — almost never what the
+  // user wants when they hit "remove". Cascade the delete down both
+  // branches up to the join point, and reconnect predecessors to the join
+  // (or leave them as leaves if the condition was at the end of a chain).
+  if (nodeToRemove?.type === 'condition') {
+    const successorsMap = buildSuccessorsMap(edges)
+    const branchStarts = successorsMap.get(nodeId) ?? []
+    const joinId = findJoinPoint(nodeId, branchStarts, successorsMap)
+    const toRemove = collectBranchSubtree(branchStarts, joinId, successorsMap)
+    toRemove.add(nodeId)
+
+    const predecessors = edges.filter((e) => e.target === nodeId).map((e) => e.source)
+    const remainingEdges = edges.filter((e) => !toRemove.has(e.source) && !toRemove.has(e.target))
+    if (joinId) {
+      for (const pred of predecessors) {
+        remainingEdges.push({ id: crypto.randomUUID(), source: pred, target: joinId })
+      }
+    }
+    const remainingNodes = nodes.filter((n) => !toRemove.has(n.id))
+    return { nodes: autoLayoutNodes(remainingNodes, remainingEdges), edges: remainingEdges }
+  }
+
   const incomingEdges = edges.filter((e) => e.target === nodeId)
   const outgoingEdges = edges.filter((e) => e.source === nodeId)
 
@@ -392,6 +418,30 @@ export function removeNode(
 
   const newNodes = nodes.filter((n) => n.id !== nodeId)
   return { nodes: autoLayoutNodes(newNodes, newEdges), edges: newEdges }
+}
+
+/**
+ * Walk from each branch start forward, stopping at (but not including) the
+ * shared join point. Returns the set of node ids that belong to the condition's
+ * owned subtree and can be safely deleted along with it.
+ */
+function collectBranchSubtree(
+  branchStarts: string[],
+  joinId: string | null,
+  successorsMap: Map<string, string[]>
+): Set<string> {
+  const collected = new Set<string>()
+  const queue = [...branchStarts]
+  while (queue.length > 0) {
+    const current = queue.shift()!
+    if (current === joinId) continue
+    if (collected.has(current)) continue
+    collected.add(current)
+    for (const next of successorsMap.get(current) ?? []) {
+      if (next !== joinId) queue.push(next)
+    }
+  }
+  return collected
 }
 
 // --- Flow Layout ---

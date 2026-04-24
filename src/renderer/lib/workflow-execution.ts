@@ -149,7 +149,12 @@ function buildStepOutputsMap(
     const node = nodeMap.get(ns.nodeId)
     if (!node?.slug) continue
 
+    // Schema-typed connector outputs come first so a declared key like
+    // `html_url` wins over the generic fallback — but the three defaults
+    // (output/status/error) always overlay so control-flow references keep
+    // working regardless of whether the connector returned a typed payload.
     outputs[node.slug] = {
+      ...(ns.structuredOutput ?? {}),
       output: ns.output || ns.logs || '',
       status: ns.status,
       error: ns.error || ''
@@ -308,6 +313,8 @@ async function executeNode(
         completedAt: new Date().toISOString(),
         output: result.success ? `${cfg.action} succeeded` : `${cfg.action} failed`,
         logs: JSON.stringify(result, null, 2),
+        ...(result.output &&
+          typeof result.output === 'object' && { structuredOutput: result.output }),
         ...(result.error && { error: result.error })
       })
     } catch (err) {

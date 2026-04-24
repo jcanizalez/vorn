@@ -2,8 +2,11 @@ import {
   TaskConfig,
   WorkflowExecutionContext,
   WorkflowNode,
-  WorkflowEdge
+  WorkflowEdge,
+  CallConnectorActionConfig,
+  ConnectorActionDef
 } from '../../shared/types'
+import { schemaProperties, schemaTypeHint } from '../../shared/json-schema-utils'
 
 // --- Slug Utilities ---
 
@@ -26,7 +29,12 @@ export function ensureUniqueSlug(slug: string, existing: Set<string>): string {
 
 // --- Step Output Types ---
 
-export type StepOutputs = Record<string, Record<string, string>>
+/**
+ * Per-step output map. Top-level keys are always strings (output/status/error
+ * plus any connector-declared fields), but values can be arbitrary nested
+ * objects/arrays that the template resolver walks into via dotted paths.
+ */
+export type StepOutputs = Record<string, Record<string, unknown>>
 
 export const DEFAULT_OUTPUT_KEYS = [
   { key: 'output', label: 'Output', description: 'Primary output (stdout / agent logs)' },
@@ -106,16 +114,55 @@ export function getAncestorNodes(
   return ancestors
 }
 
-export function buildStepGroups(ancestorNodes: WorkflowNode[]): StepVariableGroup[] {
+/** Synchronous lookup of a connector action by (connectionId, actionType).
+ *  The WorkflowEditor prefetches actions for every connection referenced
+ *  in the workflow so this can be called inside a `useMemo`. */
+export type ConnectorActionLookup = (
+  connectionId: string,
+  actionType: string
+) => ConnectorActionDef | undefined
+
+function schemaTopLevelKeys(
+  schema: Record<string, unknown> | undefined
+): { key: string; label: string; description: string }[] {
+  return Object.entries(schemaProperties(schema)).map(([key, raw]) => {
+    const description = (raw as { description?: string }).description
+    return {
+      key,
+      label: key,
+      description: description || schemaTypeHint(raw) || ''
+    }
+  })
+}
+
+export function buildStepGroups(
+  ancestorNodes: WorkflowNode[],
+  lookupAction?: ConnectorActionLookup
+): StepVariableGroup[] {
   return ancestorNodes
     .filter((n) => n.slug)
     .map((n) => {
+      const defaultKeys: { key: string; label: string; description: string }[] =
+        DEFAULT_OUTPUT_KEYS.map((k) => ({ ...k }))
+      let keys = defaultKeys
+      if (n.type === 'callConnectorAction' && lookupAction) {
+        const cfg = n.config as CallConnectorActionConfig
+        if (cfg.connectionId && cfg.action) {
+          const action = lookupAction(cfg.connectionId, cfg.action)
+          const schemaKeys = schemaTopLevelKeys(action?.outputSchema)
+          if (schemaKeys.length > 0) {
+            // Schema-derived keys first — those are what users will usually
+            // reach for. The three defaults stay at the bottom as fallbacks.
+            keys = [...schemaKeys, ...defaultKeys]
+          }
+        }
+      }
       return {
         nodeId: n.id,
         label: n.label,
         slug: n.slug!,
         nodeType: n.type,
-        keys: DEFAULT_OUTPUT_KEYS.map((k) => ({ ...k }))
+        keys
       }
     })
 }
@@ -123,6 +170,34 @@ export function buildStepGroups(ancestorNodes: WorkflowNode[]): StepVariableGrou
 // --- Template Variable Resolution ---
 
 const MAX_OUTPUT_LENGTH = 50_000
+
+/** Walk a dotted path into a nested value. Stops at undefined/null. */
+function walkPath(root: unknown, path: string[]): unknown {
+  let current: unknown = root
+  for (const segment of path) {
+    if (current == null) return undefined
+    if (typeof current !== 'object') return undefined
+    current = (current as Record<string, unknown>)[segment]
+  }
+  return current
+}
+
+/** Turn a resolved value into the string that gets substituted into the
+ *  template. Scalars stringify directly; objects/arrays get JSON-serialized
+ *  so downstream prompts / args still receive something meaningful. */
+function stringifyResolved(val: unknown): string {
+  if (val == null) return ''
+  if (typeof val === 'string') {
+    return val.length > MAX_OUTPUT_LENGTH ? val.slice(-MAX_OUTPUT_LENGTH) : val
+  }
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val)
+  try {
+    const serialized = JSON.stringify(val)
+    return serialized.length > MAX_OUTPUT_LENGTH ? serialized.slice(-MAX_OUTPUT_LENGTH) : serialized
+  } catch {
+    return String(val)
+  }
+}
 
 export function resolveTemplateVars(
   template: string,
@@ -132,36 +207,36 @@ export function resolveTemplateVars(
   if (!template) return template
   if (!context && !stepOutputs) return template
 
-  return template.replace(
-    /\{\{(\w+)\.([\w]+)(?:\.([\w]+))?\}\}/g,
-    (match, ns: string, key: string, subkey?: string) => {
-      if (ns === 'steps' && subkey && stepOutputs) {
-        const stepData = stepOutputs[key]
-        if (!stepData) return ''
-        const val = stepData[subkey]
-        if (val == null) return ''
-        if (val.length > MAX_OUTPUT_LENGTH) {
-          return val.slice(-MAX_OUTPUT_LENGTH)
-        }
-        return val
-      }
+  // `{{ ns.k1.k2.k3... }}` — identifier-first, then any number of dotted
+  // segments. The resolver walks those segments into whichever namespace
+  // matches (steps / task / trigger / connectorItem).
+  return template.replace(/\{\{\s*([a-zA-Z_][\w.]*)\s*\}\}/g, (match, path: string) => {
+    const segments = path.split('.')
+    const ns = segments[0]
+    const rest = segments.slice(1)
+    if (rest.length === 0) return match
 
-      if (ns === 'task' && context?.task) {
-        const val = context.task[key as keyof TaskConfig]
-        return val != null ? String(val) : ''
-      }
-      if (ns === 'trigger' && context?.trigger) {
-        const triggerObj = context.trigger as Record<string, unknown>
-        const val = triggerObj[key]
-        return val != null ? String(val) : ''
-      }
-      if (ns === 'connectorItem' && context?.connectorItem) {
-        const itemObj = context.connectorItem as unknown as Record<string, unknown>
-        const val = itemObj[key]
-        return val != null ? String(val) : ''
-      }
-
-      return match
+    if (ns === 'steps' && stepOutputs) {
+      const [stepName, ...keyPath] = rest
+      const stepData = stepOutputs[stepName]
+      if (!stepData) return ''
+      if (keyPath.length === 0) return stringifyResolved(stepData)
+      return stringifyResolved(walkPath(stepData, keyPath))
     }
-  )
+    if (ns === 'task' && context?.task) {
+      if (rest.length === 1) {
+        const val = context.task[rest[0] as keyof TaskConfig]
+        return val != null ? String(val) : ''
+      }
+      return stringifyResolved(walkPath(context.task, rest))
+    }
+    if (ns === 'trigger' && context?.trigger) {
+      return stringifyResolved(walkPath(context.trigger, rest))
+    }
+    if (ns === 'connectorItem' && context?.connectorItem) {
+      return stringifyResolved(walkPath(context.connectorItem, rest))
+    }
+
+    return match
+  })
 }

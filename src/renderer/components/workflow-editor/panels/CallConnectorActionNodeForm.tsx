@@ -2,43 +2,61 @@ import { useEffect, useState } from 'react'
 import type {
   CallConnectorActionConfig,
   SourceConnection,
-  ConnectorManifest,
-  ConnectorActionDef
+  ConnectorActionDef,
+  TriggerConfig
 } from '../../../../shared/types'
 import { SelectPicker } from '../../SelectPicker'
 import { ConnectorIcon } from '../../ConnectorIcon'
+import { TEMPLATE_VARIABLES, StepVariableGroup } from '../../../lib/template-vars'
+import { VariableAutocomplete } from './VariableAutocomplete'
 
 interface Props {
   config: CallConnectorActionConfig
   onChange: (config: CallConnectorActionConfig) => void
+  triggerType?: TriggerConfig['triggerType']
+  stepGroups?: StepVariableGroup[]
 }
 
-interface ConnectorInfo {
-  id: string
-  name: string
-  icon: string
-  capabilities: string[]
-  manifest: ConnectorManifest
-}
-
-export function CallConnectorActionNodeForm({ config, onChange }: Props) {
-  const [connectors, setConnectors] = useState<ConnectorInfo[]>([])
+export function CallConnectorActionNodeForm({
+  config,
+  onChange,
+  triggerType,
+  stepGroups = []
+}: Props) {
   const [connections, setConnections] = useState<SourceConnection[]>([])
+  const [actions, setActions] = useState<ConnectorActionDef[]>([])
 
   useEffect(() => {
-    window.api.listConnectors().then(setConnectors)
     window.api.listConnections().then(setConnections)
   }, [])
 
+  useEffect(() => {
+    if (!config.connectionId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setActions([])
+      return
+    }
+    window.api.listConnectionActions(config.connectionId).then(setActions)
+  }, [config.connectionId])
+
+  const contextVars = TEMPLATE_VARIABLES.filter((v) => {
+    if (v.category === 'task') {
+      return triggerType === 'taskCreated' || triggerType === 'taskStatusChanged'
+    }
+    if (v.category === 'connectorItem') {
+      return triggerType === 'connectorPoll'
+    }
+    if (v.category === 'trigger') {
+      return triggerType === 'taskStatusChanged'
+    }
+    return false
+  })
+
   const selectedConn = connections.find((c) => c.id === config.connectionId)
-  const selectedConnector = selectedConn
-    ? connectors.find((c) => c.id === selectedConn.connectorId)
-    : undefined
-  const selectedAction: ConnectorActionDef | undefined = selectedConnector?.manifest.actions?.find(
+  const selectedAction: ConnectorActionDef | undefined = actions.find(
     (a) => a.type === config.action
   )
 
-  // Non-auth config fields for the selected action — these become the args form.
   const argFields = selectedAction?.configFields ?? []
 
   return (
@@ -63,18 +81,19 @@ export function CallConnectorActionNodeForm({ config, onChange }: Props) {
         )}
       </div>
 
-      {selectedConnector && (
+      {selectedConn && (
         <div>
           <label className="text-[13px] text-gray-400 font-medium block mb-2">Action</label>
           <SelectPicker
             value={config.action}
-            options={(selectedConnector.manifest.actions ?? []).map((a) => ({
-              value: a.type,
-              label: a.label
-            }))}
+            options={actions.map((a) => ({ value: a.type, label: a.label }))}
             onChange={(v) => onChange({ ...config, action: v, args: {} })}
             variant="form"
-            placeholder="Select an action..."
+            placeholder={
+              actions.length === 0
+                ? 'No actions available for this connection'
+                : 'Select an action...'
+            }
           />
           {selectedAction?.description && (
             <p className="text-[11px] text-gray-500 mt-1.5">{selectedAction.description}</p>
@@ -87,7 +106,7 @@ export function CallConnectorActionNodeForm({ config, onChange }: Props) {
           <div className="text-[11px] text-gray-500 uppercase tracking-wider">
             Arguments{' '}
             <span className="normal-case tracking-normal text-gray-600">
-              · supports {`{{task.title}}`}, {`{{connectorItem.externalId}}`}
+              · type <code className="text-gray-500">{`{{`}</code> to pick from previous steps
             </span>
           </div>
           {argFields.map((field) => (
@@ -96,35 +115,24 @@ export function CallConnectorActionNodeForm({ config, onChange }: Props) {
                 {field.label}
                 {field.required && <span className="text-red-400 ml-0.5">*</span>}
               </label>
-              {field.type === 'textarea' ? (
-                <textarea
-                  value={config.args?.[field.key] ?? ''}
-                  onChange={(e) =>
-                    onChange({
-                      ...config,
-                      args: { ...config.args, [field.key]: e.target.value }
-                    })
-                  }
-                  placeholder={field.placeholder}
-                  rows={3}
-                  className="w-full px-3 py-2 text-[13px] bg-white/[0.06] border border-white/[0.1] rounded-sm
-                             text-white placeholder:text-gray-600 focus:outline-none focus:border-white/[0.2] font-mono"
-                />
-              ) : (
-                <input
-                  type="text"
-                  value={config.args?.[field.key] ?? ''}
-                  onChange={(e) =>
-                    onChange({
-                      ...config,
-                      args: { ...config.args, [field.key]: e.target.value }
-                    })
-                  }
-                  placeholder={field.placeholder}
-                  className="w-full px-3 py-2 text-[13px] bg-white/[0.06] border border-white/[0.1] rounded-sm
-                             text-white placeholder:text-gray-600 focus:outline-none focus:border-white/[0.2] font-mono"
-                />
-              )}
+              <VariableAutocomplete
+                value={
+                  typeof config.args?.[field.key] === 'string'
+                    ? (config.args[field.key] as string)
+                    : ''
+                }
+                onChange={(val) =>
+                  onChange({
+                    ...config,
+                    args: { ...config.args, [field.key]: val }
+                  })
+                }
+                placeholder={field.placeholder}
+                rows={field.type === 'textarea' ? 3 : 1}
+                stepGroups={stepGroups}
+                contextVars={contextVars}
+                mono
+              />
               {field.description && (
                 <p className="text-[10px] text-gray-600 mt-0.5">{field.description}</p>
               )}

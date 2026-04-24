@@ -196,6 +196,15 @@ export function registerIpcHandlers(): void {
   safeHandle(IPC.CONNECTION_EXECUTE_ACTION, (_, params) =>
     requireBridge().request(IPC.CONNECTION_EXECUTE_ACTION, params)
   )
+  safeHandle(IPC.CONNECTION_LIST_ACTIONS, (_, connectionId) =>
+    requireBridge().request(IPC.CONNECTION_LIST_ACTIONS, connectionId)
+  )
+  safeHandle(IPC.CONNECTION_LIST_MCP_TOOLS, (_, connectionId) =>
+    requireBridge().request(IPC.CONNECTION_LIST_MCP_TOOLS, connectionId)
+  )
+  safeHandle(IPC.CONNECTION_REFRESH_MCP_TOOLS, (_, connectionId) =>
+    requireBridge().request(IPC.CONNECTION_REFRESH_MCP_TOOLS, connectionId)
+  )
   safeHandle(IPC.CONNECTION_GET_SOURCE_LINK, (_, taskId) =>
     requireBridge().request(IPC.CONNECTION_GET_SOURCE_LINK, taskId)
   )
