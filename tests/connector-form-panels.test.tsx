@@ -28,17 +28,21 @@ vi.mock('../src/renderer/stores', () => ({
 
 const listConnectorsMock = vi.fn()
 const listConnectionsMock = vi.fn()
+const listConnectionActionsMock = vi.fn()
 
 beforeEach(() => {
   listConnectorsMock.mockReset()
   listConnectionsMock.mockReset()
+  listConnectionActionsMock.mockReset()
   listConnectorsMock.mockResolvedValue([])
   listConnectionsMock.mockResolvedValue([])
+  listConnectionActionsMock.mockResolvedValue([])
   Object.defineProperty(window, 'api', {
     configurable: true,
     value: {
       listConnectors: listConnectorsMock,
-      listConnections: listConnectionsMock
+      listConnections: listConnectionsMock,
+      listConnectionActions: listConnectionActionsMock
     }
   })
 })
@@ -194,6 +198,7 @@ describe('CallConnectorActionNodeForm', () => {
     listConnectorsMock.mockResolvedValue([
       { id: 'github', name: 'GitHub', icon: 'github', capabilities: [], manifest: GITHUB_MANIFEST }
     ])
+    listConnectionActionsMock.mockResolvedValue(GITHUB_MANIFEST.actions ?? [])
     const config: CallConnectorActionConfig = {
       ...baseConfig,
       connectionId: 'conn-1',
@@ -211,6 +216,7 @@ describe('CallConnectorActionNodeForm', () => {
     listConnectorsMock.mockResolvedValue([
       { id: 'github', name: 'GitHub', icon: 'github', capabilities: [], manifest: GITHUB_MANIFEST }
     ])
+    listConnectionActionsMock.mockResolvedValue(GITHUB_MANIFEST.actions ?? [])
     const onChange = vi.fn()
     const { findByText, container } = render(
       <CallConnectorActionNodeForm
@@ -219,7 +225,7 @@ describe('CallConnectorActionNodeForm', () => {
       />
     )
     await findByText('Issue #')
-    const issueNumberInput = container.querySelectorAll('input')[0]
+    const issueNumberInput = container.querySelector('textarea') as HTMLTextAreaElement
     fireEvent.change(issueNumberInput, { target: { value: '42' } })
     expect(onChange).toHaveBeenCalled()
     const lastCall = onChange.mock.calls[onChange.mock.calls.length - 1][0]
