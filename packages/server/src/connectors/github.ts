@@ -157,11 +157,17 @@ export const githubConnector: VornConnector = {
 
   async listItems(filters: Record<string, unknown>): Promise<ExternalItem[]> {
     const { owner, repo, state = 'open', labels, assignee, per_page = 50 } = filters
-    if (!owner || !repo) throw new Error('owner and repo are required')
+    if (typeof owner !== 'string' || typeof repo !== 'string' || !owner || !repo) {
+      throw new Error('owner and repo are required')
+    }
 
-    let endpoint = `repos/${owner}/${repo}/issues?state=${state}&per_page=${per_page}`
-    if (labels) endpoint += `&labels=${labels}`
-    if (assignee) endpoint += `&assignee=${assignee}`
+    const params = new URLSearchParams({
+      state: String(state),
+      per_page: String(per_page)
+    })
+    if (labels) params.set('labels', String(labels))
+    if (assignee) params.set('assignee', String(assignee))
+    const endpoint = `repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues?${params}`
     // Exclude pull requests (GitHub API returns PRs in issues endpoint)
     const data = (await ghApi(endpoint)) as GitHubIssue[]
     return data.filter((i) => !i.pull_request).map(issueToExternalItem)
@@ -172,10 +178,14 @@ export const githubConnector: VornConnector = {
     filters: Record<string, unknown>
   ): Promise<ExternalItem | null> {
     const { owner, repo } = filters
-    if (!owner || !repo) throw new Error('owner and repo are required')
+    if (typeof owner !== 'string' || typeof repo !== 'string' || !owner || !repo) {
+      throw new Error('owner and repo are required')
+    }
 
     try {
-      const issue = (await ghApi(`repos/${owner}/${repo}/issues/${externalId}`)) as GitHubIssue
+      const issue = (await ghApi(
+        `repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${encodeURIComponent(externalId)}`
+      )) as GitHubIssue
       return issueToExternalItem(issue)
     } catch {
       return null
@@ -188,15 +198,27 @@ export const githubConnector: VornConnector = {
     cursor?: string
   ): Promise<PollResult> {
     const { owner, repo } = config
-    if (!owner || !repo) return { events: [] }
+    if (typeof owner !== 'string' || typeof repo !== 'string' || !owner || !repo) {
+      return { events: [] }
+    }
 
     const since = cursor || new Date(Date.now() - 60_000).toISOString()
+    const PAGE_SIZE = 30
+    const repoPath = `repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`
 
     switch (triggerType) {
       case 'issueCreated': {
-        const endpoint = `repos/${owner}/${repo}/issues?state=open&sort=created&direction=desc&since=${since}&per_page=30`
+        const endpoint = `${repoPath}/issues?state=open&sort=created&direction=desc&since=${encodeURIComponent(since)}&per_page=${PAGE_SIZE}`
         const issues = (await ghApi(endpoint)) as GitHubIssue[]
         const newIssues = issues.filter((i) => !i.pull_request && i.created_at > since)
+        // When we hit the page cap, advance the cursor only to the oldest
+        // item we actually saw — there may be older items between `since`
+        // and that point that got truncated by the per_page limit, and the
+        // next poll needs to pick them up rather than skip them.
+        const nextCursor =
+          newIssues.length >= PAGE_SIZE && newIssues.length > 0
+            ? newIssues[newIssues.length - 1].created_at
+            : new Date().toISOString()
         return {
           events: newIssues.map((i) => ({
             id: String(i.number),
@@ -204,11 +226,11 @@ export const githubConnector: VornConnector = {
             data: issueToExternalItem(i) as unknown as Record<string, unknown>,
             timestamp: i.created_at
           })),
-          nextCursor: new Date().toISOString()
+          nextCursor
         }
       }
       case 'prOpened': {
-        const endpoint = `repos/${owner}/${repo}/pulls?state=open&sort=created&direction=desc&per_page=30`
+        const endpoint = `${repoPath}/pulls?state=open&sort=created&direction=desc&per_page=${PAGE_SIZE}`
         const prs = (await ghApi(endpoint)) as Array<{
           number: number
           title: string
@@ -217,6 +239,10 @@ export const githubConnector: VornConnector = {
           user: { login: string }
         }>
         const newPrs = prs.filter((pr) => pr.created_at > since)
+        const nextCursor =
+          newPrs.length >= PAGE_SIZE && newPrs.length > 0
+            ? newPrs[newPrs.length - 1].created_at
+            : new Date().toISOString()
         return {
           events: newPrs.map((pr) => ({
             id: String(pr.number),
@@ -229,7 +255,7 @@ export const githubConnector: VornConnector = {
             },
             timestamp: pr.created_at
           })),
-          nextCursor: new Date().toISOString()
+          nextCursor
         }
       }
       default:

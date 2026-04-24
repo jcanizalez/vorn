@@ -100,19 +100,21 @@ export const linearConnector: VornConnector = {
     const stateType = typeof filters.stateType === 'string' ? filters.stateType : undefined
     const limit = Number(filters.limit ?? 50)
 
-    const filterClauses: string[] = []
-    if (teamKey) filterClauses.push(`team: { key: { eq: "${teamKey}" } }`)
-    if (stateType) filterClauses.push(`state: { type: { eq: "${stateType}" } }`)
-    const filterArg = filterClauses.length ? `filter: { ${filterClauses.join(', ')} },` : ''
+    const filter: Record<string, unknown> = {}
+    if (teamKey) filter.team = { key: { eq: teamKey } }
+    if (stateType) filter.state = { type: { eq: stateType } }
 
     const query = `
-      query {
-        issues(${filterArg} first: ${limit}, orderBy: updatedAt) {
+      query ListIssues($filter: IssueFilter, $first: Int!) {
+        issues(filter: $filter, first: $first, orderBy: updatedAt) {
           nodes { ${ISSUE_FIELDS} }
         }
       }
     `
-    const data = await linearGraphQL<{ issues: { nodes: LinearIssue[] } }>(apiKey, query)
+    const data = await linearGraphQL<{ issues: { nodes: LinearIssue[] } }>(apiKey, query, {
+      filter: Object.keys(filter).length ? filter : undefined,
+      first: limit
+    })
     return data.issues.nodes.map(issueToExternalItem)
   },
 
@@ -121,16 +123,21 @@ export const linearConnector: VornConnector = {
     filters: Record<string, unknown>
   ): Promise<ExternalItem | null> {
     const apiKey = requireAuth(filters)
+    // externalId is the human identifier (e.g. "ENG-123"), not the UUID,
+    // so filter by identifier rather than using the id-by-uuid query.
     const query = `
-      query($id: String!) {
-        issue(id: $id) { ${ISSUE_FIELDS} }
+      query GetIssueByIdentifier($identifier: String!) {
+        issues(filter: { identifier: { eq: $identifier } }, first: 1) {
+          nodes { ${ISSUE_FIELDS} }
+        }
       }
     `
     try {
-      const data = await linearGraphQL<{ issue: LinearIssue | null }>(apiKey, query, {
-        id: externalId
+      const data = await linearGraphQL<{ issues: { nodes: LinearIssue[] } }>(apiKey, query, {
+        identifier: externalId
       })
-      return data.issue ? issueToExternalItem(data.issue) : null
+      const issue = data.issues.nodes[0]
+      return issue ? issueToExternalItem(issue) : null
     } catch (err) {
       log.warn(`[linear-connector] getItem failed: ${err}`)
       return null
@@ -145,20 +152,32 @@ export const linearConnector: VornConnector = {
     const apiKey = requireAuth(config)
     const teamKey = typeof config.teamKey === 'string' ? config.teamKey : undefined
     const since = cursor || new Date(Date.now() - 60_000).toISOString()
+    const PAGE_SIZE = 30
 
     if (triggerType !== 'issueCreated') return { events: [] }
 
-    const filterClauses = [`createdAt: { gt: "${since}" }`]
-    if (teamKey) filterClauses.push(`team: { key: { eq: "${teamKey}" } }`)
+    const filter: Record<string, unknown> = { createdAt: { gt: since } }
+    if (teamKey) filter.team = { key: { eq: teamKey } }
     const query = `
-      query {
-        issues(filter: { ${filterClauses.join(', ')} }, first: 30, orderBy: createdAt) {
+      query PollIssues($filter: IssueFilter!, $first: Int!) {
+        issues(filter: $filter, first: $first, orderBy: createdAt) {
           nodes { ${ISSUE_FIELDS} }
         }
       }
     `
-    const data = await linearGraphQL<{ issues: { nodes: LinearIssue[] } }>(apiKey, query)
+    const data = await linearGraphQL<{ issues: { nodes: LinearIssue[] } }>(apiKey, query, {
+      filter,
+      first: PAGE_SIZE
+    })
     const items = data.issues.nodes
+    // When we hit the page cap the tail may have been truncated — advance
+    // only to the oldest item we actually saw so older items stuck beyond
+    // the page boundary get picked up on the next poll. `orderBy: createdAt`
+    // returns newest-first in Linear; items[items.length-1] is the oldest.
+    const nextCursor =
+      items.length >= PAGE_SIZE && items.length > 0
+        ? items[items.length - 1].createdAt
+        : new Date().toISOString()
     return {
       events: items.map((i) => ({
         id: i.identifier,
@@ -166,7 +185,7 @@ export const linearConnector: VornConnector = {
         data: issueToExternalItem(i) as unknown as Record<string, unknown>,
         timestamp: i.createdAt
       })),
-      nextCursor: new Date().toISOString()
+      nextCursor
     }
   },
 
