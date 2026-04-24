@@ -178,12 +178,12 @@ describe('CardContextMenu', () => {
     )
   })
 
-  it('renders Expand, Rename, New terminal, and Close items', () => {
+  it('renders New session and New terminal entries', () => {
+    // Expand / Rename / Close used to live here but are first-class header
+    // buttons now (see #264) so the ⋯ menu only carries the unique actions.
     render(<CardContextMenu terminalId="term-1" position={{ x: 100, y: 100 }} onClose={vi.fn()} />)
-    expect(screen.getByText('Expand')).toBeInTheDocument()
-    expect(screen.getByText('Rename')).toBeInTheDocument()
+    expect(screen.getByText('New session')).toBeInTheDocument()
     expect(screen.getByText('New terminal')).toBeInTheDocument()
-    expect(screen.getByText('Close session')).toBeInTheDocument()
   })
 
   it('calls onClose on click outside', () => {
