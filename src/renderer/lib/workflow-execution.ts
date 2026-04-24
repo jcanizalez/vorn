@@ -660,12 +660,16 @@ export async function executeWorkflow(
   options?: ExecuteWorkflowOptions
 ): Promise<WorkflowExecution> {
   // connectorPoll workflows cannot be run directly from the renderer — the
-  // scheduler owns the poll + fan-out. Route "Run" button clicks through
-  // workflow:runManual unless the scheduler itself is invoking us (in which
-  // case context.connectorItem is already populated).
+  // scheduler owns the poll + fan-out. Route user-initiated "Run" clicks
+  // through workflow:runManual. Scheduler-originated runs already carry a
+  // connectorItem (per-item fan-out) so they don't need this reroute.
   const triggerNode = workflow.nodes.find((n) => n.type === 'trigger')
   const triggerCfg = triggerNode?.config as { triggerType?: string } | undefined
-  if (triggerCfg?.triggerType === 'connectorPoll' && !context?.connectorItem) {
+  if (
+    triggerCfg?.triggerType === 'connectorPoll' &&
+    !context?.connectorItem &&
+    options?.source !== 'scheduler'
+  ) {
     await window.api.runWorkflowManual(workflow.id)
     const existing = useAppStore.getState().workflowExecutions.get(workflow.id)
     if (existing) return existing

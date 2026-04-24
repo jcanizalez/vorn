@@ -223,8 +223,10 @@ class Scheduler extends EventEmitter {
         `[scheduler] connectorPoll: ${conn.connectorId}.poll(${trigger.event}) failed: ${errorMsg}`
       )
       dbUpdateSourceConnection(conn.id, { lastSyncAt: now, lastSyncError: errorMsg })
-      // Emit one execution so the failure surfaces in run history.
-      this.emit('client-message', IPC.SCHEDULER_EXECUTE, { workflowId })
+      // Do not emit SCHEDULER_EXECUTE here. An event without a connectorItem
+      // would bounce back through the renderer's connectorPoll guard (which
+      // reroutes context-less runs via workflow:runManual), creating churn.
+      // The failure is already visible via the connection's lastSyncError.
       return
     }
 
