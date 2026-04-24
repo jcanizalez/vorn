@@ -2,16 +2,19 @@ export function OptionRow({
   selected,
   dot,
   label,
+  title,
   onClick
 }: {
   selected: boolean
   dot?: string
   label: string
+  title?: string
   onClick: () => void
 }) {
   return (
     <button
       onClick={onClick}
+      title={title}
       className={`w-full text-left px-3 py-1.5 text-[12px] transition-colors flex items-center gap-2 ${
         selected
           ? 'text-white bg-white/[0.06]'

@@ -20,6 +20,7 @@ import { resolveActiveProject } from '../lib/session-utils'
 import { getDisplayName, getBranchLabel } from '../lib/terminal-display'
 import type { TerminalState, FlexibleLayoutRect } from '../stores/types'
 import { GitBranch, FolderGit2 } from 'lucide-react'
+import { pickAutoLayout, AUTO_MIN_CARD_H, fitMaxRows } from '../lib/auto-grid-layout'
 
 interface DragState {
   draggingId: string
@@ -31,6 +32,47 @@ interface DragState {
   pointerX: number
   pointerY: number
   width: number
+}
+
+function useContainerSize(): {
+  size: { width: number; height: number } | null
+  setNode: (el: HTMLElement | null) => void
+} {
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null)
+  const observerRef = useRef<ResizeObserver | null>(null)
+  // Round to integer px and skip state updates when dimensions haven't
+  // actually changed — ResizeObserver fires on every subpixel shift, which
+  // would otherwise thrash pickAutoLayout downstream.
+  const updateSize = useCallback((w: number, h: number) => {
+    if (w <= 0 || h <= 0) return
+    const width = Math.round(w)
+    const height = Math.round(h)
+    setSize((prev) =>
+      prev && prev.width === width && prev.height === height ? prev : { width, height }
+    )
+  }, [])
+  const setNode = useCallback(
+    (el: HTMLElement | null) => {
+      observerRef.current?.disconnect()
+      observerRef.current = null
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      updateSize(r.width, r.height)
+      // Older runtimes (and some test environments) don't ship ResizeObserver.
+      // The one-shot getBoundingClientRect above is enough to kick off smart
+      // Auto; live resize updates are best-effort.
+      if (typeof ResizeObserver === 'undefined') return
+      const observer = new ResizeObserver((entries) => {
+        const rect = entries[0]?.contentRect
+        if (rect) updateSize(rect.width, rect.height)
+      })
+      observer.observe(el)
+      observerRef.current = observer
+    },
+    [updateSize]
+  )
+  useEffect(() => () => observerRef.current?.disconnect(), [])
+  return { size, setNode }
 }
 
 export const GridView = memo(function GridView() {
@@ -50,6 +92,7 @@ export const GridView = memo(function GridView() {
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null)
   const [gridContextMenu, setGridContextMenu] = useState<{ x: number; y: number } | null>(null)
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+  const { size: wrapperSize, setNode: setGridWrapperNode } = useContainerSize()
 
   const terminals = useAppStore((s) => s.terminals)
   const { orderedIds, minimizedIds } = useVisibleTerminals()
@@ -58,14 +101,61 @@ export const GridView = memo(function GridView() {
 
   const isFiltered = statusFilter !== 'all'
 
-  const gridStyle: React.CSSProperties = {
-    ...(isMobile
-      ? { gridTemplateColumns: '1fr' }
-      : gridColumns > 0
-        ? { gridTemplateColumns: `repeat(${gridColumns}, 1fr)` }
-        : { gridTemplateColumns: 'repeat(auto-fill, minmax(min(320px, 100%), 1fr))' }),
-    gridAutoRows: isMobile ? 'auto' : `${rowHeight + 42}px`
-  }
+  const isSmartAuto = !isMobile && gridColumns === 0
+  // Only wire the ResizeObserver when smart-auto is active. In fixed-column
+  // or mobile modes the wrapper size isn't used, so there's no reason to
+  // trigger re-renders on every window resize.
+  const attachWrapperRef = useCallback(
+    (el: HTMLElement | null) => setGridWrapperNode(isSmartAuto ? el : null),
+    [isSmartAuto, setGridWrapperNode]
+  )
+  const autoLayout = useMemo(
+    () =>
+      isSmartAuto && wrapperSize
+        ? pickAutoLayout(orderedIds.length, wrapperSize.width, wrapperSize.height)
+        : null,
+    [isSmartAuto, wrapperSize, orderedIds.length]
+  )
+
+  // For the first paint before the ResizeObserver fires we still want a
+  // sensible column layout so cards don't flash stacked-in-one-column.
+  // Use n cards wide (capped at 4) — close to the final smart choice for
+  // small n and prevents the "single column" flicker.
+  const firstPaintCols = Math.max(1, Math.min(4, orderedIds.length || 1))
+
+  const gridStyle: React.CSSProperties = isMobile
+    ? { gridTemplateColumns: '1fr', gridAutoRows: 'auto' }
+    : gridColumns > 0
+      ? {
+          gridTemplateColumns: `repeat(${gridColumns}, 1fr)`,
+          gridAutoRows: `${rowHeight + 42}px`
+        }
+      : autoLayout?.mode === 'fit'
+        ? {
+            gridTemplateColumns: `repeat(${autoLayout.cols}, 1fr)`,
+            gridTemplateRows: `repeat(${autoLayout.rows}, 1fr)`
+          }
+        : autoLayout?.mode === 'scroll'
+          ? {
+              gridTemplateColumns: `repeat(${autoLayout.cols}, 1fr)`,
+              // Scroll-mode row height = viewport / (fit-mode max rows).
+              // This makes the first N rows exactly fill the viewport so the
+              // "above the fold" looks identical to fit mode — card N+1 is
+              // then a clean scroll-down away, not a half-visible slice.
+              gridAutoRows: `${
+                wrapperSize?.height
+                  ? Math.max(
+                      AUTO_MIN_CARD_H,
+                      Math.floor(wrapperSize.height / fitMaxRows(wrapperSize.height))
+                    )
+                  : rowHeight + 42
+              }px`,
+              overflowY: 'auto'
+            }
+          : {
+              gridTemplateColumns: `repeat(${firstPaintCols}, 1fr)`,
+              gridTemplateRows: '1fr'
+            }
 
   const DRAG_THRESHOLD = 5
 
@@ -160,7 +250,7 @@ export const GridView = memo(function GridView() {
 
   return (
     <div
-      className="h-full overflow-auto"
+      className={`h-full flex flex-col ${isSmartAuto ? 'overflow-hidden' : 'overflow-auto'}`}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
@@ -170,7 +260,7 @@ export const GridView = memo(function GridView() {
     >
       {/* Background tray: headless + minimized */}
       {backgroundTrayHasItems(filteredHeadless, minimizedIds, waitingApprovals) && (
-        <div className="px-4 pt-4">
+        <div className="px-4 pt-4 shrink-0">
           <BackgroundTray
             headlessSessions={filteredHeadless}
             minimizedIds={minimizedIds}
@@ -212,7 +302,8 @@ export const GridView = memo(function GridView() {
           />
         ) : (
           <div
-            className="grid gap-0"
+            ref={attachWrapperRef}
+            className={`grid gap-0 ${isSmartAuto ? 'flex-1 min-h-0' : ''}`}
             style={gridStyle}
             onDoubleClick={handleGridDoubleClick}
             onContextMenu={handleGridContextMenu}
@@ -264,8 +355,8 @@ function FlexibleGrid({
   onCreateSession: () => void
   onShowContextMenu: (pos: { x: number; y: number } | null) => void
 }) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [containerWidth, setContainerWidth] = useState(0)
+  const { size: containerSize, setNode: setContainerNode } = useContainerSize()
+  const containerWidth = containerSize?.width ?? 0
 
   // Narrow selector: only extract the stable keys we need, not the full terminals Map
   const stableKeys = useAppStore(
@@ -280,17 +371,6 @@ function FlexibleGrid({
   )
   const flexibleLayouts = useAppStore((s) => s.flexibleLayouts)
   const setFlexibleLayouts = useAppStore((s) => s.setFlexibleLayouts)
-
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    const observer = new ResizeObserver((entries) => {
-      const w = entries[0]?.contentRect.width
-      if (w && w > 0) setContainerWidth(w)
-    })
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
 
   const layout = useMemo(() => {
     // Stack new items below all previously-placed cards so they don't overlap
@@ -363,11 +443,11 @@ function FlexibleGrid({
   )
 
   if (containerWidth === 0) {
-    return <div ref={containerRef} className="w-full min-h-[200px]" />
+    return <div ref={setContainerNode} className="w-full min-h-[200px]" />
   }
 
   return (
-    <div ref={containerRef} onDoubleClick={handleDoubleClick} onContextMenu={handleContextMenu}>
+    <div ref={setContainerNode} onDoubleClick={handleDoubleClick} onContextMenu={handleContextMenu}>
       <GridLayout
         className="flexible-grid"
         layout={layout}

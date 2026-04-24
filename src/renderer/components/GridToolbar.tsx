@@ -23,8 +23,12 @@ const SORT_OPTIONS: { value: SortMode; label: string }[] = [
   { value: 'recent', label: 'Recent' }
 ]
 
-const COLUMN_OPTIONS: { value: string; label: string }[] = [
-  { value: '0', label: 'Auto' },
+const COLUMN_OPTIONS: { value: string; label: string; title?: string }[] = [
+  {
+    value: '0',
+    label: 'Auto',
+    title: 'Adapts columns and rows to viewport and card count'
+  },
   { value: '1', label: '1 Column' },
   { value: '2', label: '2 Columns' },
   { value: '3', label: '3 Columns' },
@@ -197,6 +201,7 @@ export function GridToolbar() {
                   key={opt.value}
                   selected={String(gridColumns) === opt.value}
                   label={opt.label}
+                  title={opt.title}
                   onClick={() => setGridColumns(Number(opt.value))}
                 />
               ))}

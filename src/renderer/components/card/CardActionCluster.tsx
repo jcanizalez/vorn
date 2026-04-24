@@ -55,12 +55,15 @@ export function CardActionCluster({ terminalId, variant }: Props) {
 
   const showMinimize = variant === 'mini'
   const isFocused = variant === 'focused'
+  // In focused mode the header sits at the top of the window, so top-positioned
+  // tooltips get clipped off-screen. Drop them below the buttons instead.
+  const tooltipPos = isFocused ? 'bottom' : 'top'
 
   const btn = 'p-1 rounded text-gray-500 hover:text-white hover:bg-white/[0.08] transition-colors'
 
   return (
     <div className="flex items-center gap-0.5 shrink-0">
-      <Tooltip label="Browse files" position="top">
+      <Tooltip label="Browse files" position={tooltipPos}>
         <button
           type="button"
           onClick={handleBrowseFiles}
@@ -73,7 +76,7 @@ export function CardActionCluster({ terminalId, variant }: Props) {
       </Tooltip>
 
       {showMinimize && (
-        <Tooltip label="Minimize" position="top">
+        <Tooltip label="Minimize" position={tooltipPos}>
           <button
             type="button"
             onClick={handleMinimize}
@@ -89,7 +92,7 @@ export function CardActionCluster({ terminalId, variant }: Props) {
       <Tooltip
         label={isFocused ? 'Collapse to grid' : 'Expand'}
         shortcut={isFocused ? `${MOD}W` : `${MOD}O`}
-        position="top"
+        position={tooltipPos}
       >
         <button
           type="button"
@@ -107,7 +110,7 @@ export function CardActionCluster({ terminalId, variant }: Props) {
       </Tooltip>
 
       <ConfirmPopover message="Close this session?" confirmLabel="Close" onConfirm={handleClose}>
-        <Tooltip label="Close session" position="top">
+        <Tooltip label="Close session" position={tooltipPos}>
           <button
             type="button"
             onPointerDown={(e) => e.stopPropagation()}
