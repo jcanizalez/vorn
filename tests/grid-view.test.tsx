@@ -14,16 +14,40 @@ Object.defineProperty(window, 'api', {
   writable: true
 })
 
+type ResizeCb = (entries: Array<{ contentRect: DOMRectReadOnly }>, ob: ResizeObserver) => void
 class MockResizeObserver {
-  observe() {}
+  constructor(public cb: ResizeCb) {}
+  observe(el: Element) {
+    // Fire once synchronously with the element's "measured" rect so
+    // useContainerSize() receives a real size (jsdom defaults to 0×0).
+    const r = el.getBoundingClientRect()
+    this.cb([{ contentRect: r as unknown as DOMRectReadOnly }], this as unknown as ResizeObserver)
+  }
   unobserve() {}
   disconnect() {}
 }
+
+const originalGetBoundingClientRect = Element.prototype.getBoundingClientRect
 beforeAll(() => {
   vi.stubGlobal('ResizeObserver', MockResizeObserver)
+  // Stub getBoundingClientRect so measured sizes are non-zero in jsdom.
+  Element.prototype.getBoundingClientRect = function () {
+    return {
+      width: 1920,
+      height: 1080,
+      top: 0,
+      left: 0,
+      right: 1920,
+      bottom: 1080,
+      x: 0,
+      y: 0,
+      toJSON: () => ({})
+    }
+  }
 })
 afterAll(() => {
   vi.unstubAllGlobals()
+  Element.prototype.getBoundingClientRect = originalGetBoundingClientRect
 })
 
 // Stub AgentCard with forwardRef so GridView's ref callback (which calls
@@ -141,6 +165,47 @@ describe('GridView', () => {
     useAppStore.setState({ sortMode: 'created' })
     render(<GridView />)
     expect(screen.getByTestId('card-term-a').dataset.dragTarget).toBe('no')
+  })
+})
+
+describe('GridView smart Auto mode', () => {
+  it('fit mode on 1920x1080 with 2 cards produces a 2×1 grid-template', () => {
+    useAppStore.setState({ gridColumns: 0 })
+    const { container } = render(<GridView />)
+    const grid = container.querySelector('.grid') as HTMLElement | null
+    expect(grid).not.toBeNull()
+    expect(grid!.style.gridTemplateColumns).toBe('repeat(2, 1fr)')
+    expect(grid!.style.gridTemplateRows).toBe('repeat(1, 1fr)')
+  })
+
+  it('scroll mode kicks in once the card count exceeds the fit cap', () => {
+    // On 1920×1080 maxCols=4, maxRows=3 → fit cap is 12. Render 14 cards to spill.
+    const terminals = new Map()
+    const order: string[] = []
+    for (let i = 0; i < 14; i++) {
+      const id = `t-${i}`
+      terminals.set(id, {
+        id,
+        session: {
+          id,
+          agentType: 'claude' as const,
+          projectName: 'Vorn',
+          projectPath: '/tmp/vorn',
+          isWorktree: false,
+          branch: 'main',
+          createdAt: Date.now()
+        },
+        status: 'idle',
+        lastOutputTimestamp: Date.now()
+      })
+      order.push(id)
+    }
+    useAppStore.setState({ gridColumns: 0, terminals, terminalOrder: order })
+    const { container } = render(<GridView />)
+    const grid = container.querySelector('.grid') as HTMLElement | null
+    expect(grid).not.toBeNull()
+    expect(grid!.style.overflowY).toBe('auto')
+    expect(grid!.style.gridAutoRows).toMatch(/\d+px/)
   })
 })
 
