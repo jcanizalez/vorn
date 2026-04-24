@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import type { SourceConnection, WorkflowDefinition } from '../../../shared/types'
+import { useMemo, useRef } from 'react'
+import type { WorkflowDefinition } from '../../../shared/types'
 import { parseConnectorWorkflowId } from '../../../shared/types'
 import { ICON_MAP } from './icon-map'
 import { useAppStore } from '../../stores'
 import { isScheduledWorkflow } from '../../lib/workflow-helpers'
 import { executeWorkflow } from '../../lib/workflow-execution'
+import { useConnectorIdFor } from '../../lib/use-connections'
 import { Zap, Play, MoreHorizontal } from 'lucide-react'
 import { Tooltip } from '../Tooltip'
 import { ConnectorIcon } from '../ConnectorIcon'
@@ -47,23 +48,10 @@ export function WorkflowItem({
 
   // For connector-seeded workflows, resolve the source connector so we can
   // show its brand icon instead of the generic Plug. The connector id isn't
-  // in the workflow row itself; we look it up via the connection record.
+  // in the workflow row itself; it comes from the shared connections cache
+  // so we don't fire N IPC calls across many sidebar items.
   const connectorWf = useMemo(() => parseConnectorWorkflowId(workflow.id), [workflow.id])
-  const [connectorId, setConnectorId] = useState<string | null>(null)
-  useEffect(() => {
-    // workflow.id is stable per mount so we only need the resolve branch;
-    // the non-connector case is simply never setting connectorId.
-    if (!connectorWf) return
-    let cancelled = false
-    window.api.listConnections().then((conns: SourceConnection[]) => {
-      if (cancelled) return
-      const match = conns.find((c) => c.id === connectorWf.connectionId)
-      setConnectorId(match?.connectorId ?? null)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [connectorWf])
+  const connectorId = useConnectorIdFor(connectorWf?.connectionId)
 
   const WfIcon = ICON_MAP[workflow.icon] || Zap
   const isScheduled = isScheduledWorkflow(workflow)

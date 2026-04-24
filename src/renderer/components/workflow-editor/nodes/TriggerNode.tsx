@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
 import { Zap, Clock, Calendar, ListPlus, ArrowRightLeft, Plug, type LucideIcon } from 'lucide-react'
 import type { TriggerConfig, ConnectorPollTriggerConfig } from '../../../../shared/types'
+import { useConnectorIdFor } from '../../../lib/use-connections'
 import { ConnectorIcon } from '../../ConnectorIcon'
 
 interface Props {
@@ -21,29 +21,13 @@ const TRIGGER_ICONS: Record<string, LucideIcon> = {
 const DEFAULT_ICON = Zap
 
 function useConnectorId(config: TriggerConfig): string | null {
-  const [connectorId, setConnectorId] = useState<string | null>(null)
+  // For connectorPoll triggers, resolve the connector id via the shared
+  // connections cache — avoids one IPC call per node instance.
   const connectionId =
     config.triggerType === 'connectorPoll'
       ? (config as ConnectorPollTriggerConfig).connectionId
       : null
-
-  useEffect(() => {
-    if (!connectionId) {
-      setConnectorId(null)
-      return
-    }
-    let cancelled = false
-    window.api.listConnections().then((conns) => {
-      if (cancelled) return
-      const match = conns.find((c: { id: string }) => c.id === connectionId)
-      setConnectorId(match?.connectorId ?? null)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [connectionId])
-
-  return connectorId
+  return useConnectorIdFor(connectionId)
 }
 
 function getSubtitle(config: TriggerConfig): string {

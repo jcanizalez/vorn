@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
 import { Zap } from 'lucide-react'
 import type { CallConnectorActionConfig, NodeExecutionStatus } from '../../../../shared/types'
 import { STATUS_DOT_CLASSES } from '../statusDot'
 import { ConnectorIcon } from '../../ConnectorIcon'
+import { useConnectorIdFor } from '../../../lib/use-connections'
 
 interface Props {
   label: string
@@ -12,28 +12,6 @@ interface Props {
   onClick: () => void
 }
 
-function useConnectorId(connectionId: string | undefined): string | null {
-  const [connectorId, setConnectorId] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!connectionId) {
-      setConnectorId(null)
-      return
-    }
-    let cancelled = false
-    window.api.listConnections().then((conns) => {
-      if (cancelled) return
-      const match = conns.find((c: { id: string }) => c.id === connectionId)
-      setConnectorId(match?.connectorId ?? null)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [connectionId])
-
-  return connectorId
-}
-
 export function CallConnectorActionNode({
   label,
   config,
@@ -41,7 +19,8 @@ export function CallConnectorActionNode({
   executionStatus,
   onClick
 }: Props) {
-  const connectorId = useConnectorId(config.connectionId)
+  // Uses the shared connections cache — no IPC call per node render.
+  const connectorId = useConnectorIdFor(config.connectionId)
 
   return (
     <div
