@@ -56,14 +56,18 @@ function useContainerSize(): {
       observerRef.current?.disconnect()
       observerRef.current = null
       if (!el) return
+      const r = el.getBoundingClientRect()
+      updateSize(r.width, r.height)
+      // Older runtimes (and some test environments) don't ship ResizeObserver.
+      // The one-shot getBoundingClientRect above is enough to kick off smart
+      // Auto; live resize updates are best-effort.
+      if (typeof ResizeObserver === 'undefined') return
       const observer = new ResizeObserver((entries) => {
         const rect = entries[0]?.contentRect
         if (rect) updateSize(rect.width, rect.height)
       })
       observer.observe(el)
       observerRef.current = observer
-      const r = el.getBoundingClientRect()
-      updateSize(r.width, r.height)
     },
     [updateSize]
   )
@@ -98,6 +102,13 @@ export const GridView = memo(function GridView() {
   const isFiltered = statusFilter !== 'all'
 
   const isSmartAuto = !isMobile && gridColumns === 0
+  // Only wire the ResizeObserver when smart-auto is active. In fixed-column
+  // or mobile modes the wrapper size isn't used, so there's no reason to
+  // trigger re-renders on every window resize.
+  const attachWrapperRef = useCallback(
+    (el: HTMLElement | null) => setGridWrapperNode(isSmartAuto ? el : null),
+    [isSmartAuto, setGridWrapperNode]
+  )
   const autoLayout = useMemo(
     () =>
       isSmartAuto && wrapperSize
@@ -291,7 +302,7 @@ export const GridView = memo(function GridView() {
           />
         ) : (
           <div
-            ref={setGridWrapperNode}
+            ref={attachWrapperRef}
             className={`grid gap-0 ${isSmartAuto ? 'flex-1 min-h-0' : ''}`}
             style={gridStyle}
             onDoubleClick={handleGridDoubleClick}
