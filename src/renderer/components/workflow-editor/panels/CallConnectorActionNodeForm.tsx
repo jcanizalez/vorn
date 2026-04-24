@@ -109,35 +109,48 @@ export function CallConnectorActionNodeForm({
               · type <code className="text-gray-500">{`{{`}</code> to pick from previous steps
             </span>
           </div>
-          {argFields.map((field) => (
-            <div key={field.key}>
-              <label className="block text-xs text-gray-500 mb-1">
-                {field.label}
-                {field.required && <span className="text-red-400 ml-0.5">*</span>}
-              </label>
-              <VariableAutocomplete
-                value={
-                  typeof config.args?.[field.key] === 'string'
-                    ? (config.args[field.key] as string)
-                    : ''
-                }
-                onChange={(val) =>
-                  onChange({
-                    ...config,
-                    args: { ...config.args, [field.key]: val }
-                  })
-                }
-                placeholder={field.placeholder}
-                rows={field.type === 'textarea' ? 3 : 1}
-                stepGroups={stepGroups}
-                contextVars={contextVars}
-                mono
-              />
-              {field.description && (
-                <p className="text-[10px] text-gray-600 mt-0.5">{field.description}</p>
-              )}
-            </div>
-          ))}
+          {argFields.map((field) => {
+            const fieldValue =
+              typeof config.args?.[field.key] === 'string' ? (config.args[field.key] as string) : ''
+            const setFieldValue = (val: string): void =>
+              onChange({ ...config, args: { ...config.args, [field.key]: val } })
+            return (
+              <div key={field.key}>
+                <label className="block text-xs text-gray-500 mb-1">
+                  {field.label}
+                  {field.required && <span className="text-red-400 ml-0.5">*</span>}
+                </label>
+                {field.type === 'select' ? (
+                  <SelectPicker
+                    value={fieldValue}
+                    options={(field.options ?? []).map((o) => ({
+                      value: o.value,
+                      label: o.label
+                    }))}
+                    onChange={setFieldValue}
+                    variant="form"
+                    placeholder={field.placeholder ?? '—'}
+                  />
+                ) : (
+                  // text / textarea / password / etc. all flow through the
+                  // template-aware autocomplete so users can reference
+                  // ancestor steps with `{{...}}`.
+                  <VariableAutocomplete
+                    value={fieldValue}
+                    onChange={setFieldValue}
+                    placeholder={field.placeholder}
+                    rows={field.type === 'textarea' ? 3 : 1}
+                    stepGroups={stepGroups}
+                    contextVars={contextVars}
+                    mono
+                  />
+                )}
+                {field.description && (
+                  <p className="text-[10px] text-gray-600 mt-0.5">{field.description}</p>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

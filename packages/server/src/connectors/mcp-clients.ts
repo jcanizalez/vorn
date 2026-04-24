@@ -15,6 +15,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import type { SourceConnection } from '@vornrun/shared/types'
 import { getDecryptedCreds } from './decrypted-creds'
+import { getSafeEnv } from '../process-utils'
 import log from '../logger'
 
 interface LiveClient {
@@ -69,12 +70,14 @@ export async function getOrStartClient(conn: SourceConnection): Promise<Client> 
   if (existing) return existing.client
 
   const { command, args, env } = buildSpawnConfig(conn)
-  // StdioClientTransport inherits PATH et al. from the parent by merging
-  // with process.env; explicit keys win.
+  // Inherit PATH and friends from the parent via getSafeEnv() — same
+  // sanitization the rest of the server uses for child processes — so
+  // GH/Linear/NPM tokens etc. don't leak into arbitrary MCP servers
+  // the user adds. Explicit per-connection env still wins over the base.
   const transport = new StdioClientTransport({
     command,
     args,
-    env: { ...(process.env as Record<string, string>), ...env }
+    env: { ...getSafeEnv(), ...env }
   })
 
   const client = new Client({ name: 'vorn', version: '0.1.0' }, { capabilities: {} })
