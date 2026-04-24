@@ -66,7 +66,7 @@ vi.mock('../src/renderer/hooks/useFilteredHeadless', () => ({
 
 import { useAppStore } from '../src/renderer/stores'
 import { GridView } from '../src/renderer/components/GridView'
-import { pickAutoLayout } from '../src/renderer/lib/auto-grid-layout'
+import { pickAutoLayout, fitMaxRows } from '../src/renderer/lib/auto-grid-layout'
 
 const mockConfig = {
   projects: [
@@ -254,5 +254,28 @@ describe('pickAutoLayout', () => {
       expect(layout.cols).toBeLessThanOrEqual(n)
       expect(layout.cols * layout.rows).toBeGreaterThanOrEqual(n)
     }
+  })
+
+  it('narrow viewport falls through n=2 single-row shortcut', () => {
+    // W=500: 500/2=250 < AUTO_MIN_CARD_W(320), so we bypass the shortcut
+    // and the scoring loop picks a 1-col, 2-row layout.
+    const layout = pickAutoLayout(2, 500, 900)
+    expect(layout.cols).toBe(1)
+    expect(layout.rows).toBe(2)
+  })
+})
+
+describe('fitMaxRows', () => {
+  it('clamps to 1 on very short viewports', () => {
+    expect(fitMaxRows(100)).toBe(1)
+  })
+
+  it('scales with viewport height', () => {
+    expect(fitMaxRows(600)).toBe(2)
+    expect(fitMaxRows(900)).toBe(3)
+  })
+
+  it('caps at the hard max (4) on very tall viewports', () => {
+    expect(fitMaxRows(5000)).toBe(4)
   })
 })
