@@ -29,6 +29,15 @@ describe('ConnectorIcon', () => {
     expect(container.querySelector('svg')?.getAttribute('viewBox')).toBe('0 0 24 24')
   })
 
+  it('renders the MCP SVG for the "mcp" id', () => {
+    const { container } = render(<ConnectorIcon connectorId="mcp" />)
+    const svg = container.querySelector('svg')
+    expect(svg).toBeInTheDocument()
+    expect(svg?.getAttribute('viewBox')).toBe('0 0 24 24')
+    // Two paths in the official ModelContextProtocol mark.
+    expect(container.querySelectorAll('path')).toHaveLength(2)
+  })
+
   it('falls back to an external-link icon for an unknown connector id', () => {
     const { container } = render(<ConnectorIcon connectorId="unknown-source" />)
     // Lucide ExternalLink renders an svg; we just assert something rendered.
