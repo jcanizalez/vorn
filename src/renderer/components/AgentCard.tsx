@@ -1,10 +1,9 @@
-import { useState, memo, forwardRef } from 'react'
+import { memo, forwardRef } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../stores'
 import { TerminalSlot } from './TerminalSlot'
 import { CardHeader } from './card/CardHeader'
 import { CardStatusBar } from './card/CardStatusBar'
-import { CardContextMenu } from './CardContextMenu'
 import { useTerminalScrollButton } from '../hooks/useTerminalScrollButton'
 
 // On touch devices, always show action buttons (no hover available)
@@ -62,7 +61,6 @@ export const AgentCard = memo(
         setFocused: s.setFocusedTerminal
       }))
     )
-    const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
     const { showScrollBtn, handleScrollToBottom } = useTerminalScrollButton(terminalId)
 
     if (!terminal) return null
@@ -102,8 +100,6 @@ export const AgentCard = memo(
         }}
         onContextMenu={(e) => {
           e.preventDefault()
-          e.stopPropagation()
-          setContextMenu({ x: e.clientX, y: e.clientY })
         }}
       >
         <CardHeader
@@ -176,14 +172,6 @@ export const AgentCard = memo(
         <CardStatusBar terminalId={terminalId} />
 
         {!flexible && <RowResizeHandle />}
-
-        {contextMenu && (
-          <CardContextMenu
-            terminalId={terminalId}
-            position={contextMenu}
-            onClose={() => setContextMenu(null)}
-          />
-        )}
       </div>
     )
   })
