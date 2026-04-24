@@ -4,6 +4,8 @@ import { LaunchAgentNode } from './nodes/LaunchAgentNode'
 import { ScriptNode } from './nodes/ScriptNode'
 import { ConditionNode } from './nodes/ConditionNode'
 import { ApprovalNode } from './nodes/ApprovalNode'
+import { CreateTaskFromItemNode } from './nodes/CreateTaskFromItemNode'
+import { CallConnectorActionNode } from './nodes/CallConnectorActionNode'
 import { ConnectorButton } from './nodes/AddStepNode'
 import {
   WorkflowNode,
@@ -12,11 +14,13 @@ import {
   LaunchAgentConfig,
   ScriptConfig,
   ConditionConfig,
-  ApprovalConfig
+  ApprovalConfig,
+  CreateTaskFromItemConfig,
+  CallConnectorActionConfig
 } from '../../../shared/types'
 import { computeFlowLayout, FlowRow } from '../../lib/workflow-helpers'
 
-export type AddableNodeType = 'agent' | 'script' | 'condition' | 'approval'
+export type AddableNodeType = 'agent' | 'script' | 'condition' | 'approval' | 'connectorAction'
 
 interface Props {
   nodes: WorkflowNode[]
@@ -91,6 +95,28 @@ function NodeCard({
     )
   }
 
+  if (node.type === 'createTaskFromItem') {
+    return (
+      <CreateTaskFromItemNode
+        label={node.label}
+        config={node.config as CreateTaskFromItemConfig}
+        selected={selected}
+        onClick={onClick}
+      />
+    )
+  }
+
+  if (node.type === 'callConnectorAction') {
+    return (
+      <CallConnectorActionNode
+        label={node.label}
+        config={node.config as CallConnectorActionConfig}
+        selected={selected}
+        onClick={onClick}
+      />
+    )
+  }
+
   return (
     <LaunchAgentNode
       label={node.label}
@@ -153,6 +179,9 @@ function FlowRowRenderer({
                     onAddScript={() => onInsertNode(row.node.id, beforeNodeId, 'script')}
                     onAddCondition={() => onInsertNode(row.node.id, beforeNodeId, 'condition')}
                     onAddApproval={() => onInsertNode(row.node.id, beforeNodeId, 'approval')}
+                    onAddConnectorAction={() =>
+                      onInsertNode(row.node.id, beforeNodeId, 'connectorAction')
+                    }
                     onAddParallelBranch={() => onAddParallelBranch(row.node.id, 'agent')}
                   />
                 </>
@@ -166,6 +195,7 @@ function FlowRowRenderer({
                     onAddScript={() => onInsertNode(row.node.id, null, 'script')}
                     onAddCondition={() => onInsertNode(row.node.id, null, 'condition')}
                     onAddApproval={() => onInsertNode(row.node.id, null, 'approval')}
+                    onAddConnectorAction={() => onInsertNode(row.node.id, null, 'connectorAction')}
                     onAddParallelBranch={
                       !isInsideBranch ? () => onAddParallelBranch(row.node.id, 'agent') : undefined
                     }

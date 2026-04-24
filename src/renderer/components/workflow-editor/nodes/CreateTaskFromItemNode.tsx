@@ -1,0 +1,49 @@
+import { ListPlus } from 'lucide-react'
+import type { CreateTaskFromItemConfig, NodeExecutionStatus } from '../../../../shared/types'
+import { STATUS_DOT_CLASSES } from '../statusDot'
+
+interface Props {
+  label: string
+  config: CreateTaskFromItemConfig
+  selected?: boolean
+  executionStatus?: NodeExecutionStatus
+  onClick: () => void
+}
+
+export function CreateTaskFromItemNode({
+  label,
+  config,
+  selected,
+  executionStatus,
+  onClick
+}: Props) {
+  const projectLabel =
+    config.project === 'fromConnection' ? 'Project from connection' : config.project
+
+  return (
+    <div
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick()
+      }}
+      className={`relative px-3 py-2.5 rounded-sm border w-[280px] transition-all cursor-pointer
+                  ${selected ? 'border-blue-500/60' : 'border-white/[0.08]'}
+                  bg-[#1d1d20] hover:bg-white/[0.02]`}
+    >
+      {executionStatus && STATUS_DOT_CLASSES[executionStatus] && (
+        <span
+          className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full ${STATUS_DOT_CLASSES[executionStatus]}`}
+        />
+      )}
+      <div className="flex items-center gap-2">
+        <ListPlus size={14} className="text-gray-400 shrink-0" strokeWidth={2} />
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] font-medium text-white truncate">{label}</div>
+          <div className="text-[11px] text-gray-500 truncate">
+            {projectLabel} · initial: {config.initialStatus}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

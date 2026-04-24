@@ -28,6 +28,7 @@ import {
   createScriptNode,
   createConditionNode,
   createApprovalNode,
+  createCallConnectorActionNode,
   appendNodeAfter,
   insertNodeBetween,
   insertBeforeFork,
@@ -273,6 +274,7 @@ export function WorkflowEditor({ inline = false }: { inline?: boolean } = {}) {
         condition: () => createConditionNode(),
         approval: () => createApprovalNode(),
         script: () => createScriptNode(),
+        connectorAction: () => createCallConnectorActionNode(),
         agent: () =>
           createLaunchAgentNode(
             firstProject ? { projectName: firstProject.name, projectPath: firstProject.path } : {}

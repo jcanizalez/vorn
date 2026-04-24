@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, nativeImage, screen, globalShortcut } from 'electron'
 import path from 'node:path'
 import { registerIpcHandlers, setBridge } from './ipc-handlers'
+import { installConnectorCredentialsSync } from './connector-credentials-sync'
 import { createMenu } from './menu'
 import { updateManager } from './update-manager'
 import { IPC, PermissionRequestInfo } from '../shared/types'
@@ -331,6 +332,11 @@ app.whenReady().then(async () => {
 
   // Wire server notifications → renderer/widget
   wireServerNotifications(bridge)
+
+  // Decrypt connector credentials via safeStorage and push plaintext into
+  // the server's in-memory store. Runs once on boot, re-syncs on every
+  // config change so newly added connections are picked up without restart.
+  installConnectorCredentialsSync(bridge)
 
   // Load config for widget + update channel
   let updateChannel: 'stable' | 'beta' = 'stable'

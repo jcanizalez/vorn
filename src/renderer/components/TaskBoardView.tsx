@@ -29,6 +29,7 @@ export function TaskBoardView() {
   const setSelectedTaskId = useAppStore((s) => s.setSelectedTaskId)
   const setTaskDialogOpen = useAppStore((s) => s.setTaskDialogOpen)
   const taskStatusFilter = useAppStore((s) => s.taskStatusFilter)
+  const taskSourceFilter = useAppStore((s) => s.taskSourceFilter)
 
   const viewMode = config?.defaults?.taskViewMode ?? 'list'
 
@@ -43,10 +44,18 @@ export function TaskBoardView() {
   )
 
   // Apply status filter
-  const allTasks =
+  const statusFiltered =
     taskStatusFilter === 'all'
       ? projectTasks
       : projectTasks.filter((t) => t.status === taskStatusFilter)
+
+  // Apply source filter
+  const allTasks =
+    taskSourceFilter === 'all'
+      ? statusFiltered
+      : taskSourceFilter === 'local'
+        ? statusFiltered.filter((t) => !t.sourceConnectorId)
+        : statusFiltered.filter((t) => t.sourceConnectorId === taskSourceFilter)
 
   const todoTasks = allTasks.filter((t) => t.status === 'todo').sort((a, b) => a.order - b.order)
   const inProgressTasks = allTasks.filter((t) => t.status === 'in_progress')

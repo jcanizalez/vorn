@@ -202,6 +202,25 @@ export function createApprovalNode(config: Partial<ApprovalConfig> = {}): Workfl
   }
 }
 
+export function createCallConnectorActionNode(
+  config: Partial<import('../../shared/types').CallConnectorActionConfig> = {}
+): WorkflowNode {
+  return {
+    id: crypto.randomUUID(),
+    type: 'callConnectorAction',
+    label: 'Connector Action',
+    slug: slugify('Connector Action'),
+    config: {
+      nodeType: 'callConnectorAction',
+      connectionId: '',
+      action: '',
+      args: {},
+      ...config
+    } as import('../../shared/types').CallConnectorActionConfig,
+    position: { x: 0, y: 0 }
+  }
+}
+
 export function createConditionNode(config: Partial<ConditionConfig> = {}): WorkflowNode {
   return {
     id: crypto.randomUUID(),

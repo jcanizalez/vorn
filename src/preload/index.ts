@@ -19,7 +19,10 @@ import {
   RemoteHost,
   TailscaleStatus,
   SessionLog,
-  FileEntry
+  FileEntry,
+  SourceConnection,
+  TaskSourceLink,
+  ConnectorManifest
 } from '../shared/types'
 
 const api = {
@@ -279,9 +282,19 @@ const api = {
   getScheduleNextRun: (workflowId: string): Promise<string | null> =>
     ipcRenderer.invoke(IPC.SCHEDULER_GET_NEXT_RUN, workflowId),
 
-  onSchedulerExecute: (callback: (event: { workflowId: string }) => void) => {
-    const listener = (_: Electron.IpcRendererEvent, event: { workflowId: string }): void =>
-      callback(event)
+  onSchedulerExecute: (
+    callback: (event: {
+      workflowId: string
+      connectorItem?: import('../../packages/shared/src/types').ConnectorItemContext
+    }) => void
+  ) => {
+    const listener = (
+      _: Electron.IpcRendererEvent,
+      event: {
+        workflowId: string
+        connectorItem?: import('../../packages/shared/src/types').ConnectorItemContext
+      }
+    ): void => callback(event)
     ipcRenderer.on(IPC.SCHEDULER_EXECUTE, listener)
     return () => {
       ipcRenderer.removeListener(IPC.SCHEDULER_EXECUTE, listener)
@@ -401,7 +414,84 @@ const api = {
   },
   installUpdate: () => ipcRenderer.send(IPC.UPDATE_INSTALL),
   setUpdateChannel: (channel: 'stable' | 'beta') =>
-    ipcRenderer.send(IPC.UPDATE_SET_CHANNEL, channel)
+    ipcRenderer.send(IPC.UPDATE_SET_CHANNEL, channel),
+
+  // Connectors
+  listConnectors: (): Promise<
+    Array<{
+      id: string
+      name: string
+      icon: string
+      capabilities: string[]
+      manifest: ConnectorManifest
+    }>
+  > => ipcRenderer.invoke(IPC.CONNECTOR_LIST),
+
+  getConnector: (
+    id: string
+  ): Promise<{
+    id: string
+    name: string
+    icon: string
+    capabilities: string[]
+    manifest: ConnectorManifest
+  } | null> => ipcRenderer.invoke(IPC.CONNECTOR_GET, id),
+
+  listConnections: (connectorId?: string): Promise<SourceConnection[]> =>
+    ipcRenderer.invoke(IPC.CONNECTION_LIST, { connectorId }),
+
+  createConnection: (
+    params: Omit<
+      SourceConnection,
+      'id' | 'createdAt' | 'lastSyncAt' | 'lastSyncError' | 'syncCursor'
+    >
+  ): Promise<SourceConnection> => ipcRenderer.invoke(IPC.CONNECTION_CREATE, params),
+
+  updateConnection: (
+    id: string,
+    updates: Partial<SourceConnection>
+  ): Promise<SourceConnection | null> => ipcRenderer.invoke(IPC.CONNECTION_UPDATE, { id, updates }),
+
+  deleteConnection: (id: string): Promise<void> => ipcRenderer.invoke(IPC.CONNECTION_DELETE, id),
+
+  runWorkflowManual: (workflowId: string): Promise<void> =>
+    ipcRenderer.invoke(IPC.WORKFLOW_RUN_MANUAL, { workflowId }),
+
+  backfillConnection: (
+    connectionId: string
+  ): Promise<{ imported: number; updated: number; error?: string }> =>
+    ipcRenderer.invoke(IPC.CONNECTION_BACKFILL, { connectionId }),
+
+  executeConnectorAction: (params: {
+    connectionId: string
+    action: string
+    args: Record<string, unknown>
+  }): Promise<{ success: boolean; output?: Record<string, unknown>; error?: string }> =>
+    ipcRenderer.invoke(IPC.CONNECTION_EXECUTE_ACTION, params),
+
+  upsertTaskFromItem: (params: {
+    connectionId: string
+    item: import('../../packages/shared/src/types').ConnectorItemContext
+    initialStatus: import('../../packages/shared/src/types').TaskStatus
+    project?: string
+  }): Promise<{ taskId: string; created: boolean }> =>
+    ipcRenderer.invoke(IPC.CONNECTION_UPSERT_FROM_ITEM, params),
+
+  getTaskSourceLink: (taskId: string): Promise<TaskSourceLink | null> =>
+    ipcRenderer.invoke(IPC.CONNECTION_GET_SOURCE_LINK, taskId),
+
+  detectRepo: (projectPath: string): Promise<{ owner: string; repo: string } | null> =>
+    ipcRenderer.invoke(IPC.CONNECTOR_DETECT_REPO, projectPath),
+
+  seedConnectorWorkflow: (
+    connectionId: string,
+    event: string
+  ): Promise<{ workflowId: string; created: boolean }> =>
+    ipcRenderer.invoke(IPC.CONNECTOR_SEED_WORKFLOW, { connectionId, event }),
+
+  getConnectorStatus: (): Promise<
+    Array<{ connectorId: string; authed: boolean; message?: string }>
+  > => ipcRenderer.invoke(IPC.CONNECTOR_STATUS)
 }
 
 contextBridge.exposeInMainWorld('api', api)

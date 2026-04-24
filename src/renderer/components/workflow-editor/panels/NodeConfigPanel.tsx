@@ -1,18 +1,33 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Zap, Play, Terminal, GitFork, Hand, MoreHorizontal, Trash2 } from 'lucide-react'
+import {
+  X,
+  Zap,
+  Play,
+  Terminal,
+  GitFork,
+  Hand,
+  ListPlus,
+  Zap as ZapIcon,
+  MoreHorizontal,
+  Trash2
+} from 'lucide-react'
 import {
   WorkflowNode,
   TriggerConfig,
   LaunchAgentConfig,
   ScriptConfig,
   ConditionConfig,
-  ApprovalConfig
+  ApprovalConfig,
+  CreateTaskFromItemConfig,
+  CallConnectorActionConfig
 } from '../../../../shared/types'
 import { TriggerConfigForm } from './TriggerConfigForm'
 import { LaunchAgentConfigForm } from './LaunchAgentConfigForm'
 import { ScriptConfigForm } from './ScriptConfigForm'
 import { ConditionConfigForm } from './ConditionConfigForm'
 import { ApprovalConfigForm } from './ApprovalConfigForm'
+import { CreateTaskFromItemNodeForm } from './CreateTaskFromItemNodeForm'
+import { CallConnectorActionNodeForm } from './CallConnectorActionNodeForm'
 import type { StepVariableGroup } from '../../../lib/template-vars'
 
 const NODE_TYPE_CONFIG: Record<
@@ -28,7 +43,19 @@ const NODE_TYPE_CONFIG: Record<
     color: 'text-purple-400',
     bg: 'bg-purple-500/10'
   },
-  approval: { icon: Hand, label: 'Approval', color: 'text-amber-400', bg: 'bg-amber-500/10' }
+  approval: { icon: Hand, label: 'Approval', color: 'text-amber-400', bg: 'bg-amber-500/10' },
+  createTaskFromItem: {
+    icon: ListPlus,
+    label: 'Create Task',
+    color: 'text-gray-300',
+    bg: 'bg-white/[0.06]'
+  },
+  callConnectorAction: {
+    icon: ZapIcon,
+    label: 'Connector Action',
+    color: 'text-gray-300',
+    bg: 'bg-white/[0.06]'
+  }
 }
 
 interface Props {
@@ -171,6 +198,20 @@ export function NodeConfigPanel({
         {node.type === 'approval' && (
           <ApprovalConfigForm
             config={node.config as ApprovalConfig}
+            onChange={(config) => onChange(node.id, config)}
+          />
+        )}
+
+        {node.type === 'createTaskFromItem' && (
+          <CreateTaskFromItemNodeForm
+            config={node.config as CreateTaskFromItemConfig}
+            onChange={(config) => onChange(node.id, config)}
+          />
+        )}
+
+        {node.type === 'callConnectorAction' && (
+          <CallConnectorActionNodeForm
+            config={node.config as CallConnectorActionConfig}
             onChange={(config) => onChange(node.id, config)}
           />
         )}

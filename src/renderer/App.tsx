@@ -254,13 +254,16 @@ export function App() {
     })
 
     // Scheduler: auto-execute workflows when triggered
-    const removeSchedulerListener = window.api.onSchedulerExecute(async ({ workflowId }) => {
-      const state = useAppStore.getState()
-      const workflow = state.config?.workflows?.find((w) => w.id === workflowId)
-      if (!workflow) return
+    const removeSchedulerListener = window.api.onSchedulerExecute(
+      async ({ workflowId, connectorItem }) => {
+        const state = useAppStore.getState()
+        const workflow = state.config?.workflows?.find((w) => w.id === workflowId)
+        if (!workflow) return
 
-      await runWorkflow(workflow, undefined, { source: 'scheduler' })
-    })
+        const context = connectorItem ? { connectorItem } : undefined
+        await runWorkflow(workflow, context, { source: 'scheduler' })
+      }
+    )
 
     const removeUpdateListener = window.api.onUpdateDownloaded(({ version }) => {
       useAppStore.getState().setUpdateVersion(version)

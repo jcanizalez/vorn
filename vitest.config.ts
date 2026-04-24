@@ -32,6 +32,9 @@ export default defineConfig({
         'src/renderer/lib/workflow-execution.ts',
         'src/renderer/lib/workflow-triggers.ts',
         'src/renderer/lib/terminal-close.ts',
+        // Heavy settings page dominated by IPC-backed form state —
+        // matches the established exclusion pattern for this category.
+        'src/renderer/components/settings/ConnectorSettings.tsx',
         '**/*.d.ts'
       ]
     }

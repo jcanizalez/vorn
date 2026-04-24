@@ -1,6 +1,6 @@
 import { StateCreator } from 'zustand'
 import { TerminalSession } from '../../shared/types'
-import { AppStore, UISlice, SidebarViewMode, FlexibleLayoutRect } from './types'
+import { AppStore, UISlice, SidebarViewMode, FlexibleLayoutRect, TaskSourceFilter } from './types'
 
 const EMPTY_SESSIONS: TerminalSession[] = []
 const WORKTREE_CACHE_TTL = 5_000
@@ -102,6 +102,7 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   mainViewMode: 'sessions' as const,
   selectedTaskId: null,
   taskStatusFilter: 'all' as const,
+  taskSourceFilter: 'all' as TaskSourceFilter,
   isTaskDialogOpen: false,
   taskDialogDefaultStatus: 'todo' as const,
   editingTask: null,
@@ -260,6 +261,7 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   },
   setSelectedTaskId: (id) => set({ selectedTaskId: id }),
   setTaskStatusFilter: (filter) => set({ taskStatusFilter: filter }),
+  setTaskSourceFilter: (filter) => set({ taskSourceFilter: filter }),
   setTaskDialogOpen: (open, defaultStatus) =>
     set({ isTaskDialogOpen: open, taskDialogDefaultStatus: defaultStatus ?? 'todo' }),
   setEditingTask: (task) => set({ editingTask: task }),

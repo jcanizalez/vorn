@@ -50,7 +50,7 @@ export interface StepVariableGroup {
 export interface TemplateVariable {
   key: string
   label: string
-  category: 'task' | 'trigger'
+  category: 'task' | 'trigger' | 'connectorItem'
 }
 
 export const TEMPLATE_VARIABLES: TemplateVariable[] = [
@@ -61,7 +61,12 @@ export const TEMPLATE_VARIABLES: TemplateVariable[] = [
   { key: '{{task.branch}}', label: 'Branch', category: 'task' },
   { key: '{{task.projectName}}', label: 'Project', category: 'task' },
   { key: '{{trigger.fromStatus}}', label: 'Previous Status', category: 'trigger' },
-  { key: '{{trigger.toStatus}}', label: 'New Status', category: 'trigger' }
+  { key: '{{trigger.toStatus}}', label: 'New Status', category: 'trigger' },
+  { key: '{{connectorItem.externalId}}', label: 'External ID', category: 'connectorItem' },
+  { key: '{{connectorItem.title}}', label: 'Item Title', category: 'connectorItem' },
+  { key: '{{connectorItem.externalUrl}}', label: 'Item URL', category: 'connectorItem' },
+  { key: '{{connectorItem.body}}', label: 'Item Body', category: 'connectorItem' },
+  { key: '{{connectorItem.connectorId}}', label: 'Connector', category: 'connectorItem' }
 ]
 
 // --- DAG Ancestor Computation ---
@@ -148,6 +153,11 @@ export function resolveTemplateVars(
       if (ns === 'trigger' && context?.trigger) {
         const triggerObj = context.trigger as Record<string, unknown>
         const val = triggerObj[key]
+        return val != null ? String(val) : ''
+      }
+      if (ns === 'connectorItem' && context?.connectorItem) {
+        const itemObj = context.connectorItem as unknown as Record<string, unknown>
+        const val = itemObj[key]
         return val != null ? String(val) : ''
       }
 

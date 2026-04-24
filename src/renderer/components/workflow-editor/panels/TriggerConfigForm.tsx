@@ -1,8 +1,9 @@
-import { Zap, Clock, RefreshCw, ListPlus, ArrowRightLeft } from 'lucide-react'
+import { Zap, Clock, RefreshCw, ListPlus, ArrowRightLeft, Plug } from 'lucide-react'
 import { useAppStore } from '../../../stores'
 import { TriggerConfig, TaskStatus } from '../../../../shared/types'
 import { SelectPicker } from '../../SelectPicker'
 import { ProjectPicker } from '../../ProjectPicker'
+import { ConnectorPollTriggerForm } from './ConnectorPollTriggerForm'
 
 interface Props {
   config: TriggerConfig
@@ -42,6 +43,12 @@ const TRIGGER_TYPES = [
     label: 'Status Change',
     icon: ArrowRightLeft,
     hint: "Fires when a task's status changes"
+  },
+  {
+    type: 'connectorPoll' as const,
+    label: 'Connector Poll',
+    icon: Plug,
+    hint: 'Polls an external connector on cron and fires per new item'
   }
 ]
 
@@ -66,6 +73,8 @@ function switchTriggerType(type: TriggerConfig['triggerType']): TriggerConfig {
       return { triggerType: 'taskCreated' }
     case 'taskStatusChanged':
       return { triggerType: 'taskStatusChanged' }
+    case 'connectorPoll':
+      return { triggerType: 'connectorPoll', connectionId: '', event: '', cron: '*/5 * * * *' }
   }
 }
 
@@ -159,6 +168,10 @@ export function TriggerConfigForm({ config, onChange }: Props) {
           />
           <p className="text-[11px] text-gray-500 mt-1">Only trigger for tasks in this project</p>
         </div>
+      )}
+
+      {config.triggerType === 'connectorPoll' && (
+        <ConnectorPollTriggerForm config={config} onChange={onChange} />
       )}
 
       {config.triggerType === 'taskStatusChanged' && (

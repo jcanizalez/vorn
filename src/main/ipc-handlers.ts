@@ -165,6 +165,48 @@ export function registerIpcHandlers(): void {
     requireBridge().request(IPC.SSH_TEST_CONNECTION, host)
   )
 
+  // Connectors
+  safeHandle(IPC.CONNECTOR_LIST, () => requireBridge().request(IPC.CONNECTOR_LIST))
+  safeHandle(IPC.CONNECTOR_GET, (_, id) => requireBridge().request(IPC.CONNECTOR_GET, id))
+  safeHandle(IPC.CONNECTION_LIST, (_, params) =>
+    requireBridge().request(IPC.CONNECTION_LIST, params)
+  )
+  safeHandle(IPC.CONNECTION_CREATE, (_, params) =>
+    requireBridge().request(IPC.CONNECTION_CREATE, params)
+  )
+  safeHandle(IPC.CONNECTION_UPDATE, (_, params) =>
+    requireBridge().request(IPC.CONNECTION_UPDATE, params)
+  )
+  safeHandle(IPC.CONNECTION_DELETE, (_, id) => requireBridge().request(IPC.CONNECTION_DELETE, id))
+  safeHandle(IPC.CONNECTION_UPSERT_FROM_ITEM, (_, params) =>
+    requireBridge().request(IPC.CONNECTION_UPSERT_FROM_ITEM, params)
+  )
+  safeHandle(IPC.WORKFLOW_RUN_MANUAL, (_, params) =>
+    requireBridge().request(IPC.WORKFLOW_RUN_MANUAL, params)
+  )
+  safeHandle(IPC.CONNECTION_BACKFILL, (_, params) =>
+    requireBridge().request(IPC.CONNECTION_BACKFILL, params)
+  )
+  safeHandle(IPC.CREDENTIALS_SET_DECRYPTED, (_, params) =>
+    requireBridge().request(IPC.CREDENTIALS_SET_DECRYPTED, params)
+  )
+  safeHandle(IPC.CREDENTIALS_CLEAR_DECRYPTED, (_, params) =>
+    requireBridge().request(IPC.CREDENTIALS_CLEAR_DECRYPTED, params)
+  )
+  safeHandle(IPC.CONNECTION_EXECUTE_ACTION, (_, params) =>
+    requireBridge().request(IPC.CONNECTION_EXECUTE_ACTION, params)
+  )
+  safeHandle(IPC.CONNECTION_GET_SOURCE_LINK, (_, taskId) =>
+    requireBridge().request(IPC.CONNECTION_GET_SOURCE_LINK, taskId)
+  )
+  safeHandle(IPC.CONNECTOR_DETECT_REPO, (_, projectPath) =>
+    requireBridge().request(IPC.CONNECTOR_DETECT_REPO, projectPath)
+  )
+  safeHandle(IPC.CONNECTOR_SEED_WORKFLOW, (_, params) =>
+    requireBridge().request(IPC.CONNECTOR_SEED_WORKFLOW, params)
+  )
+  safeHandle(IPC.CONNECTOR_STATUS, () => requireBridge().request(IPC.CONNECTOR_STATUS))
+
   // ─── Electron-only handlers (stay local) ───────────────────────
 
   safeHandle(IPC.DIALOG_OPEN_DIRECTORY, async (event) => {

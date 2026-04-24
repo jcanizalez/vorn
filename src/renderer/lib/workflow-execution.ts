@@ -10,6 +10,8 @@ import {
   ConditionConfig,
   ConditionOperator,
   ApprovalConfig,
+  CreateTaskFromItemConfig,
+  CallConnectorActionConfig,
   TaskConfig,
   getProjectRemoteHostId
 } from '../../shared/types'
@@ -284,6 +286,80 @@ async function executeNode(
       })
     } finally {
       removeScriptDataListener()
+    }
+    persistExecution(workflow.id, execution)
+    return
+  }
+
+  if (node.type === 'callConnectorAction') {
+    const cfg = node.config as CallConnectorActionConfig
+    const resolvedArgs: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(cfg.args ?? {})) {
+      resolvedArgs[k] = resolveTemplateVars(v, context, stepOutputs)
+    }
+    try {
+      const result = await window.api.executeConnectorAction({
+        connectionId: cfg.connectionId,
+        action: cfg.action,
+        args: resolvedArgs
+      })
+      updateNodeState(execution, node.id, {
+        status: result.success ? 'success' : 'error',
+        completedAt: new Date().toISOString(),
+        output: result.success ? `${cfg.action} succeeded` : `${cfg.action} failed`,
+        logs: JSON.stringify(result, null, 2),
+        ...(result.error && { error: result.error })
+      })
+    } catch (err) {
+      updateNodeState(execution, node.id, {
+        status: 'error',
+        completedAt: new Date().toISOString(),
+        error: err instanceof Error ? err.message : String(err)
+      })
+    }
+    persistExecution(workflow.id, execution)
+    return
+  }
+
+  if (node.type === 'createTaskFromItem') {
+    const config = node.config as CreateTaskFromItemConfig
+    const item = context?.connectorItem
+    if (!item) {
+      updateNodeState(execution, node.id, {
+        status: 'skipped',
+        completedAt: new Date().toISOString(),
+        error: 'No connector item in context — this node only runs from a connectorPoll trigger.'
+      })
+      persistExecution(workflow.id, execution)
+      return
+    }
+
+    const project =
+      config.project === 'fromConnection' || !config.project ? undefined : config.project
+
+    try {
+      const result = await window.api.upsertTaskFromItem({
+        connectionId: item.connectionId,
+        item,
+        initialStatus: config.initialStatus,
+        ...(project && { project })
+      })
+      const verb = result.created ? 'Imported' : 'Updated'
+      const titleSnippet = item.title.length > 60 ? item.title.slice(0, 57) + '...' : item.title
+      const summary = `${verb} #${item.externalId} "${titleSnippet}"`
+      updateNodeState(execution, node.id, {
+        status: 'success',
+        completedAt: new Date().toISOString(),
+        taskId: result.taskId,
+        output: summary,
+        logs: `${summary}\nSource: ${item.externalUrl ?? '(no url)'}\nTaskId: ${result.taskId}`
+      })
+    } catch (err) {
+      updateNodeState(execution, node.id, {
+        status: 'error',
+        completedAt: new Date().toISOString(),
+        error: err instanceof Error ? err.message : String(err)
+      })
     }
     persistExecution(workflow.id, execution)
     return
@@ -583,6 +659,33 @@ export async function executeWorkflow(
   context?: WorkflowExecutionContext,
   options?: ExecuteWorkflowOptions
 ): Promise<WorkflowExecution> {
+  // connectorPoll workflows cannot be run directly from the renderer — the
+  // scheduler owns the poll + fan-out. Route user-initiated "Run" clicks
+  // through workflow:runManual. Scheduler-originated runs already carry a
+  // connectorItem (per-item fan-out) so they don't need this reroute.
+  const triggerNode = workflow.nodes.find((n) => n.type === 'trigger')
+  const triggerCfg = triggerNode?.config as { triggerType?: string } | undefined
+  if (
+    triggerCfg?.triggerType === 'connectorPoll' &&
+    !context?.connectorItem &&
+    options?.source !== 'scheduler'
+  ) {
+    await window.api.runWorkflowManual(workflow.id)
+    const existing = useAppStore.getState().workflowExecutions.get(workflow.id)
+    if (existing) return existing
+    // Return a minimal synthetic execution so callers don't break. The real
+    // executions will land via onSchedulerExecute as the scheduler fans out.
+    return {
+      workflowId: workflow.id,
+      startedAt: new Date().toISOString(),
+      status: 'running',
+      nodeStates: workflow.nodes.map((n) => ({
+        nodeId: n.id,
+        status: n.type === 'trigger' ? 'success' : 'pending'
+      }))
+    }
+  }
+
   if (runningWorkflows.has(workflow.id)) {
     console.warn(`[workflow] skipping execution of "${workflow.name}" — already running`)
     const existing = useAppStore.getState().workflowExecutions.get(workflow.id)

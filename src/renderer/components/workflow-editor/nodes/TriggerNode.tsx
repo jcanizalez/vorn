@@ -1,5 +1,7 @@
-import { Zap, Clock, Calendar, ListPlus, ArrowRightLeft, type LucideIcon } from 'lucide-react'
-import type { TriggerConfig } from '../../../../shared/types'
+import { Zap, Clock, Calendar, ListPlus, ArrowRightLeft, Plug, type LucideIcon } from 'lucide-react'
+import type { TriggerConfig, ConnectorPollTriggerConfig } from '../../../../shared/types'
+import { useConnectorIdFor } from '../../../lib/use-connections'
+import { ConnectorIcon } from '../../ConnectorIcon'
 
 interface Props {
   label: string
@@ -13,9 +15,20 @@ const TRIGGER_ICONS: Record<string, LucideIcon> = {
   once: Calendar,
   recurring: Clock,
   taskCreated: ListPlus,
-  taskStatusChanged: ArrowRightLeft
+  taskStatusChanged: ArrowRightLeft,
+  connectorPoll: Plug
 }
 const DEFAULT_ICON = Zap
+
+function useConnectorId(config: TriggerConfig): string | null {
+  // For connectorPoll triggers, resolve the connector id via the shared
+  // connections cache — avoids one IPC call per node instance.
+  const connectionId =
+    config.triggerType === 'connectorPoll'
+      ? (config as ConnectorPollTriggerConfig).connectionId
+      : null
+  return useConnectorIdFor(connectionId)
+}
 
 function getSubtitle(config: TriggerConfig): string {
   switch (config.triggerType) {
@@ -35,11 +48,14 @@ function getSubtitle(config: TriggerConfig): string {
       const project = config.projectFilter ? ` · ${config.projectFilter}` : ''
       return transition + project
     }
+    case 'connectorPoll':
+      return `${config.event} · ${config.cron}`
   }
 }
 
 export function TriggerNode({ label, config, selected, onClick }: Props) {
   const Icon = TRIGGER_ICONS[config.triggerType] || DEFAULT_ICON
+  const connectorId = useConnectorId(config)
 
   return (
     <div
@@ -52,7 +68,11 @@ export function TriggerNode({ label, config, selected, onClick }: Props) {
                   bg-[#1d1d20] hover:bg-white/[0.02]`}
     >
       <div className="flex items-center gap-2">
-        <Icon size={14} className="text-blue-400 shrink-0" strokeWidth={2} />
+        {connectorId ? (
+          <ConnectorIcon connectorId={connectorId} size={14} className="text-gray-400 shrink-0" />
+        ) : (
+          <Icon size={14} className="text-blue-400 shrink-0" strokeWidth={2} />
+        )}
         <div className="min-w-0">
           <div className="text-[13px] font-medium text-white truncate">{label}</div>
           <div className="text-[11px] text-gray-500 truncate">{getSubtitle(config)}</div>

@@ -1,11 +1,14 @@
-import { useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import type { WorkflowDefinition } from '../../../shared/types'
+import { parseConnectorWorkflowId } from '../../../shared/types'
 import { ICON_MAP } from './icon-map'
 import { useAppStore } from '../../stores'
 import { isScheduledWorkflow } from '../../lib/workflow-helpers'
 import { executeWorkflow } from '../../lib/workflow-execution'
+import { useConnectorIdFor } from '../../lib/use-connections'
 import { Zap, Play, MoreHorizontal } from 'lucide-react'
 import { Tooltip } from '../Tooltip'
+import { ConnectorIcon } from '../ConnectorIcon'
 
 type DotColor = 'blue' | 'gray' | 'red' | 'amber' | null
 
@@ -42,6 +45,13 @@ export function WorkflowItem({
   const setWorkflowEditorOpen = useAppStore((s) => s.setWorkflowEditorOpen)
   const isSelected = useAppStore((s) => s.editingWorkflowId === workflow.id)
   const moreRef = useRef<HTMLButtonElement>(null)
+
+  // For connector-seeded workflows, resolve the source connector so we can
+  // show its brand icon instead of the generic Plug. The connector id isn't
+  // in the workflow row itself; it comes from the shared connections cache
+  // so we don't fire N IPC calls across many sidebar items.
+  const connectorWf = useMemo(() => parseConnectorWorkflowId(workflow.id), [workflow.id])
+  const connectorId = useConnectorIdFor(connectorWf?.connectionId)
 
   const WfIcon = ICON_MAP[workflow.icon] || Zap
   const isScheduled = isScheduledWorkflow(workflow)
@@ -86,7 +96,11 @@ export function WorkflowItem({
         <span className="absolute left-0 top-1 bottom-1 w-px bg-white rounded-full" />
       )}
       <span className="relative shrink-0">
-        <WfIcon size={iconSize} color={workflow.iconColor || '#6b7280'} strokeWidth={1.5} />
+        {connectorId ? (
+          <ConnectorIcon connectorId={connectorId} size={iconSize} className="text-gray-400" />
+        ) : (
+          <WfIcon size={iconSize} color={workflow.iconColor || '#6b7280'} strokeWidth={1.5} />
+        )}
         {dot && !isCollapsed && (
           <span
             className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-[#1a1a2e] ${DOT_CLASSES[dot]}`}

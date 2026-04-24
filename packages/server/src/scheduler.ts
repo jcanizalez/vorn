@@ -3,8 +3,16 @@ import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { EventEmitter } from 'node:events'
-import { WorkflowDefinition, TriggerConfig, IPC } from '@vornrun/shared/types'
+import {
+  WorkflowDefinition,
+  TriggerConfig,
+  ConnectorPollTriggerConfig,
+  ConnectorItemContext,
+  IPC
+} from '@vornrun/shared/types'
 import { configManager } from './config-manager'
+import { dbGetSourceConnection, dbUpdateSourceConnection } from './database'
+import { connectorRegistry, applyDecryptedCreds } from './connectors'
 import log from './logger'
 
 const LOCK_DIR = path.join(os.homedir(), '.vorn')
@@ -69,7 +77,8 @@ class Scheduler extends EventEmitter {
     for (const [id] of this.cronJobs) {
       const wf = workflows.find((w) => w.id === id)
       const trigger = wf ? getTriggerConfig(wf) : null
-      if (!wf || !wf.enabled || trigger?.triggerType !== 'recurring') {
+      const kind = trigger?.triggerType
+      if (!wf || !wf.enabled || (kind !== 'recurring' && kind !== 'connectorPoll')) {
         this.cronJobs.get(id)?.stop()
         this.cronJobs.delete(id)
       }
@@ -96,9 +105,12 @@ class Scheduler extends EventEmitter {
       }
       log.info(`[scheduler] workflow "${wf.name}" trigger=${trigger.triggerType}`)
 
-      if (trigger.triggerType === 'recurring' && !this.cronJobs.has(wf.id)) {
+      if (
+        (trigger.triggerType === 'recurring' || trigger.triggerType === 'connectorPoll') &&
+        !this.cronJobs.has(wf.id)
+      ) {
         log.info(
-          `[scheduler] registering recurring workflow "${wf.name}" cron="${trigger.cron}" enabled=${wf.enabled}`
+          `[scheduler] registering ${trigger.triggerType} workflow "${wf.name}" cron="${trigger.cron}" enabled=${wf.enabled}`
         )
         if (!cron.validate(trigger.cron)) {
           log.error(
@@ -149,9 +161,105 @@ class Scheduler extends EventEmitter {
       this.timeouts.delete(workflowId)
       return
     }
+
+    // Look up the workflow to decide whether this is a connector-poll fan-out
+    // or a normal single-execution fire.
+    const workflows = configManager.loadConfig().workflows ?? []
+    const wf = workflows.find((w) => w.id === workflowId)
+    if (!wf) {
+      this.timeouts.delete(workflowId)
+      return
+    }
+    const trigger = getTriggerConfig(wf)
+
+    if (trigger?.triggerType === 'connectorPoll') {
+      // Fire-and-forget — the dispatcher emits N SCHEDULER_EXECUTE events, one
+      // per new item. Cursor advance and error recording happen inside.
+      this.dispatchConnectorPoll(workflowId, trigger).catch((err) => {
+        log.error(`[scheduler] connectorPoll dispatch failed for ${workflowId}:`, err)
+      })
+      this.timeouts.delete(workflowId)
+      return
+    }
+
     log.info(`[scheduler] executing workflow ${workflowId}`)
     this.emit('client-message', IPC.SCHEDULER_EXECUTE, { workflowId })
     this.timeouts.delete(workflowId)
+  }
+
+  /**
+   * Poll a connector and fan out one workflow execution per new item.
+   *
+   * - Cursor lives on the connection row; advanced after a successful poll.
+   * - Per-item workflow failures do NOT stall the pipe — the cursor has
+   *   already advanced past them; the failure shows up in run history and in
+   *   the connection's lastSyncError field.
+   * - Connector-level failures (poll() throws) record lastSyncError, emit one
+   *   failed execution so run history surfaces it, and do not advance cursor.
+   */
+  private async dispatchConnectorPoll(
+    workflowId: string,
+    trigger: ConnectorPollTriggerConfig
+  ): Promise<void> {
+    const conn = dbGetSourceConnection(trigger.connectionId)
+    if (!conn) {
+      log.warn(`[scheduler] connectorPoll: connection ${trigger.connectionId} not found — skipping`)
+      return
+    }
+    const connector = connectorRegistry.get(conn.connectorId)
+    if (!connector?.poll) {
+      log.warn(`[scheduler] connectorPoll: connector ${conn.connectorId} has no poll() — skipping`)
+      return
+    }
+
+    const cursor = conn.syncCursor
+    const now = new Date().toISOString()
+    let result
+    try {
+      result = await connector.poll(trigger.event, applyDecryptedCreds(conn), cursor)
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      log.error(
+        `[scheduler] connectorPoll: ${conn.connectorId}.poll(${trigger.event}) failed: ${errorMsg}`
+      )
+      dbUpdateSourceConnection(conn.id, { lastSyncAt: now, lastSyncError: errorMsg })
+      // Do not emit SCHEDULER_EXECUTE here. An event without a connectorItem
+      // would bounce back through the renderer's connectorPoll guard (which
+      // reroutes context-less runs via workflow:runManual), creating churn.
+      // The failure is already visible via the connection's lastSyncError.
+      return
+    }
+
+    // Advance cursor + clear last error atomically.
+    dbUpdateSourceConnection(conn.id, {
+      lastSyncAt: now,
+      lastSyncError: undefined,
+      syncCursor: result.nextCursor ?? cursor
+    })
+
+    if (result.events.length === 0) {
+      log.info(`[scheduler] connectorPoll: no new items for ${conn.connectorId}:${trigger.event}`)
+      return
+    }
+
+    log.info(
+      `[scheduler] connectorPoll: fanning out ${result.events.length} item(s) for ${conn.connectorId}:${trigger.event}`
+    )
+    for (const event of result.events) {
+      // Event data from the connector is the upstream item payload. The
+      // GitHub connector puts an ExternalItem-shaped object into `data`.
+      const data = event.data as Record<string, unknown>
+      const connectorItem: ConnectorItemContext = {
+        connectionId: conn.id,
+        connectorId: conn.connectorId,
+        externalId: String(data.externalId ?? event.id),
+        externalUrl: typeof data.url === 'string' ? data.url : undefined,
+        title: typeof data.title === 'string' ? data.title : String(data.title ?? ''),
+        body: typeof data.description === 'string' ? data.description : undefined,
+        raw: data
+      }
+      this.emit('client-message', IPC.SCHEDULER_EXECUTE, { workflowId, connectorItem })
+    }
   }
 
   checkMissedSchedules(workflows: WorkflowDefinition[]): MissedSchedule[] {
@@ -180,11 +288,21 @@ class Scheduler extends EventEmitter {
       return runAt > Date.now() ? trigger.runAt : null
     }
 
-    if (trigger.triggerType === 'recurring') {
+    if (trigger.triggerType === 'recurring' || trigger.triggerType === 'connectorPoll') {
       return trigger.cron
     }
 
     return null
+  }
+
+  /**
+   * Trigger a workflow manually, bypassing the cron tick. Used by "Run now"
+   * in settings for connector-seeded workflows: the same dispatch path as
+   * cron, so no hidden logic — just a forced tick. The minute-key lock still
+   * applies so repeated clicks within the same minute fold into one run.
+   */
+  triggerWorkflow(workflowId: string): void {
+    this.executeWorkflow(workflowId)
   }
 
   stopAll(): void {

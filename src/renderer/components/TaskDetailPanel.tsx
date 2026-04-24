@@ -43,6 +43,7 @@ import {
   Workflow,
   Activity
 } from 'lucide-react'
+import { ConnectorIcon } from './ConnectorIcon'
 import { RunEntry } from './workflow-editor/RunEntry'
 import { LogReplayModal } from './LogReplayModal'
 import { SessionActivityLog } from './SessionActivityLog'
@@ -732,6 +733,30 @@ export function TaskDetailPanel() {
                        focus:bg-white/[0.02] rounded px-1 -mx-1 py-0.5 transition-colors"
           />
         </div>
+
+        {/* Source reference — real href so middle-click, copy-link, and
+             screen readers announce the destination. Electron opens it in
+             the system browser via openExternal. */}
+        {task?.sourceConnectorId && task.sourceExternalUrl && (
+          <div className="px-4 pb-2">
+            <a
+              href={task.sourceExternalUrl}
+              onClick={(e) => {
+                e.preventDefault()
+                window.api.openExternal(task.sourceExternalUrl!)
+              }}
+              className="inline-flex items-center gap-1.5 px-2 py-1 bg-white/[0.04] border border-white/[0.08] rounded-md text-xs text-gray-400 hover:text-white hover:bg-white/[0.08] transition-colors"
+            >
+              <ConnectorIcon
+                connectorId={task.sourceConnectorId}
+                size={13}
+                className="text-gray-400"
+              />
+              {task.sourceExternalId ? `#${task.sourceExternalId}` : task.sourceConnectorId}
+              <span className="text-gray-600">↗</span>
+            </a>
+          </div>
+        )}
 
         {/* Description */}
         <div className="px-4 pb-3">

@@ -18,7 +18,12 @@ import type {
   SSHKeyMeta,
   SessionLog,
   SessionEvent,
-  SessionEventType
+  SessionEventType,
+  SourceConnection,
+  TaskSourceLink,
+  ConnectorManifest,
+  ConnectorItemContext,
+  TaskStatus
 } from './types'
 
 // ─── JSON-RPC 2.0 Envelope Types ────────────────────────────────
@@ -189,6 +194,113 @@ export interface RequestMethods {
     params: { filePath: string; maxBytes?: number; remoteHostId?: string }
     result: string | null
   }
+
+  // Connectors
+  'connector:list': {
+    params: void
+    result: Array<{
+      id: string
+      name: string
+      icon: string
+      capabilities: string[]
+      manifest: ConnectorManifest
+    }>
+  }
+  'connector:get': {
+    params: string
+    result: {
+      id: string
+      name: string
+      icon: string
+      capabilities: string[]
+      manifest: ConnectorManifest
+    } | null
+  }
+  'connection:list': {
+    params: { connectorId?: string }
+    result: SourceConnection[]
+  }
+  'connection:create': {
+    params: Omit<
+      SourceConnection,
+      'id' | 'createdAt' | 'lastSyncAt' | 'lastSyncError' | 'syncCursor'
+    >
+    result: SourceConnection
+  }
+  'connection:update': {
+    params: { id: string; updates: Partial<SourceConnection> }
+    result: SourceConnection | null
+  }
+  'connection:delete': {
+    params: string
+    result: void
+  }
+  /** Trigger a workflow manually via the scheduler — same dispatch path as
+   *  cron, so connectorPoll triggers do their full poll+fan-out. */
+  'workflow:runManual': {
+    params: { workflowId: string }
+    result: void
+  }
+  /** Main→server push of decrypted credential fields. Called after main
+   *  decrypts values (via Electron safeStorage) on boot and on config
+   *  changes. Plaintext lives in server memory only — never persisted. */
+  'credentials:setDecrypted': {
+    params: { connectionId: string; fields: Record<string, string> }
+    result: void
+  }
+  /** Clear the in-memory plaintext for a connection (on delete / sign-out). */
+  'credentials:clearDecrypted': {
+    params: { connectionId: string }
+    result: void
+  }
+  /** Invoke a connector's action (createIssue, commentOnIssue, ...) via the
+   *  connection's auth. Used by callConnectorAction workflow nodes. */
+  'connection:executeAction': {
+    params: {
+      connectionId: string
+      action: string
+      args: Record<string, unknown>
+    }
+    result: { success: boolean; output?: Record<string, unknown>; error?: string }
+  }
+  /** One-shot backfill of existing items for a connection — bypasses the
+   *  "since" cursor that poll() uses, calling listItems() directly. Respects
+   *  the connection's filters. Used by the "Import existing" button. */
+  'connection:backfill': {
+    params: { connectionId: string }
+    result: { imported: number; updated: number; error?: string }
+  }
+  /** Upsert a single external item into the task board. Called by the
+   *  `createTaskFromItem` workflow node for each fan-out from a connector poll. */
+  'connection:upsertFromItem': {
+    params: {
+      connectionId: string
+      item: ConnectorItemContext
+      /** Initial status for a NEW task; never overwrites local status on re-sync. */
+      initialStatus: TaskStatus
+      /** Project name override; `undefined` defers to the connection's executionProject. */
+      project?: string
+    }
+    result: { taskId: string; created: boolean }
+  }
+  'connection:getSourceLink': {
+    params: string
+    result: TaskSourceLink | null
+  }
+  'connector:detectRepo': {
+    params: string
+    result: { owner: string; repo: string } | null
+  }
+  /** Seed (or re-seed) the default workflow for a (connection × event). Idempotent. */
+  'connector:seedWorkflow': {
+    params: { connectionId: string; event: string }
+    result: { workflowId: string; created: boolean }
+  }
+  /** Report connector auth/health status — e.g. whether `gh` is signed in. */
+  'connector:status': {
+    params: void
+    result: Array<{ connectorId: string; authed: boolean; message?: string }>
+  }
 }
 
 // ─── Server Notifications (server → client, push events) ────────
@@ -214,6 +326,11 @@ export interface ServerNotifications {
   'scheduler:execute': {
     workflowId: string
     workflow: WorkflowDefinition
+    /** Populated when the scheduler fan-outs a connector-poll result. One
+     *  scheduler:execute is emitted per new item, each carrying its own item
+     *  context. Consumed by createTaskFromItem nodes (and any downstream
+     *  nodes that reference context.connectorItem). */
+    connectorItem?: ConnectorItemContext
   }
   'scheduler:missed': Array<{
     workflowId: string

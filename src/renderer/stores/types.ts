@@ -29,6 +29,12 @@ export const MAIN_WORKTREE_SENTINEL = '__main__'
 export type SortMode = 'manual' | 'created' | 'recent'
 export type StatusFilter = AgentStatus | 'all'
 export type TaskStatusFilter = 'all' | 'todo' | 'in_progress' | 'in_review' | 'done' | 'cancelled'
+
+/** Filter tasks by source: 'all' shows everything, 'local' shows only local tasks,
+ *  or a connector ID (e.g. 'github') shows only tasks from that connector.
+ *  The `string & {}` branch preserves the literals for autocomplete while still
+ *  accepting arbitrary connector ids. */
+export type TaskSourceFilter = 'all' | 'local' | (string & {})
 export type ProjectSortMode = 'manual' | 'name' | 'recent'
 export type WorkflowFilter = 'all' | 'manual' | 'scheduled'
 export type WorktreeSortMode = 'name' | 'recent'
@@ -104,6 +110,7 @@ export type SettingsCategory =
   | 'agents'
   | 'ssh'
   | 'mcp'
+  | 'connectors'
   | 'network'
   | 'about'
 
@@ -143,6 +150,7 @@ export interface UISlice {
   mainViewMode: 'sessions' | 'tasks' | 'workflows'
   selectedTaskId: string | null
   taskStatusFilter: TaskStatusFilter
+  taskSourceFilter: TaskSourceFilter
   isTaskDialogOpen: boolean
   taskDialogDefaultStatus: TaskStatus
   editingTask: TaskConfig | null
@@ -183,6 +191,7 @@ export interface UISlice {
   setMainViewMode: (mode: 'sessions' | 'tasks' | 'workflows') => void
   setSelectedTaskId: (id: string | null) => void
   setTaskStatusFilter: (filter: TaskStatusFilter) => void
+  setTaskSourceFilter: (filter: TaskSourceFilter) => void
   setTaskDialogOpen: (open: boolean, defaultStatus?: TaskStatus) => void
   setEditingTask: (task: TaskConfig | null) => void
   setActiveTabId: (id: string | null) => void

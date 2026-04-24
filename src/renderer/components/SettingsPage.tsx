@@ -9,6 +9,7 @@ import { NotificationSettings } from './settings/NotificationSettings'
 import { AgentSettings } from './settings/AgentSettings'
 import { SSHSettings } from './settings/SSHSettings'
 import { McpSettings } from './settings/McpSettings'
+import { ConnectorSettings } from './settings/ConnectorSettings'
 import { NetworkSettings } from './settings/NetworkSettings'
 import { AboutSettings } from './settings/AboutSettings'
 
@@ -127,6 +128,24 @@ const SIDEBAR_SECTIONS: SidebarSection[] = [
           >
             <path d="M12 2v4m0 12v4M2 12h4m12 0h4" />
             <circle cx="12" cy="12" r="4" />
+          </svg>
+        )
+      },
+      {
+        key: 'connectors',
+        label: 'Connectors',
+        icon: (
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          >
+            <path d="M9 17H7A5 5 0 017 7h2" />
+            <path d="M15 7h2a5 5 0 010 10h-2" />
+            <line x1="8" y1="12" x2="16" y2="12" />
           </svg>
         )
       },
@@ -260,6 +279,7 @@ export function SettingsPage() {
           {settingsCategory === 'agents' && <AgentSettings />}
           {settingsCategory === 'ssh' && <SSHSettings />}
           {settingsCategory === 'mcp' && <McpSettings />}
+          {settingsCategory === 'connectors' && <ConnectorSettings />}
           {settingsCategory === 'network' && <NetworkSettings />}
           {settingsCategory === 'about' && <AboutSettings />}
         </div>

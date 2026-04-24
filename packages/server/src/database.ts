@@ -23,7 +23,9 @@ import {
   DEFAULT_WORKSPACE,
   SessionLog,
   SessionEvent,
-  SessionEventType
+  SessionEventType,
+  SourceConnection,
+  TaskSourceLink
 } from '@vornrun/shared/types'
 import { DEFAULT_AGENT_COMMANDS } from '@vornrun/shared/agent-defaults'
 import { DEFAULT_TASK_WORKFLOW_ID, buildDefaultTaskWorkflow } from './default-workflows'
@@ -586,6 +588,59 @@ function migrateSchema(d: Database.Database): void {
     })()
     log.info('[database] migrated schema to version 8 (approval gate timestamp)')
   }
+
+  if (version < 9) {
+    d.transaction(() => {
+      d.exec(`
+        CREATE TABLE IF NOT EXISTS source_connections (
+          id TEXT PRIMARY KEY,
+          connector_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          filters TEXT NOT NULL DEFAULT '{}',
+          sync_interval_minutes INTEGER NOT NULL DEFAULT 5,
+          status_mapping TEXT NOT NULL DEFAULT '{}',
+          execution_project TEXT,
+          last_sync_at TEXT,
+          last_sync_error TEXT,
+          sync_cursor TEXT,
+          created_at TEXT NOT NULL
+        )
+      `)
+
+      d.exec(`
+        CREATE TABLE IF NOT EXISTS task_source_links (
+          task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+          connection_id TEXT NOT NULL REFERENCES source_connections(id) ON DELETE CASCADE,
+          connector_id TEXT NOT NULL,
+          external_id TEXT NOT NULL,
+          external_url TEXT NOT NULL,
+          source_status_raw TEXT NOT NULL,
+          source_updated_at TEXT NOT NULL,
+          last_synced_at TEXT NOT NULL,
+          conflict_state TEXT NOT NULL DEFAULT 'none',
+          PRIMARY KEY (task_id),
+          UNIQUE (connection_id, external_id)
+        )
+      `)
+
+      // Add source columns to tasks table
+      const taskCols = d.prepare('PRAGMA table_info(tasks)').all() as Array<{ name: string }>
+      if (!taskCols.some((c) => c.name === 'source_connector_id')) {
+        d.exec('ALTER TABLE tasks ADD COLUMN source_connector_id TEXT')
+      }
+      if (!taskCols.some((c) => c.name === 'source_external_url')) {
+        d.exec('ALTER TABLE tasks ADD COLUMN source_external_url TEXT')
+      }
+      if (!taskCols.some((c) => c.name === 'source_external_id')) {
+        d.exec('ALTER TABLE tasks ADD COLUMN source_external_id TEXT')
+      }
+
+      d.prepare(
+        "INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('schema_version', '9')"
+      ).run()
+    })()
+    log.info('[database] migrated schema to version 9 (connector source connections)')
+  }
 }
 
 /**
@@ -642,6 +697,20 @@ function verifySchema(d: Database.Database): void {
         ddl: 'ALTER TABLE workflow_run_nodes ADD COLUMN project_path TEXT'
       },
       { column: 'approved_at', ddl: 'ALTER TABLE workflow_run_nodes ADD COLUMN approved_at TEXT' }
+    ],
+    tasks: [
+      {
+        column: 'source_connector_id',
+        ddl: 'ALTER TABLE tasks ADD COLUMN source_connector_id TEXT'
+      },
+      {
+        column: 'source_external_url',
+        ddl: 'ALTER TABLE tasks ADD COLUMN source_external_url TEXT'
+      },
+      {
+        column: 'source_external_id',
+        ddl: 'ALTER TABLE tasks ADD COLUMN source_external_id TEXT'
+      }
     ]
   }
 
@@ -962,8 +1031,8 @@ export function saveConfig(config: AppConfig): void {
     // Tasks
     d.prepare('DELETE FROM tasks').run()
     const insertTask = d.prepare(
-      `INSERT INTO tasks (id, project_name, title, description, status, "order", assigned_session_id, assigned_agent, agent_session_id, branch, use_worktree, created_at, updated_at, completed_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO tasks (id, project_name, title, description, status, "order", assigned_session_id, assigned_agent, agent_session_id, branch, use_worktree, created_at, updated_at, completed_at, source_connector_id, source_external_url, source_external_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     for (const t of config.tasks ?? []) {
       insertTask.run(
@@ -980,7 +1049,10 @@ export function saveConfig(config: AppConfig): void {
         t.useWorktree ? 1 : 0,
         t.createdAt,
         t.updatedAt,
-        t.completedAt ?? null
+        t.completedAt ?? null,
+        t.sourceConnectorId ?? null,
+        t.sourceExternalUrl ?? null,
+        t.sourceExternalId ?? null
       )
     }
 
@@ -1060,8 +1132,8 @@ export function dbGetTask(id: string): TaskConfig | null {
 export function dbInsertTask(task: TaskConfig): void {
   getDb()
     .prepare(
-      `INSERT INTO tasks (id, project_name, title, description, status, "order", assigned_session_id, assigned_agent, agent_session_id, branch, use_worktree, created_at, updated_at, completed_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO tasks (id, project_name, title, description, status, "order", assigned_session_id, assigned_agent, agent_session_id, branch, use_worktree, created_at, updated_at, completed_at, source_connector_id, source_external_url, source_external_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       task.id,
@@ -1077,7 +1149,10 @@ export function dbInsertTask(task: TaskConfig): void {
       task.useWorktree ? 1 : 0,
       task.createdAt,
       task.updatedAt,
-      task.completedAt ?? null
+      task.completedAt ?? null,
+      task.sourceConnectorId ?? null,
+      task.sourceExternalUrl ?? null,
+      task.sourceExternalId ?? null
     )
 }
 
@@ -1128,6 +1203,18 @@ export function dbUpdateTask(id: string, updates: Partial<TaskConfig>): void {
     sets.push('completed_at = ?')
     params.push(updates.completedAt ?? null)
   }
+  if (updates.sourceConnectorId !== undefined) {
+    sets.push('source_connector_id = ?')
+    params.push(updates.sourceConnectorId)
+  }
+  if (updates.sourceExternalUrl !== undefined) {
+    sets.push('source_external_url = ?')
+    params.push(updates.sourceExternalUrl)
+  }
+  if (updates.sourceExternalId !== undefined) {
+    sets.push('source_external_id = ?')
+    params.push(updates.sourceExternalId)
+  }
   if (sets.length === 0) return
   params.push(id)
   getDb()
@@ -1147,8 +1234,254 @@ export function dbGetMaxTaskOrder(projectName: string): number {
 }
 
 // ---------------------------------------------------------------------------
-// Targeted CRUD: Projects
+// Targeted CRUD: Source Connections
 // ---------------------------------------------------------------------------
+
+interface SourceConnectionRow {
+  id: string
+  connector_id: string
+  name: string
+  filters: string
+  sync_interval_minutes: number
+  status_mapping: string
+  execution_project: string | null
+  last_sync_at: string | null
+  last_sync_error: string | null
+  sync_cursor: string | null
+  created_at: string
+}
+
+function rowToSourceConnection(r: SourceConnectionRow): SourceConnection {
+  return {
+    id: r.id,
+    connectorId: r.connector_id,
+    name: r.name,
+    filters: JSON.parse(r.filters),
+    syncIntervalMinutes: r.sync_interval_minutes,
+    statusMapping: JSON.parse(r.status_mapping),
+    ...(r.execution_project != null && { executionProject: r.execution_project }),
+    ...(r.last_sync_at != null && { lastSyncAt: r.last_sync_at }),
+    ...(r.last_sync_error != null && { lastSyncError: r.last_sync_error }),
+    ...(r.sync_cursor != null && { syncCursor: r.sync_cursor }),
+    createdAt: r.created_at
+  }
+}
+
+export function dbListSourceConnections(connectorId?: string): SourceConnection[] {
+  const d = getDb()
+  if (connectorId) {
+    const rows = d
+      .prepare('SELECT * FROM source_connections WHERE connector_id = ?')
+      .all(connectorId) as SourceConnectionRow[]
+    return rows.map(rowToSourceConnection)
+  }
+  const rows = d.prepare('SELECT * FROM source_connections').all() as SourceConnectionRow[]
+  return rows.map(rowToSourceConnection)
+}
+
+export function dbGetSourceConnection(id: string): SourceConnection | null {
+  const row = getDb().prepare('SELECT * FROM source_connections WHERE id = ?').get(id) as
+    | SourceConnectionRow
+    | undefined
+  return row ? rowToSourceConnection(row) : null
+}
+
+export function dbInsertSourceConnection(conn: SourceConnection): void {
+  getDb()
+    .prepare(
+      `INSERT INTO source_connections (id, connector_id, name, filters, sync_interval_minutes, status_mapping, execution_project, last_sync_at, last_sync_error, sync_cursor, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(
+      conn.id,
+      conn.connectorId,
+      conn.name,
+      JSON.stringify(conn.filters),
+      conn.syncIntervalMinutes,
+      JSON.stringify(conn.statusMapping),
+      conn.executionProject ?? null,
+      conn.lastSyncAt ?? null,
+      conn.lastSyncError ?? null,
+      conn.syncCursor ?? null,
+      conn.createdAt
+    )
+}
+
+export function dbUpdateSourceConnection(id: string, updates: Partial<SourceConnection>): void {
+  const sets: string[] = []
+  const params: unknown[] = []
+  if (updates.name !== undefined) {
+    sets.push('name = ?')
+    params.push(updates.name)
+  }
+  if (updates.filters !== undefined) {
+    sets.push('filters = ?')
+    params.push(JSON.stringify(updates.filters))
+  }
+  if (updates.syncIntervalMinutes !== undefined) {
+    sets.push('sync_interval_minutes = ?')
+    params.push(updates.syncIntervalMinutes)
+  }
+  if (updates.statusMapping !== undefined) {
+    sets.push('status_mapping = ?')
+    params.push(JSON.stringify(updates.statusMapping))
+  }
+  if (updates.executionProject !== undefined) {
+    sets.push('execution_project = ?')
+    params.push(updates.executionProject)
+  }
+  if ('lastSyncAt' in updates) {
+    sets.push('last_sync_at = ?')
+    params.push(updates.lastSyncAt ?? null)
+  }
+  if ('lastSyncError' in updates) {
+    sets.push('last_sync_error = ?')
+    params.push(updates.lastSyncError ?? null)
+  }
+  if ('syncCursor' in updates) {
+    sets.push('sync_cursor = ?')
+    params.push(updates.syncCursor ?? null)
+  }
+  if (sets.length === 0) return
+  params.push(id)
+  getDb()
+    .prepare(`UPDATE source_connections SET ${sets.join(', ')} WHERE id = ?`)
+    .run(...params)
+}
+
+export function dbDeleteSourceConnection(id: string): void {
+  getDb().prepare('DELETE FROM source_connections WHERE id = ?').run(id)
+}
+
+// ---------------------------------------------------------------------------
+// Targeted CRUD: Task Source Links
+// ---------------------------------------------------------------------------
+
+interface TaskSourceLinkRow {
+  task_id: string
+  connection_id: string
+  connector_id: string
+  external_id: string
+  external_url: string
+  source_status_raw: string
+  source_updated_at: string
+  last_synced_at: string
+  conflict_state: string
+}
+
+function rowToTaskSourceLink(r: TaskSourceLinkRow): TaskSourceLink {
+  return {
+    taskId: r.task_id,
+    connectionId: r.connection_id,
+    connectorId: r.connector_id,
+    externalId: r.external_id,
+    externalUrl: r.external_url,
+    sourceStatusRaw: r.source_status_raw,
+    sourceUpdatedAt: r.source_updated_at,
+    lastSyncedAt: r.last_synced_at,
+    conflictState: r.conflict_state as TaskSourceLink['conflictState']
+  }
+}
+
+export function dbGetTaskSourceLink(taskId: string): TaskSourceLink | null {
+  const row = getDb().prepare('SELECT * FROM task_source_links WHERE task_id = ?').get(taskId) as
+    | TaskSourceLinkRow
+    | undefined
+  return row ? rowToTaskSourceLink(row) : null
+}
+
+export function dbGetTaskSourceLinkByExternalId(
+  connectionId: string,
+  externalId: string
+): TaskSourceLink | null {
+  const row = getDb()
+    .prepare('SELECT * FROM task_source_links WHERE connection_id = ? AND external_id = ?')
+    .get(connectionId, externalId) as TaskSourceLinkRow | undefined
+  return row ? rowToTaskSourceLink(row) : null
+}
+
+/**
+ * Fallback lookup for orphan re-linking: find a task whose own
+ * sourceConnectorId/sourceExternalId matches, even if its task_source_links
+ * row is missing (e.g. because a prior connection was deleted and cascaded
+ * the link). Used by the import path to re-adopt existing tasks instead of
+ * creating duplicates.
+ */
+export function dbFindTaskByConnectorExternalId(
+  connectorId: string,
+  externalId: string
+): TaskConfig | null {
+  const row = getDb()
+    .prepare('SELECT * FROM tasks WHERE source_connector_id = ? AND source_external_id = ? LIMIT 1')
+    .get(connectorId, externalId) as
+    | {
+        id: string
+        project_name: string
+        title: string
+        description: string
+        status: string
+        [k: string]: unknown
+      }
+    | undefined
+  if (!row) return null
+  return dbGetTask(row.id)
+}
+
+export function dbListTaskSourceLinks(connectionId: string): TaskSourceLink[] {
+  const rows = getDb()
+    .prepare('SELECT * FROM task_source_links WHERE connection_id = ?')
+    .all(connectionId) as TaskSourceLinkRow[]
+  return rows.map(rowToTaskSourceLink)
+}
+
+export function dbInsertTaskSourceLink(link: TaskSourceLink): void {
+  getDb()
+    .prepare(
+      `INSERT INTO task_source_links (task_id, connection_id, connector_id, external_id, external_url, source_status_raw, source_updated_at, last_synced_at, conflict_state)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(
+      link.taskId,
+      link.connectionId,
+      link.connectorId,
+      link.externalId,
+      link.externalUrl,
+      link.sourceStatusRaw,
+      link.sourceUpdatedAt,
+      link.lastSyncedAt,
+      link.conflictState
+    )
+}
+
+export function dbUpdateTaskSourceLink(taskId: string, updates: Partial<TaskSourceLink>): void {
+  const sets: string[] = []
+  const params: unknown[] = []
+  if (updates.sourceStatusRaw !== undefined) {
+    sets.push('source_status_raw = ?')
+    params.push(updates.sourceStatusRaw)
+  }
+  if (updates.sourceUpdatedAt !== undefined) {
+    sets.push('source_updated_at = ?')
+    params.push(updates.sourceUpdatedAt)
+  }
+  if (updates.lastSyncedAt !== undefined) {
+    sets.push('last_synced_at = ?')
+    params.push(updates.lastSyncedAt)
+  }
+  if (updates.conflictState !== undefined) {
+    sets.push('conflict_state = ?')
+    params.push(updates.conflictState)
+  }
+  if (sets.length === 0) return
+  params.push(taskId)
+  getDb()
+    .prepare(`UPDATE task_source_links SET ${sets.join(', ')} WHERE task_id = ?`)
+    .run(...params)
+}
+
+export function dbDeleteTaskSourceLink(taskId: string): void {
+  getDb().prepare('DELETE FROM task_source_links WHERE task_id = ?').run(taskId)
+}
 
 export function dbListProjects(): ProjectConfig[] {
   const rows = getDb().prepare('SELECT * FROM projects').all() as Array<{
@@ -1255,6 +1588,25 @@ export function dbListWorkflows(): WorkflowDefinition[] {
     workspace_id: string | null
   }>
   return rows.map(rowToWorkflow)
+}
+
+export function dbGetWorkflow(id: string): WorkflowDefinition | null {
+  const row = getDb().prepare('SELECT * FROM workflows WHERE id = ?').get(id) as
+    | {
+        id: string
+        name: string
+        icon: string
+        icon_color: string
+        nodes: string
+        edges: string
+        enabled: number
+        last_run_at: string | null
+        last_run_status: string | null
+        stagger_delay_ms: number | null
+        workspace_id: string | null
+      }
+    | undefined
+  return row ? rowToWorkflow(row) : null
 }
 
 export function dbInsertWorkflow(workflow: WorkflowDefinition): void {
@@ -1473,6 +1825,9 @@ function rowToTask(r: {
   created_at: string
   updated_at: string
   completed_at: string | null
+  source_connector_id?: string | null
+  source_external_url?: string | null
+  source_external_id?: string | null
 }): TaskConfig {
   return {
     id: r.id,
@@ -1488,7 +1843,12 @@ function rowToTask(r: {
     ...(r.use_worktree != null && r.use_worktree !== 0 && { useWorktree: true }),
     createdAt: r.created_at,
     updatedAt: r.updated_at,
-    ...(r.completed_at != null && { completedAt: r.completed_at })
+    ...(r.completed_at != null && { completedAt: r.completed_at }),
+    ...(r.source_connector_id != null && { sourceConnectorId: r.source_connector_id }),
+    ...(r.source_external_url != null && { sourceExternalUrl: r.source_external_url }),
+    ...(r.source_external_id != null && {
+      sourceExternalId: r.source_external_id
+    })
   }
 }
 
