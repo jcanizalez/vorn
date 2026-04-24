@@ -394,6 +394,10 @@ function AddConnectionForm({
   const [detecting, setDetecting] = useState(false)
   const [auth, setAuth] = useState<Record<string, string>>({})
   const [filters, setFilters] = useState<Record<string, string>>({})
+  const [manualRepo, setManualRepo] = useState<{ owner: string; repo: string }>({
+    owner: '',
+    repo: ''
+  })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -415,7 +419,8 @@ function AddConnectionForm({
   }
 
   const missingAuth = (manifest.auth ?? []).some((f) => f.required && !auth[f.key]?.trim())
-  const canSave = usesRepoDetect ? !!detectedRepo : !missingAuth
+  const manualRepoValid = manualRepo.owner.trim().length > 0 && manualRepo.repo.trim().length > 0
+  const canSave = usesRepoDetect ? !!detectedRepo || manualRepoValid : !missingAuth
 
   const handleSave = async () => {
     setError(null)
@@ -444,10 +449,12 @@ function AddConnectionForm({
 
       const connectionFilters: Record<string, unknown> = { ...encryptedAuth, ...filters }
       let name: string
-      if (usesRepoDetect && detectedRepo) {
-        connectionFilters.owner = detectedRepo.owner
-        connectionFilters.repo = detectedRepo.repo
-        name = `${detectedRepo.owner}/${detectedRepo.repo}`
+      if (usesRepoDetect) {
+        const owner = detectedRepo?.owner ?? manualRepo.owner.trim()
+        const repo = detectedRepo?.repo ?? manualRepo.repo.trim()
+        connectionFilters.owner = owner
+        connectionFilters.repo = repo
+        name = `${owner}/${repo}`
       } else {
         name =
           (filters.teamKey && `${connector.name}: ${filters.teamKey}`) ||
@@ -493,19 +500,48 @@ function AddConnectionForm({
         </div>
 
         {usesRepoDetect && (
-          <div className="text-xs">
-            {detecting && <span className="text-gray-500">Detecting repository...</span>}
-            {detectedRepo && (
-              <span className="text-green-400 flex items-center gap-1">
-                <Check size={12} /> Detected: {detectedRepo.owner}/{detectedRepo.repo}
-              </span>
+          <>
+            <div className="text-xs">
+              {detecting && <span className="text-gray-500">Detecting repository...</span>}
+              {detectedRepo && (
+                <span className="text-green-400 flex items-center gap-1">
+                  <Check size={12} /> Detected: {detectedRepo.owner}/{detectedRepo.repo}
+                </span>
+              )}
+              {!detecting && !detectedRepo && selectedProject && (
+                <span className="text-amber-400">
+                  No GitHub repo detected. Enter the repo manually below.
+                </span>
+              )}
+            </div>
+
+            {/* Manual fallback — only visible when auto-detect failed. Covers
+                GH Enterprise, non-standard remotes, and detached repos. */}
+            {!detecting && !detectedRepo && (
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Owner</label>
+                  <input
+                    type="text"
+                    value={manualRepo.owner}
+                    onChange={(e) => setManualRepo((prev) => ({ ...prev, owner: e.target.value }))}
+                    placeholder="e.g. octocat"
+                    className="w-full px-3 py-1.5 bg-white/[0.05] border border-white/[0.1] rounded-sm text-sm text-gray-200 focus:border-white/[0.2] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Repository</label>
+                  <input
+                    type="text"
+                    value={manualRepo.repo}
+                    onChange={(e) => setManualRepo((prev) => ({ ...prev, repo: e.target.value }))}
+                    placeholder="e.g. hello-world"
+                    className="w-full px-3 py-1.5 bg-white/[0.05] border border-white/[0.1] rounded-sm text-sm text-gray-200 focus:border-white/[0.2] outline-none"
+                  />
+                </div>
+              </div>
             )}
-            {!detecting && !detectedRepo && selectedProject && (
-              <span className="text-amber-400">
-                No GitHub repo detected. Is this a git repo with a GitHub remote?
-              </span>
-            )}
-          </div>
+          </>
         )}
 
         {(manifest.auth ?? []).map((field) => (
