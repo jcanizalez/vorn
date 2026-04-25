@@ -9,21 +9,21 @@ interface Props {
 }
 
 export function FocusedNavHint({ terminalId }: Props) {
-  const { visibleTerminalIds, setFocusedTerminal } = useAppStore(
+  const { focusableTerminalIds, setFocusedTerminal } = useAppStore(
     useShallow((s) => ({
-      visibleTerminalIds: s.visibleTerminalIds,
+      focusableTerminalIds: s.focusableTerminalIds,
       setFocusedTerminal: s.setFocusedTerminal
     }))
   )
 
-  if (visibleTerminalIds.length < 2) return null
+  if (focusableTerminalIds.length < 2) return null
 
-  const index = visibleTerminalIds.indexOf(terminalId)
+  const index = focusableTerminalIds.indexOf(terminalId)
   if (index === -1) return null
 
-  const total = visibleTerminalIds.length
-  const prevId = visibleTerminalIds[(index - 1 + total) % total]
-  const nextId = visibleTerminalIds[(index + 1) % total]
+  const total = focusableTerminalIds.length
+  const prevId = focusableTerminalIds[(index - 1 + total) % total]
+  const nextId = focusableTerminalIds[(index + 1) % total]
 
   const btn = 'p-1 rounded text-gray-500 hover:text-white hover:bg-white/[0.08] transition-colors'
 
