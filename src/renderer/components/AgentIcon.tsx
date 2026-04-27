@@ -153,5 +153,6 @@ const ICON_COMPONENTS: Record<AiAgentType, React.FC<{ size: number }>> = {
 export function AgentIcon({ agentType, size = 16 }: Props) {
   if (agentType === 'shell') return <ShellIcon size={size} />
   const IconComponent = ICON_COMPONENTS[agentType]
+  if (!IconComponent) return <ShellIcon size={size} />
   return <IconComponent size={size} />
 }

@@ -12,7 +12,7 @@ import { FocusedNavHint } from '../src/renderer/components/card/FocusedNavHint'
 
 beforeEach(() => {
   useAppStore.setState({
-    visibleTerminalIds: ['a', 'b', 'c']
+    focusableTerminalIds: ['a', 'b', 'c']
   })
 })
 
@@ -24,13 +24,13 @@ describe('FocusedNavHint', () => {
     expect(container.textContent).toMatch(/2\s*\/\s*3/)
   })
 
-  it('returns nothing when fewer than 2 sessions are visible', () => {
-    useAppStore.setState({ visibleTerminalIds: ['a'] })
+  it('returns nothing when fewer than 2 sessions are focusable', () => {
+    useAppStore.setState({ focusableTerminalIds: ['a'] })
     const { container } = render(<FocusedNavHint terminalId="a" />)
     expect(container.firstChild).toBeNull()
   })
 
-  it('returns nothing when the current terminal is not in the visible list', () => {
+  it('returns nothing when the current terminal is not in the focusable list', () => {
     const { container } = render(<FocusedNavHint terminalId="gone" />)
     expect(container.firstChild).toBeNull()
   })

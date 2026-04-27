@@ -139,6 +139,7 @@ export interface UISlice {
   statusFilter: StatusFilter
   terminalOrder: string[]
   visibleTerminalIds: string[]
+  focusableTerminalIds: string[]
   minimizedTerminals: Set<string>
   backgroundTrayCollapsed: boolean
   isOnboardingOpen: boolean
@@ -178,6 +179,7 @@ export interface UISlice {
   setFlexibleLayouts: (layouts: Record<string, FlexibleLayoutRect>) => void
   setTerminalOrder: (order: string[]) => void
   setVisibleTerminalIds: (ids: string[]) => void
+  setFocusableTerminalIds: (ids: string[]) => void
   reorderTerminals: (fromIndex: number, toIndex: number) => void
   toggleMinimized: (id: string) => void
   toggleBackgroundTray: () => void

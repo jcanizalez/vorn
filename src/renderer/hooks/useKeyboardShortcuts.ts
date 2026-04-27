@@ -119,12 +119,17 @@ export function useKeyboardShortcuts() {
       if (modKey(e) && e.key === ']') {
         e.preventDefault()
         const ids = state.visibleTerminalIds
-        if (ids.length === 0) return
         const layoutMode = state.config?.defaults?.layoutMode ?? 'grid'
         if (state.focusedTerminalId) {
-          const current = ids.indexOf(state.focusedTerminalId)
-          const next = current === -1 ? 0 : (current + 1) % ids.length
-          state.setFocusedTerminal(ids[next])
+          // Focused mode spans the whole project (across worktrees), not just
+          // the worktree-filtered grid view.
+          const focusable = state.focusableTerminalIds
+          if (focusable.length === 0) return
+          const current = focusable.indexOf(state.focusedTerminalId)
+          const next = current === -1 ? 0 : (current + 1) % focusable.length
+          state.setFocusedTerminal(focusable[next])
+        } else if (ids.length === 0) {
+          return
         } else if (layoutMode === 'tabs') {
           const currentTab = state.activeTabId
           const current = currentTab ? ids.indexOf(currentTab) : -1
@@ -147,12 +152,18 @@ export function useKeyboardShortcuts() {
       if (modKey(e) && e.key === '[') {
         e.preventDefault()
         const ids = state.visibleTerminalIds
-        if (ids.length === 0) return
         const layoutMode = state.config?.defaults?.layoutMode ?? 'grid'
         if (state.focusedTerminalId) {
-          const current = ids.indexOf(state.focusedTerminalId)
-          const prev = current === -1 ? ids.length - 1 : (current - 1 + ids.length) % ids.length
-          state.setFocusedTerminal(ids[prev])
+          const focusable = state.focusableTerminalIds
+          if (focusable.length === 0) return
+          const current = focusable.indexOf(state.focusedTerminalId)
+          const prev =
+            current === -1
+              ? focusable.length - 1
+              : (current - 1 + focusable.length) % focusable.length
+          state.setFocusedTerminal(focusable[prev])
+        } else if (ids.length === 0) {
+          return
         } else if (layoutMode === 'tabs') {
           const currentTab = state.activeTabId
           const current = currentTab ? ids.indexOf(currentTab) : -1

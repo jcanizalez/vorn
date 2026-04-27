@@ -91,6 +91,7 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
     (savedGrid.statusFilter as 'all' | 'running' | 'waiting' | 'idle' | 'error') ?? 'all',
   terminalOrder: [],
   visibleTerminalIds: [],
+  focusableTerminalIds: [],
   minimizedTerminals: new Set(),
   backgroundTrayCollapsed: false,
   isOnboardingOpen: false,
@@ -184,6 +185,7 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
 
   setTerminalOrder: (order) => set({ terminalOrder: order }),
   setVisibleTerminalIds: (ids) => set({ visibleTerminalIds: ids }),
+  setFocusableTerminalIds: (ids) => set({ focusableTerminalIds: ids }),
 
   reorderTerminals: (fromIndex, toIndex) =>
     set((state) => {
