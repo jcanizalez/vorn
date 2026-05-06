@@ -75,7 +75,7 @@ describe('WorkflowsSection', () => {
   it('shows the section header when expanded', () => {
     const { container } = render(<WorkflowsSection isCollapsed={false} workspaceWorkflows={[]} />)
     expect(screen.getByText('Workflows')).toBeInTheDocument()
-    expect(container.querySelector('svg.lucide-zap')).toBeInTheDocument()
+    expect(container.querySelector('svg.lucide-workflow')).toBeInTheDocument()
   })
 
   it('shows empty state when no workflows match the filter', () => {
@@ -92,7 +92,7 @@ describe('WorkflowsSection', () => {
 
   it('opens the editor in new-workflow mode when + is clicked', () => {
     const { container } = render(<WorkflowsSection isCollapsed={false} workspaceWorkflows={[]} />)
-    const zapButton = container.querySelector('svg.lucide-zap')?.closest('button')
+    const zapButton = container.querySelector('svg.lucide-workflow')?.closest('button')
     if (zapButton) fireEvent.click(zapButton)
     expect(mockStore.setEditingWorkflowId).toHaveBeenCalledWith(null)
     expect(mockStore.setWorkflowEditorOpen).toHaveBeenCalledWith(true)

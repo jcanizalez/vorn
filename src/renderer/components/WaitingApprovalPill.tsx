@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { Check, X, Zap } from 'lucide-react'
+import { Check, X, Workflow } from 'lucide-react'
 import {
   WorkflowExecution,
   NodeExecutionState,
@@ -32,7 +32,7 @@ export function WaitingApprovalPill({ execution, nodeState, workflow }: Props) {
   )
   const message = node?.type === 'approval' ? (node.config as ApprovalConfig).message : undefined
 
-  const WfIcon = workflow ? ICON_MAP[workflow.icon] || Zap : Zap
+  const WfIcon = workflow ? ICON_MAP[workflow.icon] || Workflow : Workflow
   const wfIconColor = workflow?.iconColor
 
   const handleOpen = useCallback(() => {

@@ -7,14 +7,11 @@ import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 import { useAppStore } from '../stores'
 import { AgentCard } from './AgentCard'
-import { BackgroundTray } from './BackgroundTray'
-import { backgroundTrayHasItems } from '../lib/background-tray'
 import { PromptLauncher } from './PromptLauncher'
 import { GridContextMenu } from './GridContextMenu'
 import { AgentIcon } from './AgentIcon'
 import { useVisibleTerminals } from '../hooks/useVisibleTerminals'
 import { useFilteredHeadless } from '../hooks/useFilteredHeadless'
-import { useWaitingApprovals } from '../hooks/useWaitingApprovals'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { resolveActiveProject } from '../lib/session-utils'
 import { getDisplayName, getBranchLabel } from '../lib/terminal-display'
@@ -86,8 +83,6 @@ export const GridView = memo(function GridView() {
     }))
   )
   const filteredHeadless = useFilteredHeadless()
-  const waitingApprovals = useWaitingApprovals()
-  const minimizedPlacement = useAppStore((s) => s.config?.defaults?.minimizedPlacement ?? 'toolbar')
 
   const [dragState, setDragState] = useState<DragState | null>(null)
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null)
@@ -249,14 +244,6 @@ export const GridView = memo(function GridView() {
     setGridContextMenu({ x: e.clientX, y: e.clientY })
   }, [])
 
-  const trayMinimizedIds =
-    minimizedPlacement === 'canvas' || minimizedPlacement === 'both' ? minimizedIds : []
-  const showBackgroundTray = backgroundTrayHasItems(
-    filteredHeadless,
-    trayMinimizedIds,
-    waitingApprovals
-  )
-
   return (
     <div
       className={`h-full flex flex-col ${isSmartAuto ? 'overflow-hidden' : 'overflow-auto'}`}
@@ -267,19 +254,6 @@ export const GridView = memo(function GridView() {
       onDoubleClick={handleGridDoubleClick}
       onContextMenu={handleGridContextMenu}
     >
-      {/* Minimized chips move out of the tray when placement === 'toolbar'. */}
-      {showBackgroundTray && (
-        <div className="px-4 pt-4 shrink-0">
-          <BackgroundTray
-            headlessSessions={filteredHeadless}
-            minimizedIds={trayMinimizedIds}
-            waitingApprovals={waitingApprovals}
-            variant="grid"
-            hasItemsBelow={orderedIds.length > 0}
-          />
-        </div>
-      )}
-
       {orderedIds.length === 0 && filteredHeadless.length === 0 && minimizedIds.length === 0 ? (
         isFiltered ? (
           <div className="flex flex-col items-center justify-center h-full">

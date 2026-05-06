@@ -18,6 +18,7 @@ export const PROJECT_ICON_OPTIONS: ProjectIconOption[] = [
   { name: 'Cloud', label: 'Cloud' },
   { name: 'Shield', label: 'Security' },
   { name: 'Zap', label: 'Fast' },
+  { name: 'Workflow', label: 'Workflow' },
   { name: 'Gamepad2', label: 'Game' },
   { name: 'Music', label: 'Audio' },
   { name: 'Image', label: 'Image' },

@@ -6,7 +6,7 @@ import { WorkflowFilterToolbar } from './WorkflowFilterToolbar'
 import { WorkflowContextMenu } from './WorkflowContextMenu'
 import { SidebarSectionHeader } from './SidebarSectionHeader'
 import { isScheduledWorkflow } from '../../lib/workflow-helpers'
-import { Zap, Activity } from 'lucide-react'
+import { Workflow, Activity } from 'lucide-react'
 import type { WorkflowDefinition } from '../../../shared/types'
 import { useWaitingApprovals } from '../../hooks/useWaitingApprovals'
 
@@ -100,7 +100,7 @@ export function WorkflowsSection({
                 aria-label="New workflow"
                 className="p-0.5 rounded text-gray-600 hover:text-white hover:bg-white/[0.08] transition-colors"
               >
-                <Zap size={13} strokeWidth={1.5} />
+                <Workflow size={13} strokeWidth={1.5} />
               </button>
             </Tooltip>
           </>

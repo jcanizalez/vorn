@@ -186,7 +186,7 @@ describe('WorkflowEditor', () => {
 
   it('opens icon picker when icon button is clicked', () => {
     const { container } = render(<WorkflowEditor />)
-    const iconButton = container.querySelector('svg.lucide-zap')?.closest('button')
+    const iconButton = container.querySelector('svg.lucide-workflow')?.closest('button')
     if (iconButton) fireEvent.click(iconButton)
     expect(container.querySelector('.grid')).toBeInTheDocument()
   })

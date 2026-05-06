@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { FolderGit2, GitBranch, Plus, ChevronRight, Terminal, Zap } from 'lucide-react'
+import { FolderGit2, GitBranch, Plus, ChevronRight, Terminal, Workflow } from 'lucide-react'
 import { useAppStore } from '../stores'
 import { type ProjectConfig, type AiAgentType } from '../../shared/types'
 import { ProjectIcon } from './project-sidebar/ProjectIcon'
@@ -245,7 +245,7 @@ export function GridContextMenu({ position, onClose }: Props) {
   const gridWorkflowItems = buildWorkflowMenuItems(workspaceWorkflows, onClose)
   if (gridWorkflowItems.length > 0) {
     items.push({
-      iconElement: <Zap size={14} className="text-gray-500" />,
+      iconElement: <Workflow size={14} className="text-gray-500" />,
       label: 'Run workflow',
       submenuKey: 'run-workflow'
     })

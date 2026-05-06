@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react'
-import { Zap } from 'lucide-react'
+import { Workflow } from 'lucide-react'
 import { ICON_MAP } from '../components/project-sidebar/icon-map'
 import { executeWorkflow } from './workflow-execution'
 import { isContextualWorkflow } from './workflow-helpers'
@@ -52,7 +52,7 @@ export function buildWorkflowMenuItems(
     hasContext ? isContextualWorkflow(wf) : !isContextualWorkflow(wf)
   )
   return filtered.map((wf) => {
-    const WfIcon = ICON_MAP[wf.icon] || Zap
+    const WfIcon = ICON_MAP[wf.icon] || Workflow
     return {
       id: wf.id,
       iconElement: <WfIcon size={12} color={wf.iconColor} />,
