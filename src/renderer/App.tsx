@@ -53,6 +53,7 @@ import { TaskBoardView } from './components/TaskBoardView'
 import { TaskDetailPanel } from './components/TaskDetailPanel'
 import { KeyboardShortcutsPanel } from './components/KeyboardShortcutsPanel'
 import { MissedScheduleDialog } from './components/MissedScheduleDialog'
+import { SourcePromptDialog } from './components/SourcePromptDialog'
 import { OnboardingModal } from './components/OnboardingModal'
 import { UpdateBanner } from './components/UpdateBanner'
 import { ToastContainer } from './components/Toast'
@@ -586,6 +587,7 @@ export function App() {
       <WorktreeCleanupDialog />
       <WorktreeCleanupToastBridge />
       <MissedScheduleDialog />
+      <SourcePromptDialog />
       <AnimatePresence>{isShortcutsPanelOpen && <KeyboardShortcutsPanel />}</AnimatePresence>
 
       <AnimatePresence>{isSettingsOpen && <SettingsPage />}</AnimatePresence>

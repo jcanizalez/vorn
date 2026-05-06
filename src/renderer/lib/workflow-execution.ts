@@ -15,7 +15,8 @@ import {
   TaskConfig,
   getProjectRemoteHostId
 } from '../../shared/types'
-import { resolveTemplateVars, StepOutputs } from './template-vars'
+import { resolveContextField, resolveTemplateVars, StepOutputs } from './template-vars'
+import { getWorktreeMode } from './workflow-helpers'
 import { buildTaskPrompt, buildWorkflowPrompt } from '../../shared/prompt-builder'
 import { useAppStore } from '../stores'
 import { sendWorkflowGateNotification } from './notifications'
@@ -384,13 +385,21 @@ async function executeNode(
 
   let initialPrompt = config.prompt
   let resolvedTaskId: string | undefined
-  let branch = config.branch
-  let useWorktree = config.useWorktree
+  let branch = config.branch ? resolveTemplateVars(config.branch, context) || undefined : undefined
+  // When 'fromContext' but no context is available (SourcePromptDialog
+  // cancelled mid-flight), fall through with undefined so session creation
+  // uses its own default.
+  let useWorktree: boolean | undefined =
+    config.useWorktree === 'fromContext'
+      ? context
+        ? ((resolveContextField('useWorktree', context) as boolean | undefined) ?? undefined)
+        : undefined
+      : config.useWorktree
+  const inheritedWorktree = config.useWorktree === 'fromContext'
   let existingWorktreePath: string | undefined
   const currentState = useAppStore.getState()
 
-  // Resolve worktreeMode for cross-step worktree passing
-  const worktreeMode = config.worktreeMode ?? (useWorktree ? 'new' : 'none')
+  const worktreeMode = getWorktreeMode(config)
   if (worktreeMode === 'fromStep') {
     if (!config.worktreeFromStepSlug) {
       throw new Error('Worktree mode "fromStep" requires a source step slug')
@@ -466,8 +475,8 @@ async function executeNode(
   // project at run time. Without this fallback, createHeadlessSession /
   // createTerminal would receive `cwd: ''` and silently spawn in an
   // undefined directory.
-  let effectiveProjectName = config.projectName
-  let effectiveProjectPath = config.projectPath
+  let effectiveProjectName = resolveTemplateVars(config.projectName ?? '', context) || ''
+  let effectiveProjectPath = resolveTemplateVars(config.projectPath ?? '', context) || ''
   if (!effectiveProjectName || !effectiveProjectPath) {
     const taskForProject = context?.task ?? resolvedTask
     if (taskForProject) {
@@ -477,6 +486,13 @@ async function executeNode(
         effectiveProjectPath = effectiveProjectPath || proj.path
       }
     }
+  }
+  // If we resolved projectName from context but couldn't pull a path
+  // (template-only case), still walk the projects store one more time so
+  // contextual workflows launched without a `source` object still work.
+  if (effectiveProjectName && !effectiveProjectPath) {
+    const proj = currentState.config?.projects.find((p) => p.name === effectiveProjectName)
+    if (proj) effectiveProjectPath = proj.path
   }
 
   if (initialPrompt) {
@@ -554,6 +570,11 @@ async function executeNode(
         taskId: resolvedTaskId,
         worktreePath: headlessSession.worktreePath,
         worktreeName: headlessSession.worktreeName,
+        worktreeOrigin: headlessSession.worktreePath
+          ? inheritedWorktree
+            ? 'inherited'
+            : 'created'
+          : undefined,
         agentType: effectiveAgent,
         projectName: effectiveProjectName,
         projectPath: effectiveProjectPath,
@@ -622,6 +643,11 @@ async function executeNode(
       taskId: resolvedTaskId,
       worktreePath: session.worktreePath,
       worktreeName: session.worktreeName,
+      worktreeOrigin: session.worktreePath
+        ? inheritedWorktree
+          ? 'inherited'
+          : 'created'
+        : undefined,
       agentType: effectiveAgent,
       projectName: effectiveProjectName,
       projectPath: effectiveProjectPath
@@ -911,16 +937,18 @@ async function runExecution(
   persistExecution(workflow.id, execution)
 
   if (workflow.autoCleanupWorktrees) {
-    // Only clean up worktrees created during this run (mode 'new'), not pre-existing ones
+    // Skip 'inherited' worktrees: a contextual workflow reused the parent
+    // card/terminal's worktree, so deleting it would nuke work the user is
+    // actively in.
     const worktreeMap = new Map<string, string>()
     for (const ns of execution.nodeStates) {
       if (!ns.worktreePath || worktreeMap.has(ns.worktreePath)) continue
+      if (ns.worktreeOrigin === 'inherited') continue
       const node = workflow.nodes.find((n) => n.id === ns.nodeId)
       if (!node || node.type !== 'launchAgent') continue
       const cfg = node.config as LaunchAgentConfig
-      const mode = cfg.worktreeMode ?? (cfg.useWorktree ? 'new' : 'none')
-      if (mode === 'new') {
-        worktreeMap.set(ns.worktreePath, cfg.projectPath)
+      if (getWorktreeMode(cfg) === 'new') {
+        worktreeMap.set(ns.worktreePath, ns.projectPath || cfg.projectPath)
       }
     }
 
