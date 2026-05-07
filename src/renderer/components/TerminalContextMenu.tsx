@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Copy, ClipboardPaste, Zap, ChevronRight } from 'lucide-react'
+import { Copy, ClipboardPaste, Workflow, ChevronRight } from 'lucide-react'
 import {
   getTerminalSelection,
   clearTerminalSelection,
@@ -157,7 +157,7 @@ export function TerminalContextMenu({ terminalId, position, onClose }: Props) {
               className="w-full flex items-center gap-2.5 px-3 py-1.5 text-xs text-gray-300
                          hover:bg-white/[0.06] active:bg-white/[0.1] transition-colors"
             >
-              <Zap size={14} className="text-gray-500" />
+              <Workflow size={14} className="text-gray-500" />
               <span className="flex-1 text-left">Run workflow</span>
               <ChevronRight size={11} className="text-gray-600 ml-auto shrink-0" />
             </button>

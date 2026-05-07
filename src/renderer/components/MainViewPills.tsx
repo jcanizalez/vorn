@@ -1,4 +1,4 @@
-import { Monitor, ListTodo, Zap } from 'lucide-react'
+import { Monitor, ListTodo, Workflow } from 'lucide-react'
 import { useAppStore } from '../stores'
 import { Tooltip } from './Tooltip'
 import { useWaitingApprovals } from '../hooks/useWaitingApprovals'
@@ -47,7 +47,7 @@ export function MainViewPills() {
           aria-label="Workflows"
           aria-pressed={mainViewMode === 'workflows'}
         >
-          <Zap size={14} strokeWidth={2} />
+          <Workflow size={14} strokeWidth={2} />
           {waitingCount > 0 && (
             <span
               aria-hidden

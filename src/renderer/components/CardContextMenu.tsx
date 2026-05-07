@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronRight, Zap, Terminal } from 'lucide-react'
+import { ChevronRight, Workflow, Terminal } from 'lucide-react'
 import { useAppStore } from '../stores'
 import { type AiAgentType, getProjectRemoteHostId } from '../../shared/types'
 import { AgentIcon } from './AgentIcon'
@@ -154,7 +154,7 @@ export function CardContextMenu({ terminalId, position, onClose }: Props) {
   })
   if (workflowMenuItems.length > 0) {
     items.push({
-      iconElement: <Zap size={14} className="text-gray-500" />,
+      iconElement: <Workflow size={14} className="text-gray-500" />,
       label: 'Run workflow',
       submenu: workflowMenuItems
     })

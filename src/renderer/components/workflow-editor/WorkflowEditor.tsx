@@ -1,6 +1,15 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Save, Play, Trash2, History, Zap, MoreHorizontal, Settings } from 'lucide-react'
+import {
+  ArrowLeft,
+  Save,
+  Play,
+  Trash2,
+  History,
+  Workflow,
+  MoreHorizontal,
+  Settings
+} from 'lucide-react'
 import { ICON_MAP } from '../project-sidebar/icon-map'
 import { PROJECT_ICON_OPTIONS, ICON_COLOR_PALETTE } from '../../lib/project-icons'
 import { Tooltip } from '../Tooltip'
@@ -69,7 +78,7 @@ export function WorkflowEditor({ inline = false }: { inline?: boolean } = {}) {
   const setSelectedTaskId = useAppStore((s) => s.setSelectedTaskId)
 
   const [name, setName] = useState('New Workflow')
-  const [icon, setIcon] = useState('Zap')
+  const [icon, setIcon] = useState('Workflow')
   const [iconColor, setIconColor] = useState('#3b82f6')
   const [nodes, setNodes] = useState<WorkflowNode[]>([])
   const [edges, setEdges] = useState<WorkflowEdge[]>([])
@@ -244,7 +253,7 @@ export function WorkflowEditor({ inline = false }: { inline?: boolean } = {}) {
       // New workflow — start with a manual trigger
       const trigger = createTriggerNode({ triggerType: 'manual' })
       setName('New Workflow')
-      setIcon('Zap')
+      setIcon('Workflow')
       setIconColor('#3b82f6')
       setNodes([trigger])
       setEdges([])
@@ -548,7 +557,7 @@ export function WorkflowEditor({ inline = false }: { inline?: boolean } = {}) {
               title="Change icon"
             >
               {(() => {
-                const WfIcon = ICON_MAP[icon] || Zap
+                const WfIcon = ICON_MAP[icon] || Workflow
                 return <WfIcon size={16} color={iconColor} strokeWidth={1.5} />
               })()}
             </button>
@@ -560,7 +569,7 @@ export function WorkflowEditor({ inline = false }: { inline?: boolean } = {}) {
               >
                 <div className="grid grid-cols-8 gap-1">
                   {PROJECT_ICON_OPTIONS.map((opt) => {
-                    const IconComp = ICON_MAP[opt.name] || Zap
+                    const IconComp = ICON_MAP[opt.name] || Workflow
                     return (
                       <button
                         key={opt.name}

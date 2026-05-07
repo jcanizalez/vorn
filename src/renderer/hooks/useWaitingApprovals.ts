@@ -1,6 +1,12 @@
 import { useMemo } from 'react'
 import { useAppStore } from '../stores'
-import type { WaitingApproval } from '../components/BackgroundTray'
+import type { WorkflowExecution, NodeExecutionState, WorkflowDefinition } from '../../shared/types'
+
+export interface WaitingApproval {
+  execution: WorkflowExecution
+  nodeState: NodeExecutionState
+  workflow?: WorkflowDefinition
+}
 
 const EMPTY: WaitingApproval[] = []
 

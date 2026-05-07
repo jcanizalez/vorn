@@ -6,7 +6,7 @@ import { useAppStore } from '../../stores'
 import { isScheduledWorkflow } from '../../lib/workflow-helpers'
 import { runWorkflowFromGlobalSurface } from '../../lib/workflow-menu-items'
 import { useConnectorIdFor } from '../../lib/use-connections'
-import { Zap, Play, MoreHorizontal } from 'lucide-react'
+import { Workflow, Play, MoreHorizontal } from 'lucide-react'
 import { Tooltip } from '../Tooltip'
 import { ConnectorIcon } from '../ConnectorIcon'
 
@@ -53,7 +53,7 @@ export function WorkflowItem({
   const connectorWf = useMemo(() => parseConnectorWorkflowId(workflow.id), [workflow.id])
   const connectorId = useConnectorIdFor(connectorWf?.connectionId)
 
-  const WfIcon = ICON_MAP[workflow.icon] || Zap
+  const WfIcon = ICON_MAP[workflow.icon] || Workflow
   const isScheduled = isScheduledWorkflow(workflow)
   const isDisabled = isScheduled && !workflow.enabled
   const hasWaitingGate = useAppStore((s) => {

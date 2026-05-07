@@ -34,7 +34,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     id: 'workflows',
     title: 'Workflows & Schedules',
     subtitle: 'Automate multi-agent pipelines',
-    icon: 'Zap'
+    icon: 'Workflow'
   },
   {
     id: 'shortcuts',

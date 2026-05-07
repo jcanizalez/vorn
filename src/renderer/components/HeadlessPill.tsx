@@ -4,7 +4,7 @@ import { HeadlessSession } from '../../shared/types'
 import { AgentIcon } from './AgentIcon'
 import { useAppStore } from '../stores'
 import { ICON_MAP } from './project-sidebar/icon-map'
-import { GitBranch, X, Square, Zap, Circle, Clock, Eye, CheckCircle2 } from 'lucide-react'
+import { GitBranch, X, Square, Workflow, Circle, Clock, Eye, CheckCircle2 } from 'lucide-react'
 
 function formatDuration(ms: number): string {
   const s = Math.floor(ms / 1000)
@@ -138,7 +138,7 @@ export function HeadlessPill({ session }: Props) {
   const opacityClass = !isRunning ? 'opacity-[0.65]' : ''
 
   // Resolve workflow icon
-  const WfIcon = workflow ? ICON_MAP[workflow.icon] || Zap : null
+  const WfIcon = workflow ? ICON_MAP[workflow.icon] || Workflow : null
   const wfIconColor = workflow?.iconColor
 
   // Resolve task status

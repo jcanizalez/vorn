@@ -21,7 +21,7 @@ import {
   Settings,
   PanelLeft,
   FolderPlus,
-  Zap,
+  Workflow,
   Monitor,
   Filter,
   ArrowUpDown,
@@ -182,7 +182,7 @@ function useCommands(
       id: 'action:add-workflow',
       label: 'Add Workflow',
       category: 'actions',
-      icon: <Zap size={14} strokeWidth={1.5} />,
+      icon: <Workflow size={14} strokeWidth={1.5} />,
       keywords: ['new workflow', 'create workflow', 'schedule'],
       onExecute: () => setWorkflowEditorOpen(true)
     })
@@ -333,7 +333,7 @@ function useCommands(
         id: `workflow:${wf.id}`,
         label: wf.name,
         category: 'workflows',
-        icon: <Zap size={14} strokeWidth={1.5} />,
+        icon: <Workflow size={14} strokeWidth={1.5} />,
         keywords: actionNodes
           .map((n) => (n.config as unknown as Record<string, unknown>)?.projectName as string)
           .filter(Boolean),

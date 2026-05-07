@@ -3,14 +3,11 @@ import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
 import { useAppStore } from '../stores'
 import { useVisibleTerminals, compareTerminalIds } from '../hooks/useVisibleTerminals'
-import { useFilteredHeadless } from '../hooks/useFilteredHeadless'
 import { AgentStatusIcon } from './AgentStatusIcon'
-import { useWaitingApprovals } from '../hooks/useWaitingApprovals'
 import { TerminalSlot } from './TerminalSlot'
 import { PromptLauncher } from './PromptLauncher'
 import { InlineRename } from './InlineRename'
 import { CardContextMenu } from './CardContextMenu'
-import { BackgroundTray } from './BackgroundTray'
 import { CardStatusBar } from './card/CardStatusBar'
 import { getDisplayName, getBranchLabel } from '../lib/terminal-display'
 import { closeTerminalSession } from '../lib/terminal-close'
@@ -25,6 +22,8 @@ import { WindowControls } from './WindowControls'
 import { SidebarToggleButton } from './SidebarToggleButton'
 import { MainViewPills } from './MainViewPills'
 import { RecentSessionsButton } from './RecentSessionsButton'
+import { SessionDock } from './SessionDock'
+import { HeadlessBadge } from './HeadlessBadge'
 import { resolveActiveProject, createSessionFromProject } from '../lib/session-utils'
 import { MOD, isMac, isWeb, TRAFFIC_LIGHT_PAD_PX } from '../lib/platform'
 
@@ -115,10 +114,9 @@ export function TabView() {
   const terminalOrder = useAppStore((s) => s.terminalOrder)
   const terminals = useAppStore((s) => s.terminals)
   const sortMode = useAppStore((s) => s.sortMode)
-  // Tab mode treats minimize as a no-op: every session shows as a tab. The
-  // minimizedTerminals Set is preserved so switching back to grid restores
-  // the BackgroundTray pills. The merged list honors the active sortMode so
-  // tabs follow the same order as the grid.
+  // Tab mode treats minimize as a no-op — every session shows as a tab. The
+  // minimizedTerminals set is preserved so switching back to grid restores
+  // the dock pills.
   const allTabIds = useMemo(() => {
     const merged = [...orderedIds, ...minimizedIds]
     return merged.sort((a, b) => compareTerminalIds(a, b, terminals, sortMode, terminalOrder))
@@ -134,8 +132,6 @@ export function TabView() {
   const setDiffSidebar = useAppStore((s) => s.setDiffSidebarTerminalId)
   const tasks = useAppStore((s) => s.config?.tasks)
   const isSidebarOpen = useAppStore((s) => s.isSidebarOpen)
-  const filteredHeadless = useFilteredHeadless()
-  const waitingApprovals = useWaitingApprovals()
 
   const [contextMenu, setContextMenu] = useState<{
     terminalId: string
@@ -255,23 +251,11 @@ export function TabView() {
 
   /* ── Render ─────────────────────────────────────────────────── */
 
-  // Minimize is a grid-only concept, so don't surface minimized sessions in
-  // the tab-mode background tray. Headless + waiting approvals still do.
-  const hasBackground = filteredHeadless.length > 0 || waitingApprovals.length > 0
   const hasTabs = allTabIds.length > 0
   const activeTerminal = activeTabId ? terminals.get(activeTabId) : null
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {hasTabs && (
-        <BackgroundTray
-          headlessSessions={filteredHeadless}
-          minimizedIds={[]}
-          waitingApprovals={waitingApprovals}
-          variant="tabs"
-        />
-      )}
-
       <div
         className="titlebar-drag shrink-0 flex items-center border-b border-white/[0.06] bg-[#1a1a1e] relative z-[46]"
         style={{
@@ -490,6 +474,8 @@ export function TabView() {
         </div>
 
         <div className="shrink-0 flex items-center gap-1 px-2 titlebar-no-drag">
+          <SessionDock includeMinimized={false} />
+          <HeadlessBadge align="right" />
           <GridToolbar />
           <div className="w-px h-4 bg-white/[0.06] mx-0.5" />
           <RecentSessionsButton />
@@ -498,7 +484,7 @@ export function TabView() {
       </div>
 
       {/* Content area */}
-      {!hasTabs && !hasBackground ? (
+      {!hasTabs ? (
         <div className="flex-1 overflow-auto p-4">
           {isFiltered ? (
             <div className="flex flex-col items-center justify-center h-full">
@@ -521,15 +507,6 @@ export function TabView() {
           ) : (
             <PromptLauncher mode="inline" />
           )}
-        </div>
-      ) : !hasTabs && hasBackground ? (
-        <div className="flex-1 overflow-auto p-4">
-          <BackgroundTray
-            headlessSessions={filteredHeadless}
-            minimizedIds={[]}
-            waitingApprovals={waitingApprovals}
-            variant="grid"
-          />
         </div>
       ) : (
         <div className="flex-1 min-h-0 flex flex-col" style={{ background: '#141416' }}>

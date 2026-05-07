@@ -1,6 +1,6 @@
 import { useAppStore } from '../../stores'
 import { setAllTerminalsFontSize } from '../../lib/terminal-registry'
-import { TaskViewMode, type MinimizedPlacement } from '../../../shared/types'
+import { TaskViewMode } from '../../../shared/types'
 import { SettingsPageHeader } from './SettingsPageHeader'
 import { SettingRow } from './SettingRow'
 import { SegmentedControl } from './SegmentedControl'
@@ -126,24 +126,6 @@ export function AppearanceSettings() {
             ]}
             value={config.defaults.layoutMode || 'grid'}
             onChange={(value) => updateDefaults({ layoutMode: value as 'grid' | 'tabs' })}
-          />
-        </SettingRow>
-
-        {/* Minimized cards placement */}
-        <SettingRow
-          label="Minimized cards"
-          description="Where minimized agent cards live in the atelier"
-        >
-          <SegmentedControl
-            options={[
-              { value: 'canvas', label: 'Canvas strip' },
-              { value: 'toolbar', label: 'Top toolbar' },
-              { value: 'both', label: 'Both' }
-            ]}
-            value={config.defaults.minimizedPlacement || 'toolbar'}
-            onChange={(value) =>
-              updateDefaults({ minimizedPlacement: value as MinimizedPlacement })
-            }
           />
         </SettingRow>
 

@@ -68,10 +68,6 @@ vi.mock('../src/renderer/components/AgentCard', () => ({
   })
 }))
 
-vi.mock('../src/renderer/components/BackgroundTray', () => ({
-  BackgroundTray: () => null
-}))
-
 vi.mock('../src/renderer/components/PromptLauncher', () => ({
   PromptLauncher: () => null
 }))
