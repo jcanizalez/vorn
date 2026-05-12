@@ -152,7 +152,13 @@ export function TaskDetailPanel() {
 
   useEffect(() => {
     if (!task) return
-    window.api.listWorkflowRunsByTask(task.id, 20).then(setRelatedRuns)
+    let cancelled = false
+    window.api.listWorkflowRunsByTask(task.id, 20).then((rows) => {
+      if (!cancelled) setRelatedRuns(rows)
+    })
+    return () => {
+      cancelled = true
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task?.id])
 
@@ -167,8 +173,13 @@ export function TaskDetailPanel() {
         break
       }
     }
-    if (relevant) {
-      window.api.listWorkflowRunsByTask(taskId, 20).then(setRelatedRuns)
+    if (!relevant) return
+    let cancelled = false
+    window.api.listWorkflowRunsByTask(taskId, 20).then((rows) => {
+      if (!cancelled) setRelatedRuns(rows)
+    })
+    return () => {
+      cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task?.id, workflowExecutions])
@@ -197,7 +208,7 @@ export function TaskDetailPanel() {
       setFormUseWorktree(task.useWorktree || false)
       setFormAssignedAgent(task.assignedAgent || null)
       setFormImages(task.images || [])
-      if (!task.images?.length) setFormImagePaths(new Map())
+      setFormImagePaths(new Map())
     }
   }
 
