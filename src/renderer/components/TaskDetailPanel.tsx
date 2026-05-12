@@ -6,7 +6,8 @@ import {
   WorkflowExecution,
   SessionLog,
   supportsExactSessionResume,
-  getProjectRemoteHostId
+  getProjectRemoteHostId,
+  isTerminalTaskStatus
 } from '../../shared/types'
 import { buildFeedbackPrompt } from '../../shared/prompt-builder'
 import { TASK_TEMPLATE } from './MarkdownEditor'
@@ -26,6 +27,8 @@ import {
   Play,
   Terminal,
   Trash2,
+  Archive,
+  ArchiveRestore,
   GitBranch,
   Clock,
   Calendar,
@@ -48,6 +51,7 @@ import { RunEntry } from './workflow-editor/RunEntry'
 import { LogReplayModal } from './LogReplayModal'
 import { SessionActivityLog } from './SessionActivityLog'
 import { ConfirmPopover } from './ConfirmPopover'
+import { Tooltip } from './Tooltip'
 
 interface DiffComment {
   filePath: string
@@ -90,6 +94,8 @@ export function TaskDetailPanel() {
   const activeProject = useAppStore((s) => s.activeProject)
   const setSelectedTaskId = useAppStore((s) => s.setSelectedTaskId)
   const removeTask = useAppStore((s) => s.removeTask)
+  const archiveTask = useAppStore((s) => s.archiveTask)
+  const unarchiveTask = useAppStore((s) => s.unarchiveTask)
   const startTask = useAppStore((s) => s.startTask)
   const addTask = useAppStore((s) => s.addTask)
   const updateTask = useAppStore((s) => s.updateTask)
@@ -143,21 +149,54 @@ export function TaskDetailPanel() {
     !!task?.assignedAgent &&
     supportsExactSessionResume(task.assignedAgent)
 
-  // Load workflow runs related to this task from the database
   const [relatedRuns, setRelatedRuns] = useState<(WorkflowExecution & { workflowName?: string })[]>(
     []
   )
   const workflowExecutions = useAppStore((s) => s.workflowExecutions)
-  useEffect(() => {
-    if (!task) {
-      setRelatedRuns([])
-      return
+
+  // Reset per-task derived state when the selection changes. React 19's
+  // "adjust state during render" pattern avoids set-state-in-effect chains
+  // for what is fundamentally a key-on-prop reset.
+  const [trackedSelectionId, setTrackedSelectionId] = useState<string | null>(selectedTaskId)
+  if (selectedTaskId !== trackedSelectionId) {
+    setTrackedSelectionId(selectedTaskId)
+    // eslint-disable-next-line react-hooks/refs -- gate the auto-save effect before its next run so it doesn't fire with the new task's data attributed to the old timer
+    initializedRef.current = false
+    setRelatedRuns([])
+    setSessionLogs([])
+    setComments([])
+    setCommentingLine(null)
+    setDiffResult(null)
+    setSelectedFile(null)
+    if (isCreateMode) {
+      // eslint-disable-next-line react-hooks/refs -- regenerate before downstream reads taskId in this same render
+      newTaskIdRef.current = crypto.randomUUID()
+      setFormTitle('')
+      setFormProjectName(activeProject || config?.projects[0]?.name || '')
+      setFormDescription(TASK_TEMPLATE)
+      setFormBranch('')
+      setFormUseWorktree(false)
+      setFormAssignedAgent(null)
+      setFormImages([])
+      setFormImagePaths(new Map())
+    } else if (task) {
+      setFormTitle(task.title)
+      setFormProjectName(task.projectName)
+      setFormDescription(task.description)
+      setFormBranch(task.branch || '')
+      setFormUseWorktree(task.useWorktree || false)
+      setFormAssignedAgent(task.assignedAgent || null)
+      setFormImages(task.images || [])
+      setFormImagePaths(new Map())
     }
+  }
+
+  useEffect(() => {
+    if (!task) return
     window.api.listWorkflowRunsByTask(task.id, 20).then(setRelatedRuns)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task?.id])
 
-  // Live refresh: re-query when any related workflow execution changes
   useEffect(() => {
     if (!task) return
     const taskId = task.id
@@ -171,17 +210,13 @@ export function TaskDetailPanel() {
     if (relevant) {
       window.api.listWorkflowRunsByTask(taskId, 20).then(setRelatedRuns)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [task?.id, workflowExecutions])
+  }, [task?.id, task, workflowExecutions])
 
-  // Load session logs for this task + poll while in_progress
   useEffect(() => {
-    if (!task || isCreateMode) {
-      setSessionLogs([])
-      return
-    }
+    if (!task || isCreateMode) return
+    const taskId = task.id
     const fetchLogs = () =>
-      window.api.listSessionLogs(task.id).then((next) => {
+      window.api.listSessionLogs(taskId).then((next) => {
         setSessionLogs((prev) => {
           if (prev.length !== next.length) return next
           for (let i = 0; i < next.length; i++) {
@@ -202,56 +237,31 @@ export function TaskDetailPanel() {
       const interval = setInterval(fetchLogs, 5_000)
       return () => clearInterval(interval)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [task?.id, task?.status, isCreateMode])
+    return undefined
+  }, [task?.id, task?.status, isCreateMode, task])
 
-  // Initialize form from task when switching tasks
   useEffect(() => {
-    initializedRef.current = false
-    if (task) {
-      setFormTitle(task.title)
-      setFormProjectName(task.projectName)
-      setFormDescription(task.description)
-      setFormBranch(task.branch || '')
-      setFormUseWorktree(task.useWorktree || false)
-      setFormAssignedAgent(task.assignedAgent || null)
-      setFormImages(task.images || [])
-      if (task.images?.length) {
-        Promise.all(
-          task.images.map(async (f) => {
-            const p = await window.api.getTaskImagePath(task.id, f)
-            return [f, p] as [string, string]
-          })
-        ).then((pairs) => setFormImagePaths(new Map(pairs)))
-      } else {
-        setFormImagePaths(new Map())
-      }
+    if (!task || !task.images?.length) return
+    let cancelled = false
+    Promise.all(
+      task.images.map(async (f) => {
+        const p = await window.api.getTaskImagePath(task.id, f)
+        return [f, p] as [string, string]
+      })
+    ).then((pairs) => {
+      if (!cancelled) setFormImagePaths(new Map(pairs))
+    })
+    return () => {
+      cancelled = true
     }
-    // Mark initialized after a tick so the save effect doesn't fire for initial population
-    requestAnimationFrame(() => {
+  }, [task?.id, task?.images, task])
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
       initializedRef.current = true
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTaskId])
-
-  // Initialize form for create mode
-  useEffect(() => {
-    if (isCreateMode) {
-      initializedRef.current = false
-      newTaskIdRef.current = crypto.randomUUID()
-      setFormTitle('')
-      setFormProjectName(activeProject || config?.projects[0]?.name || '')
-      setFormDescription(TASK_TEMPLATE)
-      setFormBranch('')
-      setFormUseWorktree(false)
-      setFormAssignedAgent(null)
-      setFormImages([])
-      setFormImagePaths(new Map())
-      requestAnimationFrame(() => {
-        initializedRef.current = true
-      })
-    }
-  }, [isCreateMode, activeProject, config])
+    return () => cancelAnimationFrame(frame)
+  }, [trackedSelectionId])
 
   // Auto-save for existing tasks (debounced)
   useEffect(() => {
@@ -294,15 +304,17 @@ export function TaskDetailPanel() {
     formAssignedAgent,
     formImages
   })
-  formRef.current = {
-    formTitle,
-    formProjectName,
-    formDescription,
-    formBranch,
-    formUseWorktree,
-    formAssignedAgent,
-    formImages
-  }
+  useEffect(() => {
+    formRef.current = {
+      formTitle,
+      formProjectName,
+      formDescription,
+      formBranch,
+      formUseWorktree,
+      formAssignedAgent,
+      formImages
+    }
+  })
 
   useEffect(() => {
     const taskIdForCleanup = selectedTaskId
@@ -344,6 +356,7 @@ export function TaskDetailPanel() {
 
   useEffect(() => {
     if (selectedTaskId && selectedTaskId !== 'new' && cwd && showDiff) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- fetchDiff is also bound to manual-refresh buttons; refresh on selection/cwd/status change is intentional
       fetchDiff()
     } else {
       setDiffResult(null)
@@ -604,6 +617,32 @@ export function TaskDetailPanel() {
           ) : (
             <div className="flex-1" />
           )}
+          {!isCreateMode && task && task.archivedAt && (
+            <Tooltip label="Unarchive task" position="bottom">
+              <button
+                onClick={() => {
+                  unarchiveTask(task.id)
+                  toast.success('Task unarchived')
+                }}
+                className="p-1 text-gray-600 hover:text-gray-200 rounded transition-colors"
+              >
+                <ArchiveRestore size={13} strokeWidth={1.5} />
+              </button>
+            </Tooltip>
+          )}
+          {!isCreateMode && task && !task.archivedAt && isTerminalTaskStatus(task.status) && (
+            <Tooltip label="Archive task" position="bottom">
+              <button
+                onClick={() => {
+                  archiveTask(task.id)
+                  toast.success('Task archived')
+                }}
+                className="p-1 text-gray-600 hover:text-gray-200 rounded transition-colors"
+              >
+                <Archive size={13} strokeWidth={1.5} />
+              </button>
+            </Tooltip>
+          )}
           {!isCreateMode && task && (
             <ConfirmPopover
               message="Delete this task permanently?"
@@ -614,21 +653,21 @@ export function TaskDetailPanel() {
                 toast.success('Task deleted')
               }}
             >
-              <button
-                className="p-1 text-gray-600 hover:text-red-400 rounded transition-colors"
-                title="Delete task"
-              >
-                <Trash2 size={13} strokeWidth={1.5} />
-              </button>
+              <Tooltip label="Delete task" position="bottom">
+                <button className="p-1 text-gray-600 hover:text-red-400 rounded transition-colors">
+                  <Trash2 size={13} strokeWidth={1.5} />
+                </button>
+              </Tooltip>
             </ConfirmPopover>
           )}
-          <button
-            onClick={() => setSelectedTaskId(null)}
-            className="p-1 text-gray-500 hover:text-white rounded transition-colors"
-            title="Close"
-          >
-            <X size={14} strokeWidth={1.5} />
-          </button>
+          <Tooltip label="Close" position="bottom">
+            <button
+              onClick={() => setSelectedTaskId(null)}
+              className="p-1 text-gray-500 hover:text-white rounded transition-colors"
+            >
+              <X size={14} strokeWidth={1.5} />
+            </button>
+          </Tooltip>
         </div>
       </div>
 

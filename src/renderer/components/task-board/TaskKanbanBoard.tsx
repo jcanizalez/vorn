@@ -21,6 +21,8 @@ export function TaskKanbanBoard({
   onComplete,
   onCancel,
   onReopen,
+  onArchive,
+  onUnarchive,
   onReviewDiff,
   onSelect,
   onAddTask,
@@ -34,6 +36,8 @@ export function TaskKanbanBoard({
   onComplete: (id: string) => void
   onCancel: (id: string) => void
   onReopen: (id: string) => void
+  onArchive: (id: string) => void
+  onUnarchive: (id: string) => void
   onReviewDiff: (id: string) => void
   onSelect?: (task: TaskConfig) => void
   onAddTask?: (status: TaskStatus) => void
@@ -147,6 +151,8 @@ export function TaskKanbanBoard({
                       onComplete={() => onComplete(task.id)}
                       onCancel={() => onCancel(task.id)}
                       onReopen={() => onReopen(task.id)}
+                      onArchive={() => onArchive(task.id)}
+                      onUnarchive={() => onUnarchive(task.id)}
                       onReviewDiff={() => onReviewDiff(task.id)}
                       onSelect={onSelect ? () => onSelect(task) : undefined}
                       sessionIsLive={isSessionLive(task)}

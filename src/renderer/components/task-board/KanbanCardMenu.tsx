@@ -10,9 +10,11 @@ import {
   CheckCircle2,
   XCircle,
   RotateCcw,
-  FileCode
+  FileCode,
+  Archive,
+  ArchiveRestore
 } from 'lucide-react'
-import { TaskStatus } from '../../../shared/types'
+import { TaskStatus, isTerminalTaskStatus } from '../../../shared/types'
 
 interface MenuItem {
   icon: React.FC<{ size?: number; className?: string }>
@@ -24,22 +26,28 @@ interface MenuItem {
 
 export function KanbanCardMenu({
   status,
+  isArchived,
   onEdit,
   onDelete,
   onOpenSession,
   onComplete,
   onCancel,
   onReopen,
+  onArchive,
+  onUnarchive,
   onReviewDiff,
   sessionIsLive
 }: {
   status: TaskStatus
+  isArchived?: boolean
   onEdit: () => void
   onDelete: () => void
   onOpenSession?: () => void
   onComplete?: () => void
   onCancel?: () => void
   onReopen?: () => void
+  onArchive?: () => void
+  onUnarchive?: () => void
   onReviewDiff?: () => void
   sessionIsLive?: boolean
 }) {
@@ -58,9 +66,18 @@ export function KanbanCardMenu({
     }
     const el = (e.target as HTMLElement).closest('button') ?? (e.target as HTMLElement)
     const rect = el.getBoundingClientRect()
+    const MENU_WIDTH = 180
+    const MARGIN = 8
+    // Right-align the menu to the trigger, then clamp to viewport so it
+    // doesn't overflow when the trigger sits in the rightmost column.
+    const idealLeft = rect.right - MENU_WIDTH
+    const clampedLeft = Math.max(
+      MARGIN,
+      Math.min(window.innerWidth - MENU_WIDTH - MARGIN, idealLeft)
+    )
     setPosition({
       top: rect.bottom + 4,
-      left: rect.right
+      left: clampedLeft
     })
     setOpen(true)
     setConfirmingDelete(false)
@@ -131,21 +148,45 @@ export function KanbanCardMenu({
 
   items.push({ icon: Pencil, label: 'Edit', onClick: () => handleAction(onEdit) })
 
-  if (status !== 'cancelled' && status !== 'done' && onCancel) {
+  const isTerminal = isTerminalTaskStatus(status)
+  const archiveItemShown = !isArchived && isTerminal && !!onArchive
+  const unarchiveItemShown = isArchived && !!onUnarchive
+  const cancelItemShown = !isTerminal && !!onCancel
+
+  if (cancelItemShown) {
     items.push({
       icon: XCircle,
       label: 'Cancel task',
-      onClick: () => handleAction(onCancel),
+      onClick: () => handleAction(onCancel!),
       separator: true,
       className: 'text-red-400'
     })
   }
 
+  if (archiveItemShown) {
+    items.push({
+      icon: Archive,
+      label: 'Archive',
+      onClick: () => handleAction(onArchive!),
+      separator: true
+    })
+  }
+
+  if (unarchiveItemShown) {
+    items.push({
+      icon: ArchiveRestore,
+      label: 'Unarchive',
+      onClick: () => handleAction(onUnarchive!),
+      separator: true
+    })
+  }
+
+  const deleteHasSiblingSeparator = archiveItemShown || unarchiveItemShown || cancelItemShown
   items.push({
     icon: Trash2,
     label: 'Delete',
     onClick: () => setConfirmingDelete(true),
-    separator: status === 'cancelled' || status === 'done',
+    separator: !deleteHasSiblingSeparator,
     className: 'text-red-400'
   })
 
@@ -173,9 +214,8 @@ export function KanbanCardMenu({
               style={{
                 top: position.top,
                 left: position.left,
-                transform: 'translateX(-100%)',
                 background: '#1e1e22',
-                minWidth: 170
+                minWidth: 180
               }}
             >
               {confirmingDelete ? (

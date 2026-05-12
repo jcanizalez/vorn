@@ -2,10 +2,11 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useAppStore } from '../stores'
 import { TaskStatusFilter } from '../stores/types'
 import { TaskViewMode } from '../../shared/types'
-import { SlidersHorizontal } from 'lucide-react'
+import { SlidersHorizontal, Archive } from 'lucide-react'
 import { Tooltip } from './Tooltip'
 import { OptionRow } from './OptionRow'
 import { ConnectorIcon } from './ConnectorIcon'
+import { ToggleSwitch } from './settings/ToggleSwitch'
 
 const isMac = navigator.platform.toUpperCase().includes('MAC')
 
@@ -52,6 +53,8 @@ export function TaskToolbar() {
   const setTaskStatusFilter = useAppStore((s) => s.setTaskStatusFilter)
   const taskSourceFilter = useAppStore((s) => s.taskSourceFilter)
   const setTaskSourceFilter = useAppStore((s) => s.setTaskSourceFilter)
+  const taskIncludeArchived = useAppStore((s) => s.taskIncludeArchived)
+  const setTaskIncludeArchived = useAppStore((s) => s.setTaskIncludeArchived)
   const config = useAppStore((s) => s.config)
   const setConfig = useAppStore((s) => s.setConfig)
   const taskViewMode = (config?.defaults?.taskViewMode ?? 'list') as TaskViewMode
@@ -83,7 +86,10 @@ export function TaskToolbar() {
   }
 
   const hasActiveFilters =
-    taskStatusFilter !== 'all' || taskViewMode !== 'list' || taskSourceFilter !== 'all'
+    taskStatusFilter !== 'all' ||
+    taskViewMode !== 'list' ||
+    taskSourceFilter !== 'all' ||
+    taskIncludeArchived
 
   const toggle = useCallback(() => setOpen((o) => !o), [])
 
@@ -198,6 +204,14 @@ export function TaskToolbar() {
               ))}
             </div>
           )}
+
+          <div className="py-1.5 border-t border-white/[0.06]">
+            <div className="flex items-center gap-2 px-3 py-1.5 text-[12px] text-gray-300">
+              <Archive size={12} className="text-gray-500" />
+              <span className="flex-1">Include archived</span>
+              <ToggleSwitch checked={taskIncludeArchived} onChange={setTaskIncludeArchived} />
+            </div>
+          </div>
 
           {/* View section */}
           <div className="py-1.5 border-t border-white/[0.06]">

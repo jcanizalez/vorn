@@ -13,6 +13,8 @@ export function TaskListView({
   onComplete,
   onCancel,
   onReopen,
+  onArchive,
+  onUnarchive,
   onReviewDiff,
   onSelect,
   onAddTask,
@@ -25,6 +27,8 @@ export function TaskListView({
   onComplete: (id: string) => void
   onCancel: (id: string) => void
   onReopen: (id: string) => void
+  onArchive: (id: string) => void
+  onUnarchive: (id: string) => void
   onReviewDiff: (id: string) => void
   onSelect?: (task: TaskConfig) => void
   onAddTask?: (status: TaskStatus) => void
@@ -105,6 +109,8 @@ export function TaskListView({
                           onComplete={() => onComplete(task.id)}
                           onCancel={() => onCancel(task.id)}
                           onReopen={() => onReopen(task.id)}
+                          onArchive={() => onArchive(task.id)}
+                          onUnarchive={() => onUnarchive(task.id)}
                           onReviewDiff={() => onReviewDiff(task.id)}
                           onSelect={onSelect ? () => onSelect(task) : undefined}
                           sessionIsLive={isSessionLive(task)}

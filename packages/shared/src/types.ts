@@ -157,6 +157,10 @@ export function getProjectRemoteHostId(project: ProjectConfig): string | undefin
 // Task queue types
 export type TaskStatus = 'todo' | 'in_progress' | 'in_review' | 'done' | 'cancelled'
 
+export function isTerminalTaskStatus(status: TaskStatus): boolean {
+  return status === 'done' || status === 'cancelled'
+}
+
 export type TaskViewMode = 'list' | 'kanban'
 
 export const MINIMIZED_PLACEMENTS = ['canvas', 'toolbar', 'both'] as const
@@ -181,6 +185,7 @@ export interface TaskConfig {
   createdAt: string
   updatedAt: string
   completedAt?: string
+  archivedAt?: string
   // Source connector fields (set when task originates from an external connector)
   sourceConnectorId?: string // 'github' | 'linear' | custom connector id
   sourceExternalId?: string // e.g. issue number "42"
