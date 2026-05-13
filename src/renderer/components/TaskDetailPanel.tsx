@@ -5,7 +5,8 @@ import {
   GitDiffResult,
   WorkflowExecution,
   supportsExactSessionResume,
-  getProjectRemoteHostId
+  getProjectRemoteHostId,
+  isTerminalTaskStatus
 } from '../../shared/types'
 import { buildFeedbackPrompt } from '../../shared/prompt-builder'
 import { TASK_TEMPLATE } from './MarkdownEditor'
@@ -25,6 +26,8 @@ import {
   Play,
   Terminal,
   Trash2,
+  Archive,
+  ArchiveRestore,
   GitBranch,
   Clock,
   Calendar,
@@ -45,6 +48,7 @@ import { ConnectorIcon } from './ConnectorIcon'
 import { RunEntry } from './workflow-editor/RunEntry'
 import { LogReplayModal } from './LogReplayModal'
 import { ConfirmPopover } from './ConfirmPopover'
+import { Tooltip } from './Tooltip'
 
 interface DiffComment {
   filePath: string
@@ -87,6 +91,8 @@ export function TaskDetailPanel() {
   const activeProject = useAppStore((s) => s.activeProject)
   const setSelectedTaskId = useAppStore((s) => s.setSelectedTaskId)
   const removeTask = useAppStore((s) => s.removeTask)
+  const archiveTask = useAppStore((s) => s.archiveTask)
+  const unarchiveTask = useAppStore((s) => s.unarchiveTask)
   const startTask = useAppStore((s) => s.startTask)
   const addTask = useAppStore((s) => s.addTask)
   const updateTask = useAppStore((s) => s.updateTask)
@@ -138,7 +144,6 @@ export function TaskDetailPanel() {
     !!task?.assignedAgent &&
     supportsExactSessionResume(task.assignedAgent)
 
-  // Load workflow runs related to this task from the database
   const [relatedRuns, setRelatedRuns] = useState<(WorkflowExecution & { workflowName?: string })[]>(
     []
   )
@@ -162,7 +167,6 @@ export function TaskDetailPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task?.id])
 
-  // Live refresh: re-query when any related workflow execution changes
   useEffect(() => {
     if (!task) return
     const taskId = task.id
@@ -604,6 +608,32 @@ export function TaskDetailPanel() {
           ) : (
             <div className="flex-1" />
           )}
+          {!isCreateMode && task && task.archivedAt && (
+            <Tooltip label="Unarchive task" position="bottom">
+              <button
+                onClick={() => {
+                  unarchiveTask(task.id)
+                  toast.success('Task unarchived')
+                }}
+                className="p-1 text-gray-600 hover:text-gray-200 rounded transition-colors"
+              >
+                <ArchiveRestore size={13} strokeWidth={1.5} />
+              </button>
+            </Tooltip>
+          )}
+          {!isCreateMode && task && !task.archivedAt && isTerminalTaskStatus(task.status) && (
+            <Tooltip label="Archive task" position="bottom">
+              <button
+                onClick={() => {
+                  archiveTask(task.id)
+                  toast.success('Task archived')
+                }}
+                className="p-1 text-gray-600 hover:text-gray-200 rounded transition-colors"
+              >
+                <Archive size={13} strokeWidth={1.5} />
+              </button>
+            </Tooltip>
+          )}
           {!isCreateMode && task && (
             <ConfirmPopover
               message="Delete this task permanently?"
@@ -614,21 +644,21 @@ export function TaskDetailPanel() {
                 toast.success('Task deleted')
               }}
             >
-              <button
-                className="p-1 text-gray-600 hover:text-red-400 rounded transition-colors"
-                title="Delete task"
-              >
-                <Trash2 size={13} strokeWidth={1.5} />
-              </button>
+              <Tooltip label="Delete task" position="bottom">
+                <button className="p-1 text-gray-600 hover:text-red-400 rounded transition-colors">
+                  <Trash2 size={13} strokeWidth={1.5} />
+                </button>
+              </Tooltip>
             </ConfirmPopover>
           )}
-          <button
-            onClick={() => setSelectedTaskId(null)}
-            className="p-1 text-gray-500 hover:text-white rounded transition-colors"
-            title="Close"
-          >
-            <X size={14} strokeWidth={1.5} />
-          </button>
+          <Tooltip label="Close" position="bottom">
+            <button
+              onClick={() => setSelectedTaskId(null)}
+              className="p-1 text-gray-500 hover:text-white rounded transition-colors"
+            >
+              <X size={14} strokeWidth={1.5} />
+            </button>
+          </Tooltip>
         </div>
       </div>
 

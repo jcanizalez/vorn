@@ -1,4 +1,4 @@
-import { TaskConfig } from '../../../shared/types'
+import { TaskConfig, isTerminalTaskStatus } from '../../../shared/types'
 import { AgentIcon } from '../AgentIcon'
 import { SourceBadge } from '../ConnectorIcon'
 import {
@@ -15,7 +15,9 @@ import {
   RotateCcw,
   FileCode,
   XCircle,
-  CheckCircle2
+  CheckCircle2,
+  Archive,
+  ArchiveRestore
 } from 'lucide-react'
 import { ConfirmPopover } from '../ConfirmPopover'
 import { KanbanCardMenu } from './KanbanCardMenu'
@@ -28,6 +30,8 @@ export function TaskCard({
   onComplete,
   onCancel,
   onReopen,
+  onArchive,
+  onUnarchive,
   onReviewDiff,
   onSelect,
   sessionIsLive,
@@ -40,6 +44,8 @@ export function TaskCard({
   onComplete?: () => void
   onCancel?: () => void
   onReopen?: () => void
+  onArchive?: () => void
+  onUnarchive?: () => void
   onReviewDiff?: () => void
   onSelect?: () => void
   sessionIsLive?: boolean
@@ -48,6 +54,8 @@ export function TaskCard({
   const StatusIcon = STATUS_ICON[task.status]
   const iconColor = STATUS_ICON_COLOR[task.status]
   const shortId = getTaskShortId(task)
+  const isArchived = !!task.archivedAt
+  const dimmed = task.status === 'cancelled' || isArchived
 
   if (variant === 'kanban') {
     return (
@@ -55,7 +63,7 @@ export function TaskCard({
         className={`group relative bg-white/[0.04] border border-white/[0.06] rounded-sm overflow-hidden
                      hover:bg-white/[0.06] hover:border-white/[0.1]
                      transition-colors duration-150
-                     ${task.status === 'cancelled' ? 'opacity-60' : ''} ${onSelect ? 'cursor-pointer' : ''}`}
+                     ${dimmed ? 'opacity-60' : ''} ${onSelect ? 'cursor-pointer' : ''}`}
         onClick={onSelect}
       >
         <div className="px-3.5 py-3">
@@ -73,6 +81,14 @@ export function TaskCard({
                   />
                 </>
               )}
+              {isArchived && (
+                <Archive
+                  size={10}
+                  strokeWidth={2}
+                  className="text-gray-500"
+                  aria-label="Archived"
+                />
+              )}
             </span>
             <div
               className="opacity-0 group-hover:opacity-100 transition-opacity"
@@ -80,12 +96,15 @@ export function TaskCard({
             >
               <KanbanCardMenu
                 status={task.status}
+                isArchived={isArchived}
                 onEdit={onEdit}
                 onDelete={onDelete}
                 onOpenSession={onOpenSession}
                 onComplete={onComplete}
                 onCancel={onCancel}
                 onReopen={onReopen}
+                onArchive={onArchive}
+                onUnarchive={onUnarchive}
                 onReviewDiff={onReviewDiff}
                 sessionIsLive={sessionIsLive}
               />
@@ -127,7 +146,7 @@ export function TaskCard({
   return (
     <div
       className={`group flex items-center gap-3 px-3 py-2 hover:bg-white/[0.04] rounded-md transition-colors
-                   ${task.status === 'cancelled' ? 'opacity-60' : ''} ${onSelect ? 'cursor-pointer' : ''}`}
+                   ${dimmed ? 'opacity-60' : ''} ${onSelect ? 'cursor-pointer' : ''}`}
       onClick={onSelect}
     >
       {/* Agent icon or priority placeholder */}
@@ -148,6 +167,9 @@ export function TaskCard({
             url={task.sourceExternalUrl}
             label={`#${task.sourceExternalId}`}
           />
+        )}
+        {isArchived && (
+          <Archive size={10} strokeWidth={2} className="text-gray-500" aria-label="Archived" />
         )}
       </span>
 
@@ -225,6 +247,24 @@ export function TaskCard({
             title="Cancel task"
           >
             <XCircle size={12} strokeWidth={2} />
+          </button>
+        )}
+        {!isArchived && isTerminalTaskStatus(task.status) && onArchive && (
+          <button
+            onClick={onArchive}
+            className="p-1 text-gray-600 hover:text-gray-200 rounded-sm transition-colors"
+            title="Archive task"
+          >
+            <Archive size={12} strokeWidth={2} />
+          </button>
+        )}
+        {isArchived && onUnarchive && (
+          <button
+            onClick={onUnarchive}
+            className="p-1 text-gray-600 hover:text-gray-200 rounded-sm transition-colors"
+            title="Unarchive task"
+          >
+            <ArchiveRestore size={12} strokeWidth={2} />
           </button>
         )}
         <ConfirmPopover

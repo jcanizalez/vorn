@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 import path from 'node:path'
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { isTerminalTaskStatus } from '@vornrun/shared/types'
 import type { TaskConfig, TaskStatus, AgentType } from '@vornrun/shared/types'
 import { V } from '../validation'
 import {
@@ -29,7 +30,7 @@ const AGENT_TYPES: [AgentType, ...AgentType[]] = [
 export function registerTaskTools(server: McpServer): void {
   server.tool(
     'list_tasks',
-    'List tasks, optionally filtered by project, status, assigned agent, or workspace',
+    'List tasks, optionally filtered by project, status, assigned agent, or workspace. Archived tasks are excluded by default; pass include_archived=true to include them.',
     {
       project_name: V.name.optional().describe('Filter by project name'),
       status: z
@@ -39,10 +40,18 @@ export function registerTaskTools(server: McpServer): void {
       assigned_agent: z.enum(AGENT_TYPES).optional().describe('Filter by assigned agent type'),
       workspace_id: V.id
         .optional()
-        .describe('Filter by workspace ID (returns tasks from all projects in that workspace)')
+        .describe('Filter by workspace ID (returns tasks from all projects in that workspace)'),
+      include_archived: z
+        .boolean()
+        .optional()
+        .describe('Include archived tasks in the result (default: false)')
     },
     async (args) => {
       let tasks = dbListTasks(args.project_name, args.status)
+
+      if (!args.include_archived) {
+        tasks = tasks.filter((t) => !t.archivedAt)
+      }
 
       if (args.workspace_id) {
         const projects = dbListProjects()
@@ -159,11 +168,14 @@ export function registerTaskTools(server: McpServer): void {
 
       if (args.status !== undefined) {
         const newStatus = args.status as TaskStatus
-        const wasDone = task.status === 'done' || task.status === 'cancelled'
-        const isDone = newStatus === 'done' || newStatus === 'cancelled'
+        const wasDone = isTerminalTaskStatus(task.status)
+        const isDone = isTerminalTaskStatus(newStatus)
         updates.status = newStatus
         if (isDone && !wasDone) updates.completedAt = new Date().toISOString()
-        if (!isDone && wasDone) updates.completedAt = undefined
+        if (!isDone && wasDone) {
+          updates.completedAt = undefined
+          updates.archivedAt = undefined
+        }
       }
 
       dbUpdateTask(args.id, updates)
@@ -190,6 +202,57 @@ export function registerTaskTools(server: McpServer): void {
       dbSignalChange()
 
       return { content: [{ type: 'text', text: `Deleted task: ${task.title}` }] }
+    }
+  )
+
+  server.tool(
+    'archive_task',
+    'Archive a finished task (status must be done or cancelled). Archived tasks are hidden from default views but preserved and restorable.',
+    { id: V.id.describe('Task ID') },
+    async (args) => {
+      const task = dbGetTask(args.id)
+      if (!task) {
+        return {
+          content: [{ type: 'text', text: `Error: task "${args.id}" not found` }],
+          isError: true
+        }
+      }
+      if (!isTerminalTaskStatus(task.status)) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: only done or cancelled tasks can be archived (status: ${task.status})`
+            }
+          ],
+          isError: true
+        }
+      }
+      const now = new Date().toISOString()
+      dbUpdateTask(args.id, { archivedAt: now, updatedAt: now })
+      dbSignalChange()
+      const updated = dbGetTask(args.id)
+      return { content: [{ type: 'text', text: JSON.stringify(updated, null, 2) }] }
+    }
+  )
+
+  server.tool(
+    'unarchive_task',
+    'Restore an archived task so it shows in default views again.',
+    { id: V.id.describe('Task ID') },
+    async (args) => {
+      const task = dbGetTask(args.id)
+      if (!task) {
+        return {
+          content: [{ type: 'text', text: `Error: task "${args.id}" not found` }],
+          isError: true
+        }
+      }
+      const now = new Date().toISOString()
+      dbUpdateTask(args.id, { archivedAt: undefined, updatedAt: now })
+      dbSignalChange()
+      const updated = dbGetTask(args.id)
+      return { content: [{ type: 'text', text: JSON.stringify(updated, null, 2) }] }
     }
   )
 

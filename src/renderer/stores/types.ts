@@ -164,6 +164,7 @@ export interface UISlice {
   selectedTaskId: string | null
   taskStatusFilter: TaskStatusFilter
   taskSourceFilter: TaskSourceFilter
+  taskIncludeArchived: boolean
   isTaskDialogOpen: boolean
   taskDialogDefaultStatus: TaskStatus
   editingTask: TaskConfig | null
@@ -212,6 +213,7 @@ export interface UISlice {
   setSelectedTaskId: (id: string | null) => void
   setTaskStatusFilter: (filter: TaskStatusFilter) => void
   setTaskSourceFilter: (filter: TaskSourceFilter) => void
+  setTaskIncludeArchived: (include: boolean) => void
   setTaskDialogOpen: (open: boolean, defaultStatus?: TaskStatus) => void
   setEditingTask: (task: TaskConfig | null) => void
   setActiveTabId: (id: string | null) => void
@@ -248,6 +250,8 @@ export interface TasksSlice {
   reviewTask: (id: string) => void
   cancelTask: (id: string) => void
   reopenTask: (id: string) => void
+  archiveTask: (id: string) => void
+  unarchiveTask: (id: string) => void
 }
 
 export type AppStore = TerminalsSlice & ProjectsSlice & UISlice & TasksSlice

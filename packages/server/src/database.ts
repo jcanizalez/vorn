@@ -288,7 +288,8 @@ function createSchema(): void {
       use_worktree INTEGER DEFAULT 0,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
-      completed_at TEXT
+      completed_at TEXT,
+      archived_at TEXT
     );
 
     CREATE TABLE IF NOT EXISTS sessions (
@@ -702,6 +703,10 @@ function verifySchema(d: Database.Database): void {
       {
         column: 'source_external_id',
         ddl: 'ALTER TABLE tasks ADD COLUMN source_external_id TEXT'
+      },
+      {
+        column: 'archived_at',
+        ddl: 'ALTER TABLE tasks ADD COLUMN archived_at TEXT'
       }
     ]
   }
@@ -912,6 +917,7 @@ function loadTasks(d: Database.Database): TaskConfig[] {
     created_at: string
     updated_at: string
     completed_at: string | null
+    archived_at: string | null
   }>
   return rows.map(rowToTask)
 }
@@ -1026,8 +1032,8 @@ export function saveConfig(config: AppConfig): void {
     // Tasks
     d.prepare('DELETE FROM tasks').run()
     const insertTask = d.prepare(
-      `INSERT INTO tasks (id, project_name, title, description, status, "order", assigned_session_id, assigned_agent, agent_session_id, branch, use_worktree, created_at, updated_at, completed_at, source_connector_id, source_external_url, source_external_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO tasks (id, project_name, title, description, status, "order", assigned_session_id, assigned_agent, agent_session_id, branch, use_worktree, created_at, updated_at, completed_at, archived_at, source_connector_id, source_external_url, source_external_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     for (const t of config.tasks ?? []) {
       insertTask.run(
@@ -1045,6 +1051,7 @@ export function saveConfig(config: AppConfig): void {
         t.createdAt,
         t.updatedAt,
         t.completedAt ?? null,
+        t.archivedAt ?? null,
         t.sourceConnectorId ?? null,
         t.sourceExternalUrl ?? null,
         t.sourceExternalId ?? null
@@ -1098,6 +1105,7 @@ export function dbListTasks(projectName?: string, status?: string): TaskConfig[]
     created_at: string
     updated_at: string
     completed_at: string | null
+    archived_at: string | null
   }>
   return rows.map(rowToTask)
 }
@@ -1119,6 +1127,7 @@ export function dbGetTask(id: string): TaskConfig | null {
         created_at: string
         updated_at: string
         completed_at: string | null
+        archived_at: string | null
       }
     | undefined
   return row ? rowToTask(row) : null
@@ -1127,8 +1136,8 @@ export function dbGetTask(id: string): TaskConfig | null {
 export function dbInsertTask(task: TaskConfig): void {
   getDb()
     .prepare(
-      `INSERT INTO tasks (id, project_name, title, description, status, "order", assigned_session_id, assigned_agent, agent_session_id, branch, use_worktree, created_at, updated_at, completed_at, source_connector_id, source_external_url, source_external_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO tasks (id, project_name, title, description, status, "order", assigned_session_id, assigned_agent, agent_session_id, branch, use_worktree, created_at, updated_at, completed_at, archived_at, source_connector_id, source_external_url, source_external_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       task.id,
@@ -1145,6 +1154,7 @@ export function dbInsertTask(task: TaskConfig): void {
       task.createdAt,
       task.updatedAt,
       task.completedAt ?? null,
+      task.archivedAt ?? null,
       task.sourceConnectorId ?? null,
       task.sourceExternalUrl ?? null,
       task.sourceExternalId ?? null
@@ -1197,6 +1207,10 @@ export function dbUpdateTask(id: string, updates: Partial<TaskConfig>): void {
   if ('completedAt' in updates) {
     sets.push('completed_at = ?')
     params.push(updates.completedAt ?? null)
+  }
+  if ('archivedAt' in updates) {
+    sets.push('archived_at = ?')
+    params.push(updates.archivedAt ?? null)
   }
   if (updates.sourceConnectorId !== undefined) {
     sets.push('source_connector_id = ?')
@@ -1820,6 +1834,7 @@ function rowToTask(r: {
   created_at: string
   updated_at: string
   completed_at: string | null
+  archived_at?: string | null
   source_connector_id?: string | null
   source_external_url?: string | null
   source_external_id?: string | null
@@ -1839,6 +1854,7 @@ function rowToTask(r: {
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     ...(r.completed_at != null && { completedAt: r.completed_at }),
+    ...(r.archived_at != null && { archivedAt: r.archived_at }),
     ...(r.source_connector_id != null && { sourceConnectorId: r.source_connector_id }),
     ...(r.source_external_url != null && { sourceExternalUrl: r.source_external_url }),
     ...(r.source_external_id != null && {

@@ -38,6 +38,8 @@ const defaultProps = {
   onComplete: noop,
   onCancel: noop,
   onReopen: noop,
+  onArchive: noop,
+  onUnarchive: noop,
   onReviewDiff: noop,
   isSessionLive: () => false
 }

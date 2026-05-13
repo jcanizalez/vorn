@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand'
-import { TaskConfig, TaskStatus } from '../../shared/types'
+import { TaskConfig, TaskStatus, isTerminalTaskStatus } from '../../shared/types'
 import { AppStore, TasksSlice } from './types'
 import { fireTaskCreatedTrigger, fireTaskStatusChangedTrigger } from '../lib/workflow-triggers'
 
@@ -53,12 +53,18 @@ export const createTasksSlice: StateCreator<AppStore, [], [], TasksSlice> = (set
       const now = new Date().toISOString()
       let oldStatus: TaskStatus | undefined
       let newTask: TaskConfig | undefined
+      const clearArchived = updates.status !== undefined && !isTerminalTaskStatus(updates.status)
       const updated = {
         ...state.config,
         tasks: (state.config.tasks || []).map((t) => {
           if (t.id !== id) return t
           oldStatus = t.status
-          const mapped = { ...t, ...updates, updatedAt: now }
+          const mapped: TaskConfig = {
+            ...t,
+            ...updates,
+            updatedAt: now,
+            ...(clearArchived && { archivedAt: undefined })
+          }
           newTask = mapped
           return mapped
         })
@@ -115,7 +121,8 @@ export const createTasksSlice: StateCreator<AppStore, [], [], TasksSlice> = (set
             assignedSessionId: sessionId,
             assignedAgent: agentType,
             worktreePath: worktreePath || t.worktreePath,
-            updatedAt: now
+            updatedAt: now,
+            archivedAt: undefined
           }
           newTask = mapped
           return mapped
@@ -172,6 +179,7 @@ export const createTasksSlice: StateCreator<AppStore, [], [], TasksSlice> = (set
             ...t,
             status: 'in_review' as const,
             updatedAt: now,
+            archivedAt: undefined,
             assignedSessionId: undefined
           }
           newTask = mapped
@@ -230,6 +238,7 @@ export const createTasksSlice: StateCreator<AppStore, [], [], TasksSlice> = (set
             status: 'todo' as const,
             updatedAt: now,
             completedAt: undefined,
+            archivedAt: undefined,
             assignedSessionId: undefined,
             assignedAgent: undefined
           }
@@ -241,6 +250,38 @@ export const createTasksSlice: StateCreator<AppStore, [], [], TasksSlice> = (set
       if (newTask && oldStatus && oldStatus !== 'todo') {
         queueMicrotask(() => fireTaskStatusChangedTrigger(newTask!, oldStatus!, 'todo'))
       }
+      return { config: updated }
+    }),
+
+  archiveTask: (id) =>
+    set((state) => {
+      if (!state.config) return {}
+      const task = (state.config.tasks || []).find((t) => t.id === id)
+      if (!task || !isTerminalTaskStatus(task.status) || task.archivedAt) return {}
+      const now = new Date().toISOString()
+      const updated = {
+        ...state.config,
+        tasks: state.config.tasks!.map((t) =>
+          t.id === id ? { ...t, archivedAt: now, updatedAt: now } : t
+        )
+      }
+      window.api.saveConfig(updated)
+      return { config: updated }
+    }),
+
+  unarchiveTask: (id) =>
+    set((state) => {
+      if (!state.config) return {}
+      const task = (state.config.tasks || []).find((t) => t.id === id)
+      if (!task || !task.archivedAt) return {}
+      const now = new Date().toISOString()
+      const updated = {
+        ...state.config,
+        tasks: state.config.tasks!.map((t) =>
+          t.id === id ? { ...t, archivedAt: undefined, updatedAt: now } : t
+        )
+      }
+      window.api.saveConfig(updated)
       return { config: updated }
     })
 })

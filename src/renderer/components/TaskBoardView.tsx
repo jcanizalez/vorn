@@ -30,6 +30,9 @@ export function TaskBoardView() {
   const setTaskDialogOpen = useAppStore((s) => s.setTaskDialogOpen)
   const taskStatusFilter = useAppStore((s) => s.taskStatusFilter)
   const taskSourceFilter = useAppStore((s) => s.taskSourceFilter)
+  const taskIncludeArchived = useAppStore((s) => s.taskIncludeArchived)
+  const archiveTask = useAppStore((s) => s.archiveTask)
+  const unarchiveTask = useAppStore((s) => s.unarchiveTask)
 
   const viewMode = config?.defaults?.taskViewMode ?? 'list'
 
@@ -43,11 +46,15 @@ export function TaskBoardView() {
     activeProject ? t.projectName === activeProject : workspaceProjectNames.has(t.projectName)
   )
 
+  const visibleTasks = taskIncludeArchived
+    ? projectTasks
+    : projectTasks.filter((t) => !t.archivedAt)
+
   // Apply status filter
   const statusFiltered =
     taskStatusFilter === 'all'
-      ? projectTasks
-      : projectTasks.filter((t) => t.status === taskStatusFilter)
+      ? visibleTasks
+      : visibleTasks.filter((t) => t.status === taskStatusFilter)
 
   // Apply source filter
   const allTasks =
@@ -204,6 +211,14 @@ export function TaskBoardView() {
               reopenTask(id)
               toast.success('Task reopened')
             }}
+            onArchive={(id) => {
+              archiveTask(id)
+              toast.success('Task archived')
+            }}
+            onUnarchive={(id) => {
+              unarchiveTask(id)
+              toast.success('Task unarchived')
+            }}
             onReviewDiff={(id) => setSelectedTaskId(id)}
             onSelect={handleSelect}
             onAddTask={handleAddTask}
@@ -229,6 +244,14 @@ export function TaskBoardView() {
             onReopen={(id) => {
               reopenTask(id)
               toast.success('Task reopened')
+            }}
+            onArchive={(id) => {
+              archiveTask(id)
+              toast.success('Task archived')
+            }}
+            onUnarchive={(id) => {
+              unarchiveTask(id)
+              toast.success('Task unarchived')
             }}
             onReviewDiff={(id) => setSelectedTaskId(id)}
             onSelect={handleSelect}
